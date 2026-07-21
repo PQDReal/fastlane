@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "latest",
+    "@supabase/server": "^1.4.0",
     "class-variance-authority": "latest",
     "clsx": "latest",
     "lucide-react": "latest",
