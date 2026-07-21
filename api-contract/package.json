@@ -1,12 +1,13 @@
 {
   "name": "fastlane-ecommerce-api-contract",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Contract-first OpenAPI artifact and repeatable verification gates for Fastlane E-Commerce.",
   "scripts": {
     "check:openapi": "node scripts/check-openapi.mjs",
-    "bundle": "redocly bundle openapi.yaml -o dist/openapi.bundle.yaml"
+    "bundle": "redocly bundle openapi.yaml -o dist/openapi.bundle.yaml",
+    "preview": "redocly preview-docs openapi.yaml"
   },
   "engines": {
     "node": ">=20.19.0 <21 || >=22.12.0",

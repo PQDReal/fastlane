@@ -5,7 +5,7 @@
     x-prd-references: [US-C06, FR-CART-01]
     x-required-roles: [customer]
     summary: Read the current customer cart
-    description: Reading the cart re-prices active items and revalidates the applied promotion. Cart items do not reserve inventory.
+    description: Reading the cart re-prices active variants and selected options, recalculates deposit amounts, and revalidates the applied promotion. Cart items do not reserve inventory.
     responses:
       '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
@@ -16,10 +16,10 @@
   post:
     tags: [Cart]
     operationId: addCartItem
-    x-prd-references: [US-C06, FR-CART-01, BR-04]
+    x-prd-references: [US-C06, FR-CART-01, BR-04, BR-13]
     x-required-roles: [customer]
     summary: Add a variant to the current cart
-    description: Adding the same variant increments its existing line quantity. The availability check is provisional and does not reserve stock.
+    description: The server validates option ownership, group cardinality, active state, uniqueness, and variant-SKU compatibility. Adding the same variant with the same option selection increments its existing line quantity; a different selection creates another line. The availability check is provisional and does not reserve stock.
     requestBody:
       required: true
       content:
@@ -31,13 +31,14 @@
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
       '409': { $ref: '../openapi.yaml#/components/responses/OutOfStock' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
 /cart/items/{itemId}:
   patch:
     tags: [Cart]
     operationId: updateCartItem
-    x-prd-references: [US-C06, FR-CART-01, BR-04]
+    x-prd-references: [US-C06, FR-CART-01, BR-04, BR-13]
     x-required-roles: [customer]
     summary: Change a cart item quantity
     parameters:
@@ -54,6 +55,7 @@
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
       '409': { $ref: '../openapi.yaml#/components/responses/OutOfStock' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
   delete:
