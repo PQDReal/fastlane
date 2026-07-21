@@ -1,0 +1,379 @@
+/admin/dashboard/summary:
+  get:
+    tags: [Admin Dashboard]
+    operationId: getAdminDashboardSummary
+    x-prd-references: [US-A01, FR-ADMN-01]
+    x-prd-priority: could-have
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [dashboard:read]
+    summary: Get an operational dashboard summary
+    description: Projected revenue includes Paid, Shipped, and Completed orders only and is not financial settlement data.
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/DashboardSummary' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/categories:
+  get:
+    tags: [Admin Catalog]
+    operationId: listAdminCategories
+    x-prd-references: [US-A03]
+    summary: List all categories including inactive records
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/CategoryList' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Catalog]
+    operationId: createCategory
+    x-prd-references: [US-A03]
+    summary: Create a category
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/CategoryCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/Category' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/categories/{categoryId}:
+  patch:
+    tags: [Admin Catalog]
+    operationId: updateCategory
+    x-prd-references: [US-A03]
+    summary: Update a category
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/CategoryId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/CategoryPatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Category' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Catalog]
+    operationId: deleteCategory
+    x-prd-references: [US-A03]
+    summary: Delete an unused category
+    description: A category that still has products cannot be deleted.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/CategoryId' }
+    responses:
+      '204': { description: Category deleted }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/products:
+  get:
+    tags: [Admin Catalog]
+    operationId: listAdminProducts
+    x-prd-references: [US-A02, US-A08, FR-ADMN-02, FR-ADMN-03]
+    summary: List products for administration
+    description: Search includes active and inactive products. sort=relevance requires q; when sort is omitted, q uses relevance then product ID and an empty q uses newest then product ID.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/CategoryIdFilter' }
+      - { $ref: '../openapi.yaml#/components/parameters/IsActive' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+      - { $ref: '../openapi.yaml#/components/parameters/Sort' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ProductPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Catalog]
+    operationId: createProduct
+    x-prd-references: [US-A02, FR-ADMN-02, BR-05, BR-07]
+    summary: Create a product and its initial variants
+    description: |
+      Initial variants start with zero inventory. Inventory is changed only through the inventory endpoint.
+      An active product requires at least one active variant and exactly one thumbnail image; the request schema rejects violations with 400 VALIDATION_FAILED.
+      At most one image may be the thumbnail. Setting isThumbnail=true atomically demotes the previous thumbnail.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ProductCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/products/{productId}:
+  get:
+    tags: [Admin Catalog]
+    operationId: getAdminProduct
+    x-prd-references: [US-A02, FR-ADMN-02, FR-ADMN-03]
+    summary: Get any product for administration, including inactive products
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  patch:
+    tags: [Admin Catalog]
+    operationId: updateProduct
+    x-prd-references: [US-A02, FR-ADMN-03, BR-05, BR-07]
+    summary: Update product metadata or publication status
+    description: Variants, images, and inventory are managed by their dedicated endpoints. Activating a product requires at least one active variant and exactly one thumbnail image.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ProductPatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Catalog]
+    operationId: archiveProduct
+    x-prd-references: [US-A02, FR-ADMN-03, BR-05]
+    summary: Archive a product
+    description: Soft delete only; existing order snapshots remain unchanged.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
+    responses:
+      '204': { description: Product archived }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/products/{productId}/variants:
+  post:
+    tags: [Admin Catalog]
+    operationId: createVariant
+    x-prd-references: [US-A02, FR-ADMN-02, BR-05, BR-07]
+    summary: Add a sellable variant to a product
+    description: The new variant starts with zero inventory and is not purchasable until inventory is set.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/VariantCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/Variant' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/variants/{variantId}:
+  patch:
+    tags: [Admin Catalog]
+    operationId: updateVariant
+    x-prd-references: [US-A02, FR-ADMN-03, BR-05, BR-07]
+    summary: Update a product variant
+    description: Inventory cannot be changed through this catalog operation.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/VariantId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/VariantPatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Variant' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Catalog]
+    operationId: archiveVariant
+    x-prd-references: [US-A02, FR-ADMN-03, BR-05]
+    summary: Archive a product variant
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/VariantId' }
+    responses:
+      '204': { description: Variant archived }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/products/{productId}/images:
+  post:
+    tags: [Admin Catalog]
+    operationId: createProductImage
+    x-prd-references: [US-A02, FR-ADMN-02]
+    summary: Add an image URL to a product gallery
+    description: A product has at most one thumbnail. Setting isThumbnail=true atomically demotes the current thumbnail.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ProductImageCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/ProductImage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/product-images/{imageId}:
+  patch:
+    tags: [Admin Catalog]
+    operationId: updateProductImage
+    x-prd-references: [US-A02, FR-ADMN-03]
+    summary: Update product image metadata
+    description: Setting isThumbnail=true atomically demotes the current thumbnail. An active product must retain exactly one thumbnail.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductImageId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ProductImagePatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ProductImage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Catalog]
+    operationId: deleteProductImage
+    x-prd-references: [US-A02, FR-ADMN-03]
+    summary: Remove an image from a product gallery
+    description: Deleting the sole thumbnail or sole image of an active product violates its publication invariant and returns 422.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductImageId' }
+    responses:
+      '204': { description: Product image deleted }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/variants/{variantId}/inventory:
+  put:
+    tags: [Admin Catalog]
+    operationId: setVariantInventory
+    x-prd-references: [US-A04, FR-ADMN-04, BR-04, BR-05]
+    summary: Set available inventory for a variant
+    description: Uses expectedVersion for optimistic concurrency. Checkout and cancellation update the same version atomically.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [inventory:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/VariantId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/InventoryUpdateRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Variant' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }

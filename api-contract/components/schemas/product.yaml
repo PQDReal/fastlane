@@ -1,0 +1,253 @@
+Category:
+  type: object
+  required: [id, name, slug, isActive]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    name: { type: string, maxLength: 120 }
+    slug: { type: string, maxLength: 160 }
+    isActive: { type: boolean }
+CategoryResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/Category' } } }
+CategoryListResponse: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/Category' } } } }
+CategoryCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [name, slug, isActive]
+  properties:
+    name: { type: string, minLength: 1, maxLength: 120 }
+    slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9-]+$' }
+    isActive: { type: boolean }
+CategoryPatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    name: { type: string, minLength: 1, maxLength: 120 }
+    slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9-]+$' }
+    isActive: { type: boolean }
+Price:
+  type: object
+  additionalProperties: false
+  required: [currency, listPrice, effectivePrice]
+  properties:
+    currency: { type: string, enum: [VND] }
+    listPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    salePrice:
+      description: When present, must be lower than listPrice.
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }]
+    effectivePrice:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }]
+      readOnly: true
+      description: salePrice when present; otherwise listPrice.
+Variant:
+  type: object
+  additionalProperties: false
+  required: [id, sku, attributes, price, availableQuantity, inventoryVersion, isActive, isPurchasable]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    sku: { type: string, minLength: 1, maxLength: 80 }
+    attributes: { type: object, minProperties: 1, additionalProperties: { type: string }, examples: [{ color: Black, trim: Plus }] }
+    price: { $ref: '../../openapi.yaml#/components/schemas/Price' }
+    availableQuantity: { type: integer, minimum: 0, readOnly: true }
+    inventoryVersion: { type: integer, minimum: 0, readOnly: true }
+    isActive: { type: boolean }
+    isPurchasable: { type: boolean, readOnly: true, description: True only when product and variant are active and inventory is positive. }
+VariantResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/Variant' } } }
+PriceRange:
+  type: object
+  additionalProperties: false
+  description: Minimum and maximum effective prices across active variants; active out-of-stock variants are included.
+  required: [minimum, maximum, currency]
+  properties:
+    minimum: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    maximum: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    currency: { type: string, enum: [VND] }
+ProductSpecification:
+  type: object
+  additionalProperties: false
+  required: [name, value, sortOrder]
+  properties:
+    name: { type: string, minLength: 1, maxLength: 120, example: Công suất tối đa }
+    value: { type: string, minLength: 1, maxLength: 500, example: '150' }
+    unit:
+      oneOf: [{ type: string, minLength: 1, maxLength: 40, example: kW }, { type: 'null' }]
+    group:
+      oneOf: [{ type: string, minLength: 1, maxLength: 120, example: Động cơ }, { type: 'null' }]
+    sortOrder: { type: integer, minimum: 0 }
+ProductImage:
+  type: object
+  additionalProperties: false
+  required: [id, url, altText, sortOrder, isThumbnail]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    url: { type: string, format: uri, maxLength: 2048 }
+    altText: { type: string, minLength: 1, maxLength: 255 }
+    sortOrder: { type: integer, minimum: 0 }
+    isThumbnail: { type: boolean }
+ProductImageCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [url, altText, sortOrder, isThumbnail]
+  properties:
+    url: { type: string, format: uri, maxLength: 2048 }
+    altText: { type: string, minLength: 1, maxLength: 255 }
+    sortOrder: { type: integer, minimum: 0 }
+    isThumbnail: { type: boolean }
+ProductImagePatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    url: { type: string, format: uri, maxLength: 2048 }
+    altText: { type: string, minLength: 1, maxLength: 255 }
+    sortOrder: { type: integer, minimum: 0 }
+    isThumbnail: { type: boolean }
+ProductImageResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/ProductImage' }
+ProductSummary:
+  type: object
+  additionalProperties: false
+  required: [id, name, slug, category, thumbnailUrl, priceRange, isActive]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    slug: { type: string, minLength: 1, maxLength: 220 }
+    category: { $ref: '../../openapi.yaml#/components/schemas/Category' }
+    thumbnailUrl: { oneOf: [{ type: string, format: uri }, { type: 'null' }], description: Non-null for public active products; may be null in admin draft results. }
+    priceRange: { $ref: '../../openapi.yaml#/components/schemas/PriceRange' }
+    isActive: { type: boolean }
+ProductDetail:
+  type: object
+  additionalProperties: false
+  required: [id, name, slug, category, thumbnailUrl, priceRange, isActive, description, images, specifications, variants, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    slug: { type: string, minLength: 1, maxLength: 220 }
+    category: { $ref: '../../openapi.yaml#/components/schemas/Category' }
+    thumbnailUrl: { oneOf: [{ type: string, format: uri }, { type: 'null' }], description: Non-null for public active products; may be null in admin draft results. }
+    priceRange: { $ref: '../../openapi.yaml#/components/schemas/PriceRange' }
+    isActive: { type: boolean }
+    description: { type: string, minLength: 1, maxLength: 10000 }
+    images: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductImage' } }
+    specifications: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' } }
+    variants: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/Variant' }, description: Public detail contains active variants only; admin detail may also contain inactive variants. }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+ProductDetailResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/ProductDetail' } } }
+ProductPageResponse:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSummary' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+VariantCreateRequest:
+  type: object
+  additionalProperties: false
+  description: salePrice, when present, must be lower than listPrice; otherwise the request violates BR-07.
+  required: [sku, attributes, listPrice, isActive]
+  properties:
+    sku: { type: string, minLength: 1, maxLength: 80 }
+    attributes: { type: object, minProperties: 1, additionalProperties: { type: string } }
+    listPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    salePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }], description: Must be lower than listPrice when present. }
+    isActive: { type: boolean }
+VariantPatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: The resulting salePrice, when present, must be lower than the resulting listPrice.
+  properties:
+    sku: { type: string, minLength: 1, maxLength: 80 }
+    attributes: { type: object, minProperties: 1, additionalProperties: { type: string } }
+    listPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    salePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }], description: Must be lower than the resulting listPrice when present. }
+    isActive: { type: boolean }
+InventoryUpdateRequest:
+  type: object
+  additionalProperties: false
+  required: [availableQuantity, expectedVersion]
+  examples:
+    - availableQuantity: 10
+      expectedVersion: 3
+  properties:
+    availableQuantity: { type: integer, minimum: 0 }
+    expectedVersion: { type: integer, minimum: 0 }
+ProductCreateRequest:
+  type: object
+  additionalProperties: false
+  description: Active products require at least one active variant and exactly one thumbnail image; every product permits at most one thumbnail.
+  required: [categoryId, name, slug, description, specifications, isActive, variants]
+  if:
+    properties: { isActive: { const: true } }
+    required: [isActive]
+  then:
+    required: [images]
+    properties:
+      images:
+        minItems: 1
+        contains:
+          type: object
+          required: [isThumbnail]
+          properties: { isThumbnail: { const: true } }
+        minContains: 1
+        maxContains: 1
+      variants:
+        contains:
+          type: object
+          required: [isActive]
+          properties: { isActive: { const: true } }
+        minContains: 1
+  examples:
+    - categoryId: 123e4567-e89b-12d3-a456-426614174001
+      name: VinFast VF 8
+      slug: vinfast-vf-8
+      description: Mẫu SUV điện cỡ D.
+      specifications:
+        - { name: Công suất tối đa, value: '300', unit: kW, group: Động cơ, sortOrder: 0 }
+      images:
+        - { url: 'https://cdn.example.org/vf8/front.jpg', altText: VinFast VF 8 nhìn từ phía trước, sortOrder: 0, isThumbnail: true }
+      isActive: false
+      variants:
+        - sku: VF8-ECO-BLACK
+          attributes: { trim: Eco, color: Black }
+          listPrice: '1200000000'
+          salePrice: null
+          isActive: true
+  properties:
+    categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    slug: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' }
+    description: { type: string, minLength: 1, maxLength: 10000 }
+    specifications: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' } }
+    images:
+      type: array
+      maxItems: 20
+      items: { $ref: '../../openapi.yaml#/components/schemas/ProductImageCreateRequest' }
+      contains:
+        type: object
+        required: [isThumbnail]
+        properties: { isThumbnail: { const: true } }
+      minContains: 0
+      maxContains: 1
+      description: Zero or one item may be the thumbnail; an active product requires exactly one.
+    isActive: { type: boolean, description: 'When true, this request must contain at least one active variant and exactly one thumbnail; otherwise schema validation returns 400.' }
+    variants: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/VariantCreateRequest' } }
+ProductPatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: Setting isActive=true requires at least one persisted active variant and exactly one persisted thumbnail image.
+  properties:
+    categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    slug: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' }
+    description: { type: string, minLength: 1, maxLength: 10000 }
+    specifications:
+      type: array
+      items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' }
+      description: When supplied, replaces the full product specification list.
+    isActive: { type: boolean, description: Activating a product that fails the publication policy returns BUSINESS_RULE_VIOLATION. }
