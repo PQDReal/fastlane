@@ -1,0 +1,62 @@
+/orders:
+  get:
+    tags: [Orders]
+    operationId: listOwnOrders
+    x-prd-references: [US-C09, US-C10, FR-ORDR-02]
+    x-required-roles: [customer]
+    summary: List orders owned by the current customer
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/OrderStatus' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/OrderPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/orders/{orderId}:
+  get:
+    tags: [Orders]
+    operationId: getOwnOrder
+    x-prd-references: [US-C09, US-C10, FR-ORDR-02]
+    x-required-roles: [customer]
+    summary: Get an order owned by the current customer
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/OrderId' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Order' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/orders/{orderId}/mock-payment:
+  post:
+    tags: [Checkout]
+    operationId: simulateOrderPayment
+    x-prd-references: [US-C08, FR-ORDR-01]
+    x-development-only: true
+    x-required-roles: [customer]
+    summary: Simulate payment for an owned Created order
+    description: |
+      Local demo endpoint only. An approved result moves Created to Paid. A declined result leaves the order Created, including its inventory and promotion hold, so payment may be retried or an administrator may cancel the order.
+      Replaying the same Idempotency-Key for the same customer, order, and result returns the original response. Reusing that key with another order or result returns IDEMPOTENCY_KEY_REUSED.
+      No real payment credentials, card data, or external gateway are accepted.
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/OrderId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/MockPaymentRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/MockPayment' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/MockPaymentConflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }

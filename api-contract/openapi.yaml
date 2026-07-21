@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info:
+  title: Fastlane E-Commerce API
+  version: 0.2.0-draft
+  summary: Contract-first REST API for the Fastlane B2C MVP
+  description: |
+    Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
+    This artifact defines the integration boundary before backend, storefront, admin, database, and infrastructure work are merged.
+    All money values are non-negative whole-VND strings. Pricing, promotion eligibility, and inventory are calculated on the server.
+    Catalog content is available only in vi-VN. UI and error messages are localized by the client from stable error codes.
+    Authentication and registration use Auth0 Universal Login; this API does not duplicate Auth0 login, registration, or logout endpoints.
+  license:
+    name: Internal training use only
+    identifier: LicenseRef-Internal-Training
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+    description: Local development
+tags:
+  - name: System
+    description: Service health and readiness.
+  - name: Catalog
+    description: Public VinFast product discovery, category filtering, and detail.
+  - name: Profile
+    description: Current authenticated customer profile and default shipping address.
+  - name: Cart
+    description: Current authenticated customer cart and one optional promotion code.
+  - name: Checkout
+    description: Transactional order creation and local-only mock payment.
+  - name: Orders
+    description: Current customer order history and status tracking.
+  - name: Admin Dashboard
+    description: Optional MVP operational summary for the admin panel.
+  - name: Admin Catalog
+    description: Category, product, variant, image, price, and inventory administration.
+  - name: Admin Promotions
+    description: Promotion campaign administration.
+  - name: Admin Orders
+    description: Order search, fulfilment detail, and forward-only state transitions.
+security:
+  - bearerAuth: []
+x-prd-alignment:
+  document: PRD - Fastlane E-Commerce
+  version: 1.0.0
+  date: '2026-07-20'
+  contractScope: API contract only; implementation artifacts owned by other team members may be delivered later.
+  priorities:
+    must: Contracted as required behavior.
+    should: Contracted for integration planning; implementation may be staged.
+    could: Contracted only where already in scope or needed by the documented admin surface.
+x-contract-boundary:
+  included: [catalog, profile, cart, promotion, checkout, orders, inventory, admin]
+  external: [Auth0 Universal Login]
+  deferredImplementationArtifacts: [database migrations, application code, UI, CI, Docker Compose, deployment]
+x-business-rules:
+  BR-01: A customer must be authenticated to checkout.
+  BR-02: A cart must contain at least one item to checkout.
+  BR-03: A cart and resulting order accept at most one promotion code.
+  BR-04: Cart operations do not reserve inventory; checkout rechecks and decrements stock atomically.
+  BR-05: Only administrators may call management operations directly; authenticated customer workflows may trigger server-owned atomic inventory and promotion mutations.
+  BR-06: Order status transitions are forward-only; Completed and Cancelled are terminal.
+  BR-07: Product list and sale prices are strictly positive whole-VND values.
+  BR-08: A promotion endsAt, when present, must be later than startsAt after create or patch.
+  BR-09: A public product is active and exposes only active variants; an out-of-stock active variant remains visible but is not purchasable.
+  BR-10: Shipping addresses follow the 2-tier local government model (Law 72/2025/QH15); when codes are supplied, communeLevel.code must belong to province.code or return 422 ADDRESS_ADMIN_AREA_MISMATCH.
+x-pricebook-policy:
+  pricebook: DEFAULT_VND
+  currency: VND
+  effectivePrice: salePrice when present; otherwise listPrice.
+  saleInvariant: salePrice must be lower than listPrice.
+  promotionBasis: Promotion applies to the subtotal calculated from effective item prices.
+  percentageRounding: Round half up to the nearest whole VND.
+  discountCap: Cart discountTotal never exceeds subtotal.
+  publicPriceRange: Calculated from effective prices of active variants, including active variants that are currently out of stock.
+x-inventory-policy:
+  sellableUnit: Product variant.
+  cartReservation: Cart operations check current availability but do not reserve stock.
+  checkout: Atomically decrement stock using a conditional update when the Created order is committed.
+  cancellation: Cancelling Created or Paid restores inventory and promotion usage exactly once.
+  concurrency: Every inventory mutation increments inventoryVersion and rejects a stale expectedVersion.
+  mutationAuthority: Admin management endpoints mutate stock directly; checkout and cancellation mutate it only inside server-owned transactions.
+x-order-state-machine:
+  initialStatus: Created
+  paymentTransition: Created to Paid through the local mock-payment action.
+  adminTransitions: [Created-to-Cancelled, Paid-to-Shipped, Paid-to-Cancelled, Shipped-to-Completed]
+  terminalStatuses: [Completed, Cancelled]
+  createdStockHold: Created orders retain decremented inventory and consumed promotion usage until payment succeeds or an administrator cancels the order.
+  automaticExpiry: Not defined for this MVP; a later contract version may add expiry without changing existing transitions.
+x-product-publication-policy:
+  publicVisibility: Public catalog endpoints return active products and active variants only.
+  outOfStockVisibility: Active variants with zero available quantity remain visible with isPurchasable false.
+  activation: An active product must have at least one active variant and exactly one thumbnail image.
+  thumbnails: A product has at most one thumbnail; setting another image as thumbnail atomically demotes the previous thumbnail.
+x-filter-policy:
+  priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
+  createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.
+x-dashboard-policy:
+  lowStockThreshold: Configurable by deployment; defaults to 5 available units.
+x-rate-limit-policy:
+  scope: All endpoints in this contract; deployments may exempt health checks through infrastructure configuration.
+  responseStatus: 429
+  responseHeaders: [Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset]
+x-localization:
+  defaultLocale: vi-VN
+  fallbackLocale: vi-VN
+  supportedCatalogLocales: [vi-VN]
+  errorLocalization: client-side from error.code
+  futureCatalogTranslation: Product and category translations will be introduced before Accept-Language is supported by catalog endpoints.
+x-authorization-model:
+  identityProvider: Auth0
+  loginFlow: Universal Login with Authorization Code and PKCE in the web client.
+  tokenType: JWT access token
+  signingAlgorithm: RS256
+  requiredClaims: [iss, sub, aud, exp]
+  rolesClaim: Configured namespaced Auth0 custom claim; environment-specific URI is not hard-coded in this contract.
+  permissionsClaim: permissions
+  roles: [customer, admin]
+  endpointAuthorization: x-required-permissions
+  permissionSemantics: Every permission listed by an operation is required.
+  hiddenResourcePolicy: Ownership failures return 404 instead of revealing another customer's resource.
+  customerMapping: Backend maps the validated issuer plus subject claims to the local customer record; customerId is never accepted from customer write requests.
+  ownership: Customer profile, order, cart, and mock-payment endpoints additionally verify that the authenticated subject owns the requested resource.
+paths:
+  /health:
+    $ref: './paths/catalog.yaml#/~1health'
+  /categories:
+    $ref: './paths/catalog.yaml#/~1categories'
+  /products:
+    $ref: './paths/catalog.yaml#/~1products'
+  /products/{slug}:
+    $ref: './paths/catalog.yaml#/~1products~1{slug}'
+  /users/me:
+    $ref: './paths/catalog.yaml#/~1users~1me'
+  /cart:
+    $ref: './paths/cart.yaml#/~1cart'
+  /cart/items:
+    $ref: './paths/cart.yaml#/~1cart~1items'
+  /cart/items/{itemId}:
+    $ref: './paths/cart.yaml#/~1cart~1items~1{itemId}'
+  /cart/promotion:
+    $ref: './paths/cart.yaml#/~1cart~1promotion'
+  /checkout:
+    $ref: './paths/checkout.yaml#/~1checkout'
+  /orders:
+    $ref: './paths/orders.yaml#/~1orders'
+  /orders/{orderId}:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}'
+  /orders/{orderId}/mock-payment:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}~1mock-payment'
+  /admin/dashboard/summary:
+    $ref: './paths/admin-products.yaml#/~1admin~1dashboard~1summary'
+  /admin/categories:
+    $ref: './paths/admin-products.yaml#/~1admin~1categories'
+  /admin/categories/{categoryId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1categories~1{categoryId}'
+  /admin/products:
+    $ref: './paths/admin-products.yaml#/~1admin~1products'
+  /admin/products/{productId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}'
+  /admin/products/{productId}/variants:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1variants'
+  /admin/variants/{variantId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1variants~1{variantId}'
+  /admin/products/{productId}/images:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1images'
+  /admin/product-images/{imageId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1product-images~1{imageId}'
+  /admin/variants/{variantId}/inventory:
+    $ref: './paths/admin-products.yaml#/~1admin~1variants~1{variantId}~1inventory'
+  /admin/promotions:
+    $ref: './paths/admin-orders.yaml#/~1admin~1promotions'
+  /admin/promotions/{promotionId}:
+    $ref: './paths/admin-orders.yaml#/~1admin~1promotions~1{promotionId}'
+  /admin/orders:
+    $ref: './paths/admin-orders.yaml#/~1admin~1orders'
+  /admin/orders/{orderId}:
+    $ref: './paths/admin-orders.yaml#/~1admin~1orders~1{orderId}'
+  /admin/orders/{orderId}/transitions:
+    $ref: './paths/admin-orders.yaml#/~1admin~1orders~1{orderId}~1transitions'
+components:
+  securitySchemes:
+    $ref: './components/security.yaml'
+  parameters:
+    $ref: './components/parameters.yaml'
+  responses:
+    $ref: './components/responses.yaml'
+  schemas:
+    $ref: './components/schemas/index.yaml'
