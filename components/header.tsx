@@ -25,7 +25,7 @@ export function Header() {
             alt="FASTLANE"
             className="h-8 w-auto object-contain sm:h-9"
           />
-          <span className="header-brand ml-2">FASTLANE</span>
+          <span className="header-brand ml-2">VINFAST</span>
         </a>
 
         <nav className="ml-auto hidden items-center gap-7 xl:flex">
