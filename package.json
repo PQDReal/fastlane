@@ -1,0 +1,9 @@
+{
+  "name": "fastlane",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "check:openapi": "npm --prefix api-contract run check:openapi",
+    "bundle:openapi": "npm --prefix api-contract run bundle"
+  }
+}

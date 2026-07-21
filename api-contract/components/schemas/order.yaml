@@ -1,0 +1,126 @@
+OrderStatus: { type: string, enum: [Created, Paid, Shipped, Completed, Cancelled] }
+OrderItem:
+  type: object
+  additionalProperties: false
+  required: [id, variantId, productName, sku, variantAttributes, quantity, unitListPrice, unitSalePrice, unitPrice, lineTotal]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productName: { type: string, minLength: 1, maxLength: 200 }
+    sku: { type: string, minLength: 1, maxLength: 80 }
+    variantAttributes: { type: object, additionalProperties: { type: string } }
+    quantity: { type: integer, minimum: 1 }
+    unitListPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    unitSalePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }] }
+    unitPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    lineTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+OrderPricing:
+  type: object
+  additionalProperties: false
+  required: [currency, subtotal, discountTotal, shippingTotal, grandTotal]
+  properties:
+    currency: { type: string, enum: [VND] }
+    subtotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    discountTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    shippingTotal: { type: string, enum: ['0'], description: Fixed at zero in MVP. }
+    grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+OrderSummary:
+  type: object
+  additionalProperties: false
+  required: [id, orderNumber, status, pricing, createdAt, statusUpdatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    orderNumber: { type: string, minLength: 1, maxLength: 40, example: FLE-20260720-00001 }
+    status: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
+    pricing:
+      type: object
+      additionalProperties: false
+      required: [currency, grandTotal]
+      properties:
+        currency: { type: string, enum: [VND] }
+        grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    createdAt: { type: string, format: date-time }
+    statusUpdatedAt: { type: string, format: date-time }
+AdminOrderSummary:
+  type: object
+  additionalProperties: false
+  required: [id, orderNumber, customer, recipientName, recipientPhoneNumber, status, pricing, createdAt, statusUpdatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    orderNumber: { type: string, minLength: 1, maxLength: 40, example: FLE-20260720-00001 }
+    customer: { $ref: '../../openapi.yaml#/components/schemas/CustomerReference' }
+    recipientName: { type: string, minLength: 1, maxLength: 120 }
+    recipientPhoneNumber: { type: string, pattern: '^\+?[0-9]{9,15}$' }
+    status: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
+    pricing:
+      type: object
+      additionalProperties: false
+      required: [currency, grandTotal]
+      properties:
+        currency: { type: string, enum: [VND] }
+        grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    createdAt: { type: string, format: date-time }
+    statusUpdatedAt: { type: string, format: date-time }
+Order:
+  type: object
+  additionalProperties: false
+  required: [id, orderNumber, customer, status, statusUpdatedAt, items, promotion, pricing, shippingAddress, note, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    orderNumber: { type: string, minLength: 1, maxLength: 40, example: FLE-20260720-00001 }
+    customer: { $ref: '../../openapi.yaml#/components/schemas/CustomerReference' }
+    status: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
+    statusUpdatedAt: { type: string, format: date-time }
+    items: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/OrderItem' } }
+    promotion: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/AppliedPromotion' }, { type: 'null' }] }
+    pricing: { $ref: '../../openapi.yaml#/components/schemas/OrderPricing' }
+    shippingAddress: { $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }
+    note: { oneOf: [{ type: string, maxLength: 500 }, { type: 'null' }] }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+OrderResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/Order' } } }
+MockPaymentRequest:
+  type: object
+  additionalProperties: false
+  required: [result]
+  examples:
+    - { result: approved }
+    - { result: declined }
+  properties:
+    result: { type: string, enum: [approved, declined], description: Deterministic local-demo outcome; never expose in production. }
+MockPaymentMeta:
+  type: object
+  additionalProperties: false
+  required: [result]
+  properties:
+    result: { type: string, enum: [approved, declined] }
+MockPaymentResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/Order' }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/MockPaymentMeta' }
+OrderPageResponse:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/OrderSummary' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+AdminOrderPageResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminOrderSummary' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+OrderTransitionRequest:
+  type: object
+  additionalProperties: false
+  required: [expectedCurrentStatus, targetStatus]
+  examples:
+    - { expectedCurrentStatus: Paid, targetStatus: Shipped, note: Đã bàn giao cho đơn vị vận chuyển. }
+  properties:
+    expectedCurrentStatus: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
+    targetStatus: { type: string, enum: [Shipped, Completed, Cancelled] }
+    note: { type: string, maxLength: 500 }

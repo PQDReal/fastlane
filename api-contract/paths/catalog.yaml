@@ -1,0 +1,97 @@
+/health:
+  get:
+    tags: [System]
+    operationId: getHealth
+    security: []
+    summary: Readiness check
+    responses:
+      '200':
+        description: Service is ready
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/HealthResponse' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/categories:
+  get:
+    tags: [Catalog]
+    operationId: listCategories
+    x-prd-references: [US-C02, US-C05, FR-PROD-02]
+    security: []
+    summary: List active categories
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/CategoryList' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/products:
+  get:
+    tags: [Catalog]
+    operationId: listProducts
+    x-prd-references: [US-C02, US-C04, US-C05, FR-PROD-02, FR-PROD-03]
+    security: []
+    summary: Search and browse active products
+    description: |
+      Full-text search matches Vietnamese product name, SKU, and description case-insensitively.
+      Only active products are returned. Public detail exposes active variants only; an active out-of-stock variant remains visible with isPurchasable=false.
+      Category and inclusive price filters may be combined. minPrice must not exceed maxPrice. Price filters, sorting, and priceRange use effective prices of active variants.
+      When q is present and sort is omitted, results use relevance then product ID. Otherwise results use newest then product ID.
+      sort=relevance requires q; without q it returns VALIDATION_FAILED.
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/CategorySlug' }
+      - { $ref: '../openapi.yaml#/components/parameters/MinimumPrice' }
+      - { $ref: '../openapi.yaml#/components/parameters/MaximumPrice' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+      - { $ref: '../openapi.yaml#/components/parameters/Sort' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ProductPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/products/{slug}:
+  get:
+    tags: [Catalog]
+    operationId: getProductBySlug
+    x-prd-references: [US-C03, FR-PROD-01]
+    security: []
+    summary: Get an active product by slug
+    description: Returns active variants only. Out-of-stock active variants remain visible with isPurchasable=false so customers can compare configurations.
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductSlug' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/users/me:
+  get:
+    tags: [Profile]
+    operationId: getCurrentCustomerProfile
+    x-prd-references: [US-C11, FR-10]
+    x-required-roles: [customer]
+    summary: Get the current customer profile
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/CustomerProfile' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  patch:
+    tags: [Profile]
+    operationId: updateCurrentCustomerProfile
+    x-prd-references: [US-C11, FR-10]
+    x-required-roles: [customer]
+    summary: Update the current customer profile and default shipping address
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/CustomerProfilePatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/CustomerProfile' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }

@@ -1,0 +1,3660 @@
+openapi: 3.1.0
+info:
+  title: Fastlane E-Commerce API
+  version: 0.2.0-draft
+  summary: Contract-first REST API for the Fastlane B2C MVP
+  description: |
+    Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
+    This artifact defines the integration boundary before backend, storefront, admin, database, and infrastructure work are merged.
+    All money values are non-negative whole-VND strings. Pricing, promotion eligibility, and inventory are calculated on the server.
+    Catalog content is available only in vi-VN. UI and error messages are localized by the client from stable error codes.
+    Authentication and registration use Auth0 Universal Login; this API does not duplicate Auth0 login, registration, or logout endpoints.
+  license:
+    name: Internal training use only
+    identifier: LicenseRef-Internal-Training
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: System
+    description: Service health and readiness.
+  - name: Catalog
+    description: Public VinFast product discovery, category filtering, and detail.
+  - name: Profile
+    description: Current authenticated customer profile and default shipping address.
+  - name: Cart
+    description: Current authenticated customer cart and one optional promotion code.
+  - name: Checkout
+    description: Transactional order creation and local-only mock payment.
+  - name: Orders
+    description: Current customer order history and status tracking.
+  - name: Admin Dashboard
+    description: Optional MVP operational summary for the admin panel.
+  - name: Admin Catalog
+    description: Category, product, variant, image, price, and inventory administration.
+  - name: Admin Promotions
+    description: Promotion campaign administration.
+  - name: Admin Orders
+    description: Order search, fulfilment detail, and forward-only state transitions.
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      operationId: getHealth
+      security: []
+      summary: Readiness check
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /categories:
+    get:
+      tags:
+        - Catalog
+      operationId: listCategories
+      x-prd-references:
+        - US-C02
+        - US-C05
+        - FR-PROD-02
+      security: []
+      summary: List active categories
+      responses:
+        '200':
+          $ref: '#/components/responses/CategoryList'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /products:
+    get:
+      tags:
+        - Catalog
+      operationId: listProducts
+      x-prd-references:
+        - US-C02
+        - US-C04
+        - US-C05
+        - FR-PROD-02
+        - FR-PROD-03
+      security: []
+      summary: Search and browse active products
+      description: |
+        Full-text search matches Vietnamese product name, SKU, and description case-insensitively.
+        Only active products are returned. Public detail exposes active variants only; an active out-of-stock variant remains visible with isPurchasable=false.
+        Category and inclusive price filters may be combined. minPrice must not exceed maxPrice. Price filters, sorting, and priceRange use effective prices of active variants.
+        When q is present and sort is omitted, results use relevance then product ID. Otherwise results use newest then product ID.
+        sort=relevance requires q; without q it returns VALIDATION_FAILED.
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/CategorySlug'
+        - $ref: '#/components/parameters/MinimumPrice'
+        - $ref: '#/components/parameters/MaximumPrice'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProductPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /products/{slug}:
+    get:
+      tags:
+        - Catalog
+      operationId: getProductBySlug
+      x-prd-references:
+        - US-C03
+        - FR-PROD-01
+      security: []
+      summary: Get an active product by slug
+      description: Returns active variants only. Out-of-stock active variants remain visible with isPurchasable=false so customers can compare configurations.
+      parameters:
+        - $ref: '#/components/parameters/ProductSlug'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProductDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /users/me:
+    get:
+      tags:
+        - Profile
+      operationId: getCurrentCustomerProfile
+      x-prd-references:
+        - US-C11
+        - FR-10
+      x-required-roles:
+        - customer
+      summary: Get the current customer profile
+      responses:
+        '200':
+          $ref: '#/components/responses/CustomerProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - Profile
+      operationId: updateCurrentCustomerProfile
+      x-prd-references:
+        - US-C11
+        - FR-10
+      x-required-roles:
+        - customer
+      summary: Update the current customer profile and default shipping address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerProfilePatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CustomerProfile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cart:
+    get:
+      tags:
+        - Cart
+      operationId: getCart
+      x-prd-references:
+        - US-C06
+        - FR-CART-01
+      x-required-roles:
+        - customer
+      summary: Read the current customer cart
+      description: Reading the cart re-prices active items and revalidates the applied promotion. Cart items do not reserve inventory.
+      responses:
+        '200':
+          $ref: '#/components/responses/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cart/items:
+    post:
+      tags:
+        - Cart
+      operationId: addCartItem
+      x-prd-references:
+        - US-C06
+        - FR-CART-01
+        - BR-04
+      x-required-roles:
+        - customer
+      summary: Add a variant to the current cart
+      description: Adding the same variant increments its existing line quantity. The availability check is provisional and does not reserve stock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Cart'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/OutOfStock'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cart/items/{itemId}:
+    patch:
+      tags:
+        - Cart
+      operationId: updateCartItem
+      x-prd-references:
+        - US-C06
+        - FR-CART-01
+        - BR-04
+      x-required-roles:
+        - customer
+      summary: Change a cart item quantity
+      parameters:
+        - $ref: '#/components/parameters/CartItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Cart'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OutOfStock'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Cart
+      operationId: removeCartItem
+      x-prd-references:
+        - US-C06
+        - FR-CART-01
+      x-required-roles:
+        - customer
+      summary: Remove a cart item
+      parameters:
+        - $ref: '#/components/parameters/CartItemId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /cart/promotion:
+    put:
+      tags:
+        - Cart
+      operationId: applyCartPromotion
+      x-prd-references:
+        - US-C07
+        - FR-PROM-01
+        - BR-03
+      x-required-roles:
+        - customer
+      summary: Apply or replace the cart promotion code
+      description: Codes are trimmed and matched case-insensitively. A cart holds at most one promotion; this operation replaces any existing code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyPromotionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Cart'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/InvalidPromotion'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Cart
+      operationId: removeCartPromotion
+      x-prd-references:
+        - US-C07
+        - FR-PROM-01
+        - BR-03
+      x-required-roles:
+        - customer
+      summary: Remove the cart promotion code
+      responses:
+        '200':
+          $ref: '#/components/responses/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /checkout:
+    post:
+      tags:
+        - Checkout
+      operationId: checkoutCart
+      x-prd-references:
+        - US-C08
+        - FR-ORDR-01
+        - BR-01
+        - BR-02
+        - BR-03
+        - BR-04
+      x-required-roles:
+        - customer
+      summary: Create an order from the current cart
+      description: |
+        The server verifies expectedCartVersion and acceptedGrandTotal, re-prices the cart, validates one optional promotion,
+        conditionally decrements variant inventory, consumes promotion usage, creates an immutable Created order snapshot,
+        stores the idempotency result, and clears the cart in one database transaction. Any failure rolls back every mutation.
+        A repeated request with the same Idempotency-Key, customer, cart version, and payload returns the original response.
+        Reusing the key with a different fingerprint returns IDEMPOTENCY_KEY_REUSED. Mock payment is a separate local-only action.
+        The Created order retains its stock decrement and consumed promotion usage until mock payment succeeds or an administrator cancels it; this MVP has no automatic expiry.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/CheckoutConflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /orders:
+    get:
+      tags:
+        - Orders
+      operationId: listOwnOrders
+      x-prd-references:
+        - US-C09
+        - US-C10
+        - FR-ORDR-02
+      x-required-roles:
+        - customer
+      summary: List orders owned by the current customer
+      parameters:
+        - $ref: '#/components/parameters/OrderStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /orders/{orderId}:
+    get:
+      tags:
+        - Orders
+      operationId: getOwnOrder
+      x-prd-references:
+        - US-C09
+        - US-C10
+        - FR-ORDR-02
+      x-required-roles:
+        - customer
+      summary: Get an order owned by the current customer
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /orders/{orderId}/mock-payment:
+    post:
+      tags:
+        - Checkout
+      operationId: simulateOrderPayment
+      x-prd-references:
+        - US-C08
+        - FR-ORDR-01
+      x-development-only: true
+      x-required-roles:
+        - customer
+      summary: Simulate payment for an owned Created order
+      description: |
+        Local demo endpoint only. An approved result moves Created to Paid. A declined result leaves the order Created, including its inventory and promotion hold, so payment may be retried or an administrator may cancel the order.
+        Replaying the same Idempotency-Key for the same customer, order, and result returns the original response. Reusing that key with another order or result returns IDEMPOTENCY_KEY_REUSED.
+        No real payment credentials, card data, or external gateway are accepted.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MockPaymentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MockPayment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/MockPaymentConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/dashboard/summary:
+    get:
+      tags:
+        - Admin Dashboard
+      operationId: getAdminDashboardSummary
+      x-prd-references:
+        - US-A01
+        - FR-ADMN-01
+      x-prd-priority: could-have
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - dashboard:read
+      summary: Get an operational dashboard summary
+      description: Projected revenue includes Paid, Shipped, and Completed orders only and is not financial settlement data.
+      responses:
+        '200':
+          $ref: '#/components/responses/DashboardSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/categories:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: listAdminCategories
+      x-prd-references:
+        - US-A03
+      summary: List all categories including inactive records
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      responses:
+        '200':
+          $ref: '#/components/responses/CategoryList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Catalog
+      operationId: createCategory
+      x-prd-references:
+        - US-A03
+      summary: Create a category
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Category'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/categories/{categoryId}:
+    patch:
+      tags:
+        - Admin Catalog
+      operationId: updateCategory
+      x-prd-references:
+        - US-A03
+      summary: Update a category
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryPatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Category'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Admin Catalog
+      operationId: deleteCategory
+      x-prd-references:
+        - US-A03
+      summary: Delete an unused category
+      description: A category that still has products cannot be deleted.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '204':
+          description: Category deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/products:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: listAdminProducts
+      x-prd-references:
+        - US-A02
+        - US-A08
+        - FR-ADMN-02
+        - FR-ADMN-03
+      summary: List products for administration
+      description: Search includes active and inactive products. sort=relevance requires q; when sort is omitted, q uses relevance then product ID and an empty q uses newest then product ID.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/CategoryIdFilter'
+        - $ref: '#/components/parameters/IsActive'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProductPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Catalog
+      operationId: createProduct
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-02
+        - BR-05
+        - BR-07
+      summary: Create a product and its initial variants
+      description: |
+        Initial variants start with zero inventory. Inventory is changed only through the inventory endpoint.
+        An active product requires at least one active variant and exactly one thumbnail image; the request schema rejects violations with 400 VALIDATION_FAILED.
+        At most one image may be the thumbnail. Setting isThumbnail=true atomically demotes the previous thumbnail.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProductDetail'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/products/{productId}:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: getAdminProduct
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-02
+        - FR-ADMN-03
+      summary: Get any product for administration, including inactive products
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProductDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - Admin Catalog
+      operationId: updateProduct
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-03
+        - BR-05
+        - BR-07
+      summary: Update product metadata or publication status
+      description: Variants, images, and inventory are managed by their dedicated endpoints. Activating a product requires at least one active variant and exactly one thumbnail image.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductPatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProductDetail'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Admin Catalog
+      operationId: archiveProduct
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-03
+        - BR-05
+      summary: Archive a product
+      description: Soft delete only; existing order snapshots remain unchanged.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '204':
+          description: Product archived
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/products/{productId}/variants:
+    post:
+      tags:
+        - Admin Catalog
+      operationId: createVariant
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-02
+        - BR-05
+        - BR-07
+      summary: Add a sellable variant to a product
+      description: The new variant starts with zero inventory and is not purchasable until inventory is set.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Variant'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/variants/{variantId}:
+    patch:
+      tags:
+        - Admin Catalog
+      operationId: updateVariant
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-03
+        - BR-05
+        - BR-07
+      summary: Update a product variant
+      description: Inventory cannot be changed through this catalog operation.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantPatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Variant'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Admin Catalog
+      operationId: archiveVariant
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-03
+        - BR-05
+      summary: Archive a product variant
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/VariantId'
+      responses:
+        '204':
+          description: Variant archived
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/products/{productId}/images:
+    post:
+      tags:
+        - Admin Catalog
+      operationId: createProductImage
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-02
+      summary: Add an image URL to a product gallery
+      description: A product has at most one thumbnail. Setting isThumbnail=true atomically demotes the current thumbnail.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductImageCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProductImage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/product-images/{imageId}:
+    patch:
+      tags:
+        - Admin Catalog
+      operationId: updateProductImage
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-03
+      summary: Update product image metadata
+      description: Setting isThumbnail=true atomically demotes the current thumbnail. An active product must retain exactly one thumbnail.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductImageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductImagePatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProductImage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Admin Catalog
+      operationId: deleteProductImage
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-03
+      summary: Remove an image from a product gallery
+      description: Deleting the sole thumbnail or sole image of an active product violates its publication invariant and returns 422.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - $ref: '#/components/parameters/ProductImageId'
+      responses:
+        '204':
+          description: Product image deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/variants/{variantId}/inventory:
+    put:
+      tags:
+        - Admin Catalog
+      operationId: setVariantInventory
+      x-prd-references:
+        - US-A04
+        - FR-ADMN-04
+        - BR-04
+        - BR-05
+      summary: Set available inventory for a variant
+      description: Uses expectedVersion for optimistic concurrency. Checkout and cancellation update the same version atomically.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - inventory:manage
+      parameters:
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryUpdateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Variant'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/promotions:
+    get:
+      tags:
+        - Admin Promotions
+      operationId: listAdminPromotions
+      x-prd-references:
+        - US-A05
+        - FR-ADMN-05
+      summary: List promotions
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - promotion:manage
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/PromotionPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Promotions
+      operationId: createPromotion
+      x-prd-references:
+        - US-A05
+        - FR-ADMN-05
+        - BR-03
+        - BR-05
+      summary: Create a promotion
+      description: endsAt, when supplied, must be later than startsAt; otherwise the server returns DATE_RANGE_INVALID.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - promotion:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromotionCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Promotion'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/promotions/{promotionId}:
+    get:
+      tags:
+        - Admin Promotions
+      operationId: getAdminPromotion
+      x-prd-references:
+        - US-A05
+        - FR-ADMN-05
+      summary: Get a promotion
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - promotion:manage
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Promotion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - Admin Promotions
+      operationId: updatePromotion
+      x-prd-references:
+        - US-A05
+        - FR-ADMN-05
+        - BR-03
+        - BR-05
+      summary: Update a promotion
+      description: Promotion type is immutable. endsAt, when supplied, must be later than startsAt after applying the patch.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - promotion:manage
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromotionPatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Promotion'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Admin Promotions
+      operationId: deactivatePromotion
+      x-prd-references:
+        - US-A05
+        - FR-ADMN-05
+        - BR-05
+      summary: Deactivate a promotion
+      description: Soft delete keeps order and promotion-usage audit history intact.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - promotion:manage
+      parameters:
+        - $ref: '#/components/parameters/PromotionId'
+      responses:
+        '204':
+          description: Promotion deactivated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/orders:
+    get:
+      tags:
+        - Admin Orders
+      operationId: listAdminOrders
+      x-prd-references:
+        - US-A06
+        - US-A08
+        - FR-ADMN-06
+      summary: List all orders for fulfilment
+      description: |
+        q matches order number, customer email, recipient name, or normalized phone number.
+        createdFrom and createdTo are inclusive RFC 3339 instants; createdFrom must not exceed createdTo.
+        Results expose only the recipient name and normalized phone needed to identify a match; full shipping address remains detail-only.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - orders:read:any
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/OrderStatus'
+        - $ref: '#/components/parameters/CreatedFrom'
+        - $ref: '#/components/parameters/CreatedTo'
+        - $ref: '#/components/parameters/OrderSort'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminOrderPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/orders/{orderId}:
+    get:
+      tags:
+        - Admin Orders
+      operationId: getAdminOrder
+      x-prd-references:
+        - US-A06
+        - FR-ADMN-06
+      summary: Get an order for fulfilment
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - orders:read:any
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/orders/{orderId}/transitions:
+    post:
+      tags:
+        - Admin Orders
+      operationId: transitionOrder
+      x-prd-references:
+        - US-A07
+        - FR-ADMN-06
+        - BR-05
+        - BR-06
+      summary: Apply a valid order status transition
+      description: |
+        Admin transitions are Created to Cancelled, Paid to Shipped or Cancelled, and Shipped to Completed.
+        Mock payment exclusively performs Created to Paid. Cancelling Created or Paid restores inventory and promotion usage exactly once.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - orders:fulfill
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderTransitionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidOrderTransition'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Auth0 RS256 JWT access token for this API. Deployment configuration supplies issuer, audience, JWKS URI, and namespaced roles claim.
+        The backend validates signature, iss, aud, exp, role, permissions, and resource ownership. ID tokens are not accepted as API credentials.
+  parameters:
+    Query:
+      name: q
+      in: query
+      description: Trimmed free-text query. Empty or whitespace-only values are invalid when supplied.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
+    CategorySlug:
+      name: category
+      in: query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 160
+        pattern: ^[a-z0-9-]+$
+    MinimumPrice:
+      name: minPrice
+      in: query
+      description: Inclusive minimum effective active-variant price. Must not exceed maxPrice when both are supplied.
+      schema:
+        $ref: '#/components/schemas/Money'
+    MaximumPrice:
+      name: maxPrice
+      in: query
+      description: Inclusive maximum effective active-variant price. Must be greater than or equal to minPrice when both are supplied.
+      schema:
+        $ref: '#/components/schemas/Money'
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Sort:
+      name: sort
+      in: query
+      description: relevance requires q. If omitted, q uses relevance and requests without q use newest.
+      schema:
+        type: string
+        enum:
+          - relevance
+          - newest
+          - price_asc
+          - price_desc
+    ProductSlug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 220
+        pattern: ^[a-z0-9-]+$
+    CartItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Opaque client-generated key, retained for at least 24 hours for this customer and endpoint.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+        pattern: ^[A-Za-z0-9._:-]+$
+    OrderStatus:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/OrderStatus'
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    CategoryIdFilter:
+      name: categoryId
+      in: query
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    IsActive:
+      name: isActive
+      in: query
+      schema:
+        type: boolean
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    VariantId:
+      name: variantId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ProductImageId:
+      name: imageId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    PromotionId:
+      name: promotionId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    CreatedFrom:
+      name: createdFrom
+      in: query
+      description: Inclusive RFC 3339 lower bound. Must not be later than createdTo when both are supplied.
+      schema:
+        type: string
+        format: date-time
+    CreatedTo:
+      name: createdTo
+      in: query
+      description: Inclusive RFC 3339 upper bound. Must not be earlier than createdFrom when both are supplied.
+      schema:
+        type: string
+        format: date-time
+    OrderSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - created_desc
+          - created_asc
+          - status_asc
+        default: created_desc
+  responses:
+    TooManyRequests:
+      description: Rate limit exceeded.
+      x-error-codes:
+        - RATE_LIMIT_EXCEEDED
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Seconds before retrying.
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+            minimum: 1
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+            minimum: 0
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+            minimum: 0
+          description: Unix epoch seconds when the window resets.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: Rate limit exceeded.
+              requestId: req_01J00000000000000000000000
+    InternalServerError:
+      description: Unexpected server error. Internal details are not exposed.
+      x-error-codes:
+        - INTERNAL_ERROR
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: Unexpected server error.
+              requestId: req_01J00000000000000000000000
+    CategoryList:
+      description: Category list
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CategoryListResponse'
+    ProductPage:
+      description: Product page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductPageResponse'
+    ValidationError:
+      description: Request syntax, parameters, or schema are invalid.
+      x-error-codes:
+        - VALIDATION_FAILED
+        - DATE_RANGE_INVALID
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: Request validation failed.
+              requestId: req_01J00000000000000000000000
+              fields:
+                - path: shippingAddress.phoneNumber
+                  code: INVALID_PHONE
+    ProductDetail:
+      description: Product detail
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductDetailResponse'
+    NotFound:
+      description: Resource does not exist or is not visible to this principal.
+      x-error-codes:
+        - RESOURCE_NOT_FOUND
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: RESOURCE_NOT_FOUND
+              message: Resource was not found.
+              requestId: req_01J00000000000000000000000
+    CustomerProfile:
+      description: Current customer profile
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CustomerProfileResponse'
+    Unauthorized:
+      description: Missing, invalid, or expired access token.
+      x-error-codes:
+        - AUTHENTICATION_REQUIRED
+        - INVALID_ACCESS_TOKEN
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          description: Bearer authentication challenge.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: AUTHENTICATION_REQUIRED
+              message: Authentication is required.
+              requestId: req_01J00000000000000000000000
+    Forbidden:
+      description: Principal lacks the required role or at least one required permission.
+      x-error-codes:
+        - INSUFFICIENT_PERMISSION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INSUFFICIENT_PERMISSION
+              message: Permission is insufficient.
+              requestId: req_01J00000000000000000000000
+    Cart:
+      description: Repriced cart
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CartResponse'
+    OutOfStock:
+      description: Requested quantity is unavailable.
+      x-error-codes:
+        - OUT_OF_STOCK
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: OUT_OF_STOCK
+              message: Requested quantity is unavailable.
+              requestId: req_01J00000000000000000000000
+    InvalidPromotion:
+      description: Promotion cannot be applied to the current cart.
+      x-error-codes:
+        - PROMOTION_INVALID
+        - PROMOTION_INACTIVE
+        - PROMOTION_NOT_STARTED
+        - PROMOTION_EXPIRED
+        - PROMOTION_MINIMUM_NOT_MET
+        - PROMOTION_USAGE_LIMIT_REACHED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PROMOTION_INVALID
+              message: Promotion cannot be applied.
+              requestId: req_01J00000000000000000000000
+    Order:
+      description: Order detail
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OrderResponse'
+    CheckoutConflict:
+      description: Cart, price, stock, or idempotency fingerprint changed and checkout cannot complete.
+      x-error-codes:
+        - CART_CHANGED
+        - PRICE_CHANGED
+        - OUT_OF_STOCK
+        - IDEMPOTENCY_KEY_REUSED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            cartChanged:
+              value:
+                error:
+                  code: CART_CHANGED
+                  message: Cart changed; review it before retrying.
+                  requestId: req_01J00000000000000000000000
+            priceChanged:
+              value:
+                error:
+                  code: PRICE_CHANGED
+                  message: Price changed; review it before retrying.
+                  requestId: req_01J00000000000000000000000
+            keyReused:
+              value:
+                error:
+                  code: IDEMPOTENCY_KEY_REUSED
+                  message: Idempotency key was reused with a different request.
+                  requestId: req_01J00000000000000000000000
+    BusinessRuleError:
+      description: Request is well-formed but violates a business invariant.
+      x-error-codes:
+        - PRODUCT_NOT_PURCHASABLE
+        - CART_EMPTY
+        - BUSINESS_RULE_VIOLATION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: Business rule was violated.
+              requestId: req_01J00000000000000000000000
+    OrderPage:
+      description: Order page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OrderPageResponse'
+    MockPayment:
+      description: Mock payment simulation result and current order
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MockPaymentResponse'
+    MockPaymentConflict:
+      description: Mock payment conflicts with the order state or with an earlier idempotency fingerprint.
+      x-error-codes:
+        - INVALID_ORDER_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidTransition:
+              value:
+                error:
+                  code: INVALID_ORDER_TRANSITION
+                  message: Only a Created order may be paid.
+                  requestId: req_01J00000000000000000000000
+            keyReused:
+              value:
+                error:
+                  code: IDEMPOTENCY_KEY_REUSED
+                  message: Idempotency key was reused with another order or result.
+                  requestId: req_01J00000000000000000000000
+    DashboardSummary:
+      description: Admin dashboard summary
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DashboardSummaryResponse'
+    Category:
+      description: Category
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CategoryResponse'
+    Conflict:
+      description: Request conflicts with current state or a unique constraint.
+      x-error-codes:
+        - CONFLICT
+        - CATEGORY_IN_USE
+        - DUPLICATE_CATEGORY_SLUG
+        - DUPLICATE_PRODUCT_SLUG
+        - DUPLICATE_SKU
+        - DUPLICATE_PROMOTION_CODE
+        - INVENTORY_VERSION_CONFLICT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: CONFLICT
+              message: Request conflicts with current state.
+              requestId: req_01J00000000000000000000000
+    Variant:
+      description: Variant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/VariantResponse'
+    ProductImage:
+      description: Product image
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductImageResponse'
+    PromotionPage:
+      description: Promotion page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PromotionPageResponse'
+    Promotion:
+      description: Promotion
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PromotionResponse'
+    AdminOrderPage:
+      description: Administrative order page with customer and recipient match context
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminOrderPageResponse'
+    InvalidOrderTransition:
+      description: Requested transition conflicts with current order state or expectedCurrentStatus.
+      x-error-codes:
+        - INVALID_ORDER_TRANSITION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_ORDER_TRANSITION
+              message: Order transition is not allowed.
+              requestId: req_01J00000000000000000000000
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              enum:
+                - ok
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_FAILED
+        - DATE_RANGE_INVALID
+        - AUTHENTICATION_REQUIRED
+        - INVALID_ACCESS_TOKEN
+        - INSUFFICIENT_PERMISSION
+        - RESOURCE_NOT_FOUND
+        - CONFLICT
+        - CATEGORY_IN_USE
+        - DUPLICATE_CATEGORY_SLUG
+        - DUPLICATE_PRODUCT_SLUG
+        - DUPLICATE_SKU
+        - DUPLICATE_PROMOTION_CODE
+        - PRODUCT_NOT_PURCHASABLE
+        - CART_EMPTY
+        - CART_CHANGED
+        - PRICE_CHANGED
+        - OUT_OF_STOCK
+        - PROMOTION_INVALID
+        - PROMOTION_INACTIVE
+        - PROMOTION_NOT_STARTED
+        - PROMOTION_EXPIRED
+        - PROMOTION_MINIMUM_NOT_MET
+        - PROMOTION_USAGE_LIMIT_REACHED
+        - IDEMPOTENCY_KEY_REUSED
+        - INVENTORY_VERSION_CONFLICT
+        - INVALID_ORDER_TRANSITION
+        - BUSINESS_RULE_VIOLATION
+        - RATE_LIMIT_EXCEEDED
+        - INTERNAL_ERROR
+    ValidationFieldCode:
+      type: string
+      enum:
+        - REQUIRED
+        - UNKNOWN_FIELD
+        - INVALID_FORMAT
+        - INVALID_VALUE
+        - INVALID_PHONE
+        - OUT_OF_RANGE
+        - TOO_SHORT
+        - TOO_LONG
+    ErrorField:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - code
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: shippingAddress.phoneNumber
+        code:
+          $ref: '#/components/schemas/ValidationFieldCode'
+        meta:
+          type: object
+          additionalProperties: true
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+            - requestId
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+              description: Safe presentation-neutral diagnostic; client localizes user-facing text from code.
+            requestId:
+              type: string
+              minLength: 1
+              maxLength: 100
+            fields:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorField'
+            meta:
+              type: object
+              additionalProperties: true
+    Uuid:
+      type: string
+      format: uuid
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - isActive
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          maxLength: 160
+        isActive:
+          type: boolean
+    CategoryListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    Money:
+      type: string
+      pattern: ^(0|[1-9]\d*)$
+      examples:
+        - '199000'
+      description: Non-negative whole-VND amount encoded as a base-10 string to avoid floating-point loss.
+    PositiveMoney:
+      type: string
+      pattern: ^[1-9]\d*$
+      examples:
+        - '199000'
+      description: Strictly positive whole-VND amount.
+    PriceRange:
+      type: object
+      additionalProperties: false
+      description: Minimum and maximum effective prices across active variants; active out-of-stock variants are included.
+      required:
+        - minimum
+        - maximum
+        - currency
+      properties:
+        minimum:
+          $ref: '#/components/schemas/PositiveMoney'
+        maximum:
+          $ref: '#/components/schemas/PositiveMoney'
+        currency:
+          type: string
+          enum:
+            - VND
+    ProductSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - thumbnailUrl
+        - priceRange
+        - isActive
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 220
+        category:
+          $ref: '#/components/schemas/Category'
+        thumbnailUrl:
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+          description: Non-null for public active products; may be null in admin draft results.
+        priceRange:
+          $ref: '#/components/schemas/PriceRange'
+        isActive:
+          type: boolean
+    PageMeta:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    ProductPageResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    ProductImage:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - url
+        - altText
+        - sortOrder
+        - isThumbnail
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        altText:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sortOrder:
+          type: integer
+          minimum: 0
+        isThumbnail:
+          type: boolean
+    ProductSpecification:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - value
+        - sortOrder
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Công suất tối đa
+        value:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: '150'
+        unit:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 40
+              example: kW
+            - type: 'null'
+        group:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+              example: Động cơ
+            - type: 'null'
+        sortOrder:
+          type: integer
+          minimum: 0
+    Price:
+      type: object
+      additionalProperties: false
+      required:
+        - currency
+        - listPrice
+        - effectivePrice
+      properties:
+        currency:
+          type: string
+          enum:
+            - VND
+        listPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        salePrice:
+          description: When present, must be lower than listPrice.
+          oneOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+            - type: 'null'
+        effectivePrice:
+          allOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+          readOnly: true
+          description: salePrice when present; otherwise listPrice.
+    Variant:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sku
+        - attributes
+        - price
+        - availableQuantity
+        - inventoryVersion
+        - isActive
+        - isPurchasable
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 80
+        attributes:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+          examples:
+            - color: Black
+              trim: Plus
+        price:
+          $ref: '#/components/schemas/Price'
+        availableQuantity:
+          type: integer
+          minimum: 0
+          readOnly: true
+        inventoryVersion:
+          type: integer
+          minimum: 0
+          readOnly: true
+        isActive:
+          type: boolean
+        isPurchasable:
+          type: boolean
+          readOnly: true
+          description: True only when product and variant are active and inventory is positive.
+    ProductDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - thumbnailUrl
+        - priceRange
+        - isActive
+        - description
+        - images
+        - specifications
+        - variants
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 220
+        category:
+          $ref: '#/components/schemas/Category'
+        thumbnailUrl:
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+          description: Non-null for public active products; may be null in admin draft results.
+        priceRange:
+          $ref: '#/components/schemas/PriceRange'
+        isActive:
+          type: boolean
+        description:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductSpecification'
+        variants:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Variant'
+          description: Public detail contains active variants only; admin detail may also contain inactive variants.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProductDetailResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductDetail'
+    ShippingAddress:
+      type: object
+      additionalProperties: false
+      required:
+        - recipientName
+        - phoneNumber
+        - line1
+        - communeLevel
+        - province
+        - countryCode
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Trimmed by the server.
+        phoneNumber:
+          type: string
+          pattern: ^\+?[0-9]{9,15}$
+          description: Normalized by the server before storage.
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 255
+        line2:
+          type: string
+          minLength: 1
+          maxLength: 255
+        communeLevel:
+          type: object
+          additionalProperties: false
+          required:
+            - name
+            - type
+          properties:
+            code:
+              type: string
+              maxLength: 20
+            name:
+              type: string
+              minLength: 1
+              maxLength: 120
+            type:
+              type: string
+              enum:
+                - COMMUNE
+                - WARD
+                - SPECIAL_ZONE
+        province:
+          type: object
+          additionalProperties: false
+          required:
+            - name
+          properties:
+            code:
+              type: string
+              maxLength: 20
+            name:
+              type: string
+              minLength: 1
+              maxLength: 120
+        countryCode:
+          type: string
+          enum:
+            - VN
+    CustomerProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+        - role
+        - fullName
+        - phoneNumber
+        - defaultShippingAddress
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          type: string
+          enum:
+            - customer
+          readOnly: true
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        phoneNumber:
+          oneOf:
+            - type: string
+              pattern: ^\+?[0-9]{9,15}$
+            - type: 'null'
+        defaultShippingAddress:
+          oneOf:
+            - $ref: '#/components/schemas/ShippingAddress'
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+    CustomerProfileResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/CustomerProfile'
+    CustomerProfilePatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      examples:
+        - fullName: Nguyễn Văn A
+          phoneNumber: '+84901234567'
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        phoneNumber:
+          oneOf:
+            - type: string
+              pattern: ^\+?[0-9]{9,15}$
+            - type: 'null'
+        defaultShippingAddress:
+          oneOf:
+            - $ref: '#/components/schemas/ShippingAddress'
+            - type: 'null'
+    CartItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - variantId
+        - productName
+        - sku
+        - variantAttributes
+        - quantity
+        - unitListPrice
+        - unitSalePrice
+        - unitPrice
+        - lineTotal
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        variantId:
+          $ref: '#/components/schemas/Uuid'
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 80
+        variantAttributes:
+          type: object
+          additionalProperties:
+            type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitListPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        unitSalePrice:
+          oneOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+            - type: 'null'
+        unitPrice:
+          allOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+          description: Effective unit price charged before the cart-level promotion.
+        lineTotal:
+          $ref: '#/components/schemas/Money'
+    PercentageDiscount:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - value
+      properties:
+        type:
+          type: string
+          enum:
+            - percentage
+        value:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+          multipleOf: 0.01
+          example: 10
+    FixedAmountDiscount:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - value
+      properties:
+        type:
+          type: string
+          enum:
+            - fixed_amount
+        value:
+          $ref: '#/components/schemas/PositiveMoney'
+    PromotionDiscount:
+      oneOf:
+        - $ref: '#/components/schemas/PercentageDiscount'
+        - $ref: '#/components/schemas/FixedAmountDiscount'
+      discriminator:
+        propertyName: type
+        mapping:
+          percentage: '#/components/schemas/PercentageDiscount'
+          fixed_amount: '#/components/schemas/FixedAmountDiscount'
+    AppliedPromotion:
+      type: object
+      additionalProperties: false
+      required:
+        - promotionId
+        - code
+        - discount
+        - discountAmount
+      properties:
+        promotionId:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 3
+          maxLength: 64
+        discount:
+          $ref: '#/components/schemas/PromotionDiscount'
+        discountAmount:
+          $ref: '#/components/schemas/Money'
+    CartPricing:
+      type: object
+      additionalProperties: false
+      required:
+        - currency
+        - subtotal
+        - discountTotal
+        - grandTotal
+      properties:
+        currency:
+          type: string
+          enum:
+            - VND
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        discountTotal:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Never exceeds subtotal.
+        grandTotal:
+          $ref: '#/components/schemas/Money'
+    Cart:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - pricedAt
+        - items
+        - promotion
+        - pricing
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        version:
+          type: integer
+          minimum: 0
+          description: Increments whenever cart items, promotion, or calculated pricing changes.
+        pricedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        promotion:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedPromotion'
+            - type: 'null'
+        pricing:
+          $ref: '#/components/schemas/CartPricing'
+    CartResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Cart'
+    AddCartItemRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - variantId
+        - quantity
+      examples:
+        - variantId: 123e4567-e89b-12d3-a456-426614174002
+          quantity: 1
+      properties:
+        variantId:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    UpdateCartItemRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - quantity
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    ApplyPromotionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+      examples:
+        - code: WELCOME10
+      properties:
+        code:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9_-]+$
+          example: WELCOME10
+    CheckoutRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expectedCartVersion
+        - acceptedGrandTotal
+        - shippingAddress
+      examples:
+        - expectedCartVersion: 4
+          acceptedGrandTotal: '1200000000'
+          shippingAddress:
+            recipientName: Nguyễn Văn A
+            phoneNumber: '+84901234567'
+            line1: 1 Đường Nguyễn Huệ
+            communeLevel:
+              code: '26734'
+              name: Phường Bến Nghé
+              type: WARD
+            province:
+              code: '79'
+              name: Hồ Chí Minh
+            countryCode: VN
+          note: Liên hệ trước khi giao.
+      properties:
+        expectedCartVersion:
+          type: integer
+          minimum: 0
+        acceptedGrandTotal:
+          $ref: '#/components/schemas/Money'
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+        note:
+          type: string
+          maxLength: 500
+    CustomerReference:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        email:
+          type: string
+          format: email
+    OrderStatus:
+      type: string
+      enum:
+        - Created
+        - Paid
+        - Shipped
+        - Completed
+        - Cancelled
+    OrderItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - variantId
+        - productName
+        - sku
+        - variantAttributes
+        - quantity
+        - unitListPrice
+        - unitSalePrice
+        - unitPrice
+        - lineTotal
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        variantId:
+          $ref: '#/components/schemas/Uuid'
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 80
+        variantAttributes:
+          type: object
+          additionalProperties:
+            type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitListPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        unitSalePrice:
+          oneOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+            - type: 'null'
+        unitPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        lineTotal:
+          $ref: '#/components/schemas/Money'
+    OrderPricing:
+      type: object
+      additionalProperties: false
+      required:
+        - currency
+        - subtotal
+        - discountTotal
+        - shippingTotal
+        - grandTotal
+      properties:
+        currency:
+          type: string
+          enum:
+            - VND
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        discountTotal:
+          $ref: '#/components/schemas/Money'
+        shippingTotal:
+          type: string
+          enum:
+            - '0'
+          description: Fixed at zero in MVP.
+        grandTotal:
+          $ref: '#/components/schemas/Money'
+    Order:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - orderNumber
+        - customer
+        - status
+        - statusUpdatedAt
+        - items
+        - promotion
+        - pricing
+        - shippingAddress
+        - note
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        orderNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+          example: FLE-20260720-00001
+        customer:
+          $ref: '#/components/schemas/CustomerReference'
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        statusUpdatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        promotion:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedPromotion'
+            - type: 'null'
+        pricing:
+          $ref: '#/components/schemas/OrderPricing'
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+        note:
+          oneOf:
+            - type: string
+              maxLength: 500
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OrderResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Order'
+    OrderSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - orderNumber
+        - status
+        - pricing
+        - createdAt
+        - statusUpdatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        orderNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+          example: FLE-20260720-00001
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        pricing:
+          type: object
+          additionalProperties: false
+          required:
+            - currency
+            - grandTotal
+          properties:
+            currency:
+              type: string
+              enum:
+                - VND
+            grandTotal:
+              $ref: '#/components/schemas/Money'
+        createdAt:
+          type: string
+          format: date-time
+        statusUpdatedAt:
+          type: string
+          format: date-time
+    OrderPageResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    MockPaymentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - result
+      examples:
+        - result: approved
+        - result: declined
+      properties:
+        result:
+          type: string
+          enum:
+            - approved
+            - declined
+          description: Deterministic local-demo outcome; never expose in production.
+    MockPaymentMeta:
+      type: object
+      additionalProperties: false
+      required:
+        - result
+      properties:
+        result:
+          type: string
+          enum:
+            - approved
+            - declined
+    MockPaymentResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/Order'
+        meta:
+          $ref: '#/components/schemas/MockPaymentMeta'
+    OrderStatusCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - Created
+        - Paid
+        - Shipped
+        - Completed
+        - Cancelled
+      properties:
+        Created:
+          type: integer
+          minimum: 0
+        Paid:
+          type: integer
+          minimum: 0
+        Shipped:
+          type: integer
+          minimum: 0
+        Completed:
+          type: integer
+          minimum: 0
+        Cancelled:
+          type: integer
+          minimum: 0
+    DashboardSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAt
+        - totalOrders
+        - ordersByStatus
+        - projectedRevenue
+        - activeProductCount
+        - lowStockVariantCount
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        totalOrders:
+          type: integer
+          minimum: 0
+        ordersByStatus:
+          $ref: '#/components/schemas/OrderStatusCounts'
+        projectedRevenue:
+          $ref: '#/components/schemas/Money'
+        activeProductCount:
+          type: integer
+          minimum: 0
+        lowStockVariantCount:
+          type: integer
+          minimum: 0
+          description: Count of active variants with available quantity greater than zero and less than or equal to the configured threshold; the default threshold is 5.
+    DashboardSummaryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/DashboardSummary'
+    CategoryCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - slug
+        - isActive
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 160
+          pattern: ^[a-z0-9-]+$
+        isActive:
+          type: boolean
+    CategoryResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Category'
+    CategoryPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 160
+          pattern: ^[a-z0-9-]+$
+        isActive:
+          type: boolean
+    ProductImageCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+        - altText
+        - sortOrder
+        - isThumbnail
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        altText:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sortOrder:
+          type: integer
+          minimum: 0
+        isThumbnail:
+          type: boolean
+    VariantCreateRequest:
+      type: object
+      additionalProperties: false
+      description: salePrice, when present, must be lower than listPrice; otherwise the request violates BR-07.
+      required:
+        - sku
+        - attributes
+        - listPrice
+        - isActive
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 80
+        attributes:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+        listPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        salePrice:
+          oneOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+            - type: 'null'
+          description: Must be lower than listPrice when present.
+        isActive:
+          type: boolean
+    ProductCreateRequest:
+      type: object
+      additionalProperties: false
+      description: Active products require at least one active variant and exactly one thumbnail image; every product permits at most one thumbnail.
+      required:
+        - categoryId
+        - name
+        - slug
+        - description
+        - specifications
+        - isActive
+        - variants
+      if:
+        properties:
+          isActive:
+            const: true
+        required:
+          - isActive
+      then:
+        required:
+          - images
+        properties:
+          images:
+            minItems: 1
+            contains:
+              type: object
+              required:
+                - isThumbnail
+              properties:
+                isThumbnail:
+                  const: true
+            minContains: 1
+            maxContains: 1
+          variants:
+            contains:
+              type: object
+              required:
+                - isActive
+              properties:
+                isActive:
+                  const: true
+            minContains: 1
+      examples:
+        - categoryId: 123e4567-e89b-12d3-a456-426614174001
+          name: VinFast VF 8
+          slug: vinfast-vf-8
+          description: Mẫu SUV điện cỡ D.
+          specifications:
+            - name: Công suất tối đa
+              value: '300'
+              unit: kW
+              group: Động cơ
+              sortOrder: 0
+          images:
+            - url: https://cdn.example.org/vf8/front.jpg
+              altText: VinFast VF 8 nhìn từ phía trước
+              sortOrder: 0
+              isThumbnail: true
+          isActive: false
+          variants:
+            - sku: VF8-ECO-BLACK
+              attributes:
+                trim: Eco
+                color: Black
+              listPrice: '1200000000'
+              salePrice: null
+              isActive: true
+      properties:
+        categoryId:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 220
+          pattern: ^[a-z0-9-]+$
+        description:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductSpecification'
+        images:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ProductImageCreateRequest'
+          contains:
+            type: object
+            required:
+              - isThumbnail
+            properties:
+              isThumbnail:
+                const: true
+          minContains: 0
+          maxContains: 1
+          description: Zero or one item may be the thumbnail; an active product requires exactly one.
+        isActive:
+          type: boolean
+          description: When true, this request must contain at least one active variant and exactly one thumbnail; otherwise schema validation returns 400.
+        variants:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/VariantCreateRequest'
+    ProductPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Setting isActive=true requires at least one persisted active variant and exactly one persisted thumbnail image.
+      properties:
+        categoryId:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 220
+          pattern: ^[a-z0-9-]+$
+        description:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductSpecification'
+          description: When supplied, replaces the full product specification list.
+        isActive:
+          type: boolean
+          description: Activating a product that fails the publication policy returns BUSINESS_RULE_VIOLATION.
+    VariantResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Variant'
+    VariantPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: The resulting salePrice, when present, must be lower than the resulting listPrice.
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 80
+        attributes:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+        listPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        salePrice:
+          oneOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+            - type: 'null'
+          description: Must be lower than the resulting listPrice when present.
+        isActive:
+          type: boolean
+    ProductImageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductImage'
+    ProductImagePatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        altText:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sortOrder:
+          type: integer
+          minimum: 0
+        isThumbnail:
+          type: boolean
+    InventoryUpdateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - availableQuantity
+        - expectedVersion
+      examples:
+        - availableQuantity: 10
+          expectedVersion: 3
+      properties:
+        availableQuantity:
+          type: integer
+          minimum: 0
+        expectedVersion:
+          type: integer
+          minimum: 0
+    Promotion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - discount
+        - minimumOrderAmount
+        - startsAt
+        - endsAt
+        - usageLimit
+        - usedCount
+        - isActive
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Z0-9_-]+$
+        discount:
+          $ref: '#/components/schemas/PromotionDiscount'
+        minimumOrderAmount:
+          $ref: '#/components/schemas/Money'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        usageLimit:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        usedCount:
+          type: integer
+          minimum: 0
+          readOnly: true
+        isActive:
+          type: boolean
+    PromotionPageResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Promotion'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    PromotionCreateRequest:
+      type: object
+      additionalProperties: false
+      description: endsAt, when present, must be later than startsAt.
+      required:
+        - code
+        - discount
+        - minimumOrderAmount
+        - startsAt
+        - isActive
+      examples:
+        - code: WELCOME10
+          discount:
+            type: percentage
+            value: 10
+          minimumOrderAmount: '100000000'
+          startsAt: '2026-07-20T00:00:00+07:00'
+          endsAt: '2026-08-20T00:00:00+07:00'
+          usageLimit: 100
+          isActive: true
+      properties:
+        code:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9_-]+$
+          description: Trimmed and normalized to uppercase by the server.
+        discount:
+          $ref: '#/components/schemas/PromotionDiscount'
+        minimumOrderAmount:
+          $ref: '#/components/schemas/Money'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        usageLimit:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        isActive:
+          type: boolean
+    PromotionResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Promotion'
+    PromotionPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Promotion type is immutable; after applying the patch, endsAt must be null or later than startsAt.
+      properties:
+        code:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9_-]+$
+          description: Trimmed and normalized to uppercase by the server.
+        discount:
+          $ref: '#/components/schemas/PromotionDiscount'
+        minimumOrderAmount:
+          $ref: '#/components/schemas/Money'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        usageLimit:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        isActive:
+          type: boolean
+    AdminOrderSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - orderNumber
+        - customer
+        - recipientName
+        - recipientPhoneNumber
+        - status
+        - pricing
+        - createdAt
+        - statusUpdatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        orderNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+          example: FLE-20260720-00001
+        customer:
+          $ref: '#/components/schemas/CustomerReference'
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        recipientPhoneNumber:
+          type: string
+          pattern: ^\+?[0-9]{9,15}$
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        pricing:
+          type: object
+          additionalProperties: false
+          required:
+            - currency
+            - grandTotal
+          properties:
+            currency:
+              type: string
+              enum:
+                - VND
+            grandTotal:
+              $ref: '#/components/schemas/Money'
+        createdAt:
+          type: string
+          format: date-time
+        statusUpdatedAt:
+          type: string
+          format: date-time
+    AdminOrderPageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrderSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    OrderTransitionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expectedCurrentStatus
+        - targetStatus
+      examples:
+        - expectedCurrentStatus: Paid
+          targetStatus: Shipped
+          note: Đã bàn giao cho đơn vị vận chuyển.
+      properties:
+        expectedCurrentStatus:
+          $ref: '#/components/schemas/OrderStatus'
+        targetStatus:
+          type: string
+          enum:
+            - Shipped
+            - Completed
+            - Cancelled
+        note:
+          type: string
+          maxLength: 500
+x-prd-alignment:
+  document: PRD - Fastlane E-Commerce
+  version: 1.0.0
+  date: '2026-07-20'
+  contractScope: API contract only; implementation artifacts owned by other team members may be delivered later.
+  priorities:
+    must: Contracted as required behavior.
+    should: Contracted for integration planning; implementation may be staged.
+    could: Contracted only where already in scope or needed by the documented admin surface.
+x-contract-boundary:
+  included:
+    - catalog
+    - profile
+    - cart
+    - promotion
+    - checkout
+    - orders
+    - inventory
+    - admin
+  external:
+    - Auth0 Universal Login
+  deferredImplementationArtifacts:
+    - database migrations
+    - application code
+    - UI
+    - CI
+    - Docker Compose
+    - deployment
+x-business-rules:
+  BR-01: A customer must be authenticated to checkout.
+  BR-02: A cart must contain at least one item to checkout.
+  BR-03: A cart and resulting order accept at most one promotion code.
+  BR-04: Cart operations do not reserve inventory; checkout rechecks and decrements stock atomically.
+  BR-05: Only administrators may call management operations directly; authenticated customer workflows may trigger server-owned atomic inventory and promotion mutations.
+  BR-06: Order status transitions are forward-only; Completed and Cancelled are terminal.
+  BR-07: Product list and sale prices are strictly positive whole-VND values.
+  BR-08: A promotion endsAt, when present, must be later than startsAt after create or patch.
+  BR-09: A public product is active and exposes only active variants; an out-of-stock active variant remains visible but is not purchasable.
+  BR-10: Shipping addresses follow the 2-tier local government model (Law 72/2025/QH15); when codes are supplied, communeLevel.code must belong to province.code or return 422 ADDRESS_ADMIN_AREA_MISMATCH.
+x-pricebook-policy:
+  pricebook: DEFAULT_VND
+  currency: VND
+  effectivePrice: salePrice when present; otherwise listPrice.
+  saleInvariant: salePrice must be lower than listPrice.
+  promotionBasis: Promotion applies to the subtotal calculated from effective item prices.
+  percentageRounding: Round half up to the nearest whole VND.
+  discountCap: Cart discountTotal never exceeds subtotal.
+  publicPriceRange: Calculated from effective prices of active variants, including active variants that are currently out of stock.
+x-inventory-policy:
+  sellableUnit: Product variant.
+  cartReservation: Cart operations check current availability but do not reserve stock.
+  checkout: Atomically decrement stock using a conditional update when the Created order is committed.
+  cancellation: Cancelling Created or Paid restores inventory and promotion usage exactly once.
+  concurrency: Every inventory mutation increments inventoryVersion and rejects a stale expectedVersion.
+  mutationAuthority: Admin management endpoints mutate stock directly; checkout and cancellation mutate it only inside server-owned transactions.
+x-order-state-machine:
+  initialStatus: Created
+  paymentTransition: Created to Paid through the local mock-payment action.
+  adminTransitions:
+    - Created-to-Cancelled
+    - Paid-to-Shipped
+    - Paid-to-Cancelled
+    - Shipped-to-Completed
+  terminalStatuses:
+    - Completed
+    - Cancelled
+  createdStockHold: Created orders retain decremented inventory and consumed promotion usage until payment succeeds or an administrator cancels the order.
+  automaticExpiry: Not defined for this MVP; a later contract version may add expiry without changing existing transitions.
+x-product-publication-policy:
+  publicVisibility: Public catalog endpoints return active products and active variants only.
+  outOfStockVisibility: Active variants with zero available quantity remain visible with isPurchasable false.
+  activation: An active product must have at least one active variant and exactly one thumbnail image.
+  thumbnails: A product has at most one thumbnail; setting another image as thumbnail atomically demotes the previous thumbnail.
+x-filter-policy:
+  priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
+  createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.
+x-dashboard-policy:
+  lowStockThreshold: Configurable by deployment; defaults to 5 available units.
+x-rate-limit-policy:
+  scope: All endpoints in this contract; deployments may exempt health checks through infrastructure configuration.
+  responseStatus: 429
+  responseHeaders:
+    - Retry-After
+    - X-RateLimit-Limit
+    - X-RateLimit-Remaining
+    - X-RateLimit-Reset
+x-localization:
+  defaultLocale: vi-VN
+  fallbackLocale: vi-VN
+  supportedCatalogLocales:
+    - vi-VN
+  errorLocalization: client-side from error.code
+  futureCatalogTranslation: Product and category translations will be introduced before Accept-Language is supported by catalog endpoints.
+x-authorization-model:
+  identityProvider: Auth0
+  loginFlow: Universal Login with Authorization Code and PKCE in the web client.
+  tokenType: JWT access token
+  signingAlgorithm: RS256
+  requiredClaims:
+    - iss
+    - sub
+    - aud
+    - exp
+  rolesClaim: Configured namespaced Auth0 custom claim; environment-specific URI is not hard-coded in this contract.
+  permissionsClaim: permissions
+  roles:
+    - customer
+    - admin
+  endpointAuthorization: x-required-permissions
+  permissionSemantics: Every permission listed by an operation is required.
+  hiddenResourcePolicy: Ownership failures return 404 instead of revealing another customer's resource.
+  customerMapping: Backend maps the validated issuer plus subject claims to the local customer record; customerId is never accepted from customer write requests.
+  ownership: Customer profile, order, cart, and mock-payment endpoints additionally verify that the authenticated subject owns the requested resource.

@@ -1,0 +1,144 @@
+HealthResponse:
+  $ref: './common.yaml#/HealthResponse'
+Uuid:
+  $ref: './common.yaml#/Uuid'
+Money:
+  $ref: './common.yaml#/Money'
+PositiveMoney:
+  $ref: './common.yaml#/PositiveMoney'
+ErrorCode:
+  $ref: './common.yaml#/ErrorCode'
+ValidationFieldCode:
+  $ref: './common.yaml#/ValidationFieldCode'
+ErrorField:
+  $ref: './common.yaml#/ErrorField'
+ErrorResponse:
+  $ref: './common.yaml#/ErrorResponse'
+PageMeta:
+  $ref: './common.yaml#/PageMeta'
+ShippingAddress:
+  $ref: './common.yaml#/ShippingAddress'
+CustomerProfile:
+  $ref: './common.yaml#/CustomerProfile'
+CustomerProfilePatchRequest:
+  $ref: './common.yaml#/CustomerProfilePatchRequest'
+CustomerProfileResponse:
+  $ref: './common.yaml#/CustomerProfileResponse'
+CustomerReference:
+  $ref: './common.yaml#/CustomerReference'
+OrderStatusCounts:
+  $ref: './common.yaml#/OrderStatusCounts'
+DashboardSummary:
+  $ref: './common.yaml#/DashboardSummary'
+DashboardSummaryResponse:
+  $ref: './common.yaml#/DashboardSummaryResponse'
+
+Category:
+  $ref: './product.yaml#/Category'
+CategoryResponse:
+  $ref: './product.yaml#/CategoryResponse'
+CategoryListResponse:
+  $ref: './product.yaml#/CategoryListResponse'
+CategoryCreateRequest:
+  $ref: './product.yaml#/CategoryCreateRequest'
+CategoryPatchRequest:
+  $ref: './product.yaml#/CategoryPatchRequest'
+Price:
+  $ref: './product.yaml#/Price'
+Variant:
+  $ref: './product.yaml#/Variant'
+VariantResponse:
+  $ref: './product.yaml#/VariantResponse'
+PriceRange:
+  $ref: './product.yaml#/PriceRange'
+ProductSpecification:
+  $ref: './product.yaml#/ProductSpecification'
+ProductImage:
+  $ref: './product.yaml#/ProductImage'
+ProductImageCreateRequest:
+  $ref: './product.yaml#/ProductImageCreateRequest'
+ProductImagePatchRequest:
+  $ref: './product.yaml#/ProductImagePatchRequest'
+ProductImageResponse:
+  $ref: './product.yaml#/ProductImageResponse'
+ProductSummary:
+  $ref: './product.yaml#/ProductSummary'
+ProductDetail:
+  $ref: './product.yaml#/ProductDetail'
+ProductDetailResponse:
+  $ref: './product.yaml#/ProductDetailResponse'
+ProductPageResponse:
+  $ref: './product.yaml#/ProductPageResponse'
+VariantCreateRequest:
+  $ref: './product.yaml#/VariantCreateRequest'
+VariantPatchRequest:
+  $ref: './product.yaml#/VariantPatchRequest'
+InventoryUpdateRequest:
+  $ref: './product.yaml#/InventoryUpdateRequest'
+ProductCreateRequest:
+  $ref: './product.yaml#/ProductCreateRequest'
+ProductPatchRequest:
+  $ref: './product.yaml#/ProductPatchRequest'
+
+AddCartItemRequest:
+  $ref: './cart.yaml#/AddCartItemRequest'
+UpdateCartItemRequest:
+  $ref: './cart.yaml#/UpdateCartItemRequest'
+ApplyPromotionRequest:
+  $ref: './cart.yaml#/ApplyPromotionRequest'
+CartItem:
+  $ref: './cart.yaml#/CartItem'
+AppliedPromotion:
+  $ref: './cart.yaml#/AppliedPromotion'
+CartPricing:
+  $ref: './cart.yaml#/CartPricing'
+Cart:
+  $ref: './cart.yaml#/Cart'
+CartResponse:
+  $ref: './cart.yaml#/CartResponse'
+CheckoutRequest:
+  $ref: './cart.yaml#/CheckoutRequest'
+
+OrderStatus:
+  $ref: './order.yaml#/OrderStatus'
+OrderItem:
+  $ref: './order.yaml#/OrderItem'
+OrderPricing:
+  $ref: './order.yaml#/OrderPricing'
+OrderSummary:
+  $ref: './order.yaml#/OrderSummary'
+AdminOrderSummary:
+  $ref: './order.yaml#/AdminOrderSummary'
+Order:
+  $ref: './order.yaml#/Order'
+OrderResponse:
+  $ref: './order.yaml#/OrderResponse'
+MockPaymentRequest:
+  $ref: './order.yaml#/MockPaymentRequest'
+MockPaymentMeta:
+  $ref: './order.yaml#/MockPaymentMeta'
+MockPaymentResponse:
+  $ref: './order.yaml#/MockPaymentResponse'
+OrderPageResponse:
+  $ref: './order.yaml#/OrderPageResponse'
+AdminOrderPageResponse:
+  $ref: './order.yaml#/AdminOrderPageResponse'
+OrderTransitionRequest:
+  $ref: './order.yaml#/OrderTransitionRequest'
+
+PercentageDiscount:
+  $ref: './promotion.yaml#/PercentageDiscount'
+FixedAmountDiscount:
+  $ref: './promotion.yaml#/FixedAmountDiscount'
+PromotionDiscount:
+  $ref: './promotion.yaml#/PromotionDiscount'
+Promotion:
+  $ref: './promotion.yaml#/Promotion'
+PromotionCreateRequest:
+  $ref: './promotion.yaml#/PromotionCreateRequest'
+PromotionPatchRequest:
+  $ref: './promotion.yaml#/PromotionPatchRequest'
+PromotionResponse:
+  $ref: './promotion.yaml#/PromotionResponse'
+PromotionPageResponse:
+  $ref: './promotion.yaml#/PromotionPageResponse'

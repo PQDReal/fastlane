@@ -1,0 +1,106 @@
+/cart:
+  get:
+    tags: [Cart]
+    operationId: getCart
+    x-prd-references: [US-C06, FR-CART-01]
+    x-required-roles: [customer]
+    summary: Read the current customer cart
+    description: Reading the cart re-prices active items and revalidates the applied promotion. Cart items do not reserve inventory.
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/cart/items:
+  post:
+    tags: [Cart]
+    operationId: addCartItem
+    x-prd-references: [US-C06, FR-CART-01, BR-04]
+    x-required-roles: [customer]
+    summary: Add a variant to the current cart
+    description: Adding the same variant increments its existing line quantity. The availability check is provisional and does not reserve stock.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/AddCartItemRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/OutOfStock' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/cart/items/{itemId}:
+  patch:
+    tags: [Cart]
+    operationId: updateCartItem
+    x-prd-references: [US-C06, FR-CART-01, BR-04]
+    x-required-roles: [customer]
+    summary: Change a cart item quantity
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/CartItemId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/UpdateCartItemRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/OutOfStock' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Cart]
+    operationId: removeCartItem
+    x-prd-references: [US-C06, FR-CART-01]
+    x-required-roles: [customer]
+    summary: Remove a cart item
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/CartItemId' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/cart/promotion:
+  put:
+    tags: [Cart]
+    operationId: applyCartPromotion
+    x-prd-references: [US-C07, FR-PROM-01, BR-03]
+    x-required-roles: [customer]
+    summary: Apply or replace the cart promotion code
+    description: Codes are trimmed and matched case-insensitively. A cart holds at most one promotion; this operation replaces any existing code.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ApplyPromotionRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422': { $ref: '../openapi.yaml#/components/responses/InvalidPromotion' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Cart]
+    operationId: removeCartPromotion
+    x-prd-references: [US-C07, FR-PROM-01, BR-03]
+    x-required-roles: [customer]
+    summary: Remove the cart promotion code
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Cart' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }

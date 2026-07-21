@@ -1,0 +1,97 @@
+AddCartItemRequest:
+  type: object
+  additionalProperties: false
+  required: [variantId, quantity]
+  examples:
+    - { variantId: 123e4567-e89b-12d3-a456-426614174002, quantity: 1 }
+  properties:
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    quantity: { type: integer, minimum: 1, maximum: 99 }
+UpdateCartItemRequest:
+  type: object
+  additionalProperties: false
+  required: [quantity]
+  properties:
+    quantity: { type: integer, minimum: 1, maximum: 99 }
+ApplyPromotionRequest:
+  type: object
+  additionalProperties: false
+  required: [code]
+  examples:
+    - { code: WELCOME10 }
+  properties:
+    code: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', example: WELCOME10 }
+CartItem:
+  type: object
+  additionalProperties: false
+  required: [id, variantId, productName, sku, variantAttributes, quantity, unitListPrice, unitSalePrice, unitPrice, lineTotal]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productName: { type: string, minLength: 1, maxLength: 200 }
+    sku: { type: string, minLength: 1, maxLength: 80 }
+    variantAttributes: { type: object, additionalProperties: { type: string } }
+    quantity: { type: integer, minimum: 1 }
+    unitListPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    unitSalePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }] }
+    unitPrice:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }]
+      description: Effective unit price charged before the cart-level promotion.
+    lineTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+AppliedPromotion:
+  type: object
+  additionalProperties: false
+  required: [promotionId, code, discount, discountAmount]
+  properties:
+    promotionId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 3, maxLength: 64 }
+    discount: { $ref: '../../openapi.yaml#/components/schemas/PromotionDiscount' }
+    discountAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+CartPricing:
+  type: object
+  additionalProperties: false
+  required: [currency, subtotal, discountTotal, grandTotal]
+  properties:
+    currency: { type: string, enum: [VND] }
+    subtotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    discountTotal:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
+      description: Never exceeds subtotal.
+    grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+Cart:
+  type: object
+  additionalProperties: false
+  required: [id, version, pricedAt, items, promotion, pricing]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    version: { type: integer, minimum: 0, description: 'Increments whenever cart items, promotion, or calculated pricing changes.' }
+    pricedAt: { type: string, format: date-time }
+    items: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/CartItem' } }
+    promotion: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/AppliedPromotion' }, { type: 'null' }] }
+    pricing: { $ref: '../../openapi.yaml#/components/schemas/CartPricing' }
+CartResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/Cart' } } }
+CheckoutRequest:
+  type: object
+  additionalProperties: false
+  required: [expectedCartVersion, acceptedGrandTotal, shippingAddress]
+  examples:
+    - expectedCartVersion: 4
+      acceptedGrandTotal: '1200000000'
+      shippingAddress:
+        recipientName: Nguyễn Văn A
+        phoneNumber: '+84901234567'
+        line1: 1 Đường Nguyễn Huệ
+        communeLevel:
+          code: '26734'
+          name: Phường Bến Nghé
+          type: WARD
+        province:
+          code: '79'
+          name: Hồ Chí Minh
+        countryCode: VN
+      note: Liên hệ trước khi giao.
+  properties:
+    expectedCartVersion: { type: integer, minimum: 0 }
+    acceptedGrandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    shippingAddress: { $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }
+    note: { type: string, maxLength: 500 }
