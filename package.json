@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "check:openapi": "npm --prefix api-contract run check:openapi",
-    "bundle:openapi": "npm --prefix api-contract run bundle"
+    "bundle:openapi": "npm --prefix api-contract run bundle",
+    "preview:openapi": "npm --prefix api-contract run preview"
   }
 }
