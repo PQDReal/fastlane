@@ -1,0 +1,182 @@
+HealthResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+Uuid: { type: string, format: uuid }
+Money:
+  type: string
+  pattern: '^(0|[1-9]\d*)$'
+  examples: ['199000']
+  description: Non-negative whole-VND amount encoded as a base-10 string to avoid floating-point loss.
+PositiveMoney:
+  type: string
+  pattern: '^[1-9]\d*$'
+  examples: ['199000']
+  description: Strictly positive whole-VND amount.
+ErrorCode:
+  type: string
+  enum:
+    - VALIDATION_FAILED
+    - DATE_RANGE_INVALID
+    - AUTHENTICATION_REQUIRED
+    - INVALID_ACCESS_TOKEN
+    - INSUFFICIENT_PERMISSION
+    - RESOURCE_NOT_FOUND
+    - CONFLICT
+    - CATEGORY_IN_USE
+    - DUPLICATE_CATEGORY_SLUG
+    - DUPLICATE_PRODUCT_SLUG
+    - DUPLICATE_SKU
+    - DUPLICATE_PROMOTION_CODE
+    - PRODUCT_NOT_PURCHASABLE
+    - CART_EMPTY
+    - CART_CHANGED
+    - PRICE_CHANGED
+    - OUT_OF_STOCK
+    - PROMOTION_INVALID
+    - PROMOTION_INACTIVE
+    - PROMOTION_NOT_STARTED
+    - PROMOTION_EXPIRED
+    - PROMOTION_MINIMUM_NOT_MET
+    - PROMOTION_USAGE_LIMIT_REACHED
+    - IDEMPOTENCY_KEY_REUSED
+    - INVENTORY_VERSION_CONFLICT
+    - INVALID_ORDER_TRANSITION
+    - BUSINESS_RULE_VIOLATION
+    - RATE_LIMIT_EXCEEDED
+    - INTERNAL_ERROR
+ValidationFieldCode:
+  type: string
+  enum: [REQUIRED, UNKNOWN_FIELD, INVALID_FORMAT, INVALID_VALUE, INVALID_PHONE, OUT_OF_RANGE, TOO_SHORT, TOO_LONG]
+ErrorField:
+  type: object
+  additionalProperties: false
+  required: [path, code]
+  properties:
+    path: { type: string, minLength: 1, maxLength: 200, example: shippingAddress.phoneNumber }
+    code: { $ref: '../../openapi.yaml#/components/schemas/ValidationFieldCode' }
+    meta: { type: object, additionalProperties: true }
+ErrorResponse:
+  type: object
+  additionalProperties: false
+  required: [error]
+  properties:
+    error:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { $ref: '../../openapi.yaml#/components/schemas/ErrorCode' }
+        message: { type: string, description: Safe presentation-neutral diagnostic; client localizes user-facing text from code. }
+        requestId: { type: string, minLength: 1, maxLength: 100 }
+        fields: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ErrorField' } }
+        meta: { type: object, additionalProperties: true }
+PageMeta:
+  type: object
+  additionalProperties: false
+  required: [page, limit, total, totalPages]
+  properties:
+    page: { type: integer, minimum: 1 }
+    limit: { type: integer, minimum: 1 }
+    total: { type: integer, minimum: 0 }
+    totalPages: { type: integer, minimum: 0 }
+ShippingAddress:
+  type: object
+  additionalProperties: false
+  required: [recipientName, phoneNumber, line1, communeLevel, province, countryCode]
+  properties:
+    recipientName: { type: string, minLength: 1, maxLength: 120, description: Trimmed by the server. }
+    phoneNumber: { type: string, pattern: '^\+?[0-9]{9,15}$', description: Normalized by the server before storage. }
+    line1: { type: string, minLength: 1, maxLength: 255 }
+    line2: { type: string, minLength: 1, maxLength: 255 }
+    communeLevel:
+      type: object
+      additionalProperties: false
+      required: [name, type]
+      properties:
+        code: { type: string, maxLength: 20 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        type: { type: string, enum: [COMMUNE, WARD, SPECIAL_ZONE] }
+    province:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        code: { type: string, maxLength: 20 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+    countryCode: { type: string, enum: [VN] }
+CustomerProfile:
+  type: object
+  additionalProperties: false
+  required: [id, email, role, fullName, phoneNumber, defaultShippingAddress, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    email: { type: string, format: email, readOnly: true }
+    role: { type: string, enum: [customer], readOnly: true }
+    fullName: { type: string, minLength: 1, maxLength: 120 }
+    phoneNumber:
+      oneOf: [{ type: string, pattern: '^\+?[0-9]{9,15}$' }, { type: 'null' }]
+    defaultShippingAddress:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }, { type: 'null' }]
+    createdAt: { type: string, format: date-time, readOnly: true }
+    updatedAt: { type: string, format: date-time, readOnly: true }
+CustomerProfilePatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  examples:
+    - fullName: Nguyễn Văn A
+      phoneNumber: '+84901234567'
+  properties:
+    fullName: { type: string, minLength: 1, maxLength: 120 }
+    phoneNumber:
+      oneOf: [{ type: string, pattern: '^\+?[0-9]{9,15}$' }, { type: 'null' }]
+    defaultShippingAddress:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }, { type: 'null' }]
+CustomerProfileResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/CustomerProfile' }
+CustomerReference:
+  type: object
+  additionalProperties: false
+  required: [id, email]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    email: { type: string, format: email }
+OrderStatusCounts:
+  type: object
+  additionalProperties: false
+  required: [Created, Paid, Shipped, Completed, Cancelled]
+  properties:
+    Created: { type: integer, minimum: 0 }
+    Paid: { type: integer, minimum: 0 }
+    Shipped: { type: integer, minimum: 0 }
+    Completed: { type: integer, minimum: 0 }
+    Cancelled: { type: integer, minimum: 0 }
+DashboardSummary:
+  type: object
+  additionalProperties: false
+  required: [generatedAt, totalOrders, ordersByStatus, projectedRevenue, activeProductCount, lowStockVariantCount]
+  properties:
+    generatedAt: { type: string, format: date-time }
+    totalOrders: { type: integer, minimum: 0 }
+    ordersByStatus: { $ref: '../../openapi.yaml#/components/schemas/OrderStatusCounts' }
+    projectedRevenue: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    activeProductCount: { type: integer, minimum: 0 }
+    lowStockVariantCount: { type: integer, minimum: 0, description: Count of active variants with available quantity greater than zero and less than or equal to the configured threshold; the default threshold is 5. }
+DashboardSummaryResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/DashboardSummary' }
