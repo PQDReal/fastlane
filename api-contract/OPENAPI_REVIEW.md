@@ -3,7 +3,7 @@
 ## 1. Trạng thái tài liệu
 
 - Contract được kiểm tra: `openapi.yaml`.
-- Phiên bản contract: `0.2.0-draft`.
+- Phiên bản contract: `0.4.0-draft`.
 - Ngày kiểm tra gần nhất: 2026-07-21.
 - Nguồn yêu cầu:
   - đề bài Mini E-Commerce Platform;
@@ -12,7 +12,7 @@
 - Phạm vi xác nhận: API contract trước khi ghép backend, Storefront, Admin, database và hạ tầng của các thành viên khác.
 - Trạng thái: đủ điều kiện để mentor và các module owner review/freeze contract; chưa phải xác nhận hệ thống đã được triển khai.
 
-Snapshot hiện tại có 28 path, 41 operation, 70 schema, 28 reusable response và 22 reusable parameter. Contract được tách nhỏ thành các module trong `components/` và `paths/`, tự động bundle thành `dist/openapi.bundle.yaml`.
+Snapshot hiện tại có 30 path, 43 operation, 97 schema, 31 reusable response và 22 reusable parameter. Contract được tách nhỏ thành các module trong `components/` và `paths/`, tự động bundle thành `dist/openapi.bundle.yaml`.
 
 ## 2. Mục tiêu và ranh giới
 
@@ -51,25 +51,31 @@ Các tính năng ngoài MVP theo PRD gồm real payment gateway, multi-currency,
 | Chủ đề | Quyết định trong contract | Lý do/trạng thái |
 |---|---|---|
 | Authentication | Không tạo `/auth`; login, register và logout đi qua Auth0 Universal Login | Tránh nhân đôi identity flow; issuer/audience/claim URI cấu hình sau |
-| Sellable unit | Variant là đơn vị bán, có SKU, attributes, giá và tồn kho | Phù hợp yêu cầu màu/phiên bản trong PRD |
-| Pricebook | Một pricebook `DEFAULT_VND`; tiền là chuỗi số nguyên VND | Tránh mất chính xác floating-point |
+| Product workflow | `productKind` (`car`, `motorbike`, `accessory`) là discriminator nghiệp vụ ổn định; category tiếp tục là taxonomy merchandising | UI và backend không phụ thuộc tên/slug category có thể đổi |
+| Sellable unit | Variant là đơn vị bán cốt lõi, có SKU, attributes, `batteryOption`, giá và tồn kho | Lựa chọn ảnh hưởng SKU/tồn kho vẫn là variant; tránh làm mất kiểm soát inventory |
+| Dynamic option | `ProductOptionGroup/Value` chỉ mô hình tùy chọn không giữ tồn riêng, có giá cộng thêm và danh sách SKU tương thích | Giảm số tổ hợp variant cho sơn/trần/add-on nhưng giữ boundary inventory rõ ràng |
+| Purchase terms | Product khai báo `full` hoặc `deposit`; deposit là số tiền cố định dương theo mỗi đơn vị | Phụ kiện trả đủ; ô tô/xe máy có thể thanh toán cọc |
+| Pricebook | Một pricebook `DEFAULT_VND`; tiền là chuỗi số nguyên VND; option adjustment cộng vào effective variant price | Tránh mất chính xác floating-point và giữ server-authoritative pricing |
 | Sale price | `salePrice` phải nhỏ hơn `listPrice`; `effectivePrice` dùng sale nếu có | Backend phải kiểm tra invariant chéo |
 | Public catalog | Chỉ trả active product và active variant | Variant active hết hàng vẫn hiển thị với `isPurchasable=false` |
 | `priceRange` | Tính từ effective price của active variant, kể cả variant active đang hết hàng | Đồng nhất list, filter và sort |
 | Product publication | Active product cần ít nhất một active variant và đúng một thumbnail | Tối đa một thumbnail; chọn thumbnail mới sẽ demote thumbnail cũ |
 | Cart | Cart kiểm tra tồn hiện tại nhưng không reserve hàng | Checkout luôn kiểm tra lại |
 | Promotion | Mỗi cart/order có tối đa một mã; hỗ trợ percentage và fixed amount | Discount không vượt subtotal; percentage làm tròn half-up đến VND |
-| Checkout | Re-price, kiểm tra cart version/accepted total, giảm tồn, consume promotion, tạo order, lưu idempotency và clear cart trong một transaction | Bất kỳ lỗi nào phải rollback toàn bộ |
+| Checkout | Re-price, kiểm tra cart version/`acceptedGrandTotal`/`acceptedAmountDueNow`, giảm tồn, consume promotion, tạo order, lưu idempotency và clear cart trong một transaction | Bất kỳ lỗi nào phải rollback toàn bộ |
 | Inventory timing | Giảm tồn khi commit order `Created` | PRD có mô tả mâu thuẫn giữa checkout và completed; contract chọn thời điểm chống oversell tốt hơn |
-| Created stock hold | Order `Created` giữ phần tồn/promotion đã consume tới khi payment thành công hoặc Admin cancel | MVP hiện chưa có automatic expiry; đây là quyết định cần mentor/PO xác nhận |
-| Mock payment | Endpoint riêng, local-only; approved chuyển `Created → Paid`, declined giữ `Created` | Không nhận card/credential thật; có idempotency replay/key-reuse rõ ràng |
-| Order state | `Created → Paid → Shipped → Completed`; `Created/Paid → Cancelled` | `Completed` và `Cancelled` là terminal |
-| Cancellation | Cancel `Created` hoặc `Paid` hoàn tồn và promotion usage đúng một lần | Cần transaction/concurrency test khi implement |
+| Created stock hold | Order `Created` giữ tồn/promotion tới payment, cancellation hoặc `initialPaymentDueAt`; quá hạn tự chuyển `Expired` và hoàn resource đúng một lần | Chặn giữ tồn vô hạn |
+| Deposit pricing | Cart/order tách `grandTotal`, `amountDueNow`, `balanceDue`; checkout xác nhận cả tổng đơn và số trả ngay | Không giao logic tiền cọc cho frontend |
+| Mock payment | Endpoint local-only thu initial payment hoặc `balanceDue`; approved chuyển `Created → DepositPaid/Paid` hoặc `DepositPaid → Paid` | Không nhận credential thật; có transaction snapshot và idempotency |
+| Deadline | Product config initial-payment window, balance-payment window và grace period; Order snapshot absolute UTC timestamps | `Created` hết hạn → `Expired`; balance quá hạn → `BalanceOverdue`; hết grace → auto-cancel |
+| Order state | `Created → DepositPaid → Paid → Shipped → Completed`; đơn trả đủ bỏ qua `DepositPaid`; unpaid có thể `Expired` | `Completed`, `Cancelled`, `Expired` là terminal |
+| Cancellation | Customer/Admin/System cancellation dùng policy snapshot, hoàn resource đúng một lần và tạo refund pending khi cần | Customer endpoint mới; policy hỗ trợ cutoff, refund rate, overdue rate và cancellation fee |
+| Refund | Refund async được snapshot bằng `OrderRefund` và `PaymentTransaction`; mock-refund mô phỏng success/failure | `amountPaid` giữ gross audit; `amountRefunded` tách riêng |
 | Dashboard | Có contract nhưng gắn `x-prd-priority: could-have` | PRD vừa ghi Could vừa mô tả như Must |
 | Delete | Product/variant/promotion dùng archive/deactivate khi cần bảo toàn lịch sử | Order snapshot không bị thay đổi |
 | Shipping address | Áp dụng mô hình 2 cấp chính quyền địa phương (Luật 72/2025/QH15); `communeLevel` (COMMUNE, WARD, SPECIAL_ZONE) + `province` object, loại bỏ `district`/`ward` cũ | Đảm bảo tính pháp lý chính xác từ 01/07/2025; `BR-10` yêu cầu backend check mã vùng trả `422 ADDRESS_ADMIN_AREA_MISMATCH` khi sai |
 
-Các quyết định trên được ghi máy đọc được ở các extension gốc như `x-business-rules`, `x-pricebook-policy`, `x-inventory-policy`, `x-order-state-machine`, `x-product-publication-policy` và `x-authorization-model`.
+Các quyết định trên được ghi máy đọc được ở các extension gốc như `x-business-rules`, `x-pricebook-policy`, `x-inventory-policy`, `x-order-state-machine`, `x-payment-deadline-policy`, `x-refund-policy`, `x-product-publication-policy`, `x-product-configuration-policy` và `x-authorization-model`.
 
 ## 5. Độ phủ theo capability
 
@@ -79,7 +85,7 @@ Các quyết định trên được ghi máy đọc được ở các extension 
 | Profile/address | `US-C11`, `FR-10` | `/users/me` | Covered |
 | Cart | `US-C06`, `FR-CART-01` | `/cart`, `/cart/items/**` | Covered |
 | Promotion customer | `US-C07`, `FR-PROM-01` | `/cart/promotion` | Covered |
-| Checkout/payment | `US-C08`, `FR-ORDR-01` | `/checkout`, mock payment | Covered |
+| Checkout/payment/cancellation/refund | `US-C08..C10`, `FR-ORDR-*` | `/checkout`, payment, cancellation, mock refund | Covered at contract/demo level |
 | Customer order tracking | `US-C09..C10`, `FR-ORDR-02` | `/orders`, `/orders/{orderId}` | Covered |
 | Admin category/product | `US-A02..A03`, `FR-ADMN-*` | admin category/product/variant/image | Covered |
 | Inventory | `US-A04`, `FR-ADMN-04` | admin variant inventory | Covered |
@@ -113,9 +119,41 @@ Mỗi non-health operation còn có `x-prd-references` riêng. Bảng trên ch�
 ### Concurrency và idempotency
 
 - Inventory update dùng `expectedVersion`; mọi mutation tăng `inventoryVersion`.
-- Checkout dùng `expectedCartVersion`, `acceptedGrandTotal` và `Idempotency-Key`.
+- Checkout dùng `expectedCartVersion`, `acceptedGrandTotal`, `acceptedAmountDueNow` và `Idempotency-Key`.
 - Mock payment cũng dùng `Idempotency-Key`; cùng fingerprint trả lại kết quả cũ, khác order/result trả `IDEMPOTENCY_KEY_REUSED`.
 - Order transition nhận `expectedCurrentStatus` để chống stale update.
+
+### Cấu hình sản phẩm và đặt cọc
+
+- `productKind` điều khiển workflow; không suy luận workflow từ category name/slug.
+- `batteryOption` là enum typed trên Variant; null khi không áp dụng.
+- Option động chỉ dùng cho lựa chọn không giữ tồn kho riêng. Mọi lựa chọn đổi SKU/tồn kho phải tiếp tục là Variant.
+- Cart nhận `variantId + selectedOptionValueIds`; server kiểm tra ownership, active state, cardinality, uniqueness và SKU compatibility.
+- Cart/Order snapshot option code/name/price adjustment để chỉnh catalog sau đó không làm đổi lịch sử đơn.
+- `grandTotal = amountDueNow + balanceDue`. Promotion giảm balance trước, sau đó mới giảm amount due now.
+- Mock payment approved trên `Created` chỉ thu `amountDueNow`; order đi vào `DepositPaid` nếu còn balance, ngược lại vào `Paid`. Gọi lại trên `DepositPaid/BalanceOverdue` thu đúng balance còn lại.
+- `initialPaymentDueAt` được tạo khi checkout; `balanceDueAt` và `gracePeriodEndsAt` được tạo sau khi cọc thành công.
+- Quá `initialPaymentDueAt`: `Created → Expired`. Quá `balanceDueAt`: payment thành `BalanceOverdue`. Quá grace: order tự `Cancelled`.
+- Customer cancel kiểm tra cutoff/policy snapshot. Refund dùng percentage, overdue percentage và fee; kết quả nằm trong `OrderRefund` và transaction audit.
+- Admin hủy vì `inventory_unavailable/admin_decision` hoàn 100% gross paid, không trừ cancellation fee.
+- Refund là async. `mock-refund` chỉ mô phỏng gateway cho local/demo.
+
+### User-story scenarios cho mua hàng và đặt cọc
+
+| ID | Trigger | Kết quả quan sát được |
+|---|---|---|
+| US-PAY-01 | Full-payment checkout được approved trước initial deadline | Thu `amountDueNow = grandTotal`; Order/Payment thành `Paid`; balance bằng 0 |
+| US-PAY-02 | Deposit checkout được approved trước initial deadline | Thu đúng `amountDueNow`; Order/Payment thành `DepositPaid`; tạo `balanceDueAt` và `gracePeriodEndsAt` |
+| US-PAY-03 | Deposit/BalanceOverdue trả phần dư trong grace | Thu đúng current `balanceDue`; Order/Payment thành `Paid`; balance bằng 0 |
+| US-PAY-04 | Initial hoặc balance charge declined | Thu 0; giữ nguyên order/payment state; ghi failed transaction; retry bằng idempotency key mới |
+| US-PAY-05 | `Created` chưa trả tiền qua initial deadline | Order/Payment thành `Expired`; trả inventory/promotion đúng một lần; callback muộn không revive order |
+| US-PAY-06 | `DepositPaid` qua balance deadline | Order giữ `DepositPaid`; Payment thành `BalanceOverdue`; vẫn trả được trong grace |
+| US-PAY-07 | `BalanceOverdue` qua grace | System auto-cancel; trả inventory/promotion; tính refund theo overdue policy |
+| US-CAN-01 | Customer cancel trong cutoff | Order thành `Cancelled`; snapshot reason; tính refund theo voluntary policy |
+| US-CAN-02 | Customer cancel ngoài cutoff hoặc sau shipping | Trả `ORDER_CANCELLATION_NOT_ALLOWED`; không đổi order/payment/inventory |
+| US-CAN-03 | Admin cancel vì inventory/admin decision | Order thành `Cancelled`; hoàn 100% gross paid, fee 0; trả resource đúng một lần |
+| US-REF-01 | Refund pending được approved | Ghi successful refund transaction; tăng `amountRefunded`; refund thành `Refunded` hoặc `PartiallyRefunded` |
+| US-REF-02 | Refund pending bị declined | Refund thành `Failed`; không đổi gross `amountPaid`; cho retry với idempotency key mới |
 
 ## 7. Quá trình review đã thực hiện
 
@@ -146,6 +184,15 @@ Mỗi non-health operation còn có `x-prd-references` riêng. Bảng trên ch�
 | Admin search theo recipient/phone nhưng list item thiếu match context | Thêm `AdminOrderSummary` và `AdminOrderPageResponse` |
 | Thumbnail/publication invariant chưa kín | Bổ sung policy; create payload sai bị schema từ chối bằng `400`, còn activation trên persisted product vi phạm invariant trả `422` |
 | `PAYMENT_DECLINED` vừa là error vừa là kết quả `200` | Chuẩn hóa declined thành mock-payment result `200`, bỏ error code dư |
+| Category bị dùng như discriminator nghiệp vụ | Thêm `productKind`; category chỉ còn trách nhiệm merchandising taxonomy |
+| Variant phẳng cho mọi add-on | Thêm option group/value có price adjustment và SKU compatibility; giữ inventory-affecting choice trong Variant |
+| Checkout chỉ biết tổng giá | Thêm `amountDueNow`, `balanceDue`, `acceptedAmountDueNow` và order payment snapshot |
+| Order không biểu diễn thanh toán cọc | Thêm `DepositPaid`, `PaymentStatus`, `OrderPayment` và transition xác nhận thanh toán phần dư |
+| `Created` giữ tồn vô hạn | Thêm initial-payment deadline, `Expired` terminal state và idempotent resource restoration |
+| Không biểu diễn trễ phần dư | Thêm `balanceDueAt`, `gracePeriodEndsAt`, `BalanceOverdue` và auto-cancel sau grace |
+| Khách không thể tự hủy | Thêm `POST /orders/{orderId}/cancellation` với optimistic state và idempotency |
+| Hủy cọc không có công thức hoàn | Thêm cancellation-policy snapshot, refund formula, `OrderRefund` và mock-refund lifecycle |
+| Payment thiếu audit trail | Thêm immutable charge/refund transaction list và tách gross paid/refunded amount |
 
 ## 8. Script kiểm tra tổng thể
 
@@ -226,10 +273,10 @@ Kết quả ngày 2026-07-21:
 | Gate | Kết quả | Evidence |
 |---|---|---|
 | `lint` | PASS | Redocly 2.39.0, 0 error, 0 warning |
-| `refs` | PASS | 28 path, 41 operation, 479 local ref được resolve; không thiếu/trùng `operationId` |
-| `contract` | PASS | Required-operation coverage, định dạng PRD reference, Auth0/RBAC, DTO boundary, typed error, `429/500` và idempotency đạt cho 41 operation |
-| `schemas` | PASS | 10 fixture đại diện, 12 component example, 16 response example và 13 negative fixture |
-| `codegen` | PASS | `openapi-typescript` 7.9.1 sinh file TypeScript 91,961 byte trong temp |
+| `refs` | PASS | 30 path, 43 operation, 588 local ref được resolve; không thiếu/trùng `operationId` |
+| `contract` | PASS | Required-operation coverage, định dạng PRD reference, Auth0/RBAC, DTO boundary, typed error, `429/500` và idempotency đạt cho 43 operation |
+| `schemas` | PASS | 11 fixture đại diện, 14 component example, 18 response example và 18 negative fixture |
+| `codegen` | PASS | `openapi-typescript` 7.9.1 sinh file TypeScript 113,789 byte trong temp |
 
 Kết luận tự động: `PASS (5/5 groups passed)`.
 
@@ -249,16 +296,39 @@ Các gate trên xác nhận chất lượng contract tĩnh. Chúng không chứn
 
 Các mục này phải được kiểm tra ở node Backend, Frontend, QA và DevOps sau khi team tích hợp.
 
+### Migration từ `0.3.0-draft` sang `0.4.0-draft`
+
+- Mọi `PurchaseTerms` phải thêm `initialPaymentWindowMinutes`, `balancePaymentWindowDays`, `gracePeriodHours` và `cancellationPolicy`; full-payment dùng null cho balance/grace.
+- Order persistence thêm payment schedule, gross paid/refunded amount, refund summary, transaction list, cancellation-policy snapshot và cancellation record.
+- Order list/detail client hỗ trợ `Expired`, `BalanceOverdue`, `nextPaymentDueAt`, refund status và transaction history.
+- Customer client thêm cancel action; local/demo client có thể gọi cùng mock-payment endpoint để trả phần dư và mock-refund để kiểm tra hoàn tiền.
+- Worker/scheduler phải xử lý initial expiry, overdue và grace expiry bằng idempotent transaction; callback muộn không được revive order.
+- Đây là breaking draft change. Backend/Frontend regenerate type, migrate existing Product/Order, rồi deploy đồng bộ; rollback cần giữ bundle và dữ liệu `0.3.0-draft` trước migration.
+
+### Migration từ `0.2.0-draft` sang `0.3.0-draft`
+
+- Seed/migration Product phải gán `productKind`, `purchaseTerms` và `optionGroups`; phụ kiện dùng `{ paymentMode: full, depositAmount: null }`.
+- Mỗi Variant phải có `batteryOption`; dùng null khi không áp dụng, `included` khi pin đã là cấu hình cố định, `purchase`/`subscription` cho hai phương án mua hoặc thuê.
+- Client add-to-cart luôn gửi `selectedOptionValueIds`; gửi `[]` cho sản phẩm không có option.
+- Cart/Checkout client hiển thị và xác nhận cả `grandTotal` lẫn `amountDueNow`; không tự tính tiền cọc.
+- Order client hỗ trợ `DepositPaid`, `payment`, `amountDueNow` và `balanceDue`; dashboard status count thêm `DepositPaid`.
+- Đây là thay đổi breaking ở draft contract. Backend/Frontend phải regenerate type từ bundle mới và deploy đồng bộ; rollback bằng bundle `0.2.0-draft` cùng migration ngược trước khi ghi dữ liệu 0.3.
+
 ## 11. Rủi ro và quyết định còn mở
 
 | Rủi ro/quyết định | Owner đề xuất | Trạng thái |
 |---|---|---|
 | Xác nhận dashboard là Could-have hay Must | PO/Mentor | Chờ xác nhận |
-| Xác nhận `Created` không auto-expire trong MVP | PO/Mentor + Backend | Chờ xác nhận; contract đã ghi rõ behavior hiện tại |
 | Auth0 issuer, audience, roles claim URI và permission assignment | Tech Lead + Backend/DevOps | Bổ sung theo môi trường |
 | Bảo đảm mock-payment không bật ngoài local/demo | DevOps | Gate deployment sau |
 | Transaction/idempotency persistence và restore đúng một lần | Backend + QA | Test khi implement |
 | Cross-field invariant như `salePrice < listPrice`, promotion date ordering | Backend + QA | Contract mô tả; runtime phải enforce |
+| Giá trị thật cho payment window, balance window, grace period và refund rate/fee | PO + Legal/Finance | Contract cho phép config; ví dụ không phải policy production được duyệt |
+| Scheduler exactly-once cho expiry/overdue/grace cancellation | Backend + DevOps + QA | Contract đã định nghĩa; cần persistence, retry, metrics và concurrency test |
+| Thu `balanceDue` và hoàn tiền qua payment gateway thật | Backend + Payment owner | Mock endpoint chỉ dành local/demo; cần webhook reconciliation trước production |
+| Callback payment/refund đến muộn sau Cancelled/Expired | Backend + Payment owner + QA | Không revive order; cần reconciliation queue và cảnh báo vận hành |
+| Giữ ID option ổn định khi Admin thay `optionGroups` | Backend + QA | Upsert theo group/value code; snapshot đơn không đổi; cần integration test |
+| Migrate client từ contract 0.2 sang required field mới | FE + BE | Breaking draft change; regenerate types và cập nhật fixture trước tích hợp |
 | Công nghệ search PostgreSQL FTS hay Elasticsearch | Tech Lead | Chưa ảnh hưởng contract hiện tại |
 | Privacy/retention cho địa chỉ và số điện thoại | PO + Tech Lead | Chốt trước production |
 
@@ -274,13 +344,13 @@ Các mục này phải được kiểm tra ở node Backend, Frontend, QA và De
 ## 13. Handoff
 
 - Initiative: Fastlane Mini E-Commerce.
-- Node hiện tại: API contract review.
-- Decision owner: Mentor/PO.
-- Input: đề bài và PRD Fastlane 1.0.0.
+- Node hiện tại: N5 QA verification hoàn tất; chờ G2 acceptance.
+- Decision owner: User/PO.
+- Input: đề bài, PRD Fastlane 1.0.0 và `.local/vinfast-products/master_products.json`.
 - Output:
   - `openapi.yaml`;
   - `OPENAPI_REVIEW.md`;
   - `scripts/check-openapi.mjs`;
   - `package.json`, `package-lock.json` và `redocly.yaml`.
 - Governance note: project chưa có bộ artefact `.local`; tài liệu này ghi lại decision/evidence trong phạm vi repo contract.
-- Bước tiếp theo: mentor review → module-owner review → freeze baseline → backend/frontend implementation và integration QA.
+- Bước tiếp theo: PO/module-owner G2 review → freeze `0.4.0-draft` → backend/frontend/worker migration và integration QA.
