@@ -1,12 +1,12 @@
 openapi: 3.1.0
 info:
   title: Fastlane E-Commerce API
-  version: 0.2.0-draft
+  version: 0.4.0-draft
   summary: Contract-first REST API for the Fastlane B2C MVP
   description: |
     Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
     This artifact defines the integration boundary before backend, storefront, admin, database, and infrastructure work are merged.
-    All money values are non-negative whole-VND strings. Pricing, promotion eligibility, and inventory are calculated on the server.
+    All money values are non-negative whole-VND strings. Pricing, option compatibility, deposit schedules, promotion eligibility, and inventory are calculated on the server.
     Catalog content is available only in vi-VN. UI and error messages are localized by the client from stable error codes.
     Authentication and registration use Auth0 Universal Login; this API does not duplicate Auth0 login, registration, or logout endpoints.
   license:
@@ -62,12 +62,23 @@ x-business-rules:
   BR-08: A promotion endsAt, when present, must be later than startsAt after create or patch.
   BR-09: A public product is active and exposes only active variants; an out-of-stock active variant remains visible but is not purchasable.
   BR-10: Shipping addresses follow the 2-tier local government model (Law 72/2025/QH15); when codes are supplied, communeLevel.code must belong to province.code or return 422 ADDRESS_ADMIN_AREA_MISMATCH.
+  BR-11: productKind is the stable workflow discriminator; category remains a mutable merchandising taxonomy.
+  BR-12: Full-payment products have no depositAmount; deposit products require a positive fixed per-unit depositAmount.
+  BR-13: Selected option values must satisfy group cardinality, be active, belong to the product, and be compatible with the selected variant SKU.
+  BR-14: grandTotal equals amountDueNow plus balanceDue; the server is authoritative for every pricing component.
+  BR-15: Initial-payment, balance-payment, and grace deadlines are derived from snapshotted purchase terms and evaluated using UTC instants.
+  BR-16: Cancellation eligibility and refund amount use the immutable order-level policy snapshot; inventory and promotion usage are restored exactly once.
+  BR-17: Automatic expiry, overdue marking, cancellation, charge, and refund processing are idempotent and auditable.
+  BR-18: Full-payment products cannot use before_balance_due cutoff; mixed-order cancellation derives the most restrictive valid item policy.
 x-pricebook-policy:
   pricebook: DEFAULT_VND
   currency: VND
   effectivePrice: salePrice when present; otherwise listPrice.
   saleInvariant: salePrice must be lower than listPrice.
   promotionBasis: Promotion applies to the subtotal calculated from effective item prices.
+  optionPricing: Selected non-inventory option price adjustments are added to the effective variant price before promotion calculation.
+  depositBasis: A deposit product contributes its fixed per-unit deposit capped at its configured unit price to the pre-discount amount due now; a full-payment product contributes its full configured price.
+  discountAllocation: Promotion discount reduces the pre-discount balance first, then the amount due now; amountDueNow plus balanceDue always equals grandTotal.
   percentageRounding: Round half up to the nearest whole VND.
   discountCap: Cart discountTotal never exceeds subtotal.
   publicPriceRange: Calculated from effective prices of active variants, including active variants that are currently out of stock.
@@ -75,21 +86,49 @@ x-inventory-policy:
   sellableUnit: Product variant.
   cartReservation: Cart operations check current availability but do not reserve stock.
   checkout: Atomically decrement stock using a conditional update when the Created order is committed.
-  cancellation: Cancelling Created or Paid restores inventory and promotion usage exactly once.
+  cancellation: Cancelling Created, DepositPaid, or Paid, or expiring unpaid Created, restores inventory and promotion usage exactly once.
   concurrency: Every inventory mutation increments inventoryVersion and rejects a stale expectedVersion.
   mutationAuthority: Admin management endpoints mutate stock directly; checkout and cancellation mutate it only inside server-owned transactions.
 x-order-state-machine:
   initialStatus: Created
-  paymentTransition: Created to Paid through the local mock-payment action.
-  adminTransitions: [Created-to-Cancelled, Paid-to-Shipped, Paid-to-Cancelled, Shipped-to-Completed]
-  terminalStatuses: [Completed, Cancelled]
-  createdStockHold: Created orders retain decremented inventory and consumed promotion usage until payment succeeds or an administrator cancels the order.
-  automaticExpiry: Not defined for this MVP; a later contract version may add expiry without changing existing transitions.
+  paymentTransition: Approved local mock payment moves Created to DepositPaid when balanceDue is positive, Created to Paid when fully paid, and DepositPaid to Paid after collecting balanceDue.
+  adminTransitions: [Created-to-Cancelled, DepositPaid-to-Paid, DepositPaid-to-Cancelled, Paid-to-Shipped, Paid-to-Cancelled, Shipped-to-Completed]
+  customerTransitions: [Created-to-Cancelled, DepositPaid-to-Cancelled, Paid-to-Cancelled-before-shipping]
+  automaticTransitions: [Created-to-Expired-at-initialPaymentDueAt, DepositPaid-paymentStatus-to-BalanceOverdue-at-balanceDueAt, DepositPaid-to-Cancelled-at-gracePeriodEndsAt]
+  terminalStatuses: [Completed, Cancelled, Expired]
+  createdStockHold: Created and DepositPaid orders retain decremented inventory and consumed promotion usage until full payment, cancellation, or expiry.
+  automaticExpiry: Unpaid Created expires at initialPaymentDueAt; overdue DepositPaid auto-cancels at gracePeriodEndsAt.
+x-payment-deadline-policy:
+  clock: UTC RFC 3339 instants generated by the server.
+  initialPayment: initialPaymentDueAt equals order createdAt plus the most restrictive item initialPaymentWindowMinutes.
+  balancePayment: After successful deposit, balanceDueAt equals deposit-paid time plus the most restrictive item balancePaymentWindowDays.
+  gracePeriod: gracePeriodEndsAt equals balanceDueAt plus the most restrictive item gracePeriodHours.
+  overdue: Crossing balanceDueAt changes payment status to BalanceOverdue without changing order status DepositPaid.
+  expiry: Crossing initialPaymentDueAt while unpaid changes order and payment status to Expired and restores inventory/promotion exactly once.
+  graceExpiry: Crossing gracePeriodEndsAt while balance remains auto-cancels the order, calculates refund, and restores inventory/promotion exactly once.
+  lateCallback: A payment callback received after Cancelled or Expired cannot revive the order and requires reconciliation.
+  reminders: Notification workers may use schedule timestamps; notification delivery is outside this API contract.
+x-refund-policy:
+  snapshot: Checkout derives an immutable order policy from item policies using customer-allowed-for-all, earliest cutoff with before_initial_payment before before_balance_due before before_shipping, lowest applicable refund percentage, and summed cancellation fees.
+  voluntaryFormula: refundableAmount equals max(0, round-half-up(amountPaid times refundPercentage divided by 100) minus cancellationFeeAmount), capped at amountPaid.
+  overdueFormula: System cancellation after grace uses overdueRefundPercentage in the same formula.
+  merchantCancellation: Admin cancellation for inventory_unavailable or admin_decision refunds 100 percent of amountPaid with zero cancellation fee.
+  noCharge: Cancellation before successful payment produces RefundStatus NotRequired and refundable amount zero.
+  asynchronous: Cancellation records RefundStatus Pending when refundableAmount is positive; mock-refund only simulates the external refund outcome.
+  audit: amountPaid remains gross successful charges; amountRefunded and immutable charge/refund transactions preserve audit history.
 x-product-publication-policy:
   publicVisibility: Public catalog endpoints return active products and active variants only.
   outOfStockVisibility: Active variants with zero available quantity remain visible with isPurchasable false.
   activation: An active product must have at least one active variant and exactly one thumbnail image.
   thumbnails: A product has at most one thumbnail; setting another image as thumbnail atomically demotes the previous thumbnail.
+x-product-configuration-policy:
+  typedWorkflow: productKind drives purchase workflow independently from category.
+  sellableCore: Variant owns SKU, base price, battery acquisition mode, and inventory.
+  dynamicOptions: Option groups model non-inventory configuration and additive prices; any choice that changes SKU or inventory must remain a variant attribute.
+  compatibility: Empty compatibleVariantSkus means every product variant; otherwise the selected variant SKU must be listed.
+  stableIdentity: Admin option replacement upserts by group/value code, preserves IDs for matching codes, and archives removed codes.
+  cartValidation: Add and reprice validate option ownership, active state, group cardinality, uniqueness, and SKU compatibility.
+  snapshots: Cart and order items retain option names, codes, and price adjustments so later catalog edits cannot rewrite an order.
 x-filter-policy:
   priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
   createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.
@@ -144,8 +183,12 @@ paths:
     $ref: './paths/orders.yaml#/~1orders'
   /orders/{orderId}:
     $ref: './paths/orders.yaml#/~1orders~1{orderId}'
+  /orders/{orderId}/cancellation:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}~1cancellation'
   /orders/{orderId}/mock-payment:
     $ref: './paths/orders.yaml#/~1orders~1{orderId}~1mock-payment'
+  /orders/{orderId}/mock-refund:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}~1mock-refund'
   /admin/dashboard/summary:
     $ref: './paths/admin-products.yaml#/~1admin~1dashboard~1summary'
   /admin/categories:

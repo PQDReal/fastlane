@@ -63,6 +63,11 @@ MockPayment:
   content:
     application/json:
       schema: { $ref: '../openapi.yaml#/components/schemas/MockPaymentResponse' }
+MockRefund:
+  description: Mock refund simulation result and current order
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/MockRefundResponse' }
 Promotion:
   description: Promotion
   content:
@@ -113,7 +118,7 @@ OutOfStock:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
       example: { error: { code: OUT_OF_STOCK, message: Requested quantity is unavailable., requestId: req_01J00000000000000000000000 } }
 CheckoutConflict:
-  description: Cart, price, stock, or idempotency fingerprint changed and checkout cannot complete.
+  description: Cart, configured price, stock, or idempotency fingerprint changed and checkout cannot complete.
   x-error-codes: [CART_CHANGED, PRICE_CHANGED, OUT_OF_STOCK, IDEMPOTENCY_KEY_REUSED]
   content:
     application/json:
@@ -147,9 +152,23 @@ MockPaymentConflict:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
       examples:
         invalidTransition:
-          value: { error: { code: INVALID_ORDER_TRANSITION, message: Only a Created order may be paid., requestId: req_01J00000000000000000000000 } }
+          value: { error: { code: INVALID_ORDER_TRANSITION, message: Order is not eligible for its next payment., requestId: req_01J00000000000000000000000 } }
         keyReused:
           value: { error: { code: IDEMPOTENCY_KEY_REUSED, message: Idempotency key was reused with another order or result., requestId: req_01J00000000000000000000000 } }
+CancellationConflict:
+  description: Cancellation conflicts with current order state or with an earlier idempotency fingerprint.
+  x-error-codes: [INVALID_ORDER_TRANSITION, IDEMPOTENCY_KEY_REUSED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INVALID_ORDER_TRANSITION, message: Order can no longer be cancelled from its current state., requestId: req_01J00000000000000000000000 } }
+MockRefundConflict:
+  description: Mock refund conflicts with refund state or with an earlier idempotency fingerprint.
+  x-error-codes: [INVALID_ORDER_TRANSITION, IDEMPOTENCY_KEY_REUSED, REFUND_NOT_ALLOWED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: REFUND_NOT_ALLOWED, message: No refundable amount is pending for this order., requestId: req_01J00000000000000000000000 } }
 ValidationError:
   description: Request syntax, parameters, or schema are invalid.
   x-error-codes: [VALIDATION_FAILED, DATE_RANGE_INVALID]
@@ -165,7 +184,7 @@ ValidationError:
             - { path: shippingAddress.phoneNumber, code: INVALID_PHONE }
 BusinessRuleError:
   description: Request is well-formed but violates a business invariant.
-  x-error-codes: [PRODUCT_NOT_PURCHASABLE, CART_EMPTY, BUSINESS_RULE_VIOLATION]
+  x-error-codes: [PRODUCT_NOT_PURCHASABLE, PRODUCT_CONFIGURATION_INVALID, ORDER_CANCELLATION_NOT_ALLOWED, PAYMENT_DEADLINE_EXPIRED, REFUND_NOT_ALLOWED, CART_EMPTY, BUSINESS_RULE_VIOLATION]
   content:
     application/json:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }

@@ -1,50 +1,125 @@
-OrderStatus: { type: string, enum: [Created, Paid, Shipped, Completed, Cancelled] }
+OrderStatus: { type: string, enum: [Created, DepositPaid, Paid, Shipped, Completed, Cancelled, Expired] }
+PaymentStatus: { type: string, enum: [Pending, DepositPaid, BalanceOverdue, Paid, Expired] }
+PaymentTransactionType: { type: string, enum: [charge, refund] }
+PaymentTransactionStage: { type: string, enum: [initial, balance, cancellation] }
+PaymentTransactionStatus: { type: string, enum: [pending, succeeded, failed] }
+RefundStatus: { type: string, enum: [NotRequired, Pending, PartiallyRefunded, Refunded, Failed] }
+CancellationActor: { type: string, enum: [customer, admin, system] }
+CancellationReason:
+  type: string
+  enum: [changed_mind, configuration_change, payment_unavailable, duplicate_order, payment_deadline_expired, inventory_unavailable, admin_decision, other]
 OrderItem:
   type: object
   additionalProperties: false
-  required: [id, variantId, productName, sku, variantAttributes, quantity, unitListPrice, unitSalePrice, unitPrice, lineTotal]
+  required: [id, variantId, productName, productKind, purchaseTerms, sku, variantAttributes, selectedOptions, quantity, unitListPrice, unitSalePrice, unitOptionTotal, unitPrice, unitAmountDueNow, lineTotal, lineAmountDueNow]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     productName: { type: string, minLength: 1, maxLength: 200 }
+    productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     sku: { type: string, minLength: 1, maxLength: 80 }
     variantAttributes: { type: object, additionalProperties: { type: string } }
+    selectedOptions: { type: array, maxItems: 20, items: { $ref: '../../openapi.yaml#/components/schemas/SelectedProductOption' } }
     quantity: { type: integer, minimum: 1 }
     unitListPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
     unitSalePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }] }
+    unitOptionTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     unitPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    unitAmountDueNow: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
     lineTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    lineAmountDueNow: { $ref: '../../openapi.yaml#/components/schemas/Money' }
 OrderPricing:
   type: object
   additionalProperties: false
-  required: [currency, subtotal, discountTotal, shippingTotal, grandTotal]
+  required: [currency, subtotal, discountTotal, shippingTotal, grandTotal, amountDueNow, balanceDue]
   properties:
     currency: { type: string, enum: [VND] }
     subtotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     discountTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     shippingTotal: { type: string, enum: ['0'], description: Fixed at zero in MVP. }
     grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    amountDueNow: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    balanceDue: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+PaymentSchedule:
+  type: object
+  additionalProperties: false
+  required: [initialPaymentDueAt, balanceDueAt, gracePeriodEndsAt]
+  properties:
+    initialPaymentDueAt: { type: string, format: date-time }
+    balanceDueAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }], description: Set after successful deposit payment; null for unpaid or full-payment orders. }
+    gracePeriodEndsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }], description: Set with balanceDueAt for deposit orders. }
+PaymentTransaction:
+  type: object
+  additionalProperties: false
+  required: [id, type, stage, amount, status, providerReference, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    type: { $ref: '../../openapi.yaml#/components/schemas/PaymentTransactionType' }
+    stage: { $ref: '../../openapi.yaml#/components/schemas/PaymentTransactionStage' }
+    amount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    status: { $ref: '../../openapi.yaml#/components/schemas/PaymentTransactionStatus' }
+    providerReference: { oneOf: [{ type: string, minLength: 1, maxLength: 160 }, { type: 'null' }] }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+OrderRefund:
+  type: object
+  additionalProperties: false
+  required: [status, requestedAmount, refundedAmount, cancellationFeeAmount]
+  properties:
+    status: { $ref: '../../openapi.yaml#/components/schemas/RefundStatus' }
+    requestedAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    refundedAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    cancellationFeeAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+OrderCancellation:
+  type: object
+  additionalProperties: false
+  required: [actor, reasonCode, note, cancelledAt]
+  properties:
+    actor: { $ref: '../../openapi.yaml#/components/schemas/CancellationActor' }
+    reasonCode: { $ref: '../../openapi.yaml#/components/schemas/CancellationReason' }
+    note: { oneOf: [{ type: string, maxLength: 500 }, { type: 'null' }] }
+    cancelledAt: { type: string, format: date-time }
+OrderPayment:
+  type: object
+  additionalProperties: false
+  required: [status, amountDueAtCheckout, amountPaid, amountRefunded, balanceDue, schedule, refund, transactions]
+  properties:
+    status: { $ref: '../../openapi.yaml#/components/schemas/PaymentStatus' }
+    amountDueAtCheckout: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    amountPaid: { allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }], description: Gross successful charges; refunds do not reduce this audit amount. }
+    amountRefunded: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    balanceDue: { allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }], description: 'Current unpaid purchase balance; zero after full payment, cancellation, or expiry.' }
+    schedule: { $ref: '../../openapi.yaml#/components/schemas/PaymentSchedule' }
+    refund: { $ref: '../../openapi.yaml#/components/schemas/OrderRefund' }
+    transactions: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/PaymentTransaction' } }
 OrderSummary:
   type: object
   additionalProperties: false
-  required: [id, orderNumber, status, pricing, createdAt, statusUpdatedAt]
+  required: [id, orderNumber, status, paymentStatus, nextPaymentDueAt, pricing, createdAt, statusUpdatedAt]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     orderNumber: { type: string, minLength: 1, maxLength: 40, example: FLE-20260720-00001 }
     status: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
+    paymentStatus: { $ref: '../../openapi.yaml#/components/schemas/PaymentStatus' }
+    nextPaymentDueAt:
+      description: initialPaymentDueAt while Pending, balanceDueAt while DepositPaid, gracePeriodEndsAt while BalanceOverdue, otherwise null.
+      oneOf: [{ type: string, format: date-time }, { type: 'null' }]
     pricing:
       type: object
       additionalProperties: false
-      required: [currency, grandTotal]
+      required: [currency, grandTotal, amountDueNow, balanceDue]
       properties:
         currency: { type: string, enum: [VND] }
         grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+        amountDueNow: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+        balanceDue: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     createdAt: { type: string, format: date-time }
     statusUpdatedAt: { type: string, format: date-time }
 AdminOrderSummary:
   type: object
   additionalProperties: false
-  required: [id, orderNumber, customer, recipientName, recipientPhoneNumber, status, pricing, createdAt, statusUpdatedAt]
+  required: [id, orderNumber, customer, recipientName, recipientPhoneNumber, status, paymentStatus, nextPaymentDueAt, pricing, createdAt, statusUpdatedAt]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     orderNumber: { type: string, minLength: 1, maxLength: 40, example: FLE-20260720-00001 }
@@ -52,19 +127,25 @@ AdminOrderSummary:
     recipientName: { type: string, minLength: 1, maxLength: 120 }
     recipientPhoneNumber: { type: string, pattern: '^\+?[0-9]{9,15}$' }
     status: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
+    paymentStatus: { $ref: '../../openapi.yaml#/components/schemas/PaymentStatus' }
+    nextPaymentDueAt:
+      description: initialPaymentDueAt while Pending, balanceDueAt while DepositPaid, gracePeriodEndsAt while BalanceOverdue, otherwise null.
+      oneOf: [{ type: string, format: date-time }, { type: 'null' }]
     pricing:
       type: object
       additionalProperties: false
-      required: [currency, grandTotal]
+      required: [currency, grandTotal, amountDueNow, balanceDue]
       properties:
         currency: { type: string, enum: [VND] }
         grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+        amountDueNow: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+        balanceDue: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     createdAt: { type: string, format: date-time }
     statusUpdatedAt: { type: string, format: date-time }
 Order:
   type: object
   additionalProperties: false
-  required: [id, orderNumber, customer, status, statusUpdatedAt, items, promotion, pricing, shippingAddress, note, createdAt, updatedAt]
+  required: [id, orderNumber, customer, status, statusUpdatedAt, items, promotion, pricing, payment, cancellationPolicy, cancellation, shippingAddress, note, createdAt, updatedAt]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     orderNumber: { type: string, minLength: 1, maxLength: 40, example: FLE-20260720-00001 }
@@ -74,6 +155,11 @@ Order:
     items: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/OrderItem' } }
     promotion: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/AppliedPromotion' }, { type: 'null' }] }
     pricing: { $ref: '../../openapi.yaml#/components/schemas/OrderPricing' }
+    payment: { $ref: '../../openapi.yaml#/components/schemas/OrderPayment' }
+    cancellationPolicy:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/CancellationPolicy' }]
+      description: Conservative order-level snapshot derived from all item policies at checkout; uses the earliest cutoff, lowest applicable refund percentage, and summed fees.
+    cancellation: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/OrderCancellation' }, { type: 'null' }] }
     shippingAddress: { $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }
     note: { oneOf: [{ type: string, maxLength: 500 }, { type: 'null' }] }
     createdAt: { type: string, format: date-time }
@@ -91,9 +177,10 @@ MockPaymentRequest:
 MockPaymentMeta:
   type: object
   additionalProperties: false
-  required: [result]
+  required: [result, chargedAmount]
   properties:
     result: { type: string, enum: [approved, declined] }
+    chargedAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
 MockPaymentResponse:
   type: object
   additionalProperties: false
@@ -101,6 +188,38 @@ MockPaymentResponse:
   properties:
     data: { $ref: '../../openapi.yaml#/components/schemas/Order' }
     meta: { $ref: '../../openapi.yaml#/components/schemas/MockPaymentMeta' }
+CancelOrderRequest:
+  type: object
+  additionalProperties: false
+  required: [expectedCurrentStatus, reasonCode]
+  description: reasonCode other requires a non-empty note; the server enforces this cross-field rule.
+  properties:
+    expectedCurrentStatus: { type: string, enum: [Created, DepositPaid, Paid] }
+    reasonCode: { type: string, enum: [changed_mind, configuration_change, payment_unavailable, duplicate_order, other] }
+    note: { type: string, maxLength: 500 }
+MockRefundRequest:
+  type: object
+  additionalProperties: false
+  required: [result]
+  examples:
+    - { result: approved }
+    - { result: declined }
+  properties:
+    result: { type: string, enum: [approved, declined], description: Deterministic local-demo outcome; never expose in production. }
+MockRefundMeta:
+  type: object
+  additionalProperties: false
+  required: [result, refundedAmount]
+  properties:
+    result: { type: string, enum: [approved, declined] }
+    refundedAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+MockRefundResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/Order' }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/MockRefundMeta' }
 OrderPageResponse:
   type: object
   required: [data, meta]
@@ -118,9 +237,11 @@ OrderTransitionRequest:
   type: object
   additionalProperties: false
   required: [expectedCurrentStatus, targetStatus]
+  description: targetStatus Cancelled requires cancellationReasonCode; reason other also requires a non-empty note. The server enforces these cross-field rules.
   examples:
     - { expectedCurrentStatus: Paid, targetStatus: Shipped, note: Đã bàn giao cho đơn vị vận chuyển. }
   properties:
     expectedCurrentStatus: { $ref: '../../openapi.yaml#/components/schemas/OrderStatus' }
-    targetStatus: { type: string, enum: [Shipped, Completed, Cancelled] }
+    targetStatus: { type: string, enum: [Paid, Shipped, Completed, Cancelled] }
+    cancellationReasonCode: { type: string, enum: [inventory_unavailable, admin_decision, other] }
     note: { type: string, maxLength: 500 }
