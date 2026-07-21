@@ -16,7 +16,16 @@ export default function Home() {
             <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />
             <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col items-center px-5 pt-16 sm:pt-20 lg:pt-20">
-                <h1 className="text-[40px] font-bold leading-[1.12] tracking-wide text-[#836100] sm:text-5xl lg:text-[58px]">Khởi nguồn<br />Tương lai di chuyển.</h1>
+                <h1 className="hero-sunlight text-[40px] font-bold leading-[1.12] tracking-wide sm:text-5xl lg:text-[58px]">
+                    <span className="hero-copy">
+                        <span>Khởi nguồn</span>
+                        <span>Tương lai di chuyển.</span>
+                    </span>
+                    <span className="hero-light" aria-hidden="true">
+                        <span>Khởi nguồn</span>
+                        <span>Tương lai di chuyển.</span>
+                    </span>
+                </h1>
                 <div className="mt-[330px] lg:mt-[365px]"><span className="rounded-full bg-white/75 px-4 py-2 text-xs font-bold shadow-sm">Trải Nghiệm Đẳng Cấp</span>
                     <p className="mx-auto mt-4 max-w-xl text-base text-slate-700 sm:text-xl">Tuyệt tác công nghệ VinFast VF9. Sẵn sàng đồng hành cùng bạn trên mọi hành trình.</p>
                     <div className="mt-6 flex justify-center gap-3"><Button variant="gold">Đặt cọc ngay <ArrowRight className="ml-1" size={15} /></Button><Button variant="outline">Tìm hiểu thêm</Button></div></div>
