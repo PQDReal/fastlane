@@ -13,8 +13,15 @@ const links = [
   'Hỗ trợ',
 ]
 
-export function Header() {
+export interface HeaderUser {
+  email?: string | null
+  name?: string | null
+}
+
+export function Header({ user }: { user?: HeaderUser }) {
   const [open, setOpen] = useState(false)
+  const accountLabel =
+    user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
 
   return (
     <header className="sticky top-0 z-50 h-[74px] border-b bg-white/95 shadow-sm backdrop-blur">
@@ -45,9 +52,20 @@ export function Header() {
           <Search size={19} />
           <ShoppingCart className="hidden sm:block" size={19} />
           <UserRound className="hidden sm:block" size={19} />
-          <button className="hidden rounded-full bg-navy px-4 py-2 text-xs font-bold text-white sm:block">
-            Đăng nhập
-          </button>
+          {user ? (
+            <div className="hidden items-center gap-3 sm:flex">
+              <span className="max-w-36 truncate text-xs font-semibold" title={user.email ?? undefined}>
+                {accountLabel}
+              </span>
+              <a className="rounded-full border border-navy px-4 py-2 text-xs font-bold text-navy" href="/auth/logout">
+                Đăng xuất
+              </a>
+            </div>
+          ) : (
+            <a className="hidden rounded-full bg-navy px-4 py-2 text-xs font-bold text-white sm:block" href="/auth/login">
+              Đăng nhập
+            </a>
+          )}
           <button className="xl:hidden" aria-label="Menu" onClick={() => setOpen(!open)}>
             {open ? <X /> : <Menu />}
           </button>
@@ -66,6 +84,12 @@ export function Header() {
               {link}
             </a>
           ))}
+          <a
+            className="block pt-4 text-sm font-bold text-blue"
+            href={user ? '/auth/logout' : '/auth/login'}
+          >
+            {user ? 'Đăng xuất' : 'Đăng nhập'}
+          </a>
         </nav>
       )}
     </header>

@@ -4,14 +4,23 @@ import { Button } from '../components/ui/button'
 import { CategoryCard } from '../components/category-card'
 import { ProductCard } from '../components/product-card'
 import { Footer } from '../components/footer'
+import { auth0 } from '../lib/auth0'
+
+export const dynamic = 'force-dynamic'
 
 const products = [
     { name: 'VinFast VF9', desc: 'SUV cỡ lớn sang trọng với không gian rộng rãi và công nghệ thông minh.', price: '1.491.000.000', image: '/images/vf9.png', hot: true },
     { name: 'VinFast VF8', desc: 'SUV cỡ trung mạnh mẽ, thiết kế đậm chất thể thao, trải nghiệm lái khác biệt.', price: '1.090.000.000', image: '/images/vf8.png' },
     { name: 'Vento S', desc: 'Xe máy điện cao cấp, vận hành êm ái, thiết kế thanh lịch chuẩn phong cách.', price: '50.000.000', image: '/images/vento.png' }]
 
-export default function Home() {
-    return <main><Header />
+export default async function Home() {
+    const session = await auth0.getSession()
+    const user = session ? {
+        email: session.user.email,
+        name: session.user.name,
+    } : undefined
+
+    return <main><Header user={user} />
         <section className="relative flex min-h-[680px] items-start justify-center overflow-hidden bg-[#e8e6e6] text-center lg:min-h-[805px]">
             <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />
