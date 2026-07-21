@@ -36,6 +36,10 @@ ErrorCode:
     - DUPLICATE_SKU
     - DUPLICATE_PROMOTION_CODE
     - PRODUCT_NOT_PURCHASABLE
+    - PRODUCT_CONFIGURATION_INVALID
+    - ORDER_CANCELLATION_NOT_ALLOWED
+    - PAYMENT_DEADLINE_EXPIRED
+    - REFUND_NOT_ALLOWED
     - CART_EMPTY
     - CART_CHANGED
     - PRICE_CHANGED
@@ -156,13 +160,15 @@ CustomerReference:
 OrderStatusCounts:
   type: object
   additionalProperties: false
-  required: [Created, Paid, Shipped, Completed, Cancelled]
+  required: [Created, DepositPaid, Paid, Shipped, Completed, Cancelled, Expired]
   properties:
     Created: { type: integer, minimum: 0 }
+    DepositPaid: { type: integer, minimum: 0 }
     Paid: { type: integer, minimum: 0 }
     Shipped: { type: integer, minimum: 0 }
     Completed: { type: integer, minimum: 0 }
     Cancelled: { type: integer, minimum: 0 }
+    Expired: { type: integer, minimum: 0 }
 DashboardSummary:
   type: object
   additionalProperties: false
