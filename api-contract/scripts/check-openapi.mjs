@@ -36,12 +36,22 @@ const PUBLIC_OPERATIONS = new Set([
   "GET /categories",
   "GET /products",
   "GET /products/{slug}",
+  "GET /test-drive/availability",
+  "POST /test-drive/requests",
+  "POST /consultation-requests",
+  "POST /estimates/on-road",
+  "POST /estimates/installment",
 ]);
 const REQUIRED_OPERATIONS = new Map([
   ["/health", ["get"]],
   ["/categories", ["get"]],
   ["/products", ["get"]],
   ["/products/{slug}", ["get"]],
+  ["/test-drive/availability", ["get"]],
+  ["/test-drive/requests", ["post"]],
+  ["/consultation-requests", ["post"]],
+  ["/estimates/on-road", ["post"]],
+  ["/estimates/installment", ["post"]],
   ["/users/me", ["get", "patch"]],
   ["/cart", ["get"]],
   ["/cart/items", ["post"]],
@@ -68,6 +78,16 @@ const REQUIRED_OPERATIONS = new Map([
   ["/admin/orders", ["get"]],
   ["/admin/orders/{orderId}", ["get"]],
   ["/admin/orders/{orderId}/transitions", ["post"]],
+  ["/admin/test-drive/requests", ["get"]],
+  ["/admin/test-drive/requests/{requestId}", ["get"]],
+  ["/admin/test-drive/requests/{requestId}/transitions", ["post"]],
+  ["/admin/test-drive/settings", ["get", "patch"]],
+  ["/admin/consultation-requests", ["get"]],
+  ["/admin/consultation-requests/{requestId}/transitions", ["post"]],
+  ["/admin/fee-policies", ["get", "post"]],
+  ["/admin/fee-policies/{feePolicyId}", ["patch"]],
+  ["/admin/loan-packages", ["get", "post"]],
+  ["/admin/loan-packages/{loanPackageId}", ["patch"]],
 ]);
 
 class CheckFailure extends Error {}
@@ -468,6 +488,7 @@ function checkContract(specPath) {
           "inventory:manage",
           "orders:fulfill",
           "orders:read:any",
+          "prepurchase:manage",
           "promotion:manage",
         ]);
         for (const permission of operation["x-required-permissions"]) {
@@ -482,7 +503,7 @@ function checkContract(specPath) {
         errors.push(`${label} lacks x-prd-references`);
       } else {
         for (const reference of refs) {
-          if (!/^(US-[CA]\d{2}|FR-[A-Z0-9-]+|BR-\d{2})$/.test(reference)) {
+          if (!/^(US-[CA]\d{2}|FR-[A-Z0-9-]+|BR-\d{2}|BR-(DIS|SHW|LEAD|TD|EST|LN|HAND)-\d{3})$/.test(reference)) {
             errors.push(`${label} has malformed PRD reference ${reference}`);
           }
         }
@@ -603,6 +624,8 @@ function checkContract(specPath) {
     "x-refund-policy",
     "x-product-publication-policy",
     "x-product-configuration-policy",
+    "x-single-showroom-policy",
+    "x-prepurchase-estimate-policy",
     "x-authorization-model",
   ]) {
     if (!document[extension]) errors.push(`missing root policy ${extension}`);
@@ -854,6 +877,35 @@ function checkSchemas(specPath) {
       isActive: true,
     }],
   };
+  const testDriveLocation = {
+    name: "FASTLANE Central",
+    addressLine: "720A Điện Biên Phủ",
+    province: { code: "79", name: "TP. Hồ Chí Minh" },
+    phoneNumber: "0912345678",
+    timezone: "Asia/Ho_Chi_Minh",
+    isActive: true,
+  };
+  const testDriveCreate = {
+    productId: u1,
+    slotId: u2,
+    contact: {
+      fullName: "Nguyễn Văn A",
+      phoneNumber: "0912345678",
+      email: "customer@example.com",
+    },
+    consent: {
+      privacyConsent: true,
+      privacyPolicyVersion: "2026-07",
+      marketingConsent: false,
+    },
+    licenceAcknowledged: true,
+    note: "Muốn được tư vấn thêm về pin.",
+  };
+  const estimateSelection = {
+    productId: u1,
+    variantId: u3,
+    selectedOptionValueIds: [],
+  };
   const samples = new Map([
     ["HealthResponse", { data: { status: "ok" } }],
     ["ProductDetail", product],
@@ -935,6 +987,111 @@ function checkSchemas(specPath) {
     }],
     ["ProductPatchRequest", { name: "VinFast VF 8 Plus" }],
     ["CancelOrderRequest", { expectedCurrentStatus: "DepositPaid", reasonCode: "changed_mind", note: "Thay đổi kế hoạch mua xe." }],
+    ["CreateTestDriveRequest", testDriveCreate],
+    ["TestDriveAvailability", {
+      productId: u1,
+      location: testDriveLocation,
+      slots: [{
+        id: u2,
+        startsAt: "2026-07-23T02:00:00Z",
+        endsAt: "2026-07-23T03:30:00Z",
+        status: "AVAILABLE",
+        remainingCapacity: 1,
+      }],
+      generatedAt: timestamp,
+    }],
+    ["TestDriveRequestDetail", {
+      id: u1,
+      referenceNumber: "TDR-20260722-0001",
+      productId: u2,
+      productName: "VinFast VF 8",
+      status: "REQUESTED",
+      preferredStartsAt: "2026-07-23T02:00:00Z",
+      preferredEndsAt: "2026-07-23T03:30:00Z",
+      contact: testDriveCreate.contact,
+      locationSnapshot: testDriveLocation,
+      note: null,
+      licenceAcknowledged: true,
+      privacyPolicyVersion: "2026-07",
+      marketingConsent: false,
+      history: [{
+        fromStatus: null,
+        toStatus: "REQUESTED",
+        actorType: "GUEST",
+        reason: null,
+        changedAt: timestamp,
+      }],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+    ["OnRoadEstimate", {
+      calculationId: u1,
+      currency: "VND",
+      selection: estimateSelection,
+      registrationProvince: { code: "79", name: "TP. Hồ Chí Minh" },
+      breakdown: [
+        { code: "VEHICLE_PRICE", label: "Giá xe sau ưu đãi", category: "VEHICLE", amount: "999000000", included: false },
+        { code: "VAT_INCLUDED", label: "VAT đã bao gồm", category: "TAX_INFO", amount: "0", included: true },
+        { code: "REGISTRATION", label: "Lệ phí đăng ký", category: "MANDATORY_FEE", amount: "20000000", included: false },
+      ],
+      vehiclePriceAfterDiscount: "999000000",
+      mandatoryFeeTotal: "20000000",
+      optionalFeeTotal: "0",
+      onRoadTotal: "1019000000",
+      catalogVersion: "catalog-2026-07-22",
+      feePolicyVersions: ["registration-v1"],
+      generatedAt: timestamp,
+      disclaimer: "Dự toán tham khảo, không phải báo giá.",
+    }],
+    ["InstallmentEstimate", {
+      calculationId: u2,
+      onRoadCalculationId: u1,
+      currency: "VND",
+      financeBase: "999000000",
+      downPayment: "499500000",
+      loanPrincipal: "499500000",
+      upfrontCash: "519500000",
+      annualInterestRate: 8.5,
+      termMonths: 1,
+      totalInterest: "3538125",
+      totalLoanAndInterest: "503038125",
+      schedule: [{
+        period: 1,
+        openingPrincipal: "499500000",
+        principalPaid: "499500000",
+        interestPaid: "3538125",
+        paymentTotal: "503038125",
+        closingPrincipal: "0",
+      }],
+      loanPackageVersion: "standard-bank-v1",
+      generatedAt: timestamp,
+      disclaimer: "Dự toán tham khảo, không phải quyết định cấp tín dụng.",
+    }],
+    ["FeePolicyCreateRequest", {
+      code: "REGISTRATION_FEE",
+      label: "Lệ phí đăng ký",
+      vehicleKind: "car",
+      provinceCode: null,
+      calculationType: "FIXED",
+      value: "20000000",
+      calculationBase: "VEHICLE_PRICE_AFTER_DISCOUNT",
+      mandatory: true,
+      priority: 0,
+      startsAt: timestamp,
+      endsAt: null,
+      status: "ACTIVE",
+    }],
+    ["LoanPackageCreateRequest", {
+      code: "STANDARD_BANK",
+      name: "Vay tiêu chuẩn",
+      lenderName: "Ngân hàng Demo",
+      annualInterestRate: 8.5,
+      allowedTermMonths: [12, 24, 36],
+      allowedDownPaymentPercents: [20, 30, 50],
+      startsAt: timestamp,
+      endsAt: null,
+      status: "ACTIVE",
+    }],
   ]);
   for (const [name, sample] of samples) valid(name, sample);
 
@@ -974,6 +1131,46 @@ function checkSchemas(specPath) {
   const productWithExtraField = structuredClone(product);
   productWithExtraField.internalCost = "1";
   negative("ProductDetail", productWithExtraField);
+  negative("CreateTestDriveRequest", { ...testDriveCreate, showroomId: u5 });
+  negative("CreateTestDriveRequest", {
+    ...testDriveCreate,
+    consent: { ...testDriveCreate.consent, privacyConsent: false },
+  });
+  negative("OnRoadEstimateRequest", {
+    selection: estimateSelection,
+    registrationProvince: { code: "79", name: "TP. Hồ Chí Minh" },
+    selectedOptionalFeeCodes: [],
+    acceptedTotal: "1000000000",
+  });
+  negative("InstallmentEstimateRequest", {
+    onRoadCalculationId: u1,
+    loanPackageId: u2,
+    termMonths: 0,
+    downPaymentPercent: 20,
+  });
+  negative("TestDriveSettingsPatchRequest", { expectedVersion: 1 });
+  negative("FeePolicyCreateRequest", {
+    code: "REGISTRATION_FEE",
+    label: "Lệ phí đăng ký",
+    vehicleKind: "car",
+    provinceCode: null,
+    calculationType: "FIXED",
+    value: "-1",
+    calculationBase: "VEHICLE_PRICE_AFTER_DISCOUNT",
+    mandatory: true,
+    startsAt: timestamp,
+    status: "ACTIVE",
+  });
+  negative("LoanPackageCreateRequest", {
+    code: "INVALID_LOAN",
+    name: "Gói vay lỗi",
+    lenderName: "Ngân hàng Demo",
+    annualInterestRate: 8.5,
+    allowedTermMonths: [12],
+    allowedDownPaymentPercents: [101],
+    startsAt: timestamp,
+    status: "ACTIVE",
+  });
 
   valid("Money", "199000");
   valid("PositiveMoney", "1");

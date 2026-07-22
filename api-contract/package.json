@@ -1,6 +1,6 @@
 {
   "name": "fastlane-ecommerce-api-contract",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Contract-first OpenAPI artifact and repeatable verification gates for Fastlane E-Commerce.",

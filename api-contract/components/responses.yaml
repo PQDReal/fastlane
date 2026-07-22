@@ -78,6 +78,66 @@ PromotionPage:
   content:
     application/json:
       schema: { $ref: '../openapi.yaml#/components/schemas/PromotionPageResponse' }
+TestDriveAvailability:
+  description: Available slots and the single server-owned test-drive location
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveAvailabilityResponse' }
+TestDriveRequest:
+  description: Test-drive request
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveRequestResponse' }
+TestDriveRequestPage:
+  description: Paginated test-drive requests
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveRequestPageResponse' }
+TestDriveSettings:
+  description: Singleton test-drive location and schedule settings
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveSettingsResponse' }
+ConsultationRequest:
+  description: Consultation request
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationRequestResponse' }
+ConsultationRequestPage:
+  description: Paginated consultation requests
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationRequestPageResponse' }
+OnRoadEstimate:
+  description: Advisory, versioned on-road estimate
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/OnRoadEstimateResponse' }
+InstallmentEstimate:
+  description: Advisory declining-balance installment schedule
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/InstallmentEstimateResponse' }
+FeePolicy:
+  description: Versioned on-road fee policy
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/FeePolicyResponse' }
+FeePolicyPage:
+  description: Paginated fee policies
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/FeePolicyPageResponse' }
+LoanPackage:
+  description: Versioned installment package
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/LoanPackageResponse' }
+LoanPackagePage:
+  description: Paginated installment packages
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/LoanPackagePageResponse' }
 Unauthorized:
   description: Missing, invalid, or expired access token.
   x-error-codes: [AUTHENTICATION_REQUIRED, INVALID_ACCESS_TOKEN]
@@ -189,6 +249,48 @@ BusinessRuleError:
     application/json:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
       example: { error: { code: BUSINESS_RULE_VIOLATION, message: Business rule was violated., requestId: req_01J00000000000000000000000 } }
+TestDriveConflict:
+  description: The slot, duplicate fingerprint, expected state, or confirmed capacity conflicts with the request.
+  x-error-codes: [TEST_DRIVE_SLOT_UNAVAILABLE, DUPLICATE_TEST_DRIVE_REQUEST, INVALID_TEST_DRIVE_TRANSITION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: TEST_DRIVE_SLOT_UNAVAILABLE, message: The selected test-drive slot is no longer available., requestId: req_01J00000000000000000000000 } }
+PrepurchaseTransitionConflict:
+  description: The expected consultation state does not match or the transition is invalid.
+  x-error-codes: [INVALID_CONSULTATION_TRANSITION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INVALID_CONSULTATION_TRANSITION, message: Consultation transition is not allowed., requestId: req_01J00000000000000000000000 } }
+PrepurchaseBusinessRuleError:
+  description: A pre-purchase resource or selection is not currently eligible.
+  x-error-codes: [TEST_DRIVE_LOCATION_UNAVAILABLE, TEST_DRIVE_PRODUCT_UNAVAILABLE, PRODUCT_NOT_PURCHASABLE, PRODUCT_CONFIGURATION_INVALID, BUSINESS_RULE_VIOLATION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: TEST_DRIVE_LOCATION_UNAVAILABLE, message: Test drives are not available at the configured location., requestId: req_01J00000000000000000000000 } }
+EstimateUnavailable:
+  description: Required fee or loan policy is missing, inactive, or incompatible with the calculation input.
+  x-error-codes: [ESTIMATE_POLICY_UNAVAILABLE, LOAN_PACKAGE_UNAVAILABLE, PRODUCT_NOT_PURCHASABLE, PRODUCT_CONFIGURATION_INVALID, PROMOTION_INVALID]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: ESTIMATE_POLICY_UNAVAILABLE, message: A required estimate policy is unavailable., requestId: req_01J00000000000000000000000 } }
+EstimateConflict:
+  description: The referenced on-road calculation is stale and must be recalculated.
+  x-error-codes: [ESTIMATE_STALE]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: ESTIMATE_STALE, message: Recalculate the on-road estimate before continuing., requestId: req_01J00000000000000000000000 } }
+PolicyConflict:
+  description: A policy/settings version is stale or overlaps an existing effective version.
+  x-error-codes: [POLICY_VERSION_CONFLICT, SETTINGS_VERSION_CONFLICT]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: POLICY_VERSION_CONFLICT, message: Policy version conflicts with current state., requestId: req_01J00000000000000000000000 } }
 TooManyRequests:
   description: Rate limit exceeded.
   x-error-codes: [RATE_LIMIT_EXCEEDED]

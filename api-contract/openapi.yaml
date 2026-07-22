@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Fastlane E-Commerce API
-  version: 0.4.0-draft
+  version: 0.5.0-draft
   summary: Contract-first REST API for the Fastlane B2C MVP
   description: |
     Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
@@ -28,6 +28,8 @@ tags:
     description: Transactional order creation and local-only mock payment.
   - name: Orders
     description: Current customer order history and status tracking.
+  - name: Pre-purchase
+    description: Public single-location test-drive requests, consultation leads, and advisory cost estimates.
   - name: Admin Dashboard
     description: Optional MVP operational summary for the admin panel.
   - name: Admin Catalog
@@ -36,19 +38,21 @@ tags:
     description: Promotion campaign administration.
   - name: Admin Orders
     description: Order search, fulfilment detail, and forward-only state transitions.
+  - name: Admin Pre-purchase
+    description: Single test-drive location, request operations, and versioned estimate policies.
 security:
   - bearerAuth: []
 x-prd-alignment:
   document: PRD - Fastlane E-Commerce
   version: 1.0.0
-  date: '2026-07-20'
+  date: '2026-07-22'
   contractScope: API contract only; implementation artifacts owned by other team members may be delivered later.
   priorities:
     must: Contracted as required behavior.
     should: Contracted for integration planning; implementation may be staged.
     could: Contracted only where already in scope or needed by the documented admin surface.
 x-contract-boundary:
-  included: [catalog, profile, cart, promotion, checkout, orders, inventory, admin]
+  included: [catalog, profile, cart, promotion, checkout, orders, inventory, prepurchase, admin]
   external: [Auth0 Universal Login]
   deferredImplementationArtifacts: [database migrations, application code, UI, CI, Docker Compose, deployment]
 x-business-rules:
@@ -129,6 +133,22 @@ x-product-configuration-policy:
   stableIdentity: Admin option replacement upserts by group/value code, preserves IDs for matching codes, and archives removed codes.
   cartValidation: Add and reprice validate option ownership, active state, group cardinality, uniqueness, and SKU compatibility.
   snapshots: Cart and order items retain option names, codes, and price adjustments so later catalog edits cannot rewrite an order.
+x-single-showroom-policy:
+  cardinality: Exactly one server-owned test-drive location is configured for the MVP.
+  clientSelection: Public operations never accept showroomId or locationId; availability responses include the configured location.
+  availability: Slots use Asia/Ho_Chi_Minh, business hours, blackout periods, supported products, and confirmed-capacity counts.
+  reservation: Selecting or requesting a slot does not reserve it; only an Admin CONFIRM transition consumes capacity.
+  deactivation: The location cannot be deactivated while unresolved future CONFIRMED appointments exist.
+  history: Test-drive requests retain a location snapshot so later settings changes do not rewrite history.
+x-prepurchase-estimate-policy:
+  advisory: On-road and installment calculations are estimates, not quotations or credit approval.
+  priceAuthority: Catalog, option, promotion, fee, and loan values are resolved by the server; client-supplied totals are never accepted.
+  locality: Registration province selects fee policies independently of the single showroom location.
+  vat: VAT already included in catalog price is informational and is not added twice; missing tax-inclusion metadata fails calculation.
+  missingPolicy: A missing mandatory active fee or compatible loan package fails instead of silently contributing zero.
+  versioning: Effective or previously used policy versions are immutable and every result records its source versions and generatedAt.
+  rounding: Percentage amounts and repayment rows use half-up whole-VND rounding; the final principal row reconciles balance to zero.
+  handoff: Checkout receives identifiers/configuration only and always re-prices before order creation.
 x-filter-policy:
   priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
   createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.
@@ -167,6 +187,16 @@ paths:
     $ref: './paths/catalog.yaml#/~1products'
   /products/{slug}:
     $ref: './paths/catalog.yaml#/~1products~1{slug}'
+  /test-drive/availability:
+    $ref: './paths/prepurchase.yaml#/~1test-drive~1availability'
+  /test-drive/requests:
+    $ref: './paths/prepurchase.yaml#/~1test-drive~1requests'
+  /consultation-requests:
+    $ref: './paths/prepurchase.yaml#/~1consultation-requests'
+  /estimates/on-road:
+    $ref: './paths/prepurchase.yaml#/~1estimates~1on-road'
+  /estimates/installment:
+    $ref: './paths/prepurchase.yaml#/~1estimates~1installment'
   /users/me:
     $ref: './paths/catalog.yaml#/~1users~1me'
   /cart:
@@ -219,6 +249,26 @@ paths:
     $ref: './paths/admin-orders.yaml#/~1admin~1orders~1{orderId}'
   /admin/orders/{orderId}/transitions:
     $ref: './paths/admin-orders.yaml#/~1admin~1orders~1{orderId}~1transitions'
+  /admin/test-drive/requests:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1requests'
+  /admin/test-drive/requests/{requestId}:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1requests~1{requestId}'
+  /admin/test-drive/requests/{requestId}/transitions:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1requests~1{requestId}~1transitions'
+  /admin/test-drive/settings:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1settings'
+  /admin/consultation-requests:
+    $ref: './paths/prepurchase.yaml#/~1admin~1consultation-requests'
+  /admin/consultation-requests/{requestId}/transitions:
+    $ref: './paths/prepurchase.yaml#/~1admin~1consultation-requests~1{requestId}~1transitions'
+  /admin/fee-policies:
+    $ref: './paths/prepurchase.yaml#/~1admin~1fee-policies'
+  /admin/fee-policies/{feePolicyId}:
+    $ref: './paths/prepurchase.yaml#/~1admin~1fee-policies~1{feePolicyId}'
+  /admin/loan-packages:
+    $ref: './paths/prepurchase.yaml#/~1admin~1loan-packages'
+  /admin/loan-packages/{loanPackageId}:
+    $ref: './paths/prepurchase.yaml#/~1admin~1loan-packages~1{loanPackageId}'
 components:
   securitySchemes:
     $ref: './components/security.yaml'

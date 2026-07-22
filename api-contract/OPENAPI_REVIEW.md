@@ -3,8 +3,8 @@
 ## 1. Trạng thái tài liệu
 
 - Contract được kiểm tra: `openapi.yaml`.
-- Phiên bản contract: `0.4.0-draft`.
-- Ngày kiểm tra gần nhất: 2026-07-21.
+- Phiên bản contract: `0.5.0-draft`.
+- Ngày kiểm tra gần nhất: 2026-07-22.
 - Nguồn yêu cầu:
   - đề bài Mini E-Commerce Platform;
   - `C:\Users\Dang\Downloads\PRD - Fastlane E-Commerce.txt`, phiên bản PRD 1.0.0;
@@ -12,7 +12,7 @@
 - Phạm vi xác nhận: API contract trước khi ghép backend, Storefront, Admin, database và hạ tầng của các thành viên khác.
 - Trạng thái: đủ điều kiện để mentor và các module owner review/freeze contract; chưa phải xác nhận hệ thống đã được triển khai.
 
-Snapshot hiện tại có 30 path, 43 operation, 97 schema, 31 reusable response và 22 reusable parameter. Contract được tách nhỏ thành các module trong `components/` và `paths/`, tự động bundle thành `dist/openapi.bundle.yaml`.
+Snapshot hiện tại có 45 path, 61 operation, 150 schema, 49 reusable response và 30 reusable parameter. Contract được tách nhỏ thành các module trong `components/` và `paths/`, tự động bundle thành `dist/openapi.bundle.yaml`.
 
 ## 2. Mục tiêu và ranh giới
 
@@ -92,6 +92,7 @@ Các quyết định trên được ghi máy đọc được ở các extension 
 | Admin promotion | `US-A05`, `FR-ADMN-05` | `/admin/promotions/**` | Covered |
 | Admin order | `US-A06..A08`, `FR-ADMN-06` | admin order list/detail/transition | Covered |
 | Dashboard | `US-A01`, `FR-ADMN-01` | `/admin/dashboard/summary` | Contracted as Could-have |
+| Pre-purchase | Business Rule Catalog draft | test-drive, consultation, estimates và admin policy | Additive draft; chờ PO/BA freeze |
 
 Mỗi non-health operation còn có `x-prd-references` riêng. Bảng trên chỉ là bản tổng hợp để review nhanh.
 
@@ -245,7 +246,7 @@ npm run check:openapi -- lint --spec .\openapi.yaml
 | `lint` | Redocly 2.39.0 recommended lint |
 | `refs` | UTF-8/YAML, duplicate key, local `$ref`, `operationId`, path parameter và unused component |
 | `contract` | Required-operation coverage, định dạng PRD reference, `/api/v1`, Auth0/RBAC, request DTO boundary, typed errors, `429/500`, idempotency và policy metadata |
-| `schemas` | Compile 70 component schema bằng Ajv draft 2020-12; validate examples, fixture dương và fixture âm |
+| `schemas` | Compile 150 component schema bằng Ajv draft 2020-12; validate examples, fixture dương và fixture âm |
 | `codegen` | Sinh TypeScript bằng `openapi-typescript` 7.9.1 trong thư mục tạm rồi xóa an toàn |
 | `all` | Chạy toàn bộ theo thứ tự `lint → refs → contract → schemas → codegen` |
 
@@ -268,15 +269,15 @@ Lệnh:
 npm run check:openapi -- all
 ```
 
-Kết quả ngày 2026-07-21:
+Kết quả ngày 2026-07-22:
 
 | Gate | Kết quả | Evidence |
 |---|---|---|
 | `lint` | PASS | Redocly 2.39.0, 0 error, 0 warning |
-| `refs` | PASS | 30 path, 43 operation, 588 local ref được resolve; không thiếu/trùng `operationId` |
-| `contract` | PASS | Required-operation coverage, định dạng PRD reference, Auth0/RBAC, DTO boundary, typed error, `429/500` và idempotency đạt cho 43 operation |
-| `schemas` | PASS | 11 fixture đại diện, 14 component example, 18 response example và 18 negative fixture |
-| `codegen` | PASS | `openapi-typescript` 7.9.1 sinh file TypeScript 113,789 byte trong temp |
+| `refs` | PASS | 45 path, 61 operation, 876 local ref được resolve; không thiếu/trùng `operationId` |
+| `contract` | PASS | Required-operation coverage, định dạng PRD/business-rule reference, Auth0/RBAC, DTO boundary, typed error, `429/500` và idempotency đạt cho 61 operation |
+| `schemas` | PASS | 18 fixture đại diện, 16 component example, 24 response example và 25 negative fixture |
+| `codegen` | PASS | `openapi-typescript` 7.9.1 sinh file TypeScript 165,944 byte trong temp |
 
 Kết luận tự động: `PASS (5/5 groups passed)`.
 
@@ -295,6 +296,16 @@ Các gate trên xác nhận chất lượng contract tĩnh. Chúng không chứn
 - migration, observability, load test, security test hoặc deployment readiness.
 
 Các mục này phải được kiểm tra ở node Backend, Frontend, QA và DevOps sau khi team tích hợp.
+
+### Migration từ `0.4.0-draft` sang `0.5.0-draft`
+
+- Thêm public capability cho yêu cầu lái thử, yêu cầu tư vấn, dự toán lăn bánh và dự toán trả góp.
+- MVP có đúng một địa điểm lái thử do server cấu hình; public request không nhận `showroomId`/`locationId`. Tỉnh đăng ký xe trong dự toán độc lập với vị trí showroom.
+- Thêm Admin API quản lý request, singleton test-drive settings, fee policy và loan package có version.
+- Thêm permission `prepurchase:manage`, typed error và fixture cho slot conflict, duplicate request, policy unavailable/stale và optimistic version conflict.
+- Frontend phải hiển thị địa điểm cố định, chọn xe/ngày/slot và diễn đạt đây là yêu cầu chờ Admin xác nhận; không hiển thị bước chọn showroom.
+- Estimate chỉ mang cấu hình sang checkout; checkout tiếp tục định giá lại và không nhận total do client cung cấp.
+- Đây là additive draft change nhưng là capability ngoài PRD gốc; PO/BA phải freeze Business Rule Catalog trước khi backend/database implementation.
 
 ### Migration từ `0.3.0-draft` sang `0.4.0-draft`
 
@@ -353,4 +364,4 @@ Các mục này phải được kiểm tra ở node Backend, Frontend, QA và De
   - `scripts/check-openapi.mjs`;
   - `package.json`, `package-lock.json` và `redocly.yaml`.
 - Governance note: project chưa có bộ artefact `.local`; tài liệu này ghi lại decision/evidence trong phạm vi repo contract.
-- Bước tiếp theo: PO/module-owner G2 review → freeze `0.4.0-draft` → backend/frontend/worker migration và integration QA.
+- Bước tiếp theo: PO/BA review single-showroom pre-purchase rules → freeze `0.5.0-draft` → database/backend/frontend migration và integration QA.

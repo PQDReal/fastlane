@@ -1,0 +1,578 @@
+ContactInput:
+  type: object
+  additionalProperties: false
+  required: [fullName, phoneNumber, email]
+  properties:
+    fullName: { type: string, minLength: 1, maxLength: 120, description: Trimmed by the server. }
+    phoneNumber: { type: string, pattern: '^\+?[0-9]{9,15}$', description: Normalized before persistence and duplicate checks. }
+    email: { type: string, format: email, maxLength: 254 }
+
+ConsentInput:
+  type: object
+  additionalProperties: false
+  required: [privacyConsent, privacyPolicyVersion, marketingConsent]
+  properties:
+    privacyConsent: { type: boolean, const: true }
+    privacyPolicyVersion: { type: string, minLength: 1, maxLength: 50 }
+    marketingConsent: { type: boolean, description: Optional marketing consent recorded independently from required service consent. }
+
+ProvinceReference:
+  type: object
+  additionalProperties: false
+  required: [code, name]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 20 }
+    name: { type: string, minLength: 1, maxLength: 120 }
+
+TestDriveLocation:
+  type: object
+  additionalProperties: false
+  description: Server-owned singleton location. Public write requests never accept a location or showroom identifier.
+  required: [name, addressLine, province, phoneNumber, timezone, isActive]
+  properties:
+    name: { type: string, minLength: 1, maxLength: 160 }
+    addressLine: { type: string, minLength: 1, maxLength: 300 }
+    province: { $ref: '../../openapi.yaml#/components/schemas/ProvinceReference' }
+    phoneNumber: { type: string, pattern: '^\+?[0-9]{9,15}$' }
+    timezone: { type: string, const: Asia/Ho_Chi_Minh }
+    isActive: { type: boolean }
+
+TestDriveSlotStatus:
+  type: string
+  enum: [AVAILABLE, FULL]
+
+TestDriveSlot:
+  type: object
+  additionalProperties: false
+  required: [id, startsAt, endsAt, status, remainingCapacity]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    startsAt: { type: string, format: date-time }
+    endsAt: { type: string, format: date-time }
+    status: { $ref: '../../openapi.yaml#/components/schemas/TestDriveSlotStatus' }
+    remainingCapacity: { type: integer, minimum: 0 }
+
+TestDriveAvailability:
+  type: object
+  additionalProperties: false
+  required: [productId, location, slots, generatedAt]
+  properties:
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    location: { $ref: '../../openapi.yaml#/components/schemas/TestDriveLocation' }
+    slots: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveSlot' } }
+    generatedAt: { type: string, format: date-time }
+
+TestDriveAvailabilityResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/TestDriveAvailability' }
+
+CreateTestDriveRequest:
+  type: object
+  additionalProperties: false
+  description: Creates a preferred-time request for the one configured location; it does not immediately confirm or reserve an appointment.
+  required: [productId, slotId, contact, consent, licenceAcknowledged]
+  examples:
+    - productId: 11111111-1111-4111-8111-111111111111
+      slotId: 22222222-2222-4222-8222-222222222222
+      contact: { fullName: Nguyễn Văn A, phoneNumber: '0912345678', email: customer@example.com }
+      consent: { privacyConsent: true, privacyPolicyVersion: '2026-07', marketingConsent: false }
+      licenceAcknowledged: true
+      note: Muốn được tư vấn thêm về pin.
+  properties:
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    slotId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    contact: { $ref: '../../openapi.yaml#/components/schemas/ContactInput' }
+    consent: { $ref: '../../openapi.yaml#/components/schemas/ConsentInput' }
+    licenceAcknowledged:
+      type: boolean
+      const: true
+      description: Acknowledges that a person who directly drives must present an appropriate valid driving licence; no licence or identity-document image is collected.
+    note: { type: string, maxLength: 500 }
+
+TestDriveRequestStatus:
+  type: string
+  enum: [REQUESTED, CONFIRMED, DECLINED, CANCELLED, COMPLETED, NO_SHOW]
+
+TestDriveRequestSummary:
+  type: object
+  additionalProperties: false
+  required: [id, referenceNumber, productId, productName, status, preferredStartsAt, preferredEndsAt, contact, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    referenceNumber: { type: string, minLength: 1, maxLength: 40 }
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productName: { type: string, minLength: 1, maxLength: 200 }
+    status: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestStatus' }
+    preferredStartsAt: { type: string, format: date-time }
+    preferredEndsAt: { type: string, format: date-time }
+    contact: { $ref: '../../openapi.yaml#/components/schemas/ContactInput' }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+
+TestDriveStatusHistoryEntry:
+  type: object
+  additionalProperties: false
+  required: [fromStatus, toStatus, actorType, changedAt]
+  properties:
+    fromStatus:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestStatus' }, { type: 'null' }]
+    toStatus: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestStatus' }
+    actorType: { type: string, enum: [GUEST, CUSTOMER, ADMIN, SYSTEM] }
+    reason: { oneOf: [{ type: string, minLength: 1, maxLength: 500 }, { type: 'null' }] }
+    changedAt: { type: string, format: date-time }
+
+TestDriveRequestDetail:
+  type: object
+  additionalProperties: false
+  required: [id, referenceNumber, productId, productName, status, preferredStartsAt, preferredEndsAt, contact, locationSnapshot, note, licenceAcknowledged, privacyPolicyVersion, marketingConsent, history, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    referenceNumber: { type: string, minLength: 1, maxLength: 40 }
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productName: { type: string, minLength: 1, maxLength: 200 }
+    status: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestStatus' }
+    preferredStartsAt: { type: string, format: date-time }
+    preferredEndsAt: { type: string, format: date-time }
+    contact: { $ref: '../../openapi.yaml#/components/schemas/ContactInput' }
+    locationSnapshot: { $ref: '../../openapi.yaml#/components/schemas/TestDriveLocation' }
+    note: { oneOf: [{ type: string, maxLength: 500 }, { type: 'null' }] }
+    licenceAcknowledged: { type: boolean, const: true }
+    privacyPolicyVersion: { type: string, minLength: 1, maxLength: 50 }
+    marketingConsent: { type: boolean }
+    history: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveStatusHistoryEntry' } }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+
+TestDriveRequestResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestDetail' }
+
+TestDriveRequestPageResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestSummary' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+
+TestDriveTransitionAction:
+  type: string
+  enum: [CONFIRM, DECLINE, CANCEL, COMPLETE, MARK_NO_SHOW, RESCHEDULE]
+
+TestDriveTransitionRequest:
+  type: object
+  additionalProperties: false
+  required: [action, expectedCurrentStatus]
+  properties:
+    action: { $ref: '../../openapi.yaml#/components/schemas/TestDriveTransitionAction' }
+    expectedCurrentStatus: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestStatus' }
+    reason: { type: string, minLength: 1, maxLength: 500 }
+    newSlotId:
+      $ref: '../../openapi.yaml#/components/schemas/Uuid'
+      description: Required only for RESCHEDULE. A reschedule returns the request to REQUESTED for a new confirmation.
+
+DayOfWeek:
+  type: string
+  enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+
+TestDriveBusinessHours:
+  type: object
+  additionalProperties: false
+  required: [dayOfWeek, openTime, closeTime, slotDurationMinutes, capacity]
+  properties:
+    dayOfWeek: { $ref: '../../openapi.yaml#/components/schemas/DayOfWeek' }
+    openTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+    closeTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+    slotDurationMinutes: { type: integer, minimum: 15, maximum: 240 }
+    capacity: { type: integer, minimum: 1, maximum: 100 }
+
+TestDriveBlackoutPeriod:
+  type: object
+  additionalProperties: false
+  required: [startsAt, endsAt, reason]
+  properties:
+    startsAt: { type: string, format: date-time }
+    endsAt: { type: string, format: date-time }
+    reason: { type: string, minLength: 1, maxLength: 200 }
+
+TestDriveSettings:
+  type: object
+  additionalProperties: false
+  required: [location, businessHours, blackoutPeriods, supportedProductIds, version, updatedAt]
+  properties:
+    location: { $ref: '../../openapi.yaml#/components/schemas/TestDriveLocation' }
+    businessHours: { type: array, maxItems: 7, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveBusinessHours' } }
+    blackoutPeriods: { type: array, maxItems: 200, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveBlackoutPeriod' } }
+    supportedProductIds: { type: array, uniqueItems: true, items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' } }
+    version: { type: integer, minimum: 0 }
+    updatedAt: { type: string, format: date-time }
+
+TestDriveSettingsPatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 2
+  required: [expectedVersion]
+  properties:
+    expectedVersion: { type: integer, minimum: 0 }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    addressLine: { type: string, minLength: 1, maxLength: 300 }
+    province: { $ref: '../../openapi.yaml#/components/schemas/ProvinceReference' }
+    phoneNumber: { type: string, pattern: '^\+?[0-9]{9,15}$' }
+    isActive: { type: boolean }
+    businessHours: { type: array, maxItems: 7, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveBusinessHours' } }
+    blackoutPeriods: { type: array, maxItems: 200, items: { $ref: '../../openapi.yaml#/components/schemas/TestDriveBlackoutPeriod' } }
+    supportedProductIds: { type: array, uniqueItems: true, items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' } }
+
+TestDriveSettingsResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/TestDriveSettings' }
+
+ConsultationStatus:
+  type: string
+  enum: [NEW, CONTACTED, QUALIFIED, CLOSED, DUPLICATE]
+
+CreateConsultationRequest:
+  type: object
+  additionalProperties: false
+  required: [contact, consent, source]
+  properties:
+    contact: { $ref: '../../openapi.yaml#/components/schemas/ContactInput' }
+    consent: { $ref: '../../openapi.yaml#/components/schemas/ConsentInput' }
+    source: { type: string, enum: [PRODUCT, ESTIMATE, GENERAL] }
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    selectedOptionValueIds:
+      type: array
+      maxItems: 20
+      uniqueItems: true
+      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    note: { type: string, maxLength: 1000 }
+
+ConsultationLead:
+  type: object
+  additionalProperties: false
+  required: [id, referenceNumber, status, source, contact, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    referenceNumber: { type: string, minLength: 1, maxLength: 40 }
+    status: { $ref: '../../openapi.yaml#/components/schemas/ConsultationStatus' }
+    source: { type: string, enum: [PRODUCT, ESTIMATE, GENERAL] }
+    contact: { $ref: '../../openapi.yaml#/components/schemas/ContactInput' }
+    productId: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/Uuid' }, { type: 'null' }] }
+    variantId: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/Uuid' }, { type: 'null' }] }
+    note: { oneOf: [{ type: string, maxLength: 1000 }, { type: 'null' }] }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+
+ConsultationRequestResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/ConsultationLead' }
+
+ConsultationRequestPageResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ConsultationLead' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+
+ConsultationTransitionRequest:
+  type: object
+  additionalProperties: false
+  required: [targetStatus, expectedCurrentStatus]
+  properties:
+    targetStatus: { $ref: '../../openapi.yaml#/components/schemas/ConsultationStatus' }
+    expectedCurrentStatus: { $ref: '../../openapi.yaml#/components/schemas/ConsultationStatus' }
+    note: { type: string, maxLength: 1000 }
+
+EstimateSelection:
+  type: object
+  additionalProperties: false
+  required: [productId, variantId, selectedOptionValueIds]
+  properties:
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    selectedOptionValueIds:
+      type: array
+      maxItems: 20
+      uniqueItems: true
+      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+
+OnRoadEstimateRequest:
+  type: object
+  additionalProperties: false
+  required: [selection, registrationProvince, selectedOptionalFeeCodes]
+  examples:
+    - selection:
+        productId: 11111111-1111-4111-8111-111111111111
+        variantId: 22222222-2222-4222-8222-222222222222
+        selectedOptionValueIds: []
+      registrationProvince: { code: '79', name: TP. Hồ Chí Minh }
+      selectedOptionalFeeCodes: [PHYSICAL_INSURANCE]
+      promotionCode: FASTLANE10
+  properties:
+    selection: { $ref: '../../openapi.yaml#/components/schemas/EstimateSelection' }
+    registrationProvince: { $ref: '../../openapi.yaml#/components/schemas/ProvinceReference' }
+    selectedOptionalFeeCodes:
+      type: array
+      maxItems: 20
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 50, pattern: '^[A-Z0-9_]+$' }
+    promotionCode: { type: string, minLength: 1, maxLength: 50, pattern: '^[A-Za-z0-9_-]+$' }
+
+EstimateBreakdownCategory:
+  type: string
+  enum: [VEHICLE, OPTION, DISCOUNT, TAX_INFO, MANDATORY_FEE, OPTIONAL_FEE]
+
+EstimateBreakdownLine:
+  type: object
+  additionalProperties: false
+  required: [code, label, category, amount, included]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 50, pattern: '^[A-Z0-9_]+$' }
+    label: { type: string, minLength: 1, maxLength: 160 }
+    category: { $ref: '../../openapi.yaml#/components/schemas/EstimateBreakdownCategory' }
+    amount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    included: { type: boolean, description: 'True when the amount is informational and already included in another authoritative line, such as included VAT.' }
+
+OnRoadEstimate:
+  type: object
+  additionalProperties: false
+  required: [calculationId, currency, selection, registrationProvince, breakdown, vehiclePriceAfterDiscount, mandatoryFeeTotal, optionalFeeTotal, onRoadTotal, catalogVersion, feePolicyVersions, generatedAt, disclaimer]
+  properties:
+    calculationId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    currency: { type: string, enum: [VND] }
+    selection: { $ref: '../../openapi.yaml#/components/schemas/EstimateSelection' }
+    registrationProvince: { $ref: '../../openapi.yaml#/components/schemas/ProvinceReference' }
+    breakdown: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/EstimateBreakdownLine' } }
+    vehiclePriceAfterDiscount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    mandatoryFeeTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    optionalFeeTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    onRoadTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    catalogVersion: { type: string, minLength: 1, maxLength: 100 }
+    feePolicyVersions: { type: array, uniqueItems: true, items: { type: string, minLength: 1, maxLength: 100 } }
+    generatedAt: { type: string, format: date-time }
+    disclaimer: { type: string, minLength: 1, maxLength: 500 }
+
+OnRoadEstimateResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/OnRoadEstimate' }
+
+FeePolicyStatus:
+  type: string
+  enum: [DRAFT, ACTIVE, ARCHIVED]
+
+FeeCalculationType:
+  type: string
+  enum: [FIXED, PERCENTAGE, NOT_APPLICABLE]
+
+FeeCalculationBase:
+  type: string
+  enum: [LIST_PRICE, VEHICLE_PRICE_AFTER_DISCOUNT]
+
+FeePolicyCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [code, label, vehicleKind, provinceCode, calculationType, value, calculationBase, mandatory, startsAt, status]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 50, pattern: '^[A-Z0-9_]+$' }
+    label: { type: string, minLength: 1, maxLength: 160 }
+    vehicleKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    provinceCode:
+      oneOf: [{ type: string, minLength: 1, maxLength: 20 }, { type: 'null' }]
+      description: Null applies nationally; an exact province policy is more specific.
+    calculationType: { $ref: '../../openapi.yaml#/components/schemas/FeeCalculationType' }
+    value: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    calculationBase: { $ref: '../../openapi.yaml#/components/schemas/FeeCalculationBase' }
+    mandatory: { type: boolean }
+    priority: { type: integer, minimum: 0, maximum: 1000, default: 0 }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    status: { $ref: '../../openapi.yaml#/components/schemas/FeePolicyStatus' }
+
+FeePolicyPatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 2
+  required: [expectedVersion]
+  description: Applied/effective versions are immutable; changing calculation semantics requires creating a new version.
+  properties:
+    expectedVersion: { type: integer, minimum: 0 }
+    label: { type: string, minLength: 1, maxLength: 160 }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    status: { $ref: '../../openapi.yaml#/components/schemas/FeePolicyStatus' }
+
+FeePolicy:
+  type: object
+  additionalProperties: false
+  required: [id, version, code, label, vehicleKind, provinceCode, calculationType, value, calculationBase, mandatory, priority, startsAt, endsAt, status, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    version: { type: integer, minimum: 1 }
+    code: { type: string, minLength: 1, maxLength: 50 }
+    label: { type: string, minLength: 1, maxLength: 160 }
+    vehicleKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    provinceCode: { oneOf: [{ type: string, minLength: 1, maxLength: 20 }, { type: 'null' }] }
+    calculationType: { $ref: '../../openapi.yaml#/components/schemas/FeeCalculationType' }
+    value: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    calculationBase: { $ref: '../../openapi.yaml#/components/schemas/FeeCalculationBase' }
+    mandatory: { type: boolean }
+    priority: { type: integer, minimum: 0, maximum: 1000 }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    status: { $ref: '../../openapi.yaml#/components/schemas/FeePolicyStatus' }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+
+FeePolicyResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/FeePolicy' }
+
+FeePolicyPageResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/FeePolicy' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+
+LoanPackageStatus:
+  type: string
+  enum: [DRAFT, ACTIVE, ARCHIVED]
+
+LoanPackageCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [code, name, lenderName, annualInterestRate, allowedTermMonths, allowedDownPaymentPercents, startsAt, status]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 50, pattern: '^[A-Z0-9_]+$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    lenderName: { type: string, minLength: 1, maxLength: 160 }
+    annualInterestRate: { type: number, minimum: 0, maximum: 100, multipleOf: 0.0001 }
+    allowedTermMonths:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items: { type: integer, minimum: 1, maximum: 120 }
+    allowedDownPaymentPercents:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items: { type: number, minimum: 0, maximum: 100, multipleOf: 0.01 }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    status: { $ref: '../../openapi.yaml#/components/schemas/LoanPackageStatus' }
+
+LoanPackagePatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 2
+  required: [expectedVersion]
+  description: Applied/effective packages are immutable; rate or eligibility changes require a new package version.
+  properties:
+    expectedVersion: { type: integer, minimum: 0 }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    status: { $ref: '../../openapi.yaml#/components/schemas/LoanPackageStatus' }
+
+LoanPackage:
+  type: object
+  additionalProperties: false
+  required: [id, version, code, name, lenderName, annualInterestRate, allowedTermMonths, allowedDownPaymentPercents, startsAt, endsAt, status, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    version: { type: integer, minimum: 1 }
+    code: { type: string, minLength: 1, maxLength: 50 }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    lenderName: { type: string, minLength: 1, maxLength: 160 }
+    annualInterestRate: { type: number, minimum: 0, maximum: 100 }
+    allowedTermMonths: { type: array, minItems: 1, uniqueItems: true, items: { type: integer, minimum: 1, maximum: 120 } }
+    allowedDownPaymentPercents: { type: array, minItems: 1, uniqueItems: true, items: { type: number, minimum: 0, maximum: 100 } }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    status: { $ref: '../../openapi.yaml#/components/schemas/LoanPackageStatus' }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+
+LoanPackageResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/LoanPackage' }
+
+LoanPackagePageResponse:
+  type: object
+  additionalProperties: false
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/LoanPackage' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }
+
+InstallmentEstimateRequest:
+  type: object
+  additionalProperties: false
+  required: [onRoadCalculationId, loanPackageId, termMonths, downPaymentPercent]
+  properties:
+    onRoadCalculationId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    loanPackageId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    termMonths: { type: integer, minimum: 1, maximum: 120 }
+    downPaymentPercent: { type: number, minimum: 0, maximum: 100, multipleOf: 0.01 }
+
+InstallmentPaymentRow:
+  type: object
+  additionalProperties: false
+  required: [period, openingPrincipal, principalPaid, interestPaid, paymentTotal, closingPrincipal]
+  properties:
+    period: { type: integer, minimum: 1 }
+    openingPrincipal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    principalPaid: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    interestPaid: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    paymentTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    closingPrincipal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+
+InstallmentEstimate:
+  type: object
+  additionalProperties: false
+  required: [calculationId, onRoadCalculationId, currency, financeBase, downPayment, loanPrincipal, upfrontCash, annualInterestRate, termMonths, totalInterest, totalLoanAndInterest, schedule, loanPackageVersion, generatedAt, disclaimer]
+  properties:
+    calculationId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    onRoadCalculationId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    currency: { type: string, enum: [VND] }
+    financeBase: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    downPayment: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    loanPrincipal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    upfrontCash: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    annualInterestRate: { type: number, minimum: 0, maximum: 100 }
+    termMonths: { type: integer, minimum: 1, maximum: 120 }
+    totalInterest: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    totalLoanAndInterest: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    schedule: { type: array, minItems: 1, maxItems: 120, items: { $ref: '../../openapi.yaml#/components/schemas/InstallmentPaymentRow' } }
+    loanPackageVersion: { type: string, minLength: 1, maxLength: 100 }
+    generatedAt: { type: string, format: date-time }
+    disclaimer: { type: string, minLength: 1, maxLength: 500 }
+
+InstallmentEstimateResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/InstallmentEstimate' }

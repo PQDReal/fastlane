@@ -1,0 +1,405 @@
+/test-drive/availability:
+  get:
+    tags: [Pre-purchase]
+    operationId: getTestDriveAvailability
+    x-prd-references: [BR-TD-005, BR-TD-006, BR-SHW-004]
+    summary: List available test-drive slots for the single configured location
+    description: The location is server-owned and returned with the slots. The client supplies a product but never selects or submits a showroom identifier. REQUESTED records do not consume capacity; only CONFIRMED appointments do.
+    security: []
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductIdQuery' }
+      - { $ref: '../openapi.yaml#/components/parameters/DateFrom' }
+      - { $ref: '../openapi.yaml#/components/parameters/DateTo' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/TestDriveAvailability' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/test-drive/requests:
+  post:
+    tags: [Pre-purchase]
+    operationId: createTestDriveRequest
+    x-prd-references: [BR-TD-001, BR-TD-002, BR-TD-004, BR-TD-007, BR-TD-008, BR-TD-009, BR-TD-017]
+    summary: Request a preferred test-drive time as a guest or customer
+    description: |
+      Creates REQUESTED, not CONFIRMED. The server revalidates the one configured location, supported product, slot, blackout, and current confirmed capacity.
+      The same normalized phone, product, and local date cannot have another active REQUESTED or CONFIRMED request. No driving-licence or identity-document image is accepted.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/CreateTestDriveRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/TestDriveRequest' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '409': { $ref: '../openapi.yaml#/components/responses/TestDriveConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/consultation-requests:
+  post:
+    tags: [Pre-purchase]
+    operationId: createConsultationRequest
+    x-prd-references: [BR-LEAD-001, BR-LEAD-002, BR-LEAD-003]
+    summary: Submit a pre-purchase consultation request
+    description: Guest access is allowed. Product and option identifiers carry context only; the server never trusts a client-supplied price or discount.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/CreateConsultationRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/ConsultationRequest' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/estimates/on-road:
+  post:
+    tags: [Pre-purchase]
+    operationId: calculateOnRoadEstimate
+    x-prd-references: [BR-EST-001, BR-EST-002, BR-EST-003, BR-EST-004, BR-EST-005, BR-EST-007, BR-EST-010, BR-EST-011, BR-EST-012]
+    summary: Calculate a public on-road cost estimate
+    description: |
+      Calculates authoritative catalog price plus options minus one eligible promotion, then adds effective mandatory and selected optional fee policies for the registration province.
+      VAT is never added twice. A missing mandatory policy fails the calculation instead of silently using zero. The result is advisory, versioned, and is not a quotation.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/OnRoadEstimateRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/OnRoadEstimate' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '422': { $ref: '../openapi.yaml#/components/responses/EstimateUnavailable' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/estimates/installment:
+  post:
+    tags: [Pre-purchase]
+    operationId: calculateInstallmentEstimate
+    x-prd-references: [BR-LN-001, BR-LN-003, BR-LN-004, BR-LN-005, BR-LN-006, BR-LN-007]
+    summary: Calculate an advisory declining-balance installment schedule
+    description: |
+      The finance base is the vehicle price after discount from the referenced current on-road calculation; registration and optional fees remain due up front.
+      MVP uses equal principal, monthly interest on opening principal, whole-VND half-up rounding, and a final-period principal reconciliation. The result is not credit approval.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/InstallmentEstimateRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/InstallmentEstimate' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '409': { $ref: '../openapi.yaml#/components/responses/EstimateConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/EstimateUnavailable' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/test-drive/requests:
+  get:
+    tags: [Admin Pre-purchase]
+    operationId: listTestDriveRequests
+    x-prd-references: [BR-TD-011, BR-TD-012, BR-TD-015]
+    summary: List test-drive requests
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/TestDriveStatus' }
+      - { $ref: '../openapi.yaml#/components/parameters/DateFrom' }
+      - { $ref: '../openapi.yaml#/components/parameters/DateTo' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/TestDriveRequestPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/test-drive/requests/{requestId}:
+  get:
+    tags: [Admin Pre-purchase]
+    operationId: getTestDriveRequest
+    x-prd-references: [BR-TD-016]
+    summary: Get a test-drive request and its immutable timeline
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PrepurchaseRequestId' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/TestDriveRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/test-drive/requests/{requestId}/transitions:
+  post:
+    tags: [Admin Pre-purchase]
+    operationId: transitionTestDriveRequest
+    x-prd-references: [BR-TD-011, BR-TD-012, BR-TD-013, BR-TD-014, BR-TD-015, BR-TD-016]
+    summary: Apply a valid test-drive request transition
+    description: Confirmation atomically checks capacity. RESCHEDULE requires newSlotId and returns the request to REQUESTED. Terminal states cannot transition again.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PrepurchaseRequestId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveTransitionRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/TestDriveRequest' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/TestDriveConflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/test-drive/settings:
+  get:
+    tags: [Admin Pre-purchase]
+    operationId: getTestDriveSettings
+    x-prd-references: [BR-SHW-002, BR-SHW-004, BR-SHW-005]
+    summary: Read the singleton test-drive location and schedule settings
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/TestDriveSettings' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  patch:
+    tags: [Admin Pre-purchase]
+    operationId: updateTestDriveSettings
+    x-prd-references: [BR-SHW-004, BR-SHW-005, BR-SHW-006]
+    summary: Update the singleton test-drive location and schedule settings
+    description: The address is configured once for the storefront; clients never select a showroom. Deactivation is rejected while future CONFIRMED appointments remain unresolved.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveSettingsPatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/TestDriveSettings' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/PolicyConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/consultation-requests:
+  get:
+    tags: [Admin Pre-purchase]
+    operationId: listConsultationRequests
+    x-prd-references: [BR-LEAD-004, BR-LEAD-005]
+    summary: List consultation requests
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/ConsultationStatus' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ConsultationRequestPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/consultation-requests/{requestId}/transitions:
+  post:
+    tags: [Admin Pre-purchase]
+    operationId: transitionConsultationRequest
+    x-prd-references: [BR-LEAD-004]
+    summary: Apply a consultation status transition
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PrepurchaseRequestId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationTransitionRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/ConsultationRequest' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/PrepurchaseTransitionConflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/fee-policies:
+  get:
+    tags: [Admin Pre-purchase]
+    operationId: listFeePolicies
+    x-prd-references: [BR-EST-006, BR-EST-007, BR-EST-013]
+    summary: List versioned on-road fee policies
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/FeePolicyPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Pre-purchase]
+    operationId: createFeePolicy
+    x-prd-references: [BR-EST-006, BR-EST-007, BR-EST-013]
+    summary: Create a new on-road fee policy version
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/FeePolicyCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/FeePolicy' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/PolicyConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/fee-policies/{feePolicyId}:
+  patch:
+    tags: [Admin Pre-purchase]
+    operationId: updateFeePolicy
+    x-prd-references: [BR-EST-006, BR-EST-013]
+    summary: Update lifecycle metadata of a fee policy version
+    description: Calculation semantics of an effective or previously used policy are immutable; create a new version to change them.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/FeePolicyId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/FeePolicyPatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/FeePolicy' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/PolicyConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/loan-packages:
+  get:
+    tags: [Admin Pre-purchase]
+    operationId: listLoanPackages
+    x-prd-references: [BR-LN-002, BR-LN-007]
+    summary: List versioned installment packages
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/LoanPackagePage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Pre-purchase]
+    operationId: createLoanPackage
+    x-prd-references: [BR-LN-002, BR-LN-007]
+    summary: Create a new installment package version
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/LoanPackageCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/LoanPackage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/PolicyConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+
+/admin/loan-packages/{loanPackageId}:
+  patch:
+    tags: [Admin Pre-purchase]
+    operationId: updateLoanPackage
+    x-prd-references: [BR-LN-002, BR-LN-007]
+    summary: Update lifecycle metadata of an installment package version
+    description: Rate and eligibility values of an effective or previously used package are immutable; create a new version to change them.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [prepurchase:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/LoanPackageId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/LoanPackagePatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/LoanPackage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/PolicyConflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/PrepurchaseBusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
