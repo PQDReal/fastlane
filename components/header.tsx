@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
@@ -22,10 +22,7 @@ const links = [
   { name: 'So sánh xe', path: '/compare' },
 ]
 
-export interface HeaderUser {
-  email?: string | null
-  name?: string | null
-}
+export type HeaderUser = AuthUser
 
 export function Header() {
   const { user } = useUser()
@@ -34,7 +31,7 @@ export function Header() {
   const pathname = usePathname()
   const { setSearchModalOpen, setCartDrawerOpen, getCartCount } = useAppStore()
   const isHomePage = pathname === '/'
-  const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
+  const accountLabel = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -48,8 +45,8 @@ export function Header() {
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
       <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 lg:px-8 xl:px-12 gap-4">
         <Link href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
-          <img src="/images/fastlane-logo.png" alt="Logo" className="h-7 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
-          <span className="font-display text-2xl font-bold tracking-widest text-[#836100] transition-opacity duration-500 group-hover:opacity-80 mt-1">FASTLANE</span>
+          <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
+          <span className="font-display text-[32px] font-bold tracking-[0.08em] text-[#836100] transition-opacity duration-500 group-hover:opacity-80 mt-1">FASTLANE</span>
         </Link>
 
         <nav className="hidden items-center justify-center gap-4 xl:gap-6 xl:flex">

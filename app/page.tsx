@@ -42,7 +42,7 @@ export default async function Home() {
         </section>
 
         {/* FEATURED VEHICLE (VF9) */}
-        <section className="relative w-full bg-background py-32 lg:py-48 z-10">
+        <section id="featured-vehicle" className="relative z-10 w-full scroll-mt-20 bg-background py-32 lg:py-48">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
               <MotionDiv

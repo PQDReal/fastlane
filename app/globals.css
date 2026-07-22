@@ -104,3 +104,50 @@ body {
     opacity: 0;
   }
 }
+
+.hero-title-shadow {
+  text-shadow: 0 4px 32px rgb(0 0 0 / 0.28);
+}
+
+.hero-copy-shadow {
+  text-shadow: 0 2px 18px rgb(0 0 0 / 0.5);
+}
+
+@media (max-height: 760px) and (min-width: 1024px) {
+  .hero-title-shadow {
+    font-size: clamp(3rem, 5.4vw, 6rem);
+  }
+}
+.scroll-line {
+  box-shadow: 0 0 12px rgb(255 255 255 / 0.15);
+}
+
+.scroll-line-pulse {
+  animation: scroll-line-pulse 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  filter: drop-shadow(0 0 5px rgb(255 255 255 / 0.9));
+}
+
+@keyframes scroll-line-pulse {
+  0% {
+    transform: translateY(-2rem);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  75%,
+  100% {
+    transform: translateY(5rem);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-line-pulse {
+    animation: none;
+    opacity: 0.65;
+    transform: translateY(1.5rem);
+  }
+}

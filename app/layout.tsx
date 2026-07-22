@@ -16,7 +16,14 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth0.getSession()
+  const user = session
+    ? {
+        email: session.user.email,
+        name: session.user.name,
+      }
+    : undefined
   return (
     <html lang="vi" className={`${inter.variable}`}>
       <body className="font-sans antialiased bg-slate-50 text-slate-900 selection:bg-brand-500 selection:text-white">
