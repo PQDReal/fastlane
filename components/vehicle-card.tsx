@@ -1,10 +1,9 @@
 import Link from 'next/link'
 
-export function ProductCard({ name, desc, price, image, hot }: { name: string; desc: string; price: string; image: string; hot?: boolean }) {
+export function VehicleCard({ name, desc, price, image }: any) {
   return (
     <article className="group h-full flex flex-col items-center text-center cursor-pointer pb-8">
       <div className="relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden rounded-2xl bg-gray-50/50">
-        {hot && <span className="absolute left-4 top-4 z-20 text-[10px] uppercase tracking-widest font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">Bán chạy</span>}
         <img 
           src={image} 
           alt={name} 
@@ -14,7 +13,7 @@ export function ProductCard({ name, desc, price, image, hot }: { name: string; d
       
       <div className="flex flex-col items-center mt-4 w-full flex-1">
         <h3 className="text-lg sm:text-xl font-bold tracking-tight text-foreground uppercase">{name}</h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground line-clamp-2 max-w-[280px]">{desc}</p>
+        {desc && <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground line-clamp-2 max-w-[280px]">{desc}</p>}
         
         <p className="mt-4 text-lg font-bold text-foreground">{price} ₫</p>
         

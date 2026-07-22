@@ -32,7 +32,9 @@
     "next": "15.5.20",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "latest"
+    "recharts": "^3.10.0",
+    "tailwind-merge": "latest",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

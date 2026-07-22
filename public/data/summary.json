@@ -1,0 +1,43 @@
+{
+    "counts": {
+        "cars": 7,
+        "motorbikes": 16,
+        "accessories": 83,
+        "total_products": 106,
+        "promotions": 5
+    },
+    "cars_list": [
+        "VF 2",
+        "VF 3",
+        "VF 5",
+        "VF 6",
+        "VF 7",
+        "VF 8",
+        "VF 9"
+    ],
+    "motorbikes_list": [
+        "Amio",
+        "Amio S",
+        "Amio S2",
+        "Flazz",
+        "Flazz Max",
+        "ZGoo",
+        "Viper",
+        "Vero X",
+        "Evo",
+        "Evo Lite",
+        "EvoGrand",
+        "Evo Grand Lite",
+        "Evo Lite Neo",
+        "Evo Neo",
+        "Feliz 2025",
+        "Feliz II"
+    ],
+    "promotions_list": [
+        "Giới thiệu Khách hàng mới dành cho Cộng tác viên",
+        "Chương trình CBNV Tập đoàn Vingroup",
+        "Tham gia chương trình Đối tác VinFast",
+        "Chính sách ưu đãi dành cho Khách hàng mua xe ô tô qua kênh O2O",
+        "Chính sách ưu đãi dành cho Khách hàng ngành Công an và Quân đội"
+    ]
+}
