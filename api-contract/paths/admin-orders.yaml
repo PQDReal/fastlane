@@ -154,8 +154,9 @@
     x-prd-references: [US-A07, FR-ADMN-06, BR-05, BR-06]
     summary: Apply a valid order status transition
     description: |
-      Admin transitions are Created to Cancelled, Paid to Shipped or Cancelled, and Shipped to Completed.
-      Mock payment exclusively performs Created to Paid. Cancelling Created or Paid restores inventory and promotion usage exactly once.
+      Admin transitions are Created to Cancelled; DepositPaid to Paid or Cancelled; Paid to Shipped or Cancelled; and Shipped to Completed.
+      Mock payment performs Created to DepositPaid/Paid and DepositPaid to Paid. Admin DepositPaid to Paid records externally collected balance.
+      Cancelling Created, DepositPaid, or Paid restores inventory and promotion usage exactly once, snapshots the admin reason, and creates a pending refund when the policy calculation is positive.
     security: [{ bearerAuth: [] }]
     x-required-roles: [admin]
     x-required-permissions: [orders:fulfill]

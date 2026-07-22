@@ -24,6 +24,55 @@ CategoryPatchRequest:
     name: { type: string, minLength: 1, maxLength: 120 }
     slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9-]+$' }
     isActive: { type: boolean }
+ProductKind:
+  type: string
+  enum: [car, motorbike, accessory]
+  description: Stable business discriminator; category remains the mutable merchandising taxonomy.
+PurchaseMode:
+  type: string
+  enum: [full, deposit]
+CancellationCutoff:
+  type: string
+  enum: [before_initial_payment, before_balance_due, before_shipping]
+CancellationPolicy:
+  type: object
+  additionalProperties: false
+  required: [customerCancellationAllowed, customerCancellationCutoff, refundPercentage, overdueRefundPercentage, cancellationFeeAmount]
+  properties:
+    customerCancellationAllowed: { type: boolean }
+    customerCancellationCutoff:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/CancellationCutoff' }]
+      description: before_balance_due is valid only for deposit products; backend enforces the cross-field rule.
+    refundPercentage: { type: integer, minimum: 0, maximum: 100, description: Percentage of gross paid amount refundable for an allowed cancellation before overdue auto-cancellation. }
+    overdueRefundPercentage: { type: integer, minimum: 0, maximum: 100, description: Percentage used when a deposit order is auto-cancelled after its grace period. }
+    cancellationFeeAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+PurchaseTerms:
+  description: Product-level payment, deadline, grace-period, cancellation, and refund policy. Order items snapshot this object at checkout.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required: [paymentMode, depositAmount, initialPaymentWindowMinutes, balancePaymentWindowDays, gracePeriodHours, cancellationPolicy]
+      properties:
+        paymentMode: { allOf: [{ $ref: '../../openapi.yaml#/components/schemas/PurchaseMode' }], const: full }
+        depositAmount: { type: 'null' }
+        initialPaymentWindowMinutes: { type: integer, minimum: 5, maximum: 1440 }
+        balancePaymentWindowDays: { type: 'null' }
+        gracePeriodHours: { type: 'null' }
+        cancellationPolicy: { $ref: '../../openapi.yaml#/components/schemas/CancellationPolicy' }
+    - type: object
+      additionalProperties: false
+      required: [paymentMode, depositAmount, initialPaymentWindowMinutes, balancePaymentWindowDays, gracePeriodHours, cancellationPolicy]
+      properties:
+        paymentMode: { allOf: [{ $ref: '../../openapi.yaml#/components/schemas/PurchaseMode' }], const: deposit }
+        depositAmount: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+        initialPaymentWindowMinutes: { type: integer, minimum: 5, maximum: 1440 }
+        balancePaymentWindowDays: { type: integer, minimum: 1, maximum: 365, description: Measured from successful initial deposit payment. }
+        gracePeriodHours: { type: integer, minimum: 0, maximum: 720 }
+        cancellationPolicy: { $ref: '../../openapi.yaml#/components/schemas/CancellationPolicy' }
+BatteryOption:
+  type: string
+  enum: [included, purchase, subscription]
+  description: included means no battery choice is required; purchase and subscription are explicit customer acquisition choices.
 Price:
   type: object
   additionalProperties: false
@@ -41,11 +90,14 @@ Price:
 Variant:
   type: object
   additionalProperties: false
-  required: [id, sku, attributes, price, availableQuantity, inventoryVersion, isActive, isPurchasable]
+  required: [id, sku, attributes, batteryOption, price, availableQuantity, inventoryVersion, isActive, isPurchasable]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     sku: { type: string, minLength: 1, maxLength: 80 }
     attributes: { type: object, minProperties: 1, additionalProperties: { type: string }, examples: [{ color: Black, trim: Plus }] }
+    batteryOption:
+      description: Typed battery acquisition mode for electric vehicles; null for products where it does not apply.
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/BatteryOption' }, { type: 'null' }]
     price: { $ref: '../../openapi.yaml#/components/schemas/Price' }
     availableQuantity: { type: integer, minimum: 0, readOnly: true }
     inventoryVersion: { type: integer, minimum: 0, readOnly: true }
@@ -55,12 +107,64 @@ VariantResponse: { type: object, required: [data], properties: { data: { $ref: '
 PriceRange:
   type: object
   additionalProperties: false
-  description: Minimum and maximum effective prices across active variants; active out-of-stock variants are included.
+  description: Minimum and maximum base effective prices across active variants before dynamic option adjustments; active out-of-stock variants are included.
   required: [minimum, maximum, currency]
   properties:
     minimum: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
     maximum: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
     currency: { type: string, enum: [VND] }
+ProductOptionValue:
+  type: object
+  additionalProperties: false
+  required: [id, code, name, priceAdjustment, compatibleVariantSkus, isActive]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[A-Z0-9_]+$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    priceAdjustment: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    compatibleVariantSkus:
+      type: array
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 80 }
+      description: Empty means compatible with every variant of the product.
+    isActive: { type: boolean }
+ProductOptionGroup:
+  type: object
+  additionalProperties: false
+  required: [id, code, name, minimumSelections, maximumSelections, isActive, values]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[A-Z0-9_]+$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    minimumSelections: { type: integer, minimum: 0, maximum: 20 }
+    maximumSelections: { type: integer, minimum: 1, maximum: 20, description: Must be greater than or equal to minimumSelections. }
+    isActive: { type: boolean }
+    values: { type: array, minItems: 1, maxItems: 100, items: { $ref: '../../openapi.yaml#/components/schemas/ProductOptionValue' } }
+ProductOptionValueInput:
+  type: object
+  additionalProperties: false
+  required: [code, name, priceAdjustment, compatibleVariantSkus, isActive]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[A-Z0-9_]+$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    priceAdjustment: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    compatibleVariantSkus:
+      type: array
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 80 }
+      description: Empty means compatible with every variant in the same product request or persisted product.
+    isActive: { type: boolean }
+ProductOptionGroupInput:
+  type: object
+  additionalProperties: false
+  required: [code, name, minimumSelections, maximumSelections, isActive, values]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[A-Z0-9_]+$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    minimumSelections: { type: integer, minimum: 0, maximum: 20 }
+    maximumSelections: { type: integer, minimum: 1, maximum: 20, description: Must be greater than or equal to minimumSelections. }
+    isActive: { type: boolean }
+    values: { type: array, minItems: 1, maxItems: 100, items: { $ref: '../../openapi.yaml#/components/schemas/ProductOptionValueInput' } }
 ProductSpecification:
   type: object
   additionalProperties: false
@@ -110,11 +214,13 @@ ProductImageResponse:
 ProductSummary:
   type: object
   additionalProperties: false
-  required: [id, name, slug, category, thumbnailUrl, priceRange, isActive]
+  required: [id, name, slug, productKind, purchaseTerms, category, thumbnailUrl, priceRange, isActive]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     name: { type: string, minLength: 1, maxLength: 200 }
     slug: { type: string, minLength: 1, maxLength: 220 }
+    productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     category: { $ref: '../../openapi.yaml#/components/schemas/Category' }
     thumbnailUrl: { oneOf: [{ type: string, format: uri }, { type: 'null' }], description: Non-null for public active products; may be null in admin draft results. }
     priceRange: { $ref: '../../openapi.yaml#/components/schemas/PriceRange' }
@@ -122,11 +228,13 @@ ProductSummary:
 ProductDetail:
   type: object
   additionalProperties: false
-  required: [id, name, slug, category, thumbnailUrl, priceRange, isActive, description, images, specifications, variants, createdAt, updatedAt]
+  required: [id, name, slug, productKind, purchaseTerms, category, thumbnailUrl, priceRange, isActive, description, images, specifications, variants, optionGroups, createdAt, updatedAt]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     name: { type: string, minLength: 1, maxLength: 200 }
     slug: { type: string, minLength: 1, maxLength: 220 }
+    productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     category: { $ref: '../../openapi.yaml#/components/schemas/Category' }
     thumbnailUrl: { oneOf: [{ type: string, format: uri }, { type: 'null' }], description: Non-null for public active products; may be null in admin draft results. }
     priceRange: { $ref: '../../openapi.yaml#/components/schemas/PriceRange' }
@@ -135,6 +243,11 @@ ProductDetail:
     images: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductImage' } }
     specifications: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' } }
     variants: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/Variant' }, description: Public detail contains active variants only; admin detail may also contain inactive variants. }
+    optionGroups:
+      type: array
+      maxItems: 20
+      items: { $ref: '../../openapi.yaml#/components/schemas/ProductOptionGroup' }
+      description: Non-inventory configuration modifiers. Choices that alter SKU or inventory remain variant attributes. Public detail exposes active groups and active values only; admin detail may include inactive entries.
     createdAt: { type: string, format: date-time }
     updatedAt: { type: string, format: date-time }
 ProductDetailResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/ProductDetail' } } }
@@ -148,10 +261,12 @@ VariantCreateRequest:
   type: object
   additionalProperties: false
   description: salePrice, when present, must be lower than listPrice; otherwise the request violates BR-07.
-  required: [sku, attributes, listPrice, isActive]
+  required: [sku, attributes, batteryOption, listPrice, isActive]
   properties:
     sku: { type: string, minLength: 1, maxLength: 80 }
     attributes: { type: object, minProperties: 1, additionalProperties: { type: string } }
+    batteryOption:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/BatteryOption' }, { type: 'null' }]
     listPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
     salePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }], description: Must be lower than listPrice when present. }
     isActive: { type: boolean }
@@ -163,6 +278,8 @@ VariantPatchRequest:
   properties:
     sku: { type: string, minLength: 1, maxLength: 80 }
     attributes: { type: object, minProperties: 1, additionalProperties: { type: string } }
+    batteryOption:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/BatteryOption' }, { type: 'null' }]
     listPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
     salePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }], description: Must be lower than the resulting listPrice when present. }
     isActive: { type: boolean }
@@ -180,7 +297,7 @@ ProductCreateRequest:
   type: object
   additionalProperties: false
   description: Active products require at least one active variant and exactly one thumbnail image; every product permits at most one thumbnail.
-  required: [categoryId, name, slug, description, specifications, isActive, variants]
+  required: [categoryId, name, slug, productKind, purchaseTerms, description, specifications, optionGroups, isActive, variants]
   if:
     properties: { isActive: { const: true } }
     required: [isActive]
@@ -205,15 +322,30 @@ ProductCreateRequest:
     - categoryId: 123e4567-e89b-12d3-a456-426614174001
       name: VinFast VF 8
       slug: vinfast-vf-8
+      productKind: car
+      purchaseTerms:
+        paymentMode: deposit
+        depositAmount: '30000000'
+        initialPaymentWindowMinutes: 30
+        balancePaymentWindowDays: 7
+        gracePeriodHours: 48
+        cancellationPolicy:
+          customerCancellationAllowed: true
+          customerCancellationCutoff: before_balance_due
+          refundPercentage: 100
+          overdueRefundPercentage: 0
+          cancellationFeeAmount: '0'
       description: Mẫu SUV điện cỡ D.
       specifications:
         - { name: Công suất tối đa, value: '300', unit: kW, group: Động cơ, sortOrder: 0 }
       images:
         - { url: 'https://cdn.example.org/vf8/front.jpg', altText: VinFast VF 8 nhìn từ phía trước, sortOrder: 0, isThumbnail: true }
       isActive: false
+      optionGroups: []
       variants:
         - sku: VF8-ECO-BLACK
           attributes: { trim: Eco, color: Black }
+          batteryOption: included
           listPrice: '1200000000'
           salePrice: null
           isActive: true
@@ -221,8 +353,15 @@ ProductCreateRequest:
     categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     name: { type: string, minLength: 1, maxLength: 200 }
     slug: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' }
+    productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     description: { type: string, minLength: 1, maxLength: 10000 }
     specifications: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' } }
+    optionGroups:
+      type: array
+      maxItems: 20
+      items: { $ref: '../../openapi.yaml#/components/schemas/ProductOptionGroupInput' }
+      description: Full initial set of non-inventory option groups. Option/group codes must be unique within the product.
     images:
       type: array
       maxItems: 20
@@ -245,9 +384,16 @@ ProductPatchRequest:
     categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     name: { type: string, minLength: 1, maxLength: 200 }
     slug: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' }
+    productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     description: { type: string, minLength: 1, maxLength: 10000 }
     specifications:
       type: array
       items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' }
       description: When supplied, replaces the full product specification list.
+    optionGroups:
+      type: array
+      maxItems: 20
+      items: { $ref: '../../openapi.yaml#/components/schemas/ProductOptionGroupInput' }
+      description: When supplied, replaces the full non-inventory option-group set. Existing group/value codes are upsert keys and retain their IDs; removed codes are archived. Persisted cart/order snapshots remain unchanged.
     isActive: { type: boolean, description: Activating a product that fails the publication policy returns BUSINESS_RULE_VIOLATION. }
