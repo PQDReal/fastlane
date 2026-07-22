@@ -1,4 +1,4 @@
-import { Header } from '../../components/header'
+import { AuthenticatedHeader } from '../../components/authenticated-header'
 import { Footer } from '../../components/footer'
 import { ChevronRight, Plus, X } from 'lucide-react'
 import Link from 'next/link'
@@ -56,7 +56,7 @@ const specKeys = [
 export default function ComparePage() {
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
-      <Header />
+      <AuthenticatedHeader />
       
       <div className="bg-muted py-16 border-b border-black/5">
         <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">

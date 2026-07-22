@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
@@ -66,17 +66,27 @@ export function Header({ user }: { user?: HeaderUser }) {
           <button aria-label="Giỏ hàng" className="hidden sm:block hover:opacity-70 transition-opacity"><ShoppingCart size={18} strokeWidth={2} /></button>
           <UserRound aria-hidden="true" className="hidden sm:block" size={18} strokeWidth={2} />
           {user ? (
-            <div className="hidden items-center gap-3 sm:flex">
-              <span className="max-w-36 truncate text-xs font-semibold" title={user.email ?? undefined}>
-                {accountLabel}
-              </span>
-              <a
-                className={`rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
-                href="/auth/logout"
+            <details className="group/account relative hidden sm:block">
+              <summary
+                className={`flex max-w-56 cursor-pointer list-none items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold shadow-sm transition-all marker:content-none [&::-webkit-details-marker]:hidden ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                title={user.email ?? undefined}
               >
-                Đăng xuất
-              </a>
-            </div>
+                <span className="max-w-36 truncate">{accountLabel}</span>
+                <ChevronDown className="shrink-0 transition-transform group-open/account:rotate-180" size={14} />
+              </summary>
+              <div className="absolute right-0 top-[calc(100%+0.75rem)] min-w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-slate-900 shadow-2xl">
+                <div className="border-b border-slate-100 px-3 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tài khoản</p>
+                  <p className="mt-1 max-w-48 truncate text-xs text-slate-600" title={user.email ?? undefined}>
+                    {user.email || accountLabel}
+                  </p>
+                </div>
+                <a className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50" href="/auth/logout">
+                  <LogOut size={16} />
+                  Đăng xuất
+                </a>
+              </div>
+            </details>
           ) : (
             <a
               className={`hidden rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 sm:block ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
