@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 FROM node:22-alpine AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -30,17 +29,3 @@ USER nextjs
 EXPOSE 3000
 
 CMD ["node", "server.js"]
-=======
-FROM node:22-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-
-EXPOSE 3000
-
-CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]
->>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
