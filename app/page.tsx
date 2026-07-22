@@ -1,9 +1,5 @@
-'use client'
-
 import { ArrowRight, Zap, ShieldCheck, BatteryCharging, MapPin } from 'lucide-react'
-import { motion, useScroll, useTransform } from 'framer-motion'
-import { useRef } from 'react'
-import { Header } from '../components/header'
+import { Header, MotionDiv } from '../components/header'
 import { Button } from '../components/ui/button'
 import { ProductCard } from '../components/product-card'
 import { Footer } from '../components/footer'
@@ -23,32 +19,50 @@ export default async function Home() {
         name: session.user.name,
     } : undefined
 
-    return <main><Header user={user} />
-        <section className="relative flex min-h-[680px] items-start justify-center overflow-hidden bg-[#e8e6e6] text-center lg:min-h-[805px]">
-            <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />
-            <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col items-center px-5 pt-16 sm:pt-20 lg:pt-20">
-                <h1 className="hero-sunlight text-[40px] font-bold leading-[1.12] tracking-wide sm:text-5xl lg:text-[58px]">
-                    <span className="hero-copy">
-                        <span>Khởi nguồn</span>
-                        <span>Tương lai di chuyển.</span>
-                    </span>
-                    <span className="hero-light" aria-hidden="true">
-                        <span>Khởi nguồn</span>
-                        <span>Tương lai di chuyển.</span>
-                    </span>
-                </h1>
-                <div className="mt-[330px] lg:mt-[365px]"><span className="rounded-full bg-white/75 px-4 py-2 text-xs font-bold shadow-sm">Trải Nghiệm Đẳng Cấp</span>
-                    <p className="mx-auto mt-4 max-w-xl text-base text-slate-700 sm:text-xl">Tuyệt tác công nghệ VinFast VF9. Sẵn sàng đồng hành cùng bạn trên mọi hành trình.</p>
-                    <div className="mt-6 flex justify-center gap-3"><Button variant="gold">Đặt cọc ngay <ArrowRight className="ml-1" size={15} /></Button><Button variant="outline">Tìm hiểu thêm</Button></div></div>
-            </div><p className="absolute bottom-6 left-1/2 w-full -translate-x-1/2 px-4 text-[10px] text-white/80">Images and videos shown contain pre-production level vehicles. Actual production vehicles may differ slightly.</p>
-s       </section>
+    return (
+      <main><Header user={user} />
+        <section className="relative isolate flex min-h-[760px] h-[100svh] w-full items-center justify-center overflow-hidden bg-black text-center text-white">
+          <img
+            src="/images/maxresdefault.jpg"
+            alt="Xe điện trên cung đường đô thị"
+            className="absolute inset-0 -z-30 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 -z-20 bg-black/25" />
+          <div className="absolute inset-x-0 top-0 -z-10 h-56 bg-gradient-to-b from-black/55 via-black/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 -z-10 h-[46%] bg-gradient-to-t from-black via-black/55 to-transparent" />
+
+          <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col items-center px-5 pt-[22vh] sm:px-8 lg:px-16">
+            <h1 className="hero-title-shadow max-w-[1800px] text-balance text-[clamp(3rem,6.2vw,7.5rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-white lg:whitespace-nowrap">
+              Khởi nguồn tương lai di chuyển
+            </h1>
+            <p className="hero-copy-shadow mt-8 max-w-5xl text-balance text-[clamp(1.15rem,2vw,2.35rem)] font-medium leading-[1.3] tracking-[-0.02em] text-white/95 sm:mt-10">
+              Trải nghiệm giải pháp ô tô điện thông minh, đẳng cấp<br className="hidden md:block" /> toàn cầu.
+            </p>
+            <a
+              href="#featured-vehicle"
+              className="mt-12 inline-flex h-16 min-w-64 items-center justify-center rounded-full bg-white px-12 text-sm font-extrabold uppercase tracking-[0.16em] text-slate-950 shadow-[0_16px_45px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-slate-100 sm:mt-16 sm:h-[72px] sm:min-w-80 sm:text-base"
+            >
+              Khám phá ngay
+            </a>
+          </div>
+
+          <a href="#featured-vehicle" className="absolute bottom-7 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4 text-white/65 transition hover:text-white" aria-label="Cuộn đến nội dung tiếp theo">
+            <span className="text-[11px] font-bold uppercase tracking-[0.3em]">Cuộn để xem</span>
+            <span className="scroll-line relative block h-20 w-px overflow-hidden bg-gradient-to-b from-white/90 via-white/45 to-transparent">
+              <span className="scroll-line-pulse absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-transparent via-white to-transparent" />
+            </span>
+          </a>
+
+          <p className="absolute inset-x-4 bottom-2 hidden text-center text-[10px] text-white/20 lg:block">
+            Images and videos shown contain pre-production level vehicles. Actual production vehicles may differ slightly.
+          </p>
+        </section>
 
         {/* FEATURED VEHICLE (VF9) */}
-        <section className="relative w-full bg-background py-32 lg:py-48 z-10">
+        <section id="featured-vehicle" className="relative z-10 w-full scroll-mt-20 bg-background py-32 lg:py-48">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-              <motion.div 
+              <MotionDiv
                 initial={{ opacity: 0, x: -40 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: '-200px' }}
@@ -79,9 +93,9 @@ s       </section>
                   <Button variant="default" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 font-bold">Đặt cọc ngay</Button>
                   <Button variant="outline" className="h-12 px-8 border-muted-foreground/30 text-foreground hover:bg-muted font-bold">Thông số kỹ thuật</Button>
                 </div>
-              </motion.div>
+              </MotionDiv>
               
-              <motion.div 
+              <MotionDiv
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true, margin: '-200px' }}
@@ -90,7 +104,7 @@ s       </section>
               >
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-muted to-muted opacity-50" />
                 <img src="/images/vf9.png" alt="VinFast VF9" className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-1000 ease-out" />
-              </motion.div>
+              </MotionDiv>
             </div>
           </div>
         </section>
@@ -98,7 +112,7 @@ s       </section>
         {/* VEHICLE COLLECTION */}
         <section className="bg-muted py-32 lg:py-48">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-            <motion.div 
+            <MotionDiv
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
@@ -112,11 +126,11 @@ s       </section>
               <a className="group flex items-center text-[13px] font-bold uppercase tracking-widest text-brand-600 hover:text-brand-700 transition-colors" href="#products">
                 Xem tất cả <ArrowRight className="ml-3 transition-transform group-hover:translate-x-1" size={18} />
               </a>
-            </motion.div>
+            </MotionDiv>
             
             <div id="products" className="mt-20 grid gap-12 md:grid-cols-2">
               {products.map((p, i) => (
-                <motion.div 
+                <MotionDiv
                   key={p.name}
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -124,7 +138,7 @@ s       </section>
                   transition={{ duration: 1, delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <ProductCard {...p} />
-                </motion.div>
+                </MotionDiv>
               ))}
             </div>
           </div>
@@ -133,7 +147,7 @@ s       </section>
         {/* SERVICES */}
         <section className="py-32 lg:py-48 bg-background">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-            <motion.div 
+            <MotionDiv
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
@@ -142,7 +156,7 @@ s       </section>
             >
               <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">Dịch vụ đặc quyền</h2>
               <p className="mt-6 text-lg text-muted-foreground">Trải nghiệm sở hữu xe điện liền mạch, từ lúc bắt đầu tìm hiểu cho đến mọi hành trình sau này.</p>
-            </motion.div>
+            </MotionDiv>
 
             <div className="mt-24 grid sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16">
               {[
@@ -151,7 +165,7 @@ s       </section>
                 { icon: BatteryCharging, title: "Thuê pin linh hoạt", desc: "Tiết kiệm chi phí ban đầu, an tâm tuyệt đối về chất lượng pin." },
                 { icon: MapPin, title: "Lái thử tận nhà", desc: "Trải nghiệm xe thật tại nhà, tiết kiệm thời gian tối đa." }
               ].map((service, i) => (
-                <motion.div 
+                <MotionDiv
                   key={service.title}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -164,7 +178,7 @@ s       </section>
                   </div>
                   <h3 className="mt-8 text-xl font-bold text-foreground tracking-tight">{service.title}</h3>
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-[250px]">{service.desc}</p>
-                </motion.div>
+                </MotionDiv>
               ))}
             </div>
           </div>
