@@ -20,7 +20,7 @@ Trong Auth0 Dashboard, tạo **Regular Web Application** và cấu hình:
 - Allowed Logout URLs: `http://localhost:3000`
 - Allowed Web Origins: `http://localhost:3000`
 
-Thêm URL production tương ứng khi triển khai. Điền domain, client ID, client secret và session secret vào `.env.local`. SDK tự cung cấp `/auth/login`, `/auth/callback` và `/auth/logout`; không tạo backend auth endpoint trùng lặp.
+Trong **Advanced Settings → OAuth**, đặt Token Endpoint Authentication Method thành **POST** và bảo đảm grant type **Authorization Code** được bật. Thêm URL production tương ứng khi triển khai. Điền domain, client ID, client secret và session secret vào `.env.local`. SDK tự cung cấp `/auth/login`, `/auth/callback` và `/auth/logout`; không tạo backend auth endpoint trùng lặp.
 
 ## 3. Auth0 API, RBAC và claims
 
@@ -39,6 +39,8 @@ Tạo hai role đúng tên `Customer` và `Admin`. Role `Admin` nhận các perm
 - `promotion:manage`
 
 Gán `Customer` cho khách hàng qua quy trình provision được kiểm soát trước lần đăng nhập đầu tiên; chỉ quản trị tenant mới được gán `Admin`. Action từ chối đăng nhập nếu user không có một trong hai role và không tự nâng quyền Admin. Backend chuẩn hóa hai tên này thành `customer` và `admin`, kiểm tra exact issuer/audience, chữ ký RS256 từ JWKS, `exp`, `nbf`, role và toàn bộ permission mà operation yêu cầu.
+
+Trong phần **Application Access** của API, cấp ứng dụng FastLane **User-Delegated Access** đến API. Chọn các permission mà ứng dụng được phép yêu cầu; với foundation hiện tại là sáu permission Admin ở trên. Không bật “Always grant all permissions” nếu không có chủ đích, vì tùy chọn đó tự cấp cả permission được thêm trong tương lai.
 
 Đặt các biến sau cùng một giá trị ở application, API verifier và Action:
 
@@ -59,11 +61,13 @@ Tạo custom Post-Login Action bằng nội dung `auth0/actions/add-token-claims
 ROLE_CLAIM_NAMESPACE=https://fastlane.example.com/roles
 ```
 
-Deploy Action và kéo nó vào Login Flow. Action đưa namespaced role claim vào access token và ID token. Claim `permissions` do tùy chọn **Add Permissions in the Access Token** của Auth0 API cung cấp.
+Deploy Action, mở **Actions → Triggers → Post Login**, kéo Action vào giữa **Start** và **Complete**, rồi chọn **Apply**. Action đưa namespaced role claim vào access token và ID token. Claim `permissions` do tùy chọn **Add Permissions in the Access Token** của Auth0 API cung cấp.
 
 ## 5. Kết nối Supabase Third-Party Auth
 
-Trong Supabase Dashboard, mở **Authentication → Third-Party Auth**, thêm Auth0 integration, rồi nhập Auth0 tenant ID và region khi dashboard yêu cầu. Auth0 tenant phải dùng asymmetric signing và token phải có `kid`; HS256/PS256 không phù hợp với integration này.
+Trong Supabase Dashboard, mở **Authentication → Third-Party Auth**, thêm Auth0 integration, rồi nhập Auth0 tenant ID và region khi dashboard yêu cầu. Nếu menu bên trái chưa hiện mục này, mở trực tiếp `https://supabase.com/dashboard/project/<PROJECT_REF>/auth/third-party`.
+
+Không bật **OAuth Server** cho luồng này. OAuth Server biến Supabase thành identity provider cho ứng dụng khác; FastLane cần chiều ngược lại là Supabase tin cậy token Auth0. Auth0 tenant phải dùng asymmetric signing và token phải có `kid`; HS256/PS256 không phù hợp với integration này.
 
 Supabase cần literal claim `role: authenticated`. Action chỉ thêm claim này vào **ID token**, đúng với cơ chế Auth0/Supabase; không thêm nó vào API access token. Khi lớp truy cập Supabase được triển khai, cung cấp Auth0 ID token cho Supabase client `accessToken` callback. BFF vẫn dùng Auth0 API access token riêng để bảo vệ `/api/v1`.
 
@@ -76,5 +80,18 @@ Sau khi kết nối, kiểm tra RLS bằng một user `Customer` trước, rồi
 3. Lấy API access token có đúng audience; gọi route được bảo vệ và kiểm tra ma trận `401`/`403`/authorized.
 4. Decode token chỉ để debug, xác nhận `alg=RS256`, `iss`, `aud`, namespaced role claim và `permissions`; backend vẫn phải verify chữ ký.
 5. Dùng ID token khi gọi Supabase và xác nhận claim `role=authenticated` được áp dụng vào RLS.
+
+## 7. Lỗi cấu hình thường gặp
+
+| Hiện tượng | Nguyên nhân thường gặp | Cách kiểm tra |
+|---|---|---|
+| `Callback URL mismatch` | Callback dùng `/api/auth/callback` hoặc sai port | Dùng chính xác `http://localhost:3000/auth/callback` cho SDK v4 |
+| `Client is not authorized to access resource server` | Application chưa được cấp User-Delegated Access đến Auth0 API | Mở Application Access của API và cấp quyền cho ứng dụng FastLane |
+| `feacft` + `Unauthorized` sau khi login | Client Secret sai/sai application, hoặc token endpoint auth method không phải POST | Đối chiếu Client ID/Secret của cùng Regular Web Application và Advanced Settings → OAuth |
+| `An error occurred during the authorization flow` | User chưa có role hoặc Action secret sai | Xem Auth0 Monitoring log/Action log; gán `Customer`/`Admin` và kiểm tra `ROLE_CLAIM_NAMESPACE` |
+| Màn hình `Authorize App` | Consent bắt buộc khi callback là localhost | Chọn **Accept** trong môi trường local; không coi đây là lỗi |
+| Login được nhưng API trả `401` | Issuer/JWKS/domain khác tenant hoặc audience sai | Đối chiếu domain, issuer có dấu `/` cuối, JWKS và API identifier |
+
+Không gửi Client Secret, access/ID token, authorization code, `state` hoặc `nonce` vào issue/log công khai.
 
 Tham khảo chính thức: [Auth0 Next.js SDK](https://github.com/auth0/nextjs-auth0), [Auth0 RBAC](https://auth0.com/docs/manage-users/access-control/rbac), [Supabase Auth0 Third-Party Auth](https://supabase.com/docs/guides/auth/third-party/auth0).

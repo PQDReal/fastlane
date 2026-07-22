@@ -2,6 +2,16 @@
 
 Khung ứng dụng FastLane dùng Next.js 15/BFF, Auth0 Universal Login, OpenAPI contract và Supabase managed. Repo đã có CI và production container; Compose chỉ chạy web service, không chạy database cục bộ.
 
+## Bắt đầu từ đây
+
+- Thành viên mới: [Thiết lập FastLane từ GitHub](docs/member-setup.md)
+- Quy tắc đóng góp: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Nâng cấp/làm lại giao diện: [Hướng dẫn phát triển UI](docs/ui-development.md)
+- Cấu hình identity/database: [Auth0 và Supabase](docs/auth0-supabase.md)
+- Thiết kế foundation: [Đặc tả Auth0, CI và Docker](docs/spec-auth0-ci-docker-compose.md)
+
+Trạng thái hiện tại: landing page và Auth0 login/logout hoạt động với role `Customer`/`Admin`; chưa có API nghiệp vụ, Supabase data layer hoặc route `/admin`. Vì vậy dashboard Admin và nút **Về trang chủ** đang là backlog UI, không phải tính năng đã có trong source.
+
 ## Yêu cầu
 
 - Node.js 22.12+
@@ -19,7 +29,7 @@ npm ci --prefix api-contract
 npm run dev
 ```
 
-Điền giá trị thật vào `.env.local`; file này bị Git và Docker bỏ qua. Truy cập `http://localhost:3000`. Login/logout dùng `/auth/login` và `/auth/logout` do Auth0 SDK quản lý.
+Điền các giá trị Auth0 cần cho local vào `.env.local`; file này bị Git và Docker bỏ qua. Các biến Supabase chưa được runtime sử dụng và không cần service-role key khi làm UI. Truy cập `http://localhost:3000`. Login/logout dùng `/auth/login` và `/auth/logout` do Auth0 SDK quản lý.
 
 Hướng dẫn tenant, role, claim, secret rotation và Supabase trust: [docs/auth0-supabase.md](docs/auth0-supabase.md).
 
@@ -41,13 +51,13 @@ Health endpoint theo contract: `GET /api/v1/health` → `{ "data": { "status": "
 Sau khi cấu hình `.env.local`:
 
 ```powershell
-docker compose config
+docker compose config --quiet
 docker compose up --build
 ```
 
 Mặc định web được publish tại port `3000`. Compose bắt buộc có `.env.local`, đọc Auth0/Supabase runtime configuration từ file này, chờ `/api/v1/health`, và không chứa service PostgreSQL/Supabase.
 
-Chỉ để kiểm tra cấu trúc Compose mà chưa tạo `.env.local`, có thể tạm đặt `FASTLANE_ENV_FILE=.env.example`; không dùng file placeholder này để chạy môi trường thật.
+Chỉ để kiểm tra cấu trúc Compose mà chưa tạo `.env.local`, có thể tạm đặt `$env:FASTLANE_ENV_FILE = '.env.example'` trong PowerShell; không dùng file placeholder này để chạy môi trường thật. Không đăng output đầy đủ của `docker compose config` lên PR/issue/chat vì lệnh đó có thể hiển thị giá trị đã resolve từ env file.
 
 Để đổi host port trong PowerShell, đặt biến cho Compose và cập nhật đồng thời `APP_BASE_URL` cùng callback/logout URL trong Auth0 Dashboard:
 
@@ -55,6 +65,7 @@ Chỉ để kiểm tra cấu trúc Compose mà chưa tạo `.env.local`, có th�
 $env:FASTLANE_PORT = '3001'
 # .env.local: APP_BASE_URL=http://localhost:3001
 # Auth0 callback: http://localhost:3001/auth/callback
+# Auth0 logout URL và Allowed Web Origins: http://localhost:3001
 docker compose up --build
 ```
 
