@@ -1,0 +1,21 @@
+<<<<<<< HEAD
+.git
+.github
+.next
+node_modules
+api-contract/node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+docs
+api-contract/dist
+=======
+node_modules
+.next
+.git
+.npm-cache
+*.log
+.env*
+!.env.example
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13

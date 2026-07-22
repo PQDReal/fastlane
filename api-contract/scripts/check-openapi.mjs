@@ -50,7 +50,9 @@ const REQUIRED_OPERATIONS = new Map([
   ["/checkout", ["post"]],
   ["/orders", ["get"]],
   ["/orders/{orderId}", ["get"]],
+  ["/orders/{orderId}/cancellation", ["post"]],
   ["/orders/{orderId}/mock-payment", ["post"]],
+  ["/orders/{orderId}/mock-refund", ["post"]],
   ["/admin/dashboard/summary", ["get"]],
   ["/admin/categories", ["get", "post"]],
   ["/admin/categories/{categoryId}", ["patch", "delete"]],
@@ -559,6 +561,18 @@ function checkContract(specPath) {
       label: "mock payment",
       conflictResponse: "#/components/responses/MockPaymentConflict",
     },
+    {
+      route: "/orders/{orderId}/cancellation",
+      method: "post",
+      label: "customer cancellation",
+      conflictResponse: "#/components/responses/CancellationConflict",
+    },
+    {
+      route: "/orders/{orderId}/mock-refund",
+      method: "post",
+      label: "mock refund",
+      conflictResponse: "#/components/responses/MockRefundConflict",
+    },
   ];
   for (const definition of idempotentOperations) {
     const operation = document.paths?.[definition.route]?.[definition.method];
@@ -585,7 +599,10 @@ function checkContract(specPath) {
     "x-pricebook-policy",
     "x-inventory-policy",
     "x-order-state-machine",
+    "x-payment-deadline-policy",
+    "x-refund-policy",
     "x-product-publication-policy",
+    "x-product-configuration-policy",
     "x-authorization-model",
   ]) {
     if (!document[extension]) errors.push(`missing root policy ${extension}`);
@@ -665,6 +682,8 @@ function checkSchemas(specPath) {
   const u1 = "11111111-1111-4111-8111-111111111111";
   const u2 = "22222222-2222-4222-8222-222222222222";
   const u3 = "33333333-3333-4333-8333-333333333333";
+  const u4 = "44444444-4444-4444-8444-444444444444";
+  const u5 = "55555555-5555-4555-8555-555555555555";
   const timestamp = "2026-07-20T10:00:00Z";
   const address = {
     recipientName: "Nguyễn Văn A",
@@ -682,10 +701,27 @@ function checkSchemas(specPath) {
     countryCode: "VN",
   };
   const discount = { type: "percentage", value: 10 };
+  const cancellationPolicy = {
+    customerCancellationAllowed: true,
+    customerCancellationCutoff: "before_balance_due",
+    refundPercentage: 100,
+    overdueRefundPercentage: 0,
+    cancellationFeeAmount: "0",
+  };
+  const purchaseTerms = {
+    paymentMode: "deposit",
+    depositAmount: "30000000",
+    initialPaymentWindowMinutes: 30,
+    balancePaymentWindowDays: 7,
+    gracePeriodHours: 48,
+    cancellationPolicy,
+  };
   const product = {
     id: u1,
     name: "VinFast VF 8",
     slug: "vinfast-vf-8",
+    productKind: "car",
+    purchaseTerms,
     category: { id: u2, name: "Ô tô điện", slug: "o-to-dien", isActive: true },
     thumbnailUrl: "https://example.com/vf8.jpg",
     priceRange: { minimum: "999000000", maximum: "1199000000", currency: "VND" },
@@ -709,6 +745,7 @@ function checkSchemas(specPath) {
       id: u3,
       sku: "VF8-ECO-RED",
       attributes: { trim: "Eco", color: "Red" },
+      batteryOption: "included",
       price: {
         currency: "VND",
         listPrice: "1099000000",
@@ -720,6 +757,22 @@ function checkSchemas(specPath) {
       isActive: true,
       isPurchasable: true,
     }],
+    optionGroups: [{
+      id: u4,
+      code: "PAINT",
+      name: "Màu sơn nâng cao",
+      minimumSelections: 0,
+      maximumSelections: 1,
+      isActive: true,
+      values: [{
+        id: u5,
+        code: "PREMIUM_RED",
+        name: "Đỏ nâng cao",
+        priceAdjustment: "12000000",
+        compatibleVariantSkus: ["VF8-ECO-RED"],
+        isActive: true,
+      }],
+    }],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -727,30 +780,48 @@ function checkSchemas(specPath) {
     id: u1,
     variantId: u3,
     productName: "VinFast VF 8",
+    productKind: "car",
+    purchaseTerms,
     sku: "VF8-ECO-RED",
     variantAttributes: { trim: "Eco" },
+    selectedOptions: [{
+      groupId: u4,
+      groupCode: "PAINT",
+      groupName: "Màu sơn nâng cao",
+      valueId: u5,
+      valueCode: "PREMIUM_RED",
+      valueName: "Đỏ nâng cao",
+      priceAdjustment: "12000000",
+    }],
     quantity: 1,
     unitListPrice: "1099000000",
     unitSalePrice: "999000000",
-    unitPrice: "999000000",
-    lineTotal: "999000000",
+    unitOptionTotal: "12000000",
+    unitPrice: "1011000000",
+    unitAmountDueNow: "30000000",
+    lineTotal: "1011000000",
+    lineAmountDueNow: "30000000",
   };
   const pricing = {
     currency: "VND",
-    subtotal: "999000000",
-    discountTotal: "99900000",
-    grandTotal: "899100000",
+    subtotal: "1011000000",
+    discountTotal: "101100000",
+    grandTotal: "909900000",
+    amountDueNow: "30000000",
+    balanceDue: "879900000",
   };
   const applied = {
     promotionId: u2,
     code: "FASTLANE10",
     discount,
-    discountAmount: "99900000",
+    discountAmount: "101100000",
   };
   const productCreate = {
     categoryId: u2,
     name: "VinFast VF 8",
     slug: "vinfast-vf-8",
+    productKind: "car",
+    purchaseTerms,
     description: "Mẫu SUV điện cỡ D.",
     specifications: [],
     images: [{
@@ -759,10 +830,25 @@ function checkSchemas(specPath) {
       sortOrder: 0,
       isThumbnail: true,
     }],
+    optionGroups: [{
+      code: "PAINT",
+      name: "Màu sơn nâng cao",
+      minimumSelections: 0,
+      maximumSelections: 1,
+      isActive: true,
+      values: [{
+        code: "PREMIUM_RED",
+        name: "Đỏ nâng cao",
+        priceAdjustment: "12000000",
+        compatibleVariantSkus: ["VF8-ECO-RED"],
+        isActive: true,
+      }],
+    }],
     isActive: true,
     variants: [{
       sku: "VF8-ECO-RED",
       attributes: { trim: "Eco", color: "Red" },
+      batteryOption: "included",
       listPrice: "1099000000",
       salePrice: null,
       isActive: true,
@@ -775,7 +861,8 @@ function checkSchemas(specPath) {
     ["Cart", { id: u1, version: 3, pricedAt: timestamp, items: [item], promotion: applied, pricing }],
     ["CheckoutRequest", {
       expectedCartVersion: 3,
-      acceptedGrandTotal: "899100000",
+      acceptedGrandTotal: "909900000",
+      acceptedAmountDueNow: "30000000",
       shippingAddress: address,
       note: "Gọi trước khi giao",
     }],
@@ -788,6 +875,27 @@ function checkSchemas(specPath) {
       items: [item],
       promotion: applied,
       pricing: { ...pricing, shippingTotal: "0" },
+      payment: {
+        status: "Pending",
+        amountDueAtCheckout: "30000000",
+        amountPaid: "0",
+        amountRefunded: "0",
+        balanceDue: "909900000",
+        schedule: {
+          initialPaymentDueAt: "2026-07-20T10:30:00Z",
+          balanceDueAt: null,
+          gracePeriodEndsAt: null,
+        },
+        refund: {
+          status: "NotRequired",
+          requestedAmount: "0",
+          refundedAmount: "0",
+          cancellationFeeAmount: "0",
+        },
+        transactions: [],
+      },
+      cancellationPolicy,
+      cancellation: null,
       shippingAddress: address,
       note: null,
       createdAt: timestamp,
@@ -800,7 +908,9 @@ function checkSchemas(specPath) {
       recipientName: "Nguyễn Văn A",
       recipientPhoneNumber: "0912345678",
       status: "Paid",
-      pricing: { currency: "VND", grandTotal: "899100000" },
+      paymentStatus: "Paid",
+      nextPaymentDueAt: null,
+      pricing: { currency: "VND", grandTotal: "909900000", amountDueNow: "30000000", balanceDue: "879900000" },
       createdAt: timestamp,
       statusUpdatedAt: timestamp,
     }],
@@ -817,13 +927,14 @@ function checkSchemas(specPath) {
     }],
     ["DashboardSummary", {
       generatedAt: timestamp,
-      totalOrders: 10,
-      ordersByStatus: { Created: 2, Paid: 2, Shipped: 2, Completed: 3, Cancelled: 1 },
+      totalOrders: 12,
+      ordersByStatus: { Created: 2, DepositPaid: 1, Paid: 2, Shipped: 2, Completed: 3, Cancelled: 1, Expired: 1 },
       projectedRevenue: "5000000000",
       activeProductCount: 8,
       lowStockVariantCount: 2,
     }],
     ["ProductPatchRequest", { name: "VinFast VF 8 Plus" }],
+    ["CancelOrderRequest", { expectedCurrentStatus: "DepositPaid", reasonCode: "changed_mind", note: "Thay đổi kế hoạch mua xe." }],
   ]);
   for (const [name, sample] of samples) valid(name, sample);
 
@@ -840,7 +951,12 @@ function checkSchemas(specPath) {
   negative("Money", 199000);
   negative("Money", "0199000");
   negative("PositiveMoney", "0");
-  negative("OrderTransitionRequest", { expectedCurrentStatus: "Created", targetStatus: "Paid" });
+  negative("OrderTransitionRequest", { expectedCurrentStatus: "Created", targetStatus: "DepositPaid" });
+  negative("PurchaseTerms", { paymentMode: "full", depositAmount: "30000000" });
+  negative("PurchaseTerms", { paymentMode: "deposit", depositAmount: null });
+  negative("CancellationPolicy", { ...cancellationPolicy, refundPercentage: 101 });
+  negative("CancelOrderRequest", { expectedCurrentStatus: "Shipped", reasonCode: "changed_mind" });
+  negative("AddCartItemRequest", { variantId: u3, quantity: 1 });
   const withoutImages = structuredClone(productCreate);
   delete withoutImages.images;
   negative("ProductCreateRequest", withoutImages);

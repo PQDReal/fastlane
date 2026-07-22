@@ -33,3 +33,74 @@ body {
   font-weight: 700;
   color: #836100;
 }
+
+
+.hero-sunlight {
+  position: relative;
+  color: #836100;
+}
+
+.hero-copy,
+.hero-light {
+  display: block;
+}
+
+.hero-copy>span,
+.hero-light>span {
+  display: block;
+  padding-block: 0.06em 0.1em;
+}
+
+.hero-light {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  background: linear-gradient(105deg,
+      transparent 34%,
+      #ffe985 45%,
+      #fffbd8 50%,
+      #ffd24a 55%,
+      transparent 66%);
+  background-size: 240% 100%;
+  background-position: 120% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  pointer-events: none;
+  opacity: 0;
+  animation: sunlight-sweep 9s ease-in-out infinite;
+}
+
+@keyframes sunlight-sweep {
+  0%,
+  14% {
+    background-position: 120% 0;
+    opacity: 0;
+  }
+
+  24% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  70% {
+    background-position: -120% 0;
+    opacity: 0.65;
+  }
+
+  86%,
+  100% {
+    background-position: -120% 0;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-light {
+    animation: none;
+    opacity: 0;
+  }
+}

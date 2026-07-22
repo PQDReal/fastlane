@@ -1,94 +1,51 @@
-'use client'
-
 import { ArrowRight, Zap, ShieldCheck, BatteryCharging, MapPin } from 'lucide-react'
-import { motion, useScroll, useTransform } from 'framer-motion'
-import { useRef } from 'react'
-import { Header } from '../components/header'
+import { Header, MotionDiv } from '../components/header'
 import { Button } from '../components/ui/button'
 import { ProductCard } from '../components/product-card'
 import { Footer } from '../components/footer'
+import { auth0 } from '../lib/auth0'
+
+export const dynamic = 'force-dynamic'
 
 const products = [
     { name: 'VinFast VF8', desc: 'SUV cỡ trung mạnh mẽ, thiết kế đậm chất thể thao, trải nghiệm lái khác biệt.', price: '1.090.000.000', image: '/images/vf8.png' },
     { name: 'Vento S', desc: 'Xe máy điện cao cấp, vận hành êm ái, thiết kế thanh lịch chuẩn phong cách.', price: '50.000.000', image: '/images/vento.png' }
 ]
 
-export default function Home() {
-    const heroRef = useRef(null)
-    const { scrollYProgress } = useScroll({
-      target: heroRef,
-      offset: ["start start", "end start"]
-    })
-    const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"])
-    const opacity = useTransform(scrollYProgress, [0, 1], [1, 0])
+export default async function Home() {
+    const session = await auth0.getSession()
+    const user = session ? {
+        email: session.user.email,
+        name: session.user.name,
+    } : undefined
 
     return (
-      <main className="flex min-h-screen flex-col bg-background">
-        <Header />
-        
-        {/* HERO SECTION */}
-        <section ref={heroRef} className="relative flex h-screen min-h-[800px] w-full items-center justify-center overflow-hidden bg-black text-center">
-            <motion.div style={{ y, opacity }} className="absolute inset-0 h-full w-full">
-              <img 
-                src="/images/maxresdefault.jpg" 
-                alt="Xe điện trên cung đường đô thị" 
-                className="h-full w-full object-cover object-center opacity-70" 
-              />
-              <div className="absolute inset-0 bg-hero-gradient" />
-            </motion.div>
-            
-            <div className="relative z-10 mx-auto flex h-full w-full max-w-[1440px] flex-col items-center justify-start px-6 pt-48 pb-32">
-                <motion.h1 
-                  initial={{ y: 40, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-5xl font-bold leading-[1.1] tracking-tight text-white sm:text-6xl lg:text-7xl drop-shadow-2xl"
-                >
-                  Khởi nguồn tương lai di chuyển
-                </motion.h1>
-                <motion.p 
-                  initial={{ y: 30, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 1.2, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="mt-6 max-w-2xl text-lg font-medium text-white/90 sm:text-2xl tracking-wide drop-shadow-lg"
-                >
-                  Trải nghiệm giải pháp ô tô điện thông minh, đẳng cấp toàn cầu.
-                </motion.p>
-                
-                <motion.div 
-                  initial={{ y: 30, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  className="mt-12"
-                >
-                  <Button variant="default" size="default" className="h-12 px-10 text-[13px] tracking-widest uppercase bg-white text-black hover:bg-white/90 font-bold rounded-full">
-                    Khám phá ngay
-                  </Button>
-                </motion.div>
-            </div>
-            
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.5, duration: 2 }}
-              className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center"
-            >
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 mb-4 font-bold">Cuộn để xem</span>
-              <div className="h-16 w-[1px] bg-white/20 relative overflow-hidden">
-                <motion.div 
-                  animate={{ y: ['-100%', '100%'] }} 
-                  transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                  className="absolute inset-0 h-full w-full bg-white" 
-                />
-              </div>
-            </motion.div>
+      <main><Header user={user} />
+        <section className="relative flex min-h-[680px] items-start justify-center overflow-hidden bg-[#e8e6e6] text-center lg:min-h-[805px]">
+            <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />
+            <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col items-center px-5 pt-16 sm:pt-20 lg:pt-20">
+                <h1 className="hero-sunlight text-[40px] font-bold leading-[1.12] tracking-wide sm:text-5xl lg:text-[58px]">
+                    <span className="hero-copy">
+                        <span>Khởi nguồn</span>
+                        <span>Tương lai di chuyển.</span>
+                    </span>
+                    <span className="hero-light" aria-hidden="true">
+                        <span>Khởi nguồn</span>
+                        <span>Tương lai di chuyển.</span>
+                    </span>
+                </h1>
+                <div className="mt-[330px] lg:mt-[365px]"><span className="rounded-full bg-white/75 px-4 py-2 text-xs font-bold shadow-sm">Trải Nghiệm Đẳng Cấp</span>
+                    <p className="mx-auto mt-4 max-w-xl text-base text-slate-700 sm:text-xl">Tuyệt tác công nghệ VinFast VF9. Sẵn sàng đồng hành cùng bạn trên mọi hành trình.</p>
+                    <div className="mt-6 flex justify-center gap-3"><Button variant="gold">Đặt cọc ngay <ArrowRight className="ml-1" size={15} /></Button><Button variant="outline">Tìm hiểu thêm</Button></div></div>
+            </div><p className="absolute bottom-6 left-1/2 w-full -translate-x-1/2 px-4 text-[10px] text-white/80">Images and videos shown contain pre-production level vehicles. Actual production vehicles may differ slightly.</p>
         </section>
 
         {/* FEATURED VEHICLE (VF9) */}
         <section className="relative w-full bg-background py-32 lg:py-48 z-10">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-              <motion.div 
+              <MotionDiv
                 initial={{ opacity: 0, x: -40 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: '-200px' }}
@@ -119,9 +76,9 @@ export default function Home() {
                   <Button variant="default" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 font-bold">Đặt cọc ngay</Button>
                   <Button variant="outline" className="h-12 px-8 border-muted-foreground/30 text-foreground hover:bg-muted font-bold">Thông số kỹ thuật</Button>
                 </div>
-              </motion.div>
+              </MotionDiv>
               
-              <motion.div 
+              <MotionDiv
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true, margin: '-200px' }}
@@ -130,7 +87,7 @@ export default function Home() {
               >
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-muted to-muted opacity-50" />
                 <img src="/images/vf9.png" alt="VinFast VF9" className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-1000 ease-out" />
-              </motion.div>
+              </MotionDiv>
             </div>
           </div>
         </section>
@@ -138,7 +95,7 @@ export default function Home() {
         {/* VEHICLE COLLECTION */}
         <section className="bg-muted py-32 lg:py-48">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-            <motion.div 
+            <MotionDiv
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
@@ -152,11 +109,11 @@ export default function Home() {
               <a className="group flex items-center text-[13px] font-bold uppercase tracking-widest text-brand-600 hover:text-brand-700 transition-colors" href="#products">
                 Xem tất cả <ArrowRight className="ml-3 transition-transform group-hover:translate-x-1" size={18} />
               </a>
-            </motion.div>
+            </MotionDiv>
             
             <div id="products" className="mt-20 grid gap-12 md:grid-cols-2">
               {products.map((p, i) => (
-                <motion.div 
+                <MotionDiv
                   key={p.name}
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -164,7 +121,7 @@ export default function Home() {
                   transition={{ duration: 1, delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <ProductCard {...p} />
-                </motion.div>
+                </MotionDiv>
               ))}
             </div>
           </div>
@@ -173,7 +130,7 @@ export default function Home() {
         {/* SERVICES */}
         <section className="py-32 lg:py-48 bg-background">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-            <motion.div 
+            <MotionDiv
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
@@ -182,7 +139,7 @@ export default function Home() {
             >
               <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">Dịch vụ đặc quyền</h2>
               <p className="mt-6 text-lg text-muted-foreground">Trải nghiệm sở hữu xe điện liền mạch, từ lúc bắt đầu tìm hiểu cho đến mọi hành trình sau này.</p>
-            </motion.div>
+            </MotionDiv>
 
             <div className="mt-24 grid sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16">
               {[
@@ -191,7 +148,7 @@ export default function Home() {
                 { icon: BatteryCharging, title: "Thuê pin linh hoạt", desc: "Tiết kiệm chi phí ban đầu, an tâm tuyệt đối về chất lượng pin." },
                 { icon: MapPin, title: "Lái thử tận nhà", desc: "Trải nghiệm xe thật tại nhà, tiết kiệm thời gian tối đa." }
               ].map((service, i) => (
-                <motion.div 
+                <MotionDiv
                   key={service.title}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -204,7 +161,7 @@ export default function Home() {
                   </div>
                   <h3 className="mt-8 text-xl font-bold text-foreground tracking-tight">{service.title}</h3>
                   <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-[250px]">{service.desc}</p>
-                </motion.div>
+                </MotionDiv>
               ))}
             </div>
           </div>
