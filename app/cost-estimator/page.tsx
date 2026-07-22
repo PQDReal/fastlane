@@ -1,6 +1,6 @@
 'use client'
 
-import { AuthenticatedHeader } from '../../components/authenticated-header'
+import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
 import { ChevronRight, Calculator, Info } from 'lucide-react'
 import Link from 'next/link'
@@ -67,7 +67,7 @@ export default function CostEstimatorPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
-      <AuthenticatedHeader />
+      <Header />
       
       <div className="bg-muted py-24 border-b border-black/5">
         <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">

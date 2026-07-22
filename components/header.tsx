@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuthUser, type AuthUser } from './auth-user-provider'
 
 export function MotionDiv(props: HTMLMotionProps<'div'>) {
   return <motion.div {...props} />
@@ -20,17 +21,16 @@ const links = [
   { name: 'So sánh xe', path: '/compare' },
 ]
 
-export interface HeaderUser {
-  email?: string | null
-  name?: string | null
-}
+export type HeaderUser = AuthUser
 
 export function Header({ user }: { user?: HeaderUser }) {
+  const contextUser = useAuthUser()
+  const currentUser = user ?? contextUser
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
   const isHomePage = pathname === '/'
-  const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
+  const accountLabel = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -65,11 +65,11 @@ export function Header({ user }: { user?: HeaderUser }) {
           <button aria-label="Tìm kiếm" className="-m-1.5 rounded-full p-1.5 transition hover:bg-white/10 hover:opacity-80"><Search size={20} strokeWidth={2} /></button>
           <button aria-label="Giỏ hàng" className="hidden rounded-full p-1.5 transition hover:bg-white/10 hover:opacity-80 sm:block"><ShoppingCart size={20} strokeWidth={2} /></button>
           <UserRound aria-hidden="true" className="hidden sm:block" size={20} strokeWidth={2} />
-          {user ? (
+          {currentUser ? (
             <details className="group/account relative hidden sm:block">
               <summary
                 className={`flex h-11 min-w-36 max-w-56 cursor-pointer list-none items-center justify-center gap-2 rounded-full px-6 text-[11px] font-semibold shadow-sm transition-all marker:content-none [&::-webkit-details-marker]:hidden ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
-                title={user.email ?? undefined}
+                title={currentUser.email ?? undefined}
               >
                 <span className="max-w-36 truncate">{accountLabel}</span>
                 <ChevronDown className="shrink-0 transition-transform group-open/account:rotate-180" size={14} />
@@ -77,8 +77,8 @@ export function Header({ user }: { user?: HeaderUser }) {
               <div className="absolute right-0 top-[calc(100%+0.75rem)] min-w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-slate-900 shadow-2xl">
                 <div className="border-b border-slate-100 px-3 py-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tài khoản</p>
-                  <p className="mt-1 max-w-48 truncate text-xs text-slate-600" title={user.email ?? undefined}>
-                    {user.email || accountLabel}
+                  <p className="mt-1 max-w-48 truncate text-xs text-slate-600" title={currentUser.email ?? undefined}>
+                    {currentUser.email || accountLabel}
                   </p>
                 </div>
                 <a className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50" href="/auth/logout">

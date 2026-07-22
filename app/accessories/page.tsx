@@ -1,4 +1,4 @@
-import { AuthenticatedHeader } from '../../components/authenticated-header'
+import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
 import { AccessoryCard } from '../../components/accessory-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
@@ -20,7 +20,7 @@ const accessories = [
 export default function AccessoriesPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
-      <AuthenticatedHeader />
+      <Header />
       
       <div className="bg-muted py-20 border-b border-black/5">
         <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
