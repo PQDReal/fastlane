@@ -3,19 +3,21 @@
 import { Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export function MotionDiv(props: HTMLMotionProps<'div'>) {
   return <motion.div {...props} />
 }
 
 const links = [
-  'Ô tô điện',
-  'Xe máy điện',
-  'Phụ kiện',
-  'Khuyến mãi',
-  'So sánh xe',
-  'Đặt lịch lái thử',
-  'Hỗ trợ',
+  { name: 'Ô tô điện', path: '/cars' },
+  { name: 'Xe máy điện', path: '/bikes' },
+  { name: 'Phụ kiện', path: '/accessories' },
+  { name: 'Khuyến mãi', path: '/promotions' },
+  { name: 'Dự toán chi phí', path: '/cost-estimator' },
+  { name: 'Đặt lịch lái thử', path: '/test-drive' },
+  { name: 'So sánh xe', path: '/compare' },
 ]
 
 export interface HeaderUser {
@@ -26,8 +28,9 @@ export interface HeaderUser {
 export function Header({ user }: { user?: HeaderUser }) {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const accountLabel =
-    user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
+  const pathname = usePathname()
+  const isHomePage = pathname === '/'
+  const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -35,28 +38,30 @@ export function Header({ user }: { user?: HeaderUser }) {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  const headerSolid = scrolled || !isHomePage
+
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
       <div className="mx-auto flex h-full max-w-[1440px] items-center px-6 lg:px-12">
-        <a href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
+        <Link href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
           <img src="/images/fastlane-logo.png" alt="Logo" className="h-7 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
           <span className="font-display text-2xl font-bold tracking-widest text-[#836100] transition-opacity duration-500 group-hover:opacity-80 mt-1">FASTLANE</span>
-        </a>
+        </Link>
 
         <nav className="ml-auto hidden items-center gap-10 xl:flex">
           {links.map((link) => (
-            <a
-              key={link}
-              href="#"
-              className={`relative text-[13px] font-semibold tracking-wide transition-colors group ${scrolled ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+            <Link
+              key={link.name}
+              href={link.path}
+              className={`relative text-[13px] font-semibold tracking-wide transition-colors group ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
             >
-              {link}
-              <span className={`absolute -bottom-1 left-0 h-px transition-all duration-300 w-0 group-hover:w-full ${scrolled ? 'bg-slate-900' : 'bg-white'}`}></span>
-            </a>
+              {link.name}
+              <span className={`absolute -bottom-1 left-0 h-px transition-all duration-300 w-0 group-hover:w-full ${headerSolid ? 'bg-slate-900' : 'bg-white'}`}></span>
+            </Link>
           ))}
         </nav>
 
-        <div className={`ml-auto flex items-center gap-6 xl:ml-12 transition-colors duration-500 ${scrolled ? 'text-slate-600' : 'text-white'}`}>
+        <div className={`ml-auto flex items-center gap-6 xl:ml-12 transition-colors duration-500 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity"><Search size={18} strokeWidth={2} /></button>
           <button aria-label="Giỏ hàng" className="hidden sm:block hover:opacity-70 transition-opacity"><ShoppingCart size={18} strokeWidth={2} /></button>
           <UserRound aria-hidden="true" className="hidden sm:block" size={18} strokeWidth={2} />
@@ -66,7 +71,7 @@ export function Header({ user }: { user?: HeaderUser }) {
                 {accountLabel}
               </span>
               <a
-                className={`rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 ${scrolled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                className={`rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
                 href="/auth/logout"
               >
                 Đăng xuất
@@ -74,7 +79,7 @@ export function Header({ user }: { user?: HeaderUser }) {
             </div>
           ) : (
             <a
-              className={`hidden rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 sm:block ${scrolled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+              className={`hidden rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 sm:block ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
               href="/auth/login"
             >
               Đăng nhập
@@ -96,14 +101,14 @@ export function Header({ user }: { user?: HeaderUser }) {
             className="absolute left-0 top-full w-full border-t border-slate-200 bg-white/95 backdrop-blur-md p-8 shadow-2xl xl:hidden flex flex-col gap-6"
           >
             {links.map((link) => (
-              <a
+              <Link
                 onClick={() => setOpen(false)}
-                key={link}
+                key={link.name}
                 className="block text-lg font-medium text-slate-900 hover:text-brand-600 transition-colors"
-                href="#"
+                href={link.path}
               >
-                {link}
-              </a>
+                {link.name}
+              </Link>
             ))}
             <a
               className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600"
