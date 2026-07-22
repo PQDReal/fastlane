@@ -15,14 +15,12 @@
 }
 
 html {
-  scroll-behavior: smooth
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  color: #061941;
-  background: white;
-  font-family: Arial, Helvetica, sans-serif
+  /* Tailwind handles font-family and colors now via layout.tsx */
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -34,6 +32,7 @@ body {
   font-size: 35px;
   font-weight: 700;
   color: #836100;
+<<<<<<< HEAD
 }
 
 
@@ -106,3 +105,6 @@ body {
     opacity: 0;
   }
 }
+=======
+}
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13

@@ -1,12 +1,12 @@
 openapi: 3.1.0
 info:
   title: Fastlane E-Commerce API
-  version: 0.2.0-draft
+  version: 0.4.0-draft
   summary: Contract-first REST API for the Fastlane B2C MVP
   description: |
     Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
     This artifact defines the integration boundary before backend, storefront, admin, database, and infrastructure work are merged.
-    All money values are non-negative whole-VND strings. Pricing, promotion eligibility, and inventory are calculated on the server.
+    All money values are non-negative whole-VND strings. Pricing, option compatibility, deposit schedules, promotion eligibility, and inventory are calculated on the server.
     Catalog content is available only in vi-VN. UI and error messages are localized by the client from stable error codes.
     Authentication and registration use Auth0 Universal Login; this API does not duplicate Auth0 login, registration, or logout endpoints.
   license:
@@ -195,7 +195,7 @@ paths:
       x-required-roles:
         - customer
       summary: Read the current customer cart
-      description: Reading the cart re-prices active items and revalidates the applied promotion. Cart items do not reserve inventory.
+      description: Reading the cart re-prices active variants and selected options, recalculates deposit amounts, and revalidates the applied promotion. Cart items do not reserve inventory.
       responses:
         '200':
           $ref: '#/components/responses/Cart'
@@ -216,10 +216,11 @@ paths:
         - US-C06
         - FR-CART-01
         - BR-04
+        - BR-13
       x-required-roles:
         - customer
       summary: Add a variant to the current cart
-      description: Adding the same variant increments its existing line quantity. The availability check is provisional and does not reserve stock.
+      description: The server validates option ownership, group cardinality, active state, uniqueness, and variant-SKU compatibility. Adding the same variant with the same option selection increments its existing line quantity; a different selection creates another line. The availability check is provisional and does not reserve stock.
       requestBody:
         required: true
         content:
@@ -237,6 +238,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/OutOfStock'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -250,6 +253,7 @@ paths:
         - US-C06
         - FR-CART-01
         - BR-04
+        - BR-13
       x-required-roles:
         - customer
       summary: Change a cart item quantity
@@ -274,6 +278,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/OutOfStock'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -371,16 +377,19 @@ paths:
         - BR-02
         - BR-03
         - BR-04
+        - BR-13
+        - BR-14
       x-required-roles:
         - customer
       summary: Create an order from the current cart
       description: |
-        The server verifies expectedCartVersion and acceptedGrandTotal, re-prices the cart, validates one optional promotion,
+        The server verifies expectedCartVersion, acceptedGrandTotal, and acceptedAmountDueNow; re-prices variants and selected options; validates one optional promotion,
         conditionally decrements variant inventory, consumes promotion usage, creates an immutable Created order snapshot,
         stores the idempotency result, and clears the cart in one database transaction. Any failure rolls back every mutation.
         A repeated request with the same Idempotency-Key, customer, cart version, and payload returns the original response.
         Reusing the key with a different fingerprint returns IDEMPOTENCY_KEY_REUSED. Mock payment is a separate local-only action.
-        The Created order retains its stock decrement and consumed promotion usage until mock payment succeeds or an administrator cancels it; this MVP has no automatic expiry.
+        The Created order retains its stock decrement and consumed promotion usage until payment, cancellation, or automatic expiry at initialPaymentDueAt.
+        Pricing snapshots grandTotal, amountDueNow, and balanceDue. The initial payment charges amountDueNow only.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -460,6 +469,52 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /orders/{orderId}/cancellation:
+    post:
+      tags:
+        - Orders
+      operationId: cancelOwnOrder
+      x-prd-references:
+        - US-C09
+        - FR-ORDR-02
+        - BR-15
+        - BR-16
+      x-required-roles:
+        - customer
+      summary: Cancel an owned order within its snapshotted cancellation policy
+      description: |
+        The server verifies expectedCurrentStatus and the order-level cancellation-policy snapshot, calculates the refundable amount,
+        restores inventory and promotion usage exactly once, records the customer cancellation, and creates a pending refund when required.
+        A repeated request with the same Idempotency-Key, customer, order, and payload returns the original response.
+        Reusing the key with a different fingerprint returns IDEMPOTENCY_KEY_REUSED.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CancellationConflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /orders/{orderId}/mock-payment:
     post:
       tags:
@@ -468,12 +523,14 @@ paths:
       x-prd-references:
         - US-C08
         - FR-ORDR-01
+        - BR-12
+        - BR-14
       x-development-only: true
       x-required-roles:
         - customer
       summary: Simulate payment for an owned Created order
       description: |
-        Local demo endpoint only. An approved result moves Created to Paid. A declined result leaves the order Created, including its inventory and promotion hold, so payment may be retried or an administrator may cancel the order.
+        Local demo endpoint only. For Created, an approved result charges amountDueNow and moves the order to DepositPaid when balanceDue remains, otherwise to Paid. For DepositPaid, including BalanceOverdue within grace, approval charges the current balanceDue and moves the order to Paid. A declined result charges zero, records a failed charge transaction, and preserves the current order/payment state.
         Replaying the same Idempotency-Key for the same customer, order, and result returns the original response. Reusing that key with another order or result returns IDEMPOTENCY_KEY_REUSED.
         No real payment credentials, card data, or external gateway are accepted.
       parameters:
@@ -498,6 +555,52 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/MockPaymentConflict'
+        '422':
+          $ref: '#/components/responses/BusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /orders/{orderId}/mock-refund:
+    post:
+      tags:
+        - Checkout
+      operationId: simulateOrderRefund
+      x-prd-references:
+        - US-C09
+        - FR-ORDR-02
+        - BR-16
+      x-development-only: true
+      x-required-roles:
+        - customer
+      summary: Simulate a pending refund for an owned cancelled order
+      description: |
+        Local demo endpoint only. Approved marks the pending refundable amount as refunded and records a successful refund transaction.
+        Declined marks the refund failed without changing amountPaid, allowing a later retry with a new Idempotency-Key.
+        Replaying the same Idempotency-Key for the same customer, order, and result returns the original response.
+        Reusing that key with another order or result returns IDEMPOTENCY_KEY_REUSED. No real payment credentials are accepted.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MockRefundRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MockRefund'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/MockRefundConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1384,8 +1487,9 @@ paths:
         - BR-06
       summary: Apply a valid order status transition
       description: |
-        Admin transitions are Created to Cancelled, Paid to Shipped or Cancelled, and Shipped to Completed.
-        Mock payment exclusively performs Created to Paid. Cancelling Created or Paid restores inventory and promotion usage exactly once.
+        Admin transitions are Created to Cancelled; DepositPaid to Paid or Cancelled; Paid to Shipped or Cancelled; and Shipped to Completed.
+        Mock payment performs Created to DepositPaid/Paid and DepositPaid to Paid. Admin DepositPaid to Paid records externally collected balance.
+        Cancelling Created, DepositPaid, or Paid restores inventory and promotion usage exactly once, snapshots the admin reason, and creates a pending refund when the policy calculation is positive.
       security:
         - bearerAuth: []
       x-required-roles:
@@ -1732,6 +1836,25 @@ components:
               code: OUT_OF_STOCK
               message: Requested quantity is unavailable.
               requestId: req_01J00000000000000000000000
+    BusinessRuleError:
+      description: Request is well-formed but violates a business invariant.
+      x-error-codes:
+        - PRODUCT_NOT_PURCHASABLE
+        - PRODUCT_CONFIGURATION_INVALID
+        - ORDER_CANCELLATION_NOT_ALLOWED
+        - PAYMENT_DEADLINE_EXPIRED
+        - REFUND_NOT_ALLOWED
+        - CART_EMPTY
+        - BUSINESS_RULE_VIOLATION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: Business rule was violated.
+              requestId: req_01J00000000000000000000000
     InvalidPromotion:
       description: Promotion cannot be applied to the current cart.
       x-error-codes:
@@ -1757,7 +1880,7 @@ components:
           schema:
             $ref: '#/components/schemas/OrderResponse'
     CheckoutConflict:
-      description: Cart, price, stock, or idempotency fingerprint changed and checkout cannot complete.
+      description: Cart, configured price, stock, or idempotency fingerprint changed and checkout cannot complete.
       x-error-codes:
         - CART_CHANGED
         - PRICE_CHANGED
@@ -1786,27 +1909,26 @@ components:
                   code: IDEMPOTENCY_KEY_REUSED
                   message: Idempotency key was reused with a different request.
                   requestId: req_01J00000000000000000000000
-    BusinessRuleError:
-      description: Request is well-formed but violates a business invariant.
-      x-error-codes:
-        - PRODUCT_NOT_PURCHASABLE
-        - CART_EMPTY
-        - BUSINESS_RULE_VIOLATION
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error:
-              code: BUSINESS_RULE_VIOLATION
-              message: Business rule was violated.
-              requestId: req_01J00000000000000000000000
     OrderPage:
       description: Order page
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/OrderPageResponse'
+    CancellationConflict:
+      description: Cancellation conflicts with current order state or with an earlier idempotency fingerprint.
+      x-error-codes:
+        - INVALID_ORDER_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_ORDER_TRANSITION
+              message: Order can no longer be cancelled from its current state.
+              requestId: req_01J00000000000000000000000
     MockPayment:
       description: Mock payment simulation result and current order
       content:
@@ -1827,7 +1949,7 @@ components:
               value:
                 error:
                   code: INVALID_ORDER_TRANSITION
-                  message: Only a Created order may be paid.
+                  message: Order is not eligible for its next payment.
                   requestId: req_01J00000000000000000000000
             keyReused:
               value:
@@ -1835,6 +1957,27 @@ components:
                   code: IDEMPOTENCY_KEY_REUSED
                   message: Idempotency key was reused with another order or result.
                   requestId: req_01J00000000000000000000000
+    MockRefund:
+      description: Mock refund simulation result and current order
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MockRefundResponse'
+    MockRefundConflict:
+      description: Mock refund conflicts with refund state or with an earlier idempotency fingerprint.
+      x-error-codes:
+        - INVALID_ORDER_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+        - REFUND_NOT_ALLOWED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: REFUND_NOT_ALLOWED
+              message: No refundable amount is pending for this order.
+              requestId: req_01J00000000000000000000000
     DashboardSummary:
       description: Admin dashboard summary
       content:
@@ -1942,6 +2085,10 @@ components:
         - DUPLICATE_SKU
         - DUPLICATE_PROMOTION_CODE
         - PRODUCT_NOT_PURCHASABLE
+        - PRODUCT_CONFIGURATION_INVALID
+        - ORDER_CANCELLATION_NOT_ALLOWED
+        - PAYMENT_DEADLINE_EXPIRED
+        - REFUND_NOT_ALLOWED
         - CART_EMPTY
         - CART_CHANGED
         - PRICE_CHANGED
@@ -2052,16 +2199,122 @@ components:
       examples:
         - '199000'
       description: Non-negative whole-VND amount encoded as a base-10 string to avoid floating-point loss.
+    ProductKind:
+      type: string
+      enum:
+        - car
+        - motorbike
+        - accessory
+      description: Stable business discriminator; category remains the mutable merchandising taxonomy.
+    PurchaseMode:
+      type: string
+      enum:
+        - full
+        - deposit
+    CancellationCutoff:
+      type: string
+      enum:
+        - before_initial_payment
+        - before_balance_due
+        - before_shipping
+    CancellationPolicy:
+      type: object
+      additionalProperties: false
+      required:
+        - customerCancellationAllowed
+        - customerCancellationCutoff
+        - refundPercentage
+        - overdueRefundPercentage
+        - cancellationFeeAmount
+      properties:
+        customerCancellationAllowed:
+          type: boolean
+        customerCancellationCutoff:
+          allOf:
+            - $ref: '#/components/schemas/CancellationCutoff'
+          description: before_balance_due is valid only for deposit products; backend enforces the cross-field rule.
+        refundPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percentage of gross paid amount refundable for an allowed cancellation before overdue auto-cancellation.
+        overdueRefundPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percentage used when a deposit order is auto-cancelled after its grace period.
+        cancellationFeeAmount:
+          $ref: '#/components/schemas/Money'
     PositiveMoney:
       type: string
       pattern: ^[1-9]\d*$
       examples:
         - '199000'
       description: Strictly positive whole-VND amount.
+    PurchaseTerms:
+      description: Product-level payment, deadline, grace-period, cancellation, and refund policy. Order items snapshot this object at checkout.
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - paymentMode
+            - depositAmount
+            - initialPaymentWindowMinutes
+            - balancePaymentWindowDays
+            - gracePeriodHours
+            - cancellationPolicy
+          properties:
+            paymentMode:
+              allOf:
+                - $ref: '#/components/schemas/PurchaseMode'
+              const: full
+            depositAmount:
+              type: 'null'
+            initialPaymentWindowMinutes:
+              type: integer
+              minimum: 5
+              maximum: 1440
+            balancePaymentWindowDays:
+              type: 'null'
+            gracePeriodHours:
+              type: 'null'
+            cancellationPolicy:
+              $ref: '#/components/schemas/CancellationPolicy'
+        - type: object
+          additionalProperties: false
+          required:
+            - paymentMode
+            - depositAmount
+            - initialPaymentWindowMinutes
+            - balancePaymentWindowDays
+            - gracePeriodHours
+            - cancellationPolicy
+          properties:
+            paymentMode:
+              allOf:
+                - $ref: '#/components/schemas/PurchaseMode'
+              const: deposit
+            depositAmount:
+              $ref: '#/components/schemas/PositiveMoney'
+            initialPaymentWindowMinutes:
+              type: integer
+              minimum: 5
+              maximum: 1440
+            balancePaymentWindowDays:
+              type: integer
+              minimum: 1
+              maximum: 365
+              description: Measured from successful initial deposit payment.
+            gracePeriodHours:
+              type: integer
+              minimum: 0
+              maximum: 720
+            cancellationPolicy:
+              $ref: '#/components/schemas/CancellationPolicy'
     PriceRange:
       type: object
       additionalProperties: false
-      description: Minimum and maximum effective prices across active variants; active out-of-stock variants are included.
+      description: Minimum and maximum base effective prices across active variants before dynamic option adjustments; active out-of-stock variants are included.
       required:
         - minimum
         - maximum
@@ -2082,6 +2335,8 @@ components:
         - id
         - name
         - slug
+        - productKind
+        - purchaseTerms
         - category
         - thumbnailUrl
         - priceRange
@@ -2097,6 +2352,10 @@ components:
           type: string
           minLength: 1
           maxLength: 220
+        productKind:
+          $ref: '#/components/schemas/ProductKind'
+        purchaseTerms:
+          $ref: '#/components/schemas/PurchaseTerms'
         category:
           $ref: '#/components/schemas/Category'
         thumbnailUrl:
@@ -2202,6 +2461,13 @@ components:
         sortOrder:
           type: integer
           minimum: 0
+    BatteryOption:
+      type: string
+      enum:
+        - included
+        - purchase
+        - subscription
+      description: included means no battery choice is required; purchase and subscription are explicit customer acquisition choices.
     Price:
       type: object
       additionalProperties: false
@@ -2233,6 +2499,7 @@ components:
         - id
         - sku
         - attributes
+        - batteryOption
         - price
         - availableQuantity
         - inventoryVersion
@@ -2253,6 +2520,11 @@ components:
           examples:
             - color: Black
               trim: Plus
+        batteryOption:
+          description: Typed battery acquisition mode for electric vehicles; null for products where it does not apply.
+          oneOf:
+            - $ref: '#/components/schemas/BatteryOption'
+            - type: 'null'
         price:
           $ref: '#/components/schemas/Price'
         availableQuantity:
@@ -2269,6 +2541,80 @@ components:
           type: boolean
           readOnly: true
           description: True only when product and variant are active and inventory is positive.
+    ProductOptionValue:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - priceAdjustment
+        - compatibleVariantSkus
+        - isActive
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[A-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        priceAdjustment:
+          $ref: '#/components/schemas/Money'
+        compatibleVariantSkus:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          description: Empty means compatible with every variant of the product.
+        isActive:
+          type: boolean
+    ProductOptionGroup:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - minimumSelections
+        - maximumSelections
+        - isActive
+        - values
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[A-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        minimumSelections:
+          type: integer
+          minimum: 0
+          maximum: 20
+        maximumSelections:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Must be greater than or equal to minimumSelections.
+        isActive:
+          type: boolean
+        values:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ProductOptionValue'
     ProductDetail:
       type: object
       additionalProperties: false
@@ -2276,6 +2622,8 @@ components:
         - id
         - name
         - slug
+        - productKind
+        - purchaseTerms
         - category
         - thumbnailUrl
         - priceRange
@@ -2284,6 +2632,7 @@ components:
         - images
         - specifications
         - variants
+        - optionGroups
         - createdAt
         - updatedAt
       properties:
@@ -2297,6 +2646,10 @@ components:
           type: string
           minLength: 1
           maxLength: 220
+        productKind:
+          $ref: '#/components/schemas/ProductKind'
+        purchaseTerms:
+          $ref: '#/components/schemas/PurchaseTerms'
         category:
           $ref: '#/components/schemas/Category'
         thumbnailUrl:
@@ -2327,6 +2680,12 @@ components:
           items:
             $ref: '#/components/schemas/Variant'
           description: Public detail contains active variants only; admin detail may also contain inactive variants.
+        optionGroups:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ProductOptionGroup'
+          description: Non-inventory configuration modifiers. Choices that alter SKU or inventory remain variant attributes. Public detail exposes active groups and active values only; admin detail may include inactive entries.
         createdAt:
           type: string
           format: date-time
@@ -2479,6 +2838,40 @@ components:
           oneOf:
             - $ref: '#/components/schemas/ShippingAddress'
             - type: 'null'
+    SelectedProductOption:
+      type: object
+      additionalProperties: false
+      required:
+        - groupId
+        - groupCode
+        - groupName
+        - valueId
+        - valueCode
+        - valueName
+        - priceAdjustment
+      properties:
+        groupId:
+          $ref: '#/components/schemas/Uuid'
+        groupCode:
+          type: string
+          minLength: 1
+          maxLength: 80
+        groupName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        valueId:
+          $ref: '#/components/schemas/Uuid'
+        valueCode:
+          type: string
+          minLength: 1
+          maxLength: 80
+        valueName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        priceAdjustment:
+          $ref: '#/components/schemas/Money'
     CartItem:
       type: object
       additionalProperties: false
@@ -2486,13 +2879,19 @@ components:
         - id
         - variantId
         - productName
+        - productKind
+        - purchaseTerms
         - sku
         - variantAttributes
+        - selectedOptions
         - quantity
         - unitListPrice
         - unitSalePrice
+        - unitOptionTotal
         - unitPrice
+        - unitAmountDueNow
         - lineTotal
+        - lineAmountDueNow
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -2502,6 +2901,10 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+        productKind:
+          $ref: '#/components/schemas/ProductKind'
+        purchaseTerms:
+          $ref: '#/components/schemas/PurchaseTerms'
         sku:
           type: string
           minLength: 1
@@ -2510,6 +2913,11 @@ components:
           type: object
           additionalProperties:
             type: string
+        selectedOptions:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/SelectedProductOption'
         quantity:
           type: integer
           minimum: 1
@@ -2519,11 +2927,21 @@ components:
           oneOf:
             - $ref: '#/components/schemas/PositiveMoney'
             - type: 'null'
+        unitOptionTotal:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Sum of selected option price adjustments for one unit.
         unitPrice:
           allOf:
             - $ref: '#/components/schemas/PositiveMoney'
-          description: Effective unit price charged before the cart-level promotion.
+          description: Effective variant price plus unitOptionTotal, before cart-level promotion.
+        unitAmountDueNow:
+          allOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+          description: Before cart-level promotion; equals unitPrice for full payment or the fixed per-unit deposit capped at unitPrice.
         lineTotal:
+          $ref: '#/components/schemas/Money'
+        lineAmountDueNow:
           $ref: '#/components/schemas/Money'
     PercentageDiscount:
       type: object
@@ -2591,6 +3009,8 @@ components:
         - subtotal
         - discountTotal
         - grandTotal
+        - amountDueNow
+        - balanceDue
       properties:
         currency:
           type: string
@@ -2604,6 +3024,14 @@ components:
           description: Never exceeds subtotal.
         grandTotal:
           $ref: '#/components/schemas/Money'
+        amountDueNow:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Server-calculated amount accepted and paid at checkout. Promotion discount reduces balance due first, then amount due now.
+        balanceDue:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: grandTotal minus amountDueNow; collected later for deposit purchases.
     Cart:
       type: object
       additionalProperties: false
@@ -2646,13 +3074,23 @@ components:
       additionalProperties: false
       required:
         - variantId
+        - selectedOptionValueIds
         - quantity
       examples:
         - variantId: 123e4567-e89b-12d3-a456-426614174002
+          selectedOptionValueIds:
+            - 123e4567-e89b-12d3-a456-426614174003
           quantity: 1
       properties:
         variantId:
           $ref: '#/components/schemas/Uuid'
+        selectedOptionValueIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: Explicit selected non-inventory options; send an empty array when the product has no options.
         quantity:
           type: integer
           minimum: 1
@@ -2687,10 +3125,12 @@ components:
       required:
         - expectedCartVersion
         - acceptedGrandTotal
+        - acceptedAmountDueNow
         - shippingAddress
       examples:
         - expectedCartVersion: 4
           acceptedGrandTotal: '1200000000'
+          acceptedAmountDueNow: '30000000'
           shippingAddress:
             recipientName: Nguyễn Văn A
             phoneNumber: '+84901234567'
@@ -2710,6 +3150,10 @@ components:
           minimum: 0
         acceptedGrandTotal:
           $ref: '#/components/schemas/Money'
+        acceptedAmountDueNow:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Must equal the server-repriced cart amountDueNow or checkout returns CART_CHANGED or PRICE_CHANGED.
         shippingAddress:
           $ref: '#/components/schemas/ShippingAddress'
         note:
@@ -2731,10 +3175,12 @@ components:
       type: string
       enum:
         - Created
+        - DepositPaid
         - Paid
         - Shipped
         - Completed
         - Cancelled
+        - Expired
     OrderItem:
       type: object
       additionalProperties: false
@@ -2742,13 +3188,19 @@ components:
         - id
         - variantId
         - productName
+        - productKind
+        - purchaseTerms
         - sku
         - variantAttributes
+        - selectedOptions
         - quantity
         - unitListPrice
         - unitSalePrice
+        - unitOptionTotal
         - unitPrice
+        - unitAmountDueNow
         - lineTotal
+        - lineAmountDueNow
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -2758,6 +3210,10 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+        productKind:
+          $ref: '#/components/schemas/ProductKind'
+        purchaseTerms:
+          $ref: '#/components/schemas/PurchaseTerms'
         sku:
           type: string
           minLength: 1
@@ -2766,6 +3222,11 @@ components:
           type: object
           additionalProperties:
             type: string
+        selectedOptions:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/SelectedProductOption'
         quantity:
           type: integer
           minimum: 1
@@ -2775,9 +3236,15 @@ components:
           oneOf:
             - $ref: '#/components/schemas/PositiveMoney'
             - type: 'null'
+        unitOptionTotal:
+          $ref: '#/components/schemas/Money'
         unitPrice:
           $ref: '#/components/schemas/PositiveMoney'
+        unitAmountDueNow:
+          $ref: '#/components/schemas/PositiveMoney'
         lineTotal:
+          $ref: '#/components/schemas/Money'
+        lineAmountDueNow:
           $ref: '#/components/schemas/Money'
     OrderPricing:
       type: object
@@ -2788,6 +3255,8 @@ components:
         - discountTotal
         - shippingTotal
         - grandTotal
+        - amountDueNow
+        - balanceDue
       properties:
         currency:
           type: string
@@ -2804,6 +3273,191 @@ components:
           description: Fixed at zero in MVP.
         grandTotal:
           $ref: '#/components/schemas/Money'
+        amountDueNow:
+          $ref: '#/components/schemas/Money'
+        balanceDue:
+          $ref: '#/components/schemas/Money'
+    PaymentStatus:
+      type: string
+      enum:
+        - Pending
+        - DepositPaid
+        - BalanceOverdue
+        - Paid
+        - Expired
+    PaymentSchedule:
+      type: object
+      additionalProperties: false
+      required:
+        - initialPaymentDueAt
+        - balanceDueAt
+        - gracePeriodEndsAt
+      properties:
+        initialPaymentDueAt:
+          type: string
+          format: date-time
+        balanceDueAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Set after successful deposit payment; null for unpaid or full-payment orders.
+        gracePeriodEndsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Set with balanceDueAt for deposit orders.
+    RefundStatus:
+      type: string
+      enum:
+        - NotRequired
+        - Pending
+        - PartiallyRefunded
+        - Refunded
+        - Failed
+    OrderRefund:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - requestedAmount
+        - refundedAmount
+        - cancellationFeeAmount
+      properties:
+        status:
+          $ref: '#/components/schemas/RefundStatus'
+        requestedAmount:
+          $ref: '#/components/schemas/Money'
+        refundedAmount:
+          $ref: '#/components/schemas/Money'
+        cancellationFeeAmount:
+          $ref: '#/components/schemas/Money'
+    PaymentTransactionType:
+      type: string
+      enum:
+        - charge
+        - refund
+    PaymentTransactionStage:
+      type: string
+      enum:
+        - initial
+        - balance
+        - cancellation
+    PaymentTransactionStatus:
+      type: string
+      enum:
+        - pending
+        - succeeded
+        - failed
+    PaymentTransaction:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - type
+        - stage
+        - amount
+        - status
+        - providerReference
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/PaymentTransactionType'
+        stage:
+          $ref: '#/components/schemas/PaymentTransactionStage'
+        amount:
+          $ref: '#/components/schemas/Money'
+        status:
+          $ref: '#/components/schemas/PaymentTransactionStatus'
+        providerReference:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 160
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OrderPayment:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - amountDueAtCheckout
+        - amountPaid
+        - amountRefunded
+        - balanceDue
+        - schedule
+        - refund
+        - transactions
+      properties:
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        amountDueAtCheckout:
+          $ref: '#/components/schemas/Money'
+        amountPaid:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Gross successful charges; refunds do not reduce this audit amount.
+        amountRefunded:
+          $ref: '#/components/schemas/Money'
+        balanceDue:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Current unpaid purchase balance; zero after full payment, cancellation, or expiry.
+        schedule:
+          $ref: '#/components/schemas/PaymentSchedule'
+        refund:
+          $ref: '#/components/schemas/OrderRefund'
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentTransaction'
+    CancellationActor:
+      type: string
+      enum:
+        - customer
+        - admin
+        - system
+    CancellationReason:
+      type: string
+      enum:
+        - changed_mind
+        - configuration_change
+        - payment_unavailable
+        - duplicate_order
+        - payment_deadline_expired
+        - inventory_unavailable
+        - admin_decision
+        - other
+    OrderCancellation:
+      type: object
+      additionalProperties: false
+      required:
+        - actor
+        - reasonCode
+        - note
+        - cancelledAt
+      properties:
+        actor:
+          $ref: '#/components/schemas/CancellationActor'
+        reasonCode:
+          $ref: '#/components/schemas/CancellationReason'
+        note:
+          oneOf:
+            - type: string
+              maxLength: 500
+            - type: 'null'
+        cancelledAt:
+          type: string
+          format: date-time
     Order:
       type: object
       additionalProperties: false
@@ -2816,6 +3470,9 @@ components:
         - items
         - promotion
         - pricing
+        - payment
+        - cancellationPolicy
+        - cancellation
         - shippingAddress
         - note
         - createdAt
@@ -2846,6 +3503,16 @@ components:
             - type: 'null'
         pricing:
           $ref: '#/components/schemas/OrderPricing'
+        payment:
+          $ref: '#/components/schemas/OrderPayment'
+        cancellationPolicy:
+          allOf:
+            - $ref: '#/components/schemas/CancellationPolicy'
+          description: Conservative order-level snapshot derived from all item policies at checkout; uses the earliest cutoff, lowest applicable refund percentage, and summed fees.
+        cancellation:
+          oneOf:
+            - $ref: '#/components/schemas/OrderCancellation'
+            - type: 'null'
         shippingAddress:
           $ref: '#/components/schemas/ShippingAddress'
         note:
@@ -2873,6 +3540,8 @@ components:
         - id
         - orderNumber
         - status
+        - paymentStatus
+        - nextPaymentDueAt
         - pricing
         - createdAt
         - statusUpdatedAt
@@ -2886,18 +3555,32 @@ components:
           example: FLE-20260720-00001
         status:
           $ref: '#/components/schemas/OrderStatus'
+        paymentStatus:
+          $ref: '#/components/schemas/PaymentStatus'
+        nextPaymentDueAt:
+          description: initialPaymentDueAt while Pending, balanceDueAt while DepositPaid, gracePeriodEndsAt while BalanceOverdue, otherwise null.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
         pricing:
           type: object
           additionalProperties: false
           required:
             - currency
             - grandTotal
+            - amountDueNow
+            - balanceDue
           properties:
             currency:
               type: string
               enum:
                 - VND
             grandTotal:
+              $ref: '#/components/schemas/Money'
+            amountDueNow:
+              $ref: '#/components/schemas/Money'
+            balanceDue:
               $ref: '#/components/schemas/Money'
         createdAt:
           type: string
@@ -2917,6 +3600,31 @@ components:
             $ref: '#/components/schemas/OrderSummary'
         meta:
           $ref: '#/components/schemas/PageMeta'
+    CancelOrderRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expectedCurrentStatus
+        - reasonCode
+      description: reasonCode other requires a non-empty note; the server enforces this cross-field rule.
+      properties:
+        expectedCurrentStatus:
+          type: string
+          enum:
+            - Created
+            - DepositPaid
+            - Paid
+        reasonCode:
+          type: string
+          enum:
+            - changed_mind
+            - configuration_change
+            - payment_unavailable
+            - duplicate_order
+            - other
+        note:
+          type: string
+          maxLength: 500
     MockPaymentRequest:
       type: object
       additionalProperties: false
@@ -2937,12 +3645,15 @@ components:
       additionalProperties: false
       required:
         - result
+        - chargedAmount
       properties:
         result:
           type: string
           enum:
             - approved
             - declined
+        chargedAmount:
+          $ref: '#/components/schemas/Money'
     MockPaymentResponse:
       type: object
       additionalProperties: false
@@ -2954,17 +3665,62 @@ components:
           $ref: '#/components/schemas/Order'
         meta:
           $ref: '#/components/schemas/MockPaymentMeta'
+    MockRefundRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - result
+      examples:
+        - result: approved
+        - result: declined
+      properties:
+        result:
+          type: string
+          enum:
+            - approved
+            - declined
+          description: Deterministic local-demo outcome; never expose in production.
+    MockRefundMeta:
+      type: object
+      additionalProperties: false
+      required:
+        - result
+        - refundedAmount
+      properties:
+        result:
+          type: string
+          enum:
+            - approved
+            - declined
+        refundedAmount:
+          $ref: '#/components/schemas/Money'
+    MockRefundResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/Order'
+        meta:
+          $ref: '#/components/schemas/MockRefundMeta'
     OrderStatusCounts:
       type: object
       additionalProperties: false
       required:
         - Created
+        - DepositPaid
         - Paid
         - Shipped
         - Completed
         - Cancelled
+        - Expired
       properties:
         Created:
+          type: integer
+          minimum: 0
+        DepositPaid:
           type: integer
           minimum: 0
         Paid:
@@ -2977,6 +3733,9 @@ components:
           type: integer
           minimum: 0
         Cancelled:
+          type: integer
+          minimum: 0
+        Expired:
           type: integer
           minimum: 0
     DashboardSummary:
@@ -3057,6 +3816,74 @@ components:
           pattern: ^[a-z0-9-]+$
         isActive:
           type: boolean
+    ProductOptionValueInput:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - priceAdjustment
+        - compatibleVariantSkus
+        - isActive
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[A-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        priceAdjustment:
+          $ref: '#/components/schemas/Money'
+        compatibleVariantSkus:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          description: Empty means compatible with every variant in the same product request or persisted product.
+        isActive:
+          type: boolean
+    ProductOptionGroupInput:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - minimumSelections
+        - maximumSelections
+        - isActive
+        - values
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[A-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        minimumSelections:
+          type: integer
+          minimum: 0
+          maximum: 20
+        maximumSelections:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Must be greater than or equal to minimumSelections.
+        isActive:
+          type: boolean
+        values:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ProductOptionValueInput'
     ProductImageCreateRequest:
       type: object
       additionalProperties: false
@@ -3086,6 +3913,7 @@ components:
       required:
         - sku
         - attributes
+        - batteryOption
         - listPrice
         - isActive
       properties:
@@ -3098,6 +3926,10 @@ components:
           minProperties: 1
           additionalProperties:
             type: string
+        batteryOption:
+          oneOf:
+            - $ref: '#/components/schemas/BatteryOption'
+            - type: 'null'
         listPrice:
           $ref: '#/components/schemas/PositiveMoney'
         salePrice:
@@ -3115,8 +3947,11 @@ components:
         - categoryId
         - name
         - slug
+        - productKind
+        - purchaseTerms
         - description
         - specifications
+        - optionGroups
         - isActive
         - variants
       if:
@@ -3153,6 +3988,19 @@ components:
         - categoryId: 123e4567-e89b-12d3-a456-426614174001
           name: VinFast VF 8
           slug: vinfast-vf-8
+          productKind: car
+          purchaseTerms:
+            paymentMode: deposit
+            depositAmount: '30000000'
+            initialPaymentWindowMinutes: 30
+            balancePaymentWindowDays: 7
+            gracePeriodHours: 48
+            cancellationPolicy:
+              customerCancellationAllowed: true
+              customerCancellationCutoff: before_balance_due
+              refundPercentage: 100
+              overdueRefundPercentage: 0
+              cancellationFeeAmount: '0'
           description: Mẫu SUV điện cỡ D.
           specifications:
             - name: Công suất tối đa
@@ -3166,11 +4014,13 @@ components:
               sortOrder: 0
               isThumbnail: true
           isActive: false
+          optionGroups: []
           variants:
             - sku: VF8-ECO-BLACK
               attributes:
                 trim: Eco
                 color: Black
+              batteryOption: included
               listPrice: '1200000000'
               salePrice: null
               isActive: true
@@ -3186,6 +4036,10 @@ components:
           minLength: 1
           maxLength: 220
           pattern: ^[a-z0-9-]+$
+        productKind:
+          $ref: '#/components/schemas/ProductKind'
+        purchaseTerms:
+          $ref: '#/components/schemas/PurchaseTerms'
         description:
           type: string
           minLength: 1
@@ -3194,6 +4048,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProductSpecification'
+        optionGroups:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ProductOptionGroupInput'
+          description: Full initial set of non-inventory option groups. Option/group codes must be unique within the product.
         images:
           type: array
           maxItems: 20
@@ -3234,6 +4094,10 @@ components:
           minLength: 1
           maxLength: 220
           pattern: ^[a-z0-9-]+$
+        productKind:
+          $ref: '#/components/schemas/ProductKind'
+        purchaseTerms:
+          $ref: '#/components/schemas/PurchaseTerms'
         description:
           type: string
           minLength: 1
@@ -3243,6 +4107,12 @@ components:
           items:
             $ref: '#/components/schemas/ProductSpecification'
           description: When supplied, replaces the full product specification list.
+        optionGroups:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ProductOptionGroupInput'
+          description: When supplied, replaces the full non-inventory option-group set. Existing group/value codes are upsert keys and retain their IDs; removed codes are archived. Persisted cart/order snapshots remain unchanged.
         isActive:
           type: boolean
           description: Activating a product that fails the publication policy returns BUSINESS_RULE_VIOLATION.
@@ -3268,6 +4138,10 @@ components:
           minProperties: 1
           additionalProperties:
             type: string
+        batteryOption:
+          oneOf:
+            - $ref: '#/components/schemas/BatteryOption'
+            - type: 'null'
         listPrice:
           $ref: '#/components/schemas/PositiveMoney'
         salePrice:
@@ -3469,6 +4343,8 @@ components:
         - recipientName
         - recipientPhoneNumber
         - status
+        - paymentStatus
+        - nextPaymentDueAt
         - pricing
         - createdAt
         - statusUpdatedAt
@@ -3491,18 +4367,32 @@ components:
           pattern: ^\+?[0-9]{9,15}$
         status:
           $ref: '#/components/schemas/OrderStatus'
+        paymentStatus:
+          $ref: '#/components/schemas/PaymentStatus'
+        nextPaymentDueAt:
+          description: initialPaymentDueAt while Pending, balanceDueAt while DepositPaid, gracePeriodEndsAt while BalanceOverdue, otherwise null.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
         pricing:
           type: object
           additionalProperties: false
           required:
             - currency
             - grandTotal
+            - amountDueNow
+            - balanceDue
           properties:
             currency:
               type: string
               enum:
                 - VND
             grandTotal:
+              $ref: '#/components/schemas/Money'
+            amountDueNow:
+              $ref: '#/components/schemas/Money'
+            balanceDue:
               $ref: '#/components/schemas/Money'
         createdAt:
           type: string
@@ -3529,6 +4419,7 @@ components:
       required:
         - expectedCurrentStatus
         - targetStatus
+      description: targetStatus Cancelled requires cancellationReasonCode; reason other also requires a non-empty note. The server enforces these cross-field rules.
       examples:
         - expectedCurrentStatus: Paid
           targetStatus: Shipped
@@ -3539,9 +4430,16 @@ components:
         targetStatus:
           type: string
           enum:
+            - Paid
             - Shipped
             - Completed
             - Cancelled
+        cancellationReasonCode:
+          type: string
+          enum:
+            - inventory_unavailable
+            - admin_decision
+            - other
         note:
           type: string
           maxLength: 500
@@ -3584,12 +4482,23 @@ x-business-rules:
   BR-08: A promotion endsAt, when present, must be later than startsAt after create or patch.
   BR-09: A public product is active and exposes only active variants; an out-of-stock active variant remains visible but is not purchasable.
   BR-10: Shipping addresses follow the 2-tier local government model (Law 72/2025/QH15); when codes are supplied, communeLevel.code must belong to province.code or return 422 ADDRESS_ADMIN_AREA_MISMATCH.
+  BR-11: productKind is the stable workflow discriminator; category remains a mutable merchandising taxonomy.
+  BR-12: Full-payment products have no depositAmount; deposit products require a positive fixed per-unit depositAmount.
+  BR-13: Selected option values must satisfy group cardinality, be active, belong to the product, and be compatible with the selected variant SKU.
+  BR-14: grandTotal equals amountDueNow plus balanceDue; the server is authoritative for every pricing component.
+  BR-15: Initial-payment, balance-payment, and grace deadlines are derived from snapshotted purchase terms and evaluated using UTC instants.
+  BR-16: Cancellation eligibility and refund amount use the immutable order-level policy snapshot; inventory and promotion usage are restored exactly once.
+  BR-17: Automatic expiry, overdue marking, cancellation, charge, and refund processing are idempotent and auditable.
+  BR-18: Full-payment products cannot use before_balance_due cutoff; mixed-order cancellation derives the most restrictive valid item policy.
 x-pricebook-policy:
   pricebook: DEFAULT_VND
   currency: VND
   effectivePrice: salePrice when present; otherwise listPrice.
   saleInvariant: salePrice must be lower than listPrice.
   promotionBasis: Promotion applies to the subtotal calculated from effective item prices.
+  optionPricing: Selected non-inventory option price adjustments are added to the effective variant price before promotion calculation.
+  depositBasis: A deposit product contributes its fixed per-unit deposit capped at its configured unit price to the pre-discount amount due now; a full-payment product contributes its full configured price.
+  discountAllocation: Promotion discount reduces the pre-discount balance first, then the amount due now; amountDueNow plus balanceDue always equals grandTotal.
   percentageRounding: Round half up to the nearest whole VND.
   discountCap: Cart discountTotal never exceeds subtotal.
   publicPriceRange: Calculated from effective prices of active variants, including active variants that are currently out of stock.
@@ -3597,27 +4506,64 @@ x-inventory-policy:
   sellableUnit: Product variant.
   cartReservation: Cart operations check current availability but do not reserve stock.
   checkout: Atomically decrement stock using a conditional update when the Created order is committed.
-  cancellation: Cancelling Created or Paid restores inventory and promotion usage exactly once.
+  cancellation: Cancelling Created, DepositPaid, or Paid, or expiring unpaid Created, restores inventory and promotion usage exactly once.
   concurrency: Every inventory mutation increments inventoryVersion and rejects a stale expectedVersion.
   mutationAuthority: Admin management endpoints mutate stock directly; checkout and cancellation mutate it only inside server-owned transactions.
 x-order-state-machine:
   initialStatus: Created
-  paymentTransition: Created to Paid through the local mock-payment action.
+  paymentTransition: Approved local mock payment moves Created to DepositPaid when balanceDue is positive, Created to Paid when fully paid, and DepositPaid to Paid after collecting balanceDue.
   adminTransitions:
     - Created-to-Cancelled
+    - DepositPaid-to-Paid
+    - DepositPaid-to-Cancelled
     - Paid-to-Shipped
     - Paid-to-Cancelled
     - Shipped-to-Completed
+  customerTransitions:
+    - Created-to-Cancelled
+    - DepositPaid-to-Cancelled
+    - Paid-to-Cancelled-before-shipping
+  automaticTransitions:
+    - Created-to-Expired-at-initialPaymentDueAt
+    - DepositPaid-paymentStatus-to-BalanceOverdue-at-balanceDueAt
+    - DepositPaid-to-Cancelled-at-gracePeriodEndsAt
   terminalStatuses:
     - Completed
     - Cancelled
-  createdStockHold: Created orders retain decremented inventory and consumed promotion usage until payment succeeds or an administrator cancels the order.
-  automaticExpiry: Not defined for this MVP; a later contract version may add expiry without changing existing transitions.
+    - Expired
+  createdStockHold: Created and DepositPaid orders retain decremented inventory and consumed promotion usage until full payment, cancellation, or expiry.
+  automaticExpiry: Unpaid Created expires at initialPaymentDueAt; overdue DepositPaid auto-cancels at gracePeriodEndsAt.
+x-payment-deadline-policy:
+  clock: UTC RFC 3339 instants generated by the server.
+  initialPayment: initialPaymentDueAt equals order createdAt plus the most restrictive item initialPaymentWindowMinutes.
+  balancePayment: After successful deposit, balanceDueAt equals deposit-paid time plus the most restrictive item balancePaymentWindowDays.
+  gracePeriod: gracePeriodEndsAt equals balanceDueAt plus the most restrictive item gracePeriodHours.
+  overdue: Crossing balanceDueAt changes payment status to BalanceOverdue without changing order status DepositPaid.
+  expiry: Crossing initialPaymentDueAt while unpaid changes order and payment status to Expired and restores inventory/promotion exactly once.
+  graceExpiry: Crossing gracePeriodEndsAt while balance remains auto-cancels the order, calculates refund, and restores inventory/promotion exactly once.
+  lateCallback: A payment callback received after Cancelled or Expired cannot revive the order and requires reconciliation.
+  reminders: Notification workers may use schedule timestamps; notification delivery is outside this API contract.
+x-refund-policy:
+  snapshot: Checkout derives an immutable order policy from item policies using customer-allowed-for-all, earliest cutoff with before_initial_payment before before_balance_due before before_shipping, lowest applicable refund percentage, and summed cancellation fees.
+  voluntaryFormula: refundableAmount equals max(0, round-half-up(amountPaid times refundPercentage divided by 100) minus cancellationFeeAmount), capped at amountPaid.
+  overdueFormula: System cancellation after grace uses overdueRefundPercentage in the same formula.
+  merchantCancellation: Admin cancellation for inventory_unavailable or admin_decision refunds 100 percent of amountPaid with zero cancellation fee.
+  noCharge: Cancellation before successful payment produces RefundStatus NotRequired and refundable amount zero.
+  asynchronous: Cancellation records RefundStatus Pending when refundableAmount is positive; mock-refund only simulates the external refund outcome.
+  audit: amountPaid remains gross successful charges; amountRefunded and immutable charge/refund transactions preserve audit history.
 x-product-publication-policy:
   publicVisibility: Public catalog endpoints return active products and active variants only.
   outOfStockVisibility: Active variants with zero available quantity remain visible with isPurchasable false.
   activation: An active product must have at least one active variant and exactly one thumbnail image.
   thumbnails: A product has at most one thumbnail; setting another image as thumbnail atomically demotes the previous thumbnail.
+x-product-configuration-policy:
+  typedWorkflow: productKind drives purchase workflow independently from category.
+  sellableCore: Variant owns SKU, base price, battery acquisition mode, and inventory.
+  dynamicOptions: Option groups model non-inventory configuration and additive prices; any choice that changes SKU or inventory must remain a variant attribute.
+  compatibility: Empty compatibleVariantSkus means every product variant; otherwise the selected variant SKU must be listed.
+  stableIdentity: Admin option replacement upserts by group/value code, preserves IDs for matching codes, and archives removed codes.
+  cartValidation: Add and reprice validate option ownership, active state, group cardinality, uniqueness, and SKU compatibility.
+  snapshots: Cart and order items retain option names, codes, and price adjustments so later catalog edits cannot rewrite an order.
 x-filter-policy:
   priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
   createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.

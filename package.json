@@ -17,7 +17,11 @@
     "typecheck": "tsc --noEmit",
     "check:openapi": "npm --prefix api-contract run check:openapi",
     "bundle:openapi": "npm --prefix api-contract run bundle",
+<<<<<<< HEAD
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build"
+=======
+    "preview:openapi": "npm --prefix api-contract run preview"
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "4.25.0",
@@ -25,7 +29,11 @@
     "@supabase/server": "^1.4.0",
     "class-variance-authority": "latest",
     "clsx": "latest",
+<<<<<<< HEAD
     "jose": "6.2.3",
+=======
+    "framer-motion": "^12.42.2",
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
     "lucide-react": "latest",
     "next": "15.5.20",
     "react": "^19.0.0",

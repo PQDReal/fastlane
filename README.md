@@ -33,6 +33,22 @@ npm run dev
 
 Hướng dẫn tenant, role, claim, secret rotation và Supabase trust: [docs/auth0-supabase.md](docs/auth0-supabase.md).
 
+## Tài khoản và phương thức đăng nhập
+
+Mở `http://localhost:3000/auth/login` hoặc chọn **Đăng nhập** trên header. Môi trường phát triển hiện hỗ trợ:
+
+- **Email và mật khẩu** qua Auth0 Database Connection: dùng các tài khoản test được maintainer tạo và gán role thủ công.
+- **Google** qua Auth0 Social Connection khi connection này được bật. Auth0 Development Keys chỉ phù hợp để thử local; production phải dùng Google OAuth credentials do dự án quản lý.
+
+| Loại tài khoản test | Role Auth0 bắt buộc | Kết quả hiện tại |
+|---|---|---|
+| Customer | `Customer` | Login/logout thành công và quay về landing page |
+| Admin | `Admin` | Login/logout thành công; hiện vẫn quay về landing page vì chưa có route `/admin` |
+
+Nhận email/mật khẩu test từ maintainer qua password manager hoặc kênh bí mật. Không ghi credential vào README, issue hoặc source code. Nếu tự đăng ký tài khoản mới bằng **Sign up** hoặc Google, maintainer phải gán role `Customer`/`Admin` trong Auth0 trước khi Action cho phép hoàn tất đăng nhập.
+
+Khi Auth0 hiện màn hình **Authorize App** trên localhost, chọn **Accept** để tiếp tục. Đăng xuất tại `http://localhost:3000/auth/logout`.
+
 ## Kiểm tra
 
 ```powershell

@@ -2,16 +2,17 @@
   post:
     tags: [Checkout]
     operationId: checkoutCart
-    x-prd-references: [US-C08, FR-ORDR-01, BR-01, BR-02, BR-03, BR-04]
+    x-prd-references: [US-C08, FR-ORDR-01, BR-01, BR-02, BR-03, BR-04, BR-13, BR-14]
     x-required-roles: [customer]
     summary: Create an order from the current cart
     description: |
-      The server verifies expectedCartVersion and acceptedGrandTotal, re-prices the cart, validates one optional promotion,
+      The server verifies expectedCartVersion, acceptedGrandTotal, and acceptedAmountDueNow; re-prices variants and selected options; validates one optional promotion,
       conditionally decrements variant inventory, consumes promotion usage, creates an immutable Created order snapshot,
       stores the idempotency result, and clears the cart in one database transaction. Any failure rolls back every mutation.
       A repeated request with the same Idempotency-Key, customer, cart version, and payload returns the original response.
       Reusing the key with a different fingerprint returns IDEMPOTENCY_KEY_REUSED. Mock payment is a separate local-only action.
-      The Created order retains its stock decrement and consumed promotion usage until mock payment succeeds or an administrator cancels it; this MVP has no automatic expiry.
+      The Created order retains its stock decrement and consumed promotion usage until payment, cancellation, or automatic expiry at initialPaymentDueAt.
+      Pricing snapshots grandTotal, amountDueNow, and balanceDue. The initial payment charges amountDueNow only.
     parameters:
       - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
     requestBody:
