@@ -1,4 +1,4 @@
-import { AuthenticatedHeader } from '../../components/authenticated-header'
+import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
 import { PromoCard } from '../../components/promo-card'
 import { ChevronRight } from 'lucide-react'
@@ -34,7 +34,7 @@ const promotions = [
 export default function PromotionsPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
-      <AuthenticatedHeader />
+      <Header />
       
       <div className="relative overflow-hidden bg-foreground text-background py-32 lg:py-40">
         <div className="absolute inset-0 z-0 opacity-20">
