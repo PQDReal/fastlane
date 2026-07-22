@@ -1,8 +1,9 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { AuthUserProvider } from '../components/auth-user-provider'
-import { auth0 } from '../lib/auth0'
+import { Auth0Provider } from '@auth0/nextjs-auth0/client'
+import { SearchModal } from '@/components/search-modal'
+import { CartDrawer } from '@/components/cart-drawer'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter' })
 
@@ -26,8 +27,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="vi" className={`${inter.variable}`}>
       <body className="font-sans antialiased bg-slate-50 text-slate-900 selection:bg-brand-500 selection:text-white">
-        <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-100/40 via-slate-50 to-slate-50 pointer-events-none" />
-        <AuthUserProvider user={user}>{children}</AuthUserProvider>
+        <Auth0Provider>
+          <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-100/40 via-slate-50 to-slate-50 pointer-events-none" />
+          {children}
+          <SearchModal />
+          <CartDrawer />
+        </Auth0Provider>
       </body>
     </html>
   )

@@ -20,42 +20,25 @@ export default async function Home() {
     } : undefined
 
     return (
-      <main><Header user={user} />
-        <section className="relative isolate flex min-h-[760px] h-[100svh] w-full items-center justify-center overflow-hidden bg-black text-center text-white">
-          <img
-            src="/images/maxresdefault.jpg"
-            alt="Xe điện trên cung đường đô thị"
-            className="absolute inset-0 -z-30 h-full w-full object-cover object-center"
-          />
-          <div className="absolute inset-0 -z-20 bg-black/25" />
-          <div className="absolute inset-x-0 top-0 -z-10 h-56 bg-gradient-to-b from-black/55 via-black/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 -z-10 h-[46%] bg-gradient-to-t from-black via-black/55 to-transparent" />
-
-          <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col items-center px-5 pt-[22vh] sm:px-8 lg:px-16">
-            <h1 className="hero-title-shadow max-w-[1800px] text-balance text-[clamp(3rem,6.2vw,7.5rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-white lg:whitespace-nowrap">
-              Khởi nguồn tương lai di chuyển
-            </h1>
-            <p className="hero-copy-shadow mt-8 max-w-5xl text-balance text-[clamp(1.15rem,2vw,2.35rem)] font-medium leading-[1.3] tracking-[-0.02em] text-white/95 sm:mt-10">
-              Trải nghiệm giải pháp ô tô điện thông minh, đẳng cấp<br className="hidden md:block" /> toàn cầu.
-            </p>
-            <a
-              href="#featured-vehicle"
-              className="mt-12 inline-flex h-16 min-w-64 items-center justify-center rounded-full bg-white px-12 text-sm font-extrabold uppercase tracking-[0.16em] text-slate-950 shadow-[0_16px_45px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-slate-100 sm:mt-16 sm:h-[72px] sm:min-w-80 sm:text-base"
-            >
-              Khám phá ngay
-            </a>
-          </div>
-
-          <a href="#featured-vehicle" className="absolute bottom-7 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4 text-white/65 transition hover:text-white" aria-label="Cuộn đến nội dung tiếp theo">
-            <span className="text-[11px] font-bold uppercase tracking-[0.3em]">Cuộn để xem</span>
-            <span className="scroll-line relative block h-20 w-px overflow-hidden bg-gradient-to-b from-white/90 via-white/45 to-transparent">
-              <span className="scroll-line-pulse absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-transparent via-white to-transparent" />
-            </span>
-          </a>
-
-          <p className="absolute inset-x-4 bottom-2 hidden text-center text-[10px] text-white/20 lg:block">
-            Images and videos shown contain pre-production level vehicles. Actual production vehicles may differ slightly.
-          </p>
+      <main><Header />
+        <section className="relative flex min-h-[680px] items-start justify-center overflow-hidden bg-[#e8e6e6] text-center lg:min-h-[805px]">
+            <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />
+            <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col items-center px-5 pt-16 sm:pt-20 lg:pt-20">
+                <h1 className="hero-sunlight text-[40px] font-bold leading-[1.12] tracking-wide sm:text-5xl lg:text-[58px]">
+                    <span className="hero-copy">
+                        <span>Khởi nguồn</span>
+                        <span>Tương lai di chuyển.</span>
+                    </span>
+                    <span className="hero-light" aria-hidden="true">
+                        <span>Khởi nguồn</span>
+                        <span>Tương lai di chuyển.</span>
+                    </span>
+                </h1>
+                <div className="mt-[330px] lg:mt-[365px]"><span className="rounded-full bg-white/75 px-4 py-2 text-xs font-bold shadow-sm">Trải Nghiệm Đẳng Cấp</span>
+                    <p className="mx-auto mt-4 max-w-xl text-base text-slate-700 sm:text-xl">Tuyệt tác công nghệ VinFast VF9. Sẵn sàng đồng hành cùng bạn trên mọi hành trình.</p>
+                    <div className="mt-6 flex justify-center gap-3"><Button variant="gold">Đặt cọc ngay <ArrowRight className="ml-1" size={15} /></Button><Button variant="outline">Tìm hiểu thêm</Button></div></div>
+            </div><p className="absolute bottom-6 left-1/2 w-full -translate-x-1/2 px-4 text-[10px] text-white/80">Images and videos shown contain pre-production level vehicles. Actual production vehicles may differ slightly.</p>
         </section>
 
         {/* FEATURED VEHICLE (VF9) */}

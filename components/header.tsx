@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuthUser, type AuthUser } from './auth-user-provider'
+import { useUser } from '@auth0/nextjs-auth0/client'
+import { useAppStore } from '@/lib/store'
 
 export function MotionDiv(props: HTMLMotionProps<'div'>) {
   return <motion.div {...props} />
@@ -23,12 +24,12 @@ const links = [
 
 export type HeaderUser = AuthUser
 
-export function Header({ user }: { user?: HeaderUser }) {
-  const contextUser = useAuthUser()
-  const currentUser = user ?? contextUser
+export function Header() {
+  const { user } = useUser()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
+  const { setSearchModalOpen, setCartDrawerOpen, getCartCount } = useAppStore()
   const isHomePage = pathname === '/'
   const accountLabel = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Tài khoản'
 
@@ -41,19 +42,19 @@ export function Header({ user }: { user?: HeaderUser }) {
   const headerSolid = scrolled || !isHomePage
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[68px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
-      <div className="mx-auto flex h-full max-w-[1920px] items-center px-5 sm:px-8 lg:px-10 xl:px-12 2xl:px-[72px]">
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
+      <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 lg:px-8 xl:px-12 gap-4">
         <Link href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
           <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
           <span className="font-display text-[32px] font-bold tracking-[0.08em] text-[#836100] transition-opacity duration-500 group-hover:opacity-80 mt-1">FASTLANE</span>
         </Link>
 
-        <nav className="ml-auto hidden items-center gap-[clamp(1.25rem,1.65vw,2.5rem)] xl:flex">
+        <nav className="hidden items-center justify-center gap-4 xl:gap-6 xl:flex">
           {links.map((link) => (
             <Link
               key={link.name}
               href={link.path}
-              className={`relative whitespace-nowrap text-[14px] font-semibold tracking-wide 2xl:text-[16px] transition-colors group ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+              className={`relative text-[13px] font-semibold tracking-wide transition-colors whitespace-nowrap group ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
             >
               {link.name}
               <span className={`absolute -bottom-1 left-0 h-px transition-all duration-300 w-0 group-hover:w-full ${headerSolid ? 'bg-slate-900' : 'bg-white'}`}></span>
@@ -61,39 +62,53 @@ export function Header({ user }: { user?: HeaderUser }) {
           ))}
         </nav>
 
-        <div className={`ml-auto flex items-center gap-2 sm:gap-3 xl:ml-8 xl:gap-3 2xl:ml-12 2xl:gap-5 transition-colors duration-500 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
-          <button aria-label="Tìm kiếm" className="-m-1.5 rounded-full p-1.5 transition hover:bg-white/10 hover:opacity-80"><Search size={20} strokeWidth={2} /></button>
-          <button aria-label="Giỏ hàng" className="hidden rounded-full p-1.5 transition hover:bg-white/10 hover:opacity-80 sm:block"><ShoppingCart size={20} strokeWidth={2} /></button>
-          <UserRound aria-hidden="true" className="hidden sm:block" size={20} strokeWidth={2} />
-          {currentUser ? (
-            <details className="group/account relative hidden sm:block">
-              <summary
-                className={`flex h-11 min-w-36 max-w-56 cursor-pointer list-none items-center justify-center gap-2 rounded-full px-6 text-[11px] font-semibold shadow-sm transition-all marker:content-none [&::-webkit-details-marker]:hidden ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
-                title={currentUser.email ?? undefined}
-              >
-                <span className="max-w-36 truncate">{accountLabel}</span>
-                <ChevronDown className="shrink-0 transition-transform group-open/account:rotate-180" size={14} />
-              </summary>
-              <div className="absolute right-0 top-[calc(100%+0.75rem)] min-w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-slate-900 shadow-2xl">
-                <div className="border-b border-slate-100 px-3 py-2.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tài khoản</p>
-                  <p className="mt-1 max-w-48 truncate text-xs text-slate-600" title={currentUser.email ?? undefined}>
-                    {currentUser.email || accountLabel}
-                  </p>
+        <div className={`flex shrink-0 items-center justify-end gap-3 xl:gap-5 transition-colors duration-500 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
+          <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={18} strokeWidth={2} /></button>
+          <button aria-label="Giỏ hàng" className="relative hidden sm:block hover:opacity-70 transition-opacity" onClick={() => setCartDrawerOpen(true)}>
+            <ShoppingCart size={18} strokeWidth={2} />
+            {getCartCount() > 0 && (
+              <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                {getCartCount()}
+              </span>
+            )}
+          </button>
+          {user ? (
+            <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
+              {user.picture ? (
+                <img src={user.picture} alt={user.name || ''} className="h-7 w-7 rounded-full object-cover shadow-sm ring-1 ring-black/5" />
+              ) : (
+                <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
+                  <UserRound aria-hidden="true" size={14} strokeWidth={2.5} className="text-slate-500" />
                 </div>
-                <a className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50" href="/auth/logout">
-                  <LogOut size={16} />
+              )}
+              <span className="max-w-24 lg:max-w-32 truncate text-xs font-semibold" title={user.email ?? undefined}>
+                {accountLabel}
+              </span>
+              
+              {/* Dropdown Menu */}
+              <div className="absolute right-0 top-full w-48 origin-top-right rounded-xl bg-white py-2 shadow-xl ring-1 ring-black/5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <Link href="/profile" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                  Hồ sơ của tôi
+                </Link>
+                <Link href="/profile?tab=orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                  Lịch sử mua hàng
+                </Link>
+                <div className="my-1 border-t border-gray-100"></div>
+                <a href="/auth/logout" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
                   Đăng xuất
                 </a>
               </div>
-            </details>
+            </div>
           ) : (
-            <a
-              className={`hidden h-11 min-w-36 items-center justify-center rounded-full px-6 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 sm:inline-flex ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
-              href="/auth/login"
-            >
-              Đăng nhập
-            </a>
+            <div className="hidden sm:flex items-center gap-3">
+              <UserRound aria-hidden="true" size={18} strokeWidth={2} />
+              <a
+                className={`rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 whitespace-nowrap ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                href="/auth/login"
+              >
+                Đăng nhập
+              </a>
+            </div>
           )}
           <button className="xl:hidden hover:opacity-70 transition-opacity" aria-label="Menu" onClick={() => setOpen(!open)}>
             {open ? <X size={24} /> : <Menu size={24} />}
