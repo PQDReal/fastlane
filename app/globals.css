@@ -1,7 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:#061941;background:white;font-family:Arial,Helvetica,sans-serif}.no-scrollbar::-webkit-scrollbar{display:none}
+
+@font-face {
+  font-family: 'British Empire';
+  src: url('/fonts/Fontspring-DEMO-britishempire-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box
+}
+
+html {
+  scroll-behavior: smooth
+}
+
+body {
+  margin: 0;
+  color: #061941;
+  background: white;
+  font-family: Arial, Helvetica, sans-serif
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none
+}
+
+.header-brand {
+  font-family: 'British Empire', Arial, sans-serif;
+  font-size: 35px;
+  font-weight: 700;
+  color: #836100;
+}
+
 
 .hero-sunlight {
   position: relative;
@@ -13,8 +47,8 @@
   display: block;
 }
 
-.hero-copy > span,
-.hero-light > span {
+.hero-copy>span,
+.hero-light>span {
   display: block;
   padding-block: 0.06em 0.1em;
 }
@@ -23,30 +57,52 @@
   position: absolute;
   inset: 0;
   color: transparent;
-  background: linear-gradient(
-    110deg,
-    transparent 30%,
-    #ffe985 43%,
-    #fffde7 50%,
-    #ffd24a 57%,
-    transparent 70%
-  );
-  background-size: 300% 100%;
-  background-position: 140% 0;
+  background: linear-gradient(105deg,
+      transparent 34%,
+      #ffe985 45%,
+      #fffbd8 50%,
+      #ffd24a 55%,
+      transparent 66%);
+  background-size: 240% 100%;
+  background-position: 120% 0;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   pointer-events: none;
-  opacity: 1;
-  will-change: background-position;
-  animation: sunlight-sweep 4s linear infinite;
+  opacity: 0;
+  animation: sunlight-sweep 9s ease-in-out infinite;
 }
 
 @keyframes sunlight-sweep {
-  from {
-    background-position: 140% 0;
+  0%,
+  14% {
+    background-position: 120% 0;
+    opacity: 0;
   }
-  to {
-    background-position: -40% 0;
+
+  24% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  70% {
+    background-position: -120% 0;
+    opacity: 0.65;
+  }
+
+  86%,
+  100% {
+    background-position: -120% 0;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-light {
+    animation: none;
+    opacity: 0;
   }
 }

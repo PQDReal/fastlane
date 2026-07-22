@@ -32,7 +32,7 @@ export function Header({ user }: { user?: HeaderUser }) {
             alt="FASTLANE"
             className="h-8 w-auto object-contain sm:h-9"
           />
-          <span className='ml-2 text-[13px] font-medium'>FASTLANE</span>
+          <span className="header-brand ml-2">FASTLANE</span>
         </a>
 
         <nav className="ml-auto hidden items-center gap-7 xl:flex">
