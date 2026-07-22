@@ -1,0 +1,55 @@
+{
+    "selection_mode": "single_choice",
+    "description": "Danh mục các Chương trình ưu đãi lấy trực tiếp từ giao diện đặt cọc VinFast eStore (Dạng Radio Button)",
+    "updated_at": "2026-07-20",
+    "promotions": [
+        {
+            "id": "ctv_referral",
+            "name": "Giới thiệu Khách hàng mới dành cho Cộng tác viên.",
+            "requires_code": true,
+            "code_label": "Mã giới thiệu",
+            "applicable_types": [
+                "car",
+                "motorbike"
+            ]
+        },
+        {
+            "id": "vingroup_staff",
+            "name": "Chương trình CBNV Tập đoàn Vingroup",
+            "requires_code": true,
+            "code_label": "Mã số nhân viên / Email Vingroup",
+            "applicable_types": [
+                "car",
+                "motorbike"
+            ]
+        },
+        {
+            "id": "vinfast_partner",
+            "name": "Tham gia chương trình Đối tác VinFast",
+            "requires_code": true,
+            "code_label": "Mã đối tác",
+            "applicable_types": [
+                "car"
+            ]
+        },
+        {
+            "id": "o2o_channel",
+            "name": "Chính sách ưu đãi dành cho Khách hàng mua xe ô tô qua kênh O2O.",
+            "requires_code": false,
+            "code_label": null,
+            "applicable_types": [
+                "car"
+            ]
+        },
+        {
+            "id": "military_police",
+            "name": "Chính sách ưu đãi dành cho Khách hàng ngành Công an và Quân đội",
+            "requires_code": true,
+            "code_label": "Mã xác thực / Số thẻ ngành",
+            "applicable_types": [
+                "car",
+                "motorbike"
+            ]
+        }
+    ]
+}
