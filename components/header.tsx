@@ -14,8 +14,17 @@ const links = [
   'Hỗ trợ',
 ]
 
-export function Header() {
+export interface HeaderUser {
+  email?: string | null
+  name?: string | null
+}
+
+export function Header({ user }: { user?: HeaderUser }) {
   const [open, setOpen] = useState(false)
+<<<<<<< HEAD
+  const accountLabel =
+    user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
+=======
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -23,6 +32,7 @@ export function Header() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
@@ -45,6 +55,28 @@ export function Header() {
           ))}
         </nav>
 
+<<<<<<< HEAD
+        <div className="ml-auto flex items-center gap-4 xl:ml-7">
+          <Search size={19} />
+          <ShoppingCart className="hidden sm:block" size={19} />
+          <UserRound className="hidden sm:block" size={19} />
+          {user ? (
+            <div className="hidden items-center gap-3 sm:flex">
+              <span className="max-w-36 truncate text-xs font-semibold" title={user.email ?? undefined}>
+                {accountLabel}
+              </span>
+              <a className="rounded-full border border-navy px-4 py-2 text-xs font-bold text-navy" href="/auth/logout">
+                Đăng xuất
+              </a>
+            </div>
+          ) : (
+            <a className="hidden rounded-full bg-navy px-4 py-2 text-xs font-bold text-white sm:block" href="/auth/login">
+              Đăng nhập
+            </a>
+          )}
+          <button className="xl:hidden" aria-label="Menu" onClick={() => setOpen(!open)}>
+            {open ? <X /> : <Menu />}
+=======
         <div className={`ml-auto flex items-center gap-6 xl:ml-12 transition-colors duration-500 ${scrolled ? 'text-slate-600' : 'text-white'}`}>
           <button className="hover:opacity-70 transition-opacity"><Search size={18} strokeWidth={2} /></button>
           <button className="hidden sm:block hover:opacity-70 transition-opacity"><ShoppingCart size={18} strokeWidth={2} /></button>
@@ -54,10 +86,33 @@ export function Header() {
           </button>
           <button className="xl:hidden hover:opacity-70 transition-opacity" aria-label="Menu" onClick={() => setOpen(!open)}>
             {open ? <X size={24} /> : <Menu size={24} />}
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
           </button>
         </div>
       </div>
 
+<<<<<<< HEAD
+      {open && (
+        <nav className="absolute left-0 top-full w-full border-t bg-white p-5 shadow-xl xl:hidden">
+          {links.map((link) => (
+            <a
+              onClick={() => setOpen(false)}
+              key={link}
+              className="block border-b py-3 text-sm font-semibold"
+              href="#"
+            >
+              {link}
+            </a>
+          ))}
+          <a
+            className="block pt-4 text-sm font-bold text-blue"
+            href={user ? '/auth/logout' : '/auth/login'}
+          >
+            {user ? 'Đăng xuất' : 'Đăng nhập'}
+          </a>
+        </nav>
+      )}
+=======
       <AnimatePresence>
         {open && (
           <motion.nav
@@ -80,6 +135,7 @@ export function Header() {
           </motion.nav>
         )}
       </AnimatePresence>
+>>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
     </header>
   )
 }
