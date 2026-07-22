@@ -1,4 +1,4 @@
-import { Header } from '../../components/header'
+import { AuthenticatedHeader } from '../../components/authenticated-header'
 import { Footer } from '../../components/footer'
 import { VehicleCard } from '../../components/vehicle-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
@@ -13,7 +13,7 @@ const bikes = [
 export default function BikesPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
-      <Header />
+      <AuthenticatedHeader />
       
       <div className="bg-muted py-24 border-b border-black/5">
         <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
