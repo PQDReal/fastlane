@@ -20,7 +20,7 @@ export default async function Home() {
     } : undefined
 
     return (
-      <main><Header user={user} />
+      <main><Header />
         <section className="relative flex min-h-[680px] items-start justify-center overflow-hidden bg-[#e8e6e6] text-center lg:min-h-[805px]">
             <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />

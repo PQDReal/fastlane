@@ -1,0 +1,130 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { Search, X, Loader2 } from 'lucide-react'
+import { useAppStore } from '@/lib/store'
+import { mockProducts } from '@/lib/mock-db'
+import Link from 'next/link'
+
+export function SearchModal() {
+  const { searchModalOpen, setSearchModalOpen } = useAppStore()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<typeof mockProducts>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (searchModalOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    } else {
+      setQuery('')
+    }
+  }, [searchModalOpen])
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([])
+      return
+    }
+
+    setIsSearching(true)
+    const timeoutId = setTimeout(() => {
+      const lowerQuery = query.toLowerCase()
+      const filtered = mockProducts.filter(p => 
+        p.name.toLowerCase().includes(lowerQuery) || 
+        p.category.toLowerCase().includes(lowerQuery) ||
+        p.sku.toLowerCase().includes(lowerQuery)
+      )
+      setResults(filtered)
+      setIsSearching(false)
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [query])
+
+  if (!searchModalOpen) return null
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  }
+
+  // Get link based on category
+  const getProductLink = (product: any) => {
+    if (product.category === 'Ô tô điện') return `/cars` // Replace with actual route when ready
+    if (product.category === 'Xe máy điện') return `/bikes`
+    return `/accessories`
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 sm:pt-32">
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+        onClick={() => setSearchModalOpen(false)}
+      />
+      <div className="relative w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all mx-4">
+        <div className="relative flex items-center border-b border-gray-100 px-4 py-4">
+          <Search className="h-5 w-5 text-gray-400" />
+          <input
+            ref={inputRef}
+            type="text"
+            className="w-full bg-transparent px-4 py-2 text-base text-gray-900 placeholder-gray-400 focus:outline-none"
+            placeholder="Tìm kiếm dòng xe, phụ kiện..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="mr-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setSearchModalOpen(false)}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          >
+            Đóng
+          </button>
+        </div>
+
+        {query.trim() && (
+          <div className="max-h-[60vh] overflow-y-auto p-4">
+            {isSearching ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : results.length > 0 ? (
+              <ul className="space-y-4">
+                {results.map((product) => (
+                  <li key={product.id}>
+                    <Link
+                      href={getProductLink(product)}
+                      onClick={() => setSearchModalOpen(false)}
+                      className="flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-gray-50"
+                    >
+                      <div className="flex h-16 w-24 shrink-0 items-center justify-center rounded-lg bg-gray-100 p-2">
+                        <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{product.name}</h4>
+                        <div className="mt-1 flex items-center gap-3 text-sm">
+                          <span className="text-gray-500">{product.category}</span>
+                          <span className="font-medium text-[#836100]">{formatPrice(product.price)}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="py-10 text-center text-gray-500">
+                Không tìm thấy kết quả nào cho "{query}"
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
