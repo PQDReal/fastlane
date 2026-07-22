@@ -2,7 +2,11 @@
 
 import { Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
+
+export function MotionDiv(props: HTMLMotionProps<'div'>) {
+  return <motion.div {...props} />
+}
 
 const links = [
   'Ô tô điện',
@@ -21,23 +25,20 @@ export interface HeaderUser {
 
 export function Header({ user }: { user?: HeaderUser }) {
   const [open, setOpen] = useState(false)
-<<<<<<< HEAD
+  const [scrolled, setScrolled] = useState(false)
   const accountLabel =
     user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
-=======
-  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
->>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
       <div className="mx-auto flex h-full max-w-[1440px] items-center px-6 lg:px-12">
-        <a href="#" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
+        <a href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
           <img src="/images/fastlane-logo.png" alt="Logo" className="h-7 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
           <span className="font-display text-2xl font-bold tracking-widest text-[#836100] transition-opacity duration-500 group-hover:opacity-80 mt-1">FASTLANE</span>
         </a>
@@ -55,64 +56,36 @@ export function Header({ user }: { user?: HeaderUser }) {
           ))}
         </nav>
 
-<<<<<<< HEAD
-        <div className="ml-auto flex items-center gap-4 xl:ml-7">
-          <Search size={19} />
-          <ShoppingCart className="hidden sm:block" size={19} />
-          <UserRound className="hidden sm:block" size={19} />
+        <div className={`ml-auto flex items-center gap-6 xl:ml-12 transition-colors duration-500 ${scrolled ? 'text-slate-600' : 'text-white'}`}>
+          <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity"><Search size={18} strokeWidth={2} /></button>
+          <button aria-label="Giỏ hàng" className="hidden sm:block hover:opacity-70 transition-opacity"><ShoppingCart size={18} strokeWidth={2} /></button>
+          <UserRound aria-hidden="true" className="hidden sm:block" size={18} strokeWidth={2} />
           {user ? (
             <div className="hidden items-center gap-3 sm:flex">
               <span className="max-w-36 truncate text-xs font-semibold" title={user.email ?? undefined}>
                 {accountLabel}
               </span>
-              <a className="rounded-full border border-navy px-4 py-2 text-xs font-bold text-navy" href="/auth/logout">
+              <a
+                className={`rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 ${scrolled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                href="/auth/logout"
+              >
                 Đăng xuất
               </a>
             </div>
           ) : (
-            <a className="hidden rounded-full bg-navy px-4 py-2 text-xs font-bold text-white sm:block" href="/auth/login">
+            <a
+              className={`hidden rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 sm:block ${scrolled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+              href="/auth/login"
+            >
               Đăng nhập
             </a>
           )}
-          <button className="xl:hidden" aria-label="Menu" onClick={() => setOpen(!open)}>
-            {open ? <X /> : <Menu />}
-=======
-        <div className={`ml-auto flex items-center gap-6 xl:ml-12 transition-colors duration-500 ${scrolled ? 'text-slate-600' : 'text-white'}`}>
-          <button className="hover:opacity-70 transition-opacity"><Search size={18} strokeWidth={2} /></button>
-          <button className="hidden sm:block hover:opacity-70 transition-opacity"><ShoppingCart size={18} strokeWidth={2} /></button>
-          <button className="hidden sm:block hover:opacity-70 transition-opacity"><UserRound size={18} strokeWidth={2} /></button>
-          <button className={`hidden rounded-full transition-all active:scale-95 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm sm:block ${scrolled ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-white text-slate-900 hover:bg-white/90'}`}>
-            Đăng nhập
-          </button>
           <button className="xl:hidden hover:opacity-70 transition-opacity" aria-label="Menu" onClick={() => setOpen(!open)}>
             {open ? <X size={24} /> : <Menu size={24} />}
->>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
           </button>
         </div>
       </div>
 
-<<<<<<< HEAD
-      {open && (
-        <nav className="absolute left-0 top-full w-full border-t bg-white p-5 shadow-xl xl:hidden">
-          {links.map((link) => (
-            <a
-              onClick={() => setOpen(false)}
-              key={link}
-              className="block border-b py-3 text-sm font-semibold"
-              href="#"
-            >
-              {link}
-            </a>
-          ))}
-          <a
-            className="block pt-4 text-sm font-bold text-blue"
-            href={user ? '/auth/logout' : '/auth/login'}
-          >
-            {user ? 'Đăng xuất' : 'Đăng nhập'}
-          </a>
-        </nav>
-      )}
-=======
       <AnimatePresence>
         {open && (
           <motion.nav
@@ -132,10 +105,15 @@ export function Header({ user }: { user?: HeaderUser }) {
                 {link}
               </a>
             ))}
+            <a
+              className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600"
+              href={user ? '/auth/logout' : '/auth/login'}
+            >
+              {user ? 'Đăng xuất' : 'Đăng nhập'}
+            </a>
           </motion.nav>
         )}
       </AnimatePresence>
->>>>>>> 5ed93d8b479f68b3e412d6e09c9f1765d8edaa13
     </header>
   )
 }
