@@ -9,7 +9,7 @@ const links = [
   'Xe máy điện',
   'Phụ kiện',
   'Khuyến mãi',
-  'Tin tức',
+  'So sánh xe',
   'Đặt lịch lái thử',
   'Hỗ trợ',
 ]
