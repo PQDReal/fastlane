@@ -68,7 +68,7 @@ export function Header({ user }: { user?: HeaderUser }) {
           {user ? (
             <details className="group/account relative hidden sm:block">
               <summary
-                className={`flex h-14 max-w-56 cursor-pointer list-none items-center gap-2 rounded-full px-6 text-xs font-semibold shadow-sm transition-all marker:content-none [&::-webkit-details-marker]:hidden ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                className={`flex h-11 min-w-36 max-w-56 cursor-pointer list-none items-center justify-center gap-2 rounded-full px-6 text-[11px] font-semibold shadow-sm transition-all marker:content-none [&::-webkit-details-marker]:hidden ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
                 title={user.email ?? undefined}
               >
                 <span className="max-w-36 truncate">{accountLabel}</span>
