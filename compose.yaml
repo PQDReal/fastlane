@@ -2,15 +2,20 @@ services:
   web:
     build:
       context: .
+      target: runner
+    image: fastlane-web:local
+    init: true
+    restart: unless-stopped
+    env_file: "${FASTLANE_ENV_FILE:-.env.local}"
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: 3000
     ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
-      - next_cache:/app/.next
-
-volumes:
-  node_modules:
-  next_cache:
+      - "${FASTLANE_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
