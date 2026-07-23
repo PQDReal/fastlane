@@ -1,9 +1,40 @@
 import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 
 import { auth0 } from './lib/auth0'
 
+const swaggerOrigins = new Set(['http://127.0.0.1:8080'])
+
+function applyCorsHeaders(response: NextResponse, origin: string) {
+  response.headers.set('access-control-allow-origin', origin)
+  response.headers.set(
+    'access-control-allow-methods',
+    'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  )
+  response.headers.set(
+    'access-control-allow-headers',
+    'Accept, Authorization, Content-Type',
+  )
+  response.headers.append('vary', 'Origin')
+  return response
+}
+
 export async function middleware(request: NextRequest) {
-  return auth0.middleware(request)
+  const origin = request.headers.get('origin')
+  const isApiRequest = request.nextUrl.pathname.startsWith('/api/v1/')
+  const isSwaggerOrigin = origin !== null && swaggerOrigins.has(origin)
+
+  if (isApiRequest && isSwaggerOrigin && request.method === 'OPTIONS') {
+    return applyCorsHeaders(new NextResponse(null, { status: 204 }), origin)
+  }
+
+  const response = await auth0.middleware(request)
+
+  if (isApiRequest && isSwaggerOrigin) {
+    return applyCorsHeaders(response, origin)
+  }
+
+  return response
 }
 
 export const config = {
