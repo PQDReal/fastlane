@@ -825,6 +825,11 @@ function checkSchemas(specPath) {
     lineTotal: "1011000000",
     lineAmountDueNow: "30000000",
   };
+  const cartItem = {
+    ...item,
+    productId: u2,
+    productSlug: "vinfast-vf-8",
+  };
   const pricing = {
     currency: "VND",
     subtotal: "1011000000",
@@ -910,8 +915,9 @@ function checkSchemas(specPath) {
     ["HealthResponse", { data: { status: "ok" } }],
     ["ProductDetail", product],
     ["ProductCreateRequest", productCreate],
-    ["Cart", { id: u1, version: 3, pricedAt: timestamp, items: [item], promotion: applied, pricing }],
+    ["Cart", { id: u1, version: 3, pricedAt: timestamp, items: [cartItem], promotion: applied, pricing }],
     ["CheckoutRequest", {
+      cartItemIds: [u1],
       expectedCartVersion: 3,
       acceptedGrandTotal: "909900000",
       acceptedAmountDueNow: "30000000",

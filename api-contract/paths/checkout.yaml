@@ -6,7 +6,7 @@
     x-required-roles: [customer]
     summary: Create an order from the current cart
     description: |
-      The server verifies expectedCartVersion, acceptedGrandTotal, and acceptedAmountDueNow; re-prices variants and selected options; validates one optional promotion,
+      The server verifies the selected cartItemIds, expectedCartVersion, acceptedGrandTotal, and acceptedAmountDueNow; re-prices selected variants and options; validates one optional promotion,
       conditionally decrements variant inventory, consumes promotion usage, creates an immutable Created order snapshot,
       stores the idempotency result, and clears the cart in one database transaction. Any failure rolls back every mutation.
       A repeated request with the same Idempotency-Key, customer, cart version, and payload returns the original response.
