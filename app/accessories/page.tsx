@@ -3,21 +3,41 @@ import { Footer } from '../../components/footer'
 import { AccessoryCard } from '../../components/accessory-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { getSupabaseAdmin } from '../../lib/supabase-admin'
+
+import { Pagination } from '../../components/pagination'
+
+export const dynamic = 'force-dynamic'
 
 const categories = ["Tất cả", "Sạc & Cáp", "Nội thất", "Ngoại thất", "Đồ dã ngoại", "Quần áo thời trang"]
 
-const accessories = [
-  { name: 'Sạc di động loại nhỏ 2.2kW', price: '4.500.000', oldPrice: '5.000.000', discount: 10, image: '/images/vf8.png', rating: 4.8, stock: 15 },
-  { name: 'Bộ thảm lót sàn cao cấp VF8', price: '2.100.000', oldPrice: null, discount: null, image: '/images/vf9.png', rating: 4.5, stock: 32 },
-  { name: 'Bọc vô lăng da lộn thể thao', price: '850.000', oldPrice: '1.000.000', discount: 15, image: '/images/vento.png', rating: 4.9, stock: 5 },
-  { name: 'Khay để đồ cốp xe chống nước', price: '1.200.000', oldPrice: null, discount: null, image: '/images/vf8.png', rating: 4.7, stock: 0 },
-  { name: 'Sạc treo tường 7.4kW', price: '12.000.000', oldPrice: '15.000.000', discount: 20, image: '/images/vf9.png', rating: 5.0, stock: 8 },
-  { name: 'Bạt phủ xe cao cấp', price: '1.500.000', oldPrice: null, discount: null, image: '/images/vento.png', rating: 4.2, stock: 45 },
-  { name: 'Camera hành trình 4K', price: '3.800.000', oldPrice: '4.200.000', discount: 9, image: '/images/vf8.png', rating: 4.6, stock: 12 },
-  { name: 'Bộ chia tẩu sạc thông minh', price: '450.000', oldPrice: null, discount: null, image: '/images/vf9.png', rating: 4.3, stock: 110 },
-]
+export default async function AccessoriesPage({ searchParams }: { searchParams: { page?: string } }) {
+  const currentPage = parseInt(searchParams?.page || '1', 10)
+  const pageSize = 12
+  const start = (currentPage - 1) * pageSize
+  const end = start + pageSize - 1
 
-export default function AccessoriesPage() {
+  const supabase = getSupabaseAdmin()
+  const { data: rawAccessories, count } = await supabase
+    .from('products')
+    .select(`*, category:categories!inner(name)`, { count: 'exact' })
+    .eq('is_active', true)
+    .eq('categories.name', 'Phụ kiện')
+    .range(start, end)
+  
+  const accessoriesData = rawAccessories || []
+  const totalPages = count ? Math.ceil(count / pageSize) : 1
+
+  const accessories = accessoriesData.map(c => ({
+    name: c.name,
+    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
+    oldPrice: null,
+    discount: null,
+    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vf8.png',
+    rating: 4.8,
+    stock: c.stock,
+  }))
+
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
@@ -72,7 +92,7 @@ export default function AccessoriesPage() {
             </div>
             
             <div className="flex items-center gap-4 w-full sm:w-auto">
-              <span className="text-sm text-muted-foreground font-medium hidden lg:inline">Hiển thị 8 kết quả</span>
+              <span className="text-sm text-muted-foreground font-medium hidden lg:inline">Hiển thị {accessories.length} kết quả</span>
               <select className="h-11 px-4 rounded-full border border-muted bg-background text-sm font-medium focus:outline-none focus:border-brand-500">
                 <option>Mới nhất</option>
                 <option>Giá: Thấp đến cao</option>
@@ -82,12 +102,14 @@ export default function AccessoriesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {accessories.map((item, idx) => (
-               <AccessoryCard key={idx} {...item} />
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {accessories.map((item, idx) => (
+                 <AccessoryCard key={idx} {...item} />
+              ))}
+            </div>
+            
+            <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/accessories" />
           </div>
-        </div>
       </div>
 
       <Footer />

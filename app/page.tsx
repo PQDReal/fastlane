@@ -4,13 +4,9 @@ import { Button } from '../components/ui/button'
 import { ProductCard } from '../components/product-card'
 import { Footer } from '../components/footer'
 import { auth0 } from '../lib/auth0'
+import { getSupabaseAdmin } from '../lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
-
-const products = [
-    { name: 'VinFast VF8', desc: 'SUV cỡ trung mạnh mẽ, thiết kế đậm chất thể thao, trải nghiệm lái khác biệt.', price: '1.090.000.000', image: '/images/vf8.png' },
-    { name: 'Vento S', desc: 'Xe máy điện cao cấp, vận hành êm ái, thiết kế thanh lịch chuẩn phong cách.', price: '50.000.000', image: '/images/vento.png' }
-]
 
 export default async function Home() {
     const session = await auth0.getSession()
@@ -18,6 +14,23 @@ export default async function Home() {
         email: session.user.email,
         name: session.user.name,
     } : undefined
+
+    const supabase = getSupabaseAdmin()
+    const { data: rawProducts } = await supabase
+      .from('products')
+      .select(`
+        *,
+        category:categories(name)
+      `)
+      .eq('is_active', true)
+      .limit(2) // Get two products for the homepage section
+
+    const products = (rawProducts || []).map(p => ({
+      name: p.name,
+      desc: p.description || 'Sản phẩm chính hãng từ Fastlane',
+      price: new Intl.NumberFormat('vi-VN').format(p.displayed_price),
+      image: p.image_urls && p.image_urls.length > 0 && p.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? p.image_urls[0] : '/images/vf8.png'
+    }))
 
     return (
       <main><Header />

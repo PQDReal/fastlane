@@ -3,7 +3,7 @@ import { Button } from './ui/button'
 
 export function AccessoryCard({ name, price, oldPrice, image, rating, stock, discount }: any) {
   return (
-    <article className="group flex flex-col bg-background rounded-2xl border border-black/5 overflow-hidden shadow-sm hover:shadow-glass-hover transition-all duration-500 relative">
+    <article className="group flex flex-col h-full cursor-pointer transition-all duration-500 relative pb-4">
       {discount && (
         <div className="absolute top-4 left-4 z-20 bg-brand-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
           -{discount}%
@@ -13,7 +13,7 @@ export function AccessoryCard({ name, price, oldPrice, image, rating, stock, dis
         <Heart size={16} />
       </button>
       
-      <div className="relative aspect-square w-full bg-muted flex items-center justify-center p-6 overflow-hidden">
+      <div className="relative aspect-square w-full bg-transparent flex items-center justify-center overflow-hidden">
         <img src={image} alt={name} className="relative z-10 w-full h-full object-contain transition-transform duration-700 group-hover:scale-110 drop-shadow-md" />
         
         {/* Quick View Overlay */}
@@ -24,7 +24,7 @@ export function AccessoryCard({ name, price, oldPrice, image, rating, stock, dis
         </div>
       </div>
       
-      <div className="p-6 flex flex-col flex-1">
+      <div className="pt-6 flex flex-col flex-1">
         <div className="flex items-center gap-1 mb-3">
           {[...Array(5)].map((_, i) => (
             <Star key={i} size={12} className={i < Math.floor(rating) ? "fill-brand-500 text-brand-500" : "fill-muted text-muted"} />

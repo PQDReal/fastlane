@@ -3,13 +3,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, X, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
-import { mockProducts } from '@/lib/mock-db'
 import Link from 'next/link'
 
 export function SearchModal() {
   const { searchModalOpen, setSearchModalOpen } = useAppStore()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<typeof mockProducts>([])
+  const [results, setResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -28,15 +27,18 @@ export function SearchModal() {
     }
 
     setIsSearching(true)
-    const timeoutId = setTimeout(() => {
-      const lowerQuery = query.toLowerCase()
-      const filtered = mockProducts.filter(p => 
-        p.name.toLowerCase().includes(lowerQuery) || 
-        p.category.toLowerCase().includes(lowerQuery) ||
-        p.sku.toLowerCase().includes(lowerQuery)
-      )
-      setResults(filtered)
-      setIsSearching(false)
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/products?q=${encodeURIComponent(query)}`)
+        if (res.ok) {
+          const data = await res.json()
+          setResults(data)
+        }
+      } catch (error) {
+        console.error('Search error:', error)
+      } finally {
+        setIsSearching(false)
+      }
     }, 300)
 
     return () => clearTimeout(timeoutId)
@@ -50,7 +52,7 @@ export function SearchModal() {
 
   // Get link based on category
   const getProductLink = (product: any) => {
-    if (product.category === 'Ô tô điện') return `/cars` // Replace with actual route when ready
+    if (product.category === 'Ô tô điện') return `/cars` 
     if (product.category === 'Xe máy điện') return `/bikes`
     return `/accessories`
   }
@@ -104,13 +106,17 @@ export function SearchModal() {
                       className="flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-gray-50"
                     >
                       <div className="flex h-16 w-24 shrink-0 items-center justify-center rounded-lg bg-gray-100 p-2">
-                        <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
+                        {product.image_urls && product.image_urls[0] && product.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? (
+                          <img src={product.image_urls[0]} alt={product.name} className="h-full w-full object-contain" />
+                        ) : (
+                          <span className="text-xs text-gray-400">No img</span>
+                        )}
                       </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900">{product.name}</h4>
                         <div className="mt-1 flex items-center gap-3 text-sm">
                           <span className="text-gray-500">{product.category}</span>
-                          <span className="font-medium text-[#836100]">{formatPrice(product.price)}</span>
+                          <span className="font-medium text-[#836100]">{formatPrice(product.displayed_price)}</span>
                         </div>
                       </div>
                     </Link>
@@ -128,3 +134,4 @@ export function SearchModal() {
     </div>
   )
 }
+
