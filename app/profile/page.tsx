@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { mockOrders } from '@/lib/mock-db'
+import type { AccessoryOrderSummary } from '@/lib/cart/types'
 import { useSearchParams } from 'next/navigation'
 import { Package, User, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 
@@ -13,6 +13,35 @@ function ProfileContent() {
   const searchParams = useSearchParams()
   const initialTab = searchParams?.get('tab') === 'orders' ? 'orders' : 'info'
   const [activeTab, setActiveTab] = useState<'info' | 'orders'>(initialTab)
+  const [userOrders, setUserOrders] = useState<AccessoryOrderSummary[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user || activeTab !== 'orders') return
+
+    let active = true
+    setOrdersLoading(true)
+    setOrdersError(null)
+    fetch('/api/v1/orders?limit=20')
+      .then(async (response) => {
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.error?.message || 'Không thể tải đơn hàng.')
+        }
+        if (active) setUserOrders(payload.data || [])
+      })
+      .catch((error: unknown) => {
+        if (active) setOrdersError(error instanceof Error ? error.message : 'Không thể tải đơn hàng.')
+      })
+      .finally(() => {
+        if (active) setOrdersLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [activeTab, user])
 
   if (isLoading) {
     return (
@@ -35,8 +64,6 @@ function ProfileContent() {
     )
   }
 
-  const userOrders = mockOrders.slice(0, 5)
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Completed': return <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -45,8 +72,8 @@ function ProfileContent() {
     }
   }
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  const formatPrice = (price: number | string) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price))
   }
 
   const formatDate = (dateStr: string) => {
@@ -124,6 +151,13 @@ function ProfileContent() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Lịch sử đơn hàng</h2>
                 <div className="space-y-4">
+                  {ordersLoading && (
+                    <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-[#836100]" /></div>
+                  )}
+                  {ordersError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{ordersError}</p>}
+                  {!ordersLoading && !ordersError && userOrders.length === 0 && (
+                    <p className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
+                  )}
                   {userOrders.map(order => (
                     <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
                       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
@@ -142,11 +176,11 @@ function ProfileContent() {
                             <Package className="h-6 w-6 text-gray-400" />
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{order.vehicle}</p>
-                            <p className="text-sm text-gray-500">Thanh toán: {order.payment}</p>
+                            <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
+                            <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
                           </div>
                         </div>
-                        <p className="font-bold text-[#836100]">{formatPrice(order.amount)}</p>
+                        <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
                       </div>
                     </div>
                   ))}
