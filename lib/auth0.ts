@@ -28,15 +28,19 @@ export const auth0 = new Auth0Client({
       return NextResponse.redirect(destination)
     }
 
+    let isAdmin = false
+
     try {
       const phoneNumber = session.user.phone_number
 
-      await syncAuth0User({
+      const localUser = await syncAuth0User({
         sub: session.user.sub,
         email: session.user.email,
         name: session.user.name,
         phone_number: typeof phoneNumber === 'string' ? phoneNumber : null,
       })
+
+      isAdmin = localUser.role === 'ADMIN'
     } catch (syncError) {
       console.error('Auth0 user synchronization failed', {
         subject: session.user.sub,
@@ -49,6 +53,7 @@ export const auth0 = new Auth0Client({
       return NextResponse.redirect(destination)
     }
 
-    return NextResponse.redirect(new URL(context.returnTo ?? '/', baseUrl))
+    const returnTo = isAdmin ? '/admin' : context.returnTo ?? '/'
+    return NextResponse.redirect(new URL(returnTo, baseUrl))
   },
 })
