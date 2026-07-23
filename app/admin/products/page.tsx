@@ -14,7 +14,7 @@ export default function AdminProductsPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch('/api/v1/products')
+        const res = await fetch('/api/v1/admin/products')
         if (res.ok) {
           const data = await res.json()
           setProducts(data)

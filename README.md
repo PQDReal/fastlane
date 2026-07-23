@@ -71,7 +71,27 @@ docker compose config --quiet
 docker compose up --build
 ```
 
-Mặc định web được publish tại port `3000`. Compose bắt buộc có `.env.local`, đọc Auth0/Supabase runtime configuration từ file này, chờ `/api/v1/health`, và không chứa service PostgreSQL/Supabase.
+Mặc định web được publish tại port `3000`.
+Swagger UI chạy bằng service `swagger` riêng và đọc bản bundle tại `api-contract/dist/openapi.bundle.yaml`:
+
+```text
+http://127.0.0.1:8080
+```
+
+Đổi cổng Swagger trong PowerShell nếu cần:
+
+```powershell
+$env:SWAGGER_PORT = '8081'
+docker compose up -d swagger
+```
+
+Sau khi sửa OpenAPI contract, tạo lại bundle rồi recreate service:
+
+```powershell
+npm ci --prefix api-contract
+npm run bundle:openapi
+docker compose up -d --force-recreate swagger
+``` Compose bắt buộc có `.env.local`, đọc Auth0/Supabase runtime configuration từ file này, chờ `/api/v1/health`, và không chứa service PostgreSQL/Supabase.
 
 Chỉ để kiểm tra cấu trúc Compose mà chưa tạo `.env.local`, có thể tạm đặt `$env:FASTLANE_ENV_FILE = '.env.example'` trong PowerShell; không dùng file placeholder này để chạy môi trường thật. Không đăng output đầy đủ của `docker compose config` lên PR/issue/chat vì lệnh đó có thể hiển thị giá trị đã resolve từ env file.
 

@@ -9,8 +9,13 @@ import { Pagination } from '../../components/pagination'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CarsPage({ searchParams }: { searchParams: { page?: string } }) {
-  const currentPage = parseInt(searchParams?.page || '1', 10)
+export default async function CarsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page } = await searchParams
+  const currentPage = parseInt(page || '1', 10)
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1
