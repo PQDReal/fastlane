@@ -6,13 +6,15 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
 import { Pagination } from '../../components/pagination'
+import type { AccessoryCatalogItem } from '../../lib/cart/types'
 
 export const dynamic = 'force-dynamic'
 
 const categories = ["Tất cả", "Sạc & Cáp", "Nội thất", "Ngoại thất", "Đồ dã ngoại", "Quần áo thời trang"]
 
-export default async function AccessoriesPage({ searchParams }: { searchParams: { page?: string } }) {
-  const currentPage = parseInt(searchParams?.page || '1', 10)
+export default async function AccessoriesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams
+  const currentPage = parseInt(params.page || '1', 10)
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1
@@ -20,23 +22,65 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
   const supabase = getSupabaseAdmin()
   const { data: rawAccessories, count } = await supabase
     .from('products')
-    .select(`*, category:categories!inner(name)`, { count: 'exact' })
+    .select(`
+      id,
+      name,
+      slug,
+      image_urls,
+      category:categories!inner(name),
+      product_variants!inner(
+        id,
+        sku,
+        name,
+        original_price,
+        sale_price,
+        is_active,
+        inventory_items(on_hand_quantity)
+      )
+    `, { count: 'exact' })
     .eq('is_active', true)
+    .eq('product_type', 'ACCESSORY')
     .eq('categories.name', 'Phụ kiện')
+    .eq('product_variants.is_active', true)
     .range(start, end)
   
   const accessoriesData = rawAccessories || []
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
-  const accessories = accessoriesData.map(c => ({
-    name: c.name,
-    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
-    oldPrice: null,
-    discount: null,
-    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vf8.png',
-    rating: 4.8,
-    stock: c.stock,
-  }))
+  const accessories: AccessoryCatalogItem[] = accessoriesData.flatMap((product) => {
+    const image = Array.isArray(product.image_urls)
+      && typeof product.image_urls[0] === 'string'
+      && product.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i)
+      ? product.image_urls[0]
+      : '/images/vf8.png'
+
+    return (product.product_variants || []).map((variant) => {
+      const listPrice = Number(variant.original_price)
+      const salePrice = variant.sale_price === null ? null : Number(variant.sale_price)
+      const priceAmount = salePrice ?? listPrice
+      const inventory = Array.isArray(variant.inventory_items)
+        ? variant.inventory_items[0]
+        : variant.inventory_items
+
+      return {
+        productId: product.id,
+        productSlug: product.slug,
+        variantId: variant.id,
+        sku: variant.sku,
+        name: variant.name === 'Mặc định'
+          ? product.name
+          : `${product.name} - ${variant.name}`,
+        priceAmount,
+        oldPriceAmount: salePrice !== null && salePrice < listPrice ? listPrice : null,
+        discount: salePrice !== null && salePrice < listPrice
+          ? Math.round((1 - salePrice / listPrice) * 100)
+          : null,
+        image,
+        rating: 4.8,
+        availableQuantity: Math.max(0, Number(inventory?.on_hand_quantity ?? 0)),
+      }
+    })
+  })
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -103,8 +147,8 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
           </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {accessories.map((item, idx) => (
-                 <AccessoryCard key={idx} {...item} />
+              {accessories.map((item) => (
+                 <AccessoryCard key={item.variantId} {...item} />
               ))}
             </div>
             
