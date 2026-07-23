@@ -18,18 +18,25 @@ type TestDriveFormProps = {
     phoneNumber: string
     email: string
   } | null
+  initialVehicleId?: string
 }
 
 export function TestDriveForm({
   vehicles,
   loadError = false,
   initialUser = null,
+  initialVehicleId,
 }: TestDriveFormProps) {
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [referenceNumber, setReferenceNumber] = useState<string | null>(null)
   const hasVehicles = vehicles.length > 0
+  const defaultVehicleId = vehicles.some(
+    (vehicle) => vehicle.id === initialVehicleId,
+  )
+    ? initialVehicleId
+    : ''
   const cars = vehicles.filter((vehicle) => vehicle.category === 'Ô tô điện')
   const bikes = vehicles.filter((vehicle) => vehicle.category === 'Xe máy điện')
   const minimumTestDriveDate = new Intl.DateTimeFormat('en-CA', {
@@ -101,7 +108,7 @@ export function TestDriveForm({
                     <select
                       id="test-drive-vehicle"
                       name="vehicleId"
-                      defaultValue=""
+                      defaultValue={defaultVehicleId}
                       disabled={!hasVehicles}
                       required
                       className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
