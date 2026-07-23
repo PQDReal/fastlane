@@ -22,7 +22,6 @@ const links = [
   { name: 'So sánh xe', path: '/compare' },
 ]
 
-export type HeaderUser = AuthUser
 
 export function Header() {
   const { user } = useUser()
@@ -31,7 +30,7 @@ export function Header() {
   const pathname = usePathname()
   const { setSearchModalOpen, setCartDrawerOpen, getCartCount } = useAppStore()
   const isHomePage = pathname === '/'
-  const accountLabel = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Tài khoản'
+  const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
