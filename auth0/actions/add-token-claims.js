@@ -28,13 +28,12 @@ exports.onExecutePostLogin = async (event, api) => {
     .map((role) => knownRoles.get(role.toLowerCase()))
     .filter(Boolean))]
 
-  if (roles.length === 0) {
-    api.access.deny('A FastLane Customer or Admin role is required.')
-    return
-  }
+  // New sign-ups do not have an Auth0 role yet. Grant only the least-privileged
+  // application role; Admin still requires an explicit Auth0 role assignment.
+  const effectiveRoles = roles.length > 0 ? roles : ['customer']
 
-  api.accessToken.setCustomClaim(rolesClaim, roles)
-  api.idToken.setCustomClaim(rolesClaim, roles)
+  api.accessToken.setCustomClaim(rolesClaim, effectiveRoles)
+  api.idToken.setCustomClaim(rolesClaim, effectiveRoles)
 
   // Supabase Third-Party Auth expects this literal claim in the ID token.
   // Do not add it to the Auth0 access token: Auth0 strips non-namespaced

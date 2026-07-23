@@ -48,14 +48,19 @@ describe('FastLane Auth0 Post-Login Action', () => {
     expect(api.accessToken.setCustomClaim).not.toHaveBeenCalled()
   })
 
-  it('denies login when no supported application role is assigned', async () => {
+  it('defaults users without an assigned role to customer', async () => {
     const { api, event } = harness({ roles: ['unknown'] })
 
     await onExecutePostLogin(event, api)
 
-    expect(api.access.deny).toHaveBeenCalledWith(
-      'A FastLane Customer or Admin role is required.',
+    expect(api.access.deny).not.toHaveBeenCalled()
+    expect(api.accessToken.setCustomClaim).toHaveBeenCalledWith(
+      'https://fastlane.test/roles',
+      ['customer'],
     )
-    expect(api.idToken.setCustomClaim).not.toHaveBeenCalled()
+    expect(api.idToken.setCustomClaim).toHaveBeenCalledWith(
+      'https://fastlane.test/roles',
+      ['customer'],
+    )
   })
 })

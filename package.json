@@ -24,6 +24,7 @@
     "@auth0/nextjs-auth0": "4.25.0",
     "@radix-ui/react-slot": "latest",
     "@supabase/server": "^1.4.0",
+    "@supabase/supabase-js": "^2.110.8",
     "class-variance-authority": "latest",
     "clsx": "latest",
     "framer-motion": "^12.42.2",
