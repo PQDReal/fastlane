@@ -22,7 +22,6 @@ const links = [
   { name: 'So sánh xe', path: '/compare' },
 ]
 
-export type HeaderUser = AuthUser
 
 export function Header() {
   const { user } = useUser()
@@ -31,7 +30,7 @@ export function Header() {
   const pathname = usePathname()
   const { setSearchModalOpen, setCartDrawerOpen, getCartCount } = useAppStore()
   const isHomePage = pathname === '/'
-  const accountLabel = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Tài khoản'
+  const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -42,19 +41,19 @@ export function Header() {
   const headerSolid = scrolled || !isHomePage
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[100px]'}`}>
-      <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 lg:px-8 xl:px-12 gap-4">
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[92px] lg:h-[118px]'}`}>
+      <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12 xl:px-14">
         <Link href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
-          <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105" />
-          <span className="font-display text-[32px] font-bold tracking-[0.08em] text-[#836100] transition-opacity duration-500 group-hover:opacity-80 mt-1">FASTLANE</span>
+          <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105 lg:h-9" />
+          <span className="font-display mt-1 text-[27px] font-bold tracking-[0.06em] text-[#9b7200] transition-opacity duration-500 group-hover:opacity-80 lg:text-[34px]">FASTLANE</span>
         </Link>
 
-        <nav className="hidden items-center justify-center gap-4 xl:gap-6 xl:flex">
+        <nav className="hidden items-center justify-center gap-6 xl:flex 2xl:gap-12">
           {links.map((link) => (
             <Link
               key={link.name}
               href={link.path}
-              className={`relative text-[13px] font-semibold tracking-wide transition-colors whitespace-nowrap group ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+              className={`group relative whitespace-nowrap text-[14px] font-semibold tracking-wide transition-colors 2xl:text-[16px] ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
             >
               {link.name}
               <span className={`absolute -bottom-1 left-0 h-px transition-all duration-300 w-0 group-hover:w-full ${headerSolid ? 'bg-slate-900' : 'bg-white'}`}></span>
@@ -62,10 +61,10 @@ export function Header() {
           ))}
         </nav>
 
-        <div className={`flex shrink-0 items-center justify-end gap-3 xl:gap-5 transition-colors duration-500 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
-          <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={18} strokeWidth={2} /></button>
+        <div className={`flex shrink-0 items-center justify-end gap-4 transition-colors duration-500 xl:gap-6 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
+          <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={23} strokeWidth={2} /></button>
           <button aria-label="Giỏ hàng" className="relative hidden sm:block hover:opacity-70 transition-opacity" onClick={() => setCartDrawerOpen(true)}>
-            <ShoppingCart size={18} strokeWidth={2} />
+            <ShoppingCart size={23} strokeWidth={2} />
             {getCartCount() > 0 && (
               <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                 {getCartCount()}
@@ -84,7 +83,7 @@ export function Header() {
               <span className="max-w-24 lg:max-w-32 truncate text-xs font-semibold" title={user.email ?? undefined}>
                 {accountLabel}
               </span>
-              
+
               {/* Dropdown Menu */}
               <div className="absolute right-0 top-full w-48 origin-top-right rounded-xl bg-white py-2 shadow-xl ring-1 ring-black/5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                 <Link href="/profile" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
@@ -101,9 +100,9 @@ export function Header() {
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-3">
-              <UserRound aria-hidden="true" size={18} strokeWidth={2} />
+              {/* <UserRound aria-hidden="true" size={23} strokeWidth={2} /> */}
               <a
-                className={`rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-sm transition-all active:scale-95 whitespace-nowrap ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                className={`whitespace-nowrap rounded-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] shadow-sm transition-all active:scale-95 lg:px-7 lg:py-3 lg:text-[11px] ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
                 href="/auth/login"
               >
                 Đăng nhập
