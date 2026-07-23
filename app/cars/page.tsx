@@ -3,14 +3,36 @@ import { Footer } from '../../components/footer'
 import { VehicleCard } from '../../components/vehicle-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
-const cars = [
-  { name: 'VinFast VF9', desc: 'Flagship SUV cỡ lớn, thiết kế bề thế, đẳng cấp thương gia.', price: '1.491.000.000', image: '/images/vf9.png', range: '680', battery: '123', horsepower: '402', seats: '7' },
-  { name: 'VinFast VF8', desc: 'SUV cỡ trung mạnh mẽ, thiết kế đậm chất thể thao.', price: '1.090.000.000', image: '/images/vf8.png', range: '471', battery: '87.7', horsepower: '349', seats: '5' },
-  { name: 'VinFast VF7', desc: 'SUV hạng C cá tính, phong cách thiết kế phi thuyền vũ trụ.', price: '850.000.000', image: '/images/vf8.png', range: '431', battery: '59.6', horsepower: '174', seats: '5' },
-]
+import { Pagination } from '../../components/pagination'
 
-export default function CarsPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function CarsPage({ searchParams }: { searchParams: { page?: string } }) {
+  const currentPage = parseInt(searchParams?.page || '1', 10)
+  const pageSize = 12
+  const start = (currentPage - 1) * pageSize
+  const end = start + pageSize - 1
+
+  const supabase = getSupabaseAdmin()
+  const { data: rawCars, count } = await supabase
+    .from('products')
+    .select(`*, category:categories!inner(name)`, { count: 'exact' })
+    .eq('is_active', true)
+    .eq('categories.name', 'Ô tô điện')
+    .range(start, end)
+  
+  const carsData = rawCars || []
+  const totalPages = count ? Math.ceil(count / pageSize) : 1
+
+  const cars = carsData.map(c => ({
+    name: c.name,
+    desc: c.description || 'Xe ô tô điện VinFast',
+    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
+    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vf8.png',
+  }))
+
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
@@ -51,6 +73,8 @@ export default function CarsPage() {
              <VehicleCard key={idx} {...car} />
           ))}
         </div>
+        
+        <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/cars" />
       </div>
 
       <Footer />

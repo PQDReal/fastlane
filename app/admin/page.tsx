@@ -2,12 +2,29 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Package, ShoppingCart, DollarSign, TrendingUp, AlertCircle, ArrowUpRight } from 'lucide-react'
-import { mockOrders, mockProducts, mockInventory } from '../../lib/mock-db'
+import { mockOrders, mockInventory } from '../../lib/mock-db'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 
 export default function AdminDashboard() {
+  const [productCount, setProductCount] = useState(0)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/v1/products')
+        if (res.ok) {
+          const data = await res.json()
+          setProductCount(data.length)
+        }
+      } catch (e) {
+        console.error('Failed to fetch product count', e)
+      }
+    }
+    fetchStats()
+  }, [])
+
   const stats = useMemo(() => {
     const today = new Date()
     today.setHours(0,0,0,0)
@@ -22,11 +39,11 @@ export default function AdminDashboard() {
       revenue,
       todayOrders: todayOrders.length,
       totalOrders: mockOrders.length,
-      products: mockProducts.length,
+      products: productCount,
       lowStock,
       pendingOrders
     }
-  }, [])
+  }, [productCount])
 
   const chartData = useMemo(() => {
     // Group orders by day for the last 7 days
@@ -172,3 +189,4 @@ export default function AdminDashboard() {
     </div>
   )
 }
+

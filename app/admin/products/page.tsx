@@ -1,17 +1,36 @@
 'use client'
 
-import { useState } from 'react'
-import { mockProducts } from '../../../lib/mock-db'
-import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import Link from 'next/link'
 
 export default function AdminProductsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
+  const [products, setProducts] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const filteredProducts = mockProducts.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/v1/products')
+        if (res.ok) {
+          const data = await res.json()
+          setProducts(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch products:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchProducts()
+  }, [])
+
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === 'All' || p.category === categoryFilter
     return matchesSearch && matchesCategory
   })
@@ -54,9 +73,10 @@ export default function AdminProductsPage() {
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="All">Tất cả danh mục</option>
-                <option value="Ô tô điện">Ô tô điện</option>
-                <option value="Xe máy điện">Xe máy điện</option>
-                <option value="Phụ kiện">Phụ kiện</option>
+                {/* Dynamically generate categories if needed, but for now hardcoded based on known values is ok, or unique from data */}
+                {Array.from(new Set(products.map(p => p.category))).map(cat => (
+                  <option key={cat as string} value={cat as string}>{cat as string}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -71,39 +91,45 @@ export default function AdminProductsPage() {
                 <th className="px-6 py-4">Mã (SKU)</th>
                 <th className="px-6 py-4">Danh mục</th>
                 <th className="px-6 py-4">Giá</th>
-                <th className="px-6 py-4">Tồn kho</th>
                 <th className="px-6 py-4">Trạng thái</th>
                 <th className="px-6 py-4">Ngày tạo</th>
                 <th className="px-6 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredProducts.map(product => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex justify-center items-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredProducts.map(product => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
-                        <img src={product.image} alt={product.name} className="w-8 h-auto object-contain" />
+                        {product.image_urls && product.image_urls[0] && product.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? (
+                          <img src={product.image_urls[0]} alt={product.name} className="w-8 h-auto object-contain" />
+                        ) : (
+                          <span className="text-xs text-slate-400">No img</span>
+                        )}
                       </div>
                       <span className="font-semibold text-slate-900">{product.name}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-slate-500 font-medium">{product.sku}</td>
                   <td className="px-6 py-4 text-slate-600">{product.category}</td>
-                  <td className="px-6 py-4 font-semibold text-slate-900">{formatMoney(product.price)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`font-medium ${product.stock === 0 ? 'text-red-600' : product.stock < 10 ? 'text-amber-600' : 'text-slate-600'}`}>
-                      {product.stock}
-                    </span>
-                  </td>
+                  <td className="px-6 py-4 font-semibold text-slate-900">{formatMoney(product.displayed_price)}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold uppercase ${
-                      product.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                      product.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
                     }`}>
-                      {product.status === 'Active' ? 'Hoạt động' : 'Bản nháp'}
+                      {product.is_active ? 'Hoạt động' : 'Bản nháp'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-500">{formatDate(product.createdDate)}</td>
+                  <td className="px-6 py-4 text-slate-500">{formatDate(product.created_at)}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded"><Edit size={16}/></button>
@@ -114,9 +140,9 @@ export default function AdminProductsPage() {
                 </tr>
               ))}
               
-              {filteredProducts.length === 0 && (
+              {!isLoading && filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     Không tìm thấy sản phẩm nào.
                   </td>
                 </tr>
@@ -128,3 +154,4 @@ export default function AdminProductsPage() {
     </div>
   )
 }
+

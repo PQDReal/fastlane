@@ -3,14 +3,36 @@ import { Footer } from '../../components/footer'
 import { VehicleCard } from '../../components/vehicle-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
-const bikes = [
-  { name: 'Vento S', desc: 'Xe máy điện cao cấp, vận hành êm ái, thiết kế thanh lịch chuẩn phong cách Ý.', price: '50.000.000', image: '/images/vento.png', range: '160', battery: '3.5', horsepower: '7', seats: '2' },
-  { name: 'Feliz S', desc: 'Tầm vóc mới, vóc dáng thanh lịch, phù hợp di chuyển đô thị hàng ngày.', price: '27.000.000', image: '/images/vento.png', range: '198', battery: '3.5', horsepower: '4', seats: '2' },
-  { name: 'Evo200', desc: 'Xe máy điện dành cho học sinh, sinh viên với quãng đường ấn tượng.', price: '18.000.000', image: '/images/vento.png', range: '205', battery: '3.5', horsepower: '3', seats: '2' },
-]
+import { Pagination } from '../../components/pagination'
 
-export default function BikesPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function BikesPage({ searchParams }: { searchParams: { page?: string } }) {
+  const currentPage = parseInt(searchParams?.page || '1', 10)
+  const pageSize = 12
+  const start = (currentPage - 1) * pageSize
+  const end = start + pageSize - 1
+
+  const supabase = getSupabaseAdmin()
+  const { data: rawBikes, count } = await supabase
+    .from('products')
+    .select(`*, category:categories!inner(name)`, { count: 'exact' })
+    .eq('is_active', true)
+    .eq('categories.name', 'Xe máy điện')
+    .range(start, end)
+  
+  const bikesData = rawBikes || []
+  const totalPages = count ? Math.ceil(count / pageSize) : 1
+
+  const bikes = bikesData.map(c => ({
+    name: c.name,
+    desc: c.description || 'Xe máy điện VinFast',
+    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
+    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vento.png',
+  }))
+
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
@@ -51,6 +73,8 @@ export default function BikesPage() {
              <VehicleCard key={idx} {...bike} />
           ))}
         </div>
+        
+        <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/bikes" />
       </div>
 
       <Footer />
