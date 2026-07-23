@@ -196,3 +196,110 @@ PromotionResponse:
   $ref: './promotion.yaml#/PromotionResponse'
 PromotionPageResponse:
   $ref: './promotion.yaml#/PromotionPageResponse'
+
+ContactInput:
+  $ref: './prepurchase.yaml#/ContactInput'
+ConsentInput:
+  $ref: './prepurchase.yaml#/ConsentInput'
+ProvinceReference:
+  $ref: './prepurchase.yaml#/ProvinceReference'
+TestDriveLocation:
+  $ref: './prepurchase.yaml#/TestDriveLocation'
+TestDriveSlotStatus:
+  $ref: './prepurchase.yaml#/TestDriveSlotStatus'
+TestDriveSlot:
+  $ref: './prepurchase.yaml#/TestDriveSlot'
+TestDriveAvailability:
+  $ref: './prepurchase.yaml#/TestDriveAvailability'
+TestDriveAvailabilityResponse:
+  $ref: './prepurchase.yaml#/TestDriveAvailabilityResponse'
+CreateTestDriveRequest:
+  $ref: './prepurchase.yaml#/CreateTestDriveRequest'
+TestDriveRequestStatus:
+  $ref: './prepurchase.yaml#/TestDriveRequestStatus'
+TestDriveRequestSummary:
+  $ref: './prepurchase.yaml#/TestDriveRequestSummary'
+TestDriveStatusHistoryEntry:
+  $ref: './prepurchase.yaml#/TestDriveStatusHistoryEntry'
+TestDriveRequestDetail:
+  $ref: './prepurchase.yaml#/TestDriveRequestDetail'
+TestDriveRequestResponse:
+  $ref: './prepurchase.yaml#/TestDriveRequestResponse'
+TestDriveRequestPageResponse:
+  $ref: './prepurchase.yaml#/TestDriveRequestPageResponse'
+TestDriveTransitionAction:
+  $ref: './prepurchase.yaml#/TestDriveTransitionAction'
+TestDriveTransitionRequest:
+  $ref: './prepurchase.yaml#/TestDriveTransitionRequest'
+DayOfWeek:
+  $ref: './prepurchase.yaml#/DayOfWeek'
+TestDriveBusinessHours:
+  $ref: './prepurchase.yaml#/TestDriveBusinessHours'
+TestDriveBlackoutPeriod:
+  $ref: './prepurchase.yaml#/TestDriveBlackoutPeriod'
+TestDriveSettings:
+  $ref: './prepurchase.yaml#/TestDriveSettings'
+TestDriveSettingsPatchRequest:
+  $ref: './prepurchase.yaml#/TestDriveSettingsPatchRequest'
+TestDriveSettingsResponse:
+  $ref: './prepurchase.yaml#/TestDriveSettingsResponse'
+ConsultationStatus:
+  $ref: './prepurchase.yaml#/ConsultationStatus'
+CreateConsultationRequest:
+  $ref: './prepurchase.yaml#/CreateConsultationRequest'
+ConsultationLead:
+  $ref: './prepurchase.yaml#/ConsultationLead'
+ConsultationRequestResponse:
+  $ref: './prepurchase.yaml#/ConsultationRequestResponse'
+ConsultationRequestPageResponse:
+  $ref: './prepurchase.yaml#/ConsultationRequestPageResponse'
+ConsultationTransitionRequest:
+  $ref: './prepurchase.yaml#/ConsultationTransitionRequest'
+EstimateSelection:
+  $ref: './prepurchase.yaml#/EstimateSelection'
+OnRoadEstimateRequest:
+  $ref: './prepurchase.yaml#/OnRoadEstimateRequest'
+EstimateBreakdownCategory:
+  $ref: './prepurchase.yaml#/EstimateBreakdownCategory'
+EstimateBreakdownLine:
+  $ref: './prepurchase.yaml#/EstimateBreakdownLine'
+OnRoadEstimate:
+  $ref: './prepurchase.yaml#/OnRoadEstimate'
+OnRoadEstimateResponse:
+  $ref: './prepurchase.yaml#/OnRoadEstimateResponse'
+FeePolicyStatus:
+  $ref: './prepurchase.yaml#/FeePolicyStatus'
+FeeCalculationType:
+  $ref: './prepurchase.yaml#/FeeCalculationType'
+FeeCalculationBase:
+  $ref: './prepurchase.yaml#/FeeCalculationBase'
+FeePolicyCreateRequest:
+  $ref: './prepurchase.yaml#/FeePolicyCreateRequest'
+FeePolicyPatchRequest:
+  $ref: './prepurchase.yaml#/FeePolicyPatchRequest'
+FeePolicy:
+  $ref: './prepurchase.yaml#/FeePolicy'
+FeePolicyResponse:
+  $ref: './prepurchase.yaml#/FeePolicyResponse'
+FeePolicyPageResponse:
+  $ref: './prepurchase.yaml#/FeePolicyPageResponse'
+LoanPackageStatus:
+  $ref: './prepurchase.yaml#/LoanPackageStatus'
+LoanPackageCreateRequest:
+  $ref: './prepurchase.yaml#/LoanPackageCreateRequest'
+LoanPackagePatchRequest:
+  $ref: './prepurchase.yaml#/LoanPackagePatchRequest'
+LoanPackage:
+  $ref: './prepurchase.yaml#/LoanPackage'
+LoanPackageResponse:
+  $ref: './prepurchase.yaml#/LoanPackageResponse'
+LoanPackagePageResponse:
+  $ref: './prepurchase.yaml#/LoanPackagePageResponse'
+InstallmentEstimateRequest:
+  $ref: './prepurchase.yaml#/InstallmentEstimateRequest'
+InstallmentPaymentRow:
+  $ref: './prepurchase.yaml#/InstallmentPaymentRow'
+InstallmentEstimate:
+  $ref: './prepurchase.yaml#/InstallmentEstimate'
+InstallmentEstimateResponse:
+  $ref: './prepurchase.yaml#/InstallmentEstimateResponse'

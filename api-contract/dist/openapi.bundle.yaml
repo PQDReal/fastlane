@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Fastlane E-Commerce API
-  version: 0.4.0-draft
+  version: 0.5.0-draft
   summary: Contract-first REST API for the Fastlane B2C MVP
   description: |
     Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
@@ -30,6 +30,8 @@ tags:
     description: Transactional order creation and local-only mock payment.
   - name: Orders
     description: Current customer order history and status tracking.
+  - name: Pre-purchase
+    description: Public single-location test-drive requests, consultation leads, and advisory cost estimates.
   - name: Admin Dashboard
     description: Optional MVP operational summary for the admin panel.
   - name: Admin Catalog
@@ -38,6 +40,8 @@ tags:
     description: Promotion campaign administration.
   - name: Admin Orders
     description: Order search, fulfilment detail, and forward-only state transitions.
+  - name: Admin Pre-purchase
+    description: Single test-drive location, request operations, and versioned estimate policies.
 paths:
   /health:
     get:
@@ -129,6 +133,172 @@ paths:
           $ref: '#/components/responses/ProductDetail'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /test-drive/availability:
+    get:
+      tags:
+        - Pre-purchase
+      operationId: getTestDriveAvailability
+      x-prd-references:
+        - BR-TD-005
+        - BR-TD-006
+        - BR-SHW-004
+      summary: List available test-drive slots for the single configured location
+      description: The location is server-owned and returned with the slots. The client supplies a product but never selects or submits a showroom identifier. REQUESTED records do not consume capacity; only CONFIRMED appointments do.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProductIdQuery'
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+      responses:
+        '200':
+          $ref: '#/components/responses/TestDriveAvailability'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /test-drive/requests:
+    post:
+      tags:
+        - Pre-purchase
+      operationId: createTestDriveRequest
+      x-prd-references:
+        - BR-TD-001
+        - BR-TD-002
+        - BR-TD-004
+        - BR-TD-007
+        - BR-TD-008
+        - BR-TD-009
+        - BR-TD-017
+      summary: Request a preferred test-drive time as a guest or customer
+      description: |
+        Creates REQUESTED, not CONFIRMED. The server revalidates the one configured location, supported product, slot, blackout, and current confirmed capacity.
+        The same normalized phone, product, and local date cannot have another active REQUESTED or CONFIRMED request. No driving-licence or identity-document image is accepted.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestDriveRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/TestDriveRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/TestDriveConflict'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /consultation-requests:
+    post:
+      tags:
+        - Pre-purchase
+      operationId: createConsultationRequest
+      x-prd-references:
+        - BR-LEAD-001
+        - BR-LEAD-002
+        - BR-LEAD-003
+      summary: Submit a pre-purchase consultation request
+      description: Guest access is allowed. Product and option identifiers carry context only; the server never trusts a client-supplied price or discount.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConsultationRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ConsultationRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /estimates/on-road:
+    post:
+      tags:
+        - Pre-purchase
+      operationId: calculateOnRoadEstimate
+      x-prd-references:
+        - BR-EST-001
+        - BR-EST-002
+        - BR-EST-003
+        - BR-EST-004
+        - BR-EST-005
+        - BR-EST-007
+        - BR-EST-010
+        - BR-EST-011
+        - BR-EST-012
+      summary: Calculate a public on-road cost estimate
+      description: |
+        Calculates authoritative catalog price plus options minus one eligible promotion, then adds effective mandatory and selected optional fee policies for the registration province.
+        VAT is never added twice. A missing mandatory policy fails the calculation instead of silently using zero. The result is advisory, versioned, and is not a quotation.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnRoadEstimateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/OnRoadEstimate'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '422':
+          $ref: '#/components/responses/EstimateUnavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /estimates/installment:
+    post:
+      tags:
+        - Pre-purchase
+      operationId: calculateInstallmentEstimate
+      x-prd-references:
+        - BR-LN-001
+        - BR-LN-003
+        - BR-LN-004
+        - BR-LN-005
+        - BR-LN-006
+        - BR-LN-007
+      summary: Calculate an advisory declining-balance installment schedule
+      description: |
+        The finance base is the vehicle price after discount from the referenced current on-road calculation; registration and optional fees remain due up front.
+        MVP uses equal principal, monthly interest on opening principal, whole-VND half-up rounding, and a final-period principal reconciliation. The result is not credit approval.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallmentEstimateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/InstallmentEstimate'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/EstimateConflict'
+        '422':
+          $ref: '#/components/responses/EstimateUnavailable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1521,6 +1691,480 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /admin/test-drive/requests:
+    get:
+      tags:
+        - Admin Pre-purchase
+      operationId: listTestDriveRequests
+      x-prd-references:
+        - BR-TD-011
+        - BR-TD-012
+        - BR-TD-015
+      summary: List test-drive requests
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/TestDriveStatus'
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/TestDriveRequestPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/test-drive/requests/{requestId}:
+    get:
+      tags:
+        - Admin Pre-purchase
+      operationId: getTestDriveRequest
+      x-prd-references:
+        - BR-TD-016
+      summary: Get a test-drive request and its immutable timeline
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/PrepurchaseRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/TestDriveRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/test-drive/requests/{requestId}/transitions:
+    post:
+      tags:
+        - Admin Pre-purchase
+      operationId: transitionTestDriveRequest
+      x-prd-references:
+        - BR-TD-011
+        - BR-TD-012
+        - BR-TD-013
+        - BR-TD-014
+        - BR-TD-015
+        - BR-TD-016
+      summary: Apply a valid test-drive request transition
+      description: Confirmation atomically checks capacity. RESCHEDULE requires newSlotId and returns the request to REQUESTED. Terminal states cannot transition again.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/PrepurchaseRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestDriveTransitionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/TestDriveRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/TestDriveConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/test-drive/settings:
+    get:
+      tags:
+        - Admin Pre-purchase
+      operationId: getTestDriveSettings
+      x-prd-references:
+        - BR-SHW-002
+        - BR-SHW-004
+        - BR-SHW-005
+      summary: Read the singleton test-drive location and schedule settings
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      responses:
+        '200':
+          $ref: '#/components/responses/TestDriveSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - Admin Pre-purchase
+      operationId: updateTestDriveSettings
+      x-prd-references:
+        - BR-SHW-004
+        - BR-SHW-005
+        - BR-SHW-006
+      summary: Update the singleton test-drive location and schedule settings
+      description: The address is configured once for the storefront; clients never select a showroom. Deactivation is rejected while future CONFIRMED appointments remain unresolved.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestDriveSettingsPatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/TestDriveSettings'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/PolicyConflict'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/consultation-requests:
+    get:
+      tags:
+        - Admin Pre-purchase
+      operationId: listConsultationRequests
+      x-prd-references:
+        - BR-LEAD-004
+        - BR-LEAD-005
+      summary: List consultation requests
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/ConsultationStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ConsultationRequestPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/consultation-requests/{requestId}/transitions:
+    post:
+      tags:
+        - Admin Pre-purchase
+      operationId: transitionConsultationRequest
+      x-prd-references:
+        - BR-LEAD-004
+      summary: Apply a consultation status transition
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/PrepurchaseRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationTransitionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ConsultationRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PrepurchaseTransitionConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/fee-policies:
+    get:
+      tags:
+        - Admin Pre-purchase
+      operationId: listFeePolicies
+      x-prd-references:
+        - BR-EST-006
+        - BR-EST-007
+        - BR-EST-013
+      summary: List versioned on-road fee policies
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/FeePolicyPage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Pre-purchase
+      operationId: createFeePolicy
+      x-prd-references:
+        - BR-EST-006
+        - BR-EST-007
+        - BR-EST-013
+      summary: Create a new on-road fee policy version
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeePolicyCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/FeePolicy'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/PolicyConflict'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/fee-policies/{feePolicyId}:
+    patch:
+      tags:
+        - Admin Pre-purchase
+      operationId: updateFeePolicy
+      x-prd-references:
+        - BR-EST-006
+        - BR-EST-013
+      summary: Update lifecycle metadata of a fee policy version
+      description: Calculation semantics of an effective or previously used policy are immutable; create a new version to change them.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/FeePolicyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeePolicyPatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/FeePolicy'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PolicyConflict'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/loan-packages:
+    get:
+      tags:
+        - Admin Pre-purchase
+      operationId: listLoanPackages
+      x-prd-references:
+        - BR-LN-002
+        - BR-LN-007
+      summary: List versioned installment packages
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/LoanPackagePage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Pre-purchase
+      operationId: createLoanPackage
+      x-prd-references:
+        - BR-LN-002
+        - BR-LN-007
+      summary: Create a new installment package version
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanPackageCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/LoanPackage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/PolicyConflict'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/loan-packages/{loanPackageId}:
+    patch:
+      tags:
+        - Admin Pre-purchase
+      operationId: updateLoanPackage
+      x-prd-references:
+        - BR-LN-002
+        - BR-LN-007
+      summary: Update lifecycle metadata of an installment package version
+      description: Rate and eligibility values of an effective or previously used package are immutable; create a new version to change them.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - prepurchase:manage
+      parameters:
+        - $ref: '#/components/parameters/LoanPackageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanPackagePatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/LoanPackage'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PolicyConflict'
+        '422':
+          $ref: '#/components/responses/PrepurchaseBusinessRuleError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -1594,6 +2238,26 @@ components:
         minLength: 1
         maxLength: 220
         pattern: ^[a-z0-9-]+$
+    ProductIdQuery:
+      name: productId
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    DateFrom:
+      name: dateFrom
+      in: query
+      description: Inclusive local calendar date in the single location timezone. Must not exceed dateTo.
+      schema:
+        type: string
+        format: date
+    DateTo:
+      name: dateTo
+      in: query
+      description: Inclusive local calendar date in the single location timezone. Must not be earlier than dateFrom.
+      schema:
+        type: string
+        format: date
     CartItemId:
       name: itemId
       in: path
@@ -1685,6 +2349,34 @@ components:
           - created_asc
           - status_asc
         default: created_desc
+    TestDriveStatus:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/TestDriveRequestStatus'
+    PrepurchaseRequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ConsultationStatus:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/ConsultationStatus'
+    FeePolicyId:
+      name: feePolicyId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    LoanPackageId:
+      name: loanPackageId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
   responses:
     TooManyRequests:
       description: Rate limit exceeded.
@@ -1778,6 +2470,98 @@ components:
             error:
               code: RESOURCE_NOT_FOUND
               message: Resource was not found.
+              requestId: req_01J00000000000000000000000
+    TestDriveAvailability:
+      description: Available slots and the single server-owned test-drive location
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TestDriveAvailabilityResponse'
+    PrepurchaseBusinessRuleError:
+      description: A pre-purchase resource or selection is not currently eligible.
+      x-error-codes:
+        - TEST_DRIVE_LOCATION_UNAVAILABLE
+        - TEST_DRIVE_PRODUCT_UNAVAILABLE
+        - PRODUCT_NOT_PURCHASABLE
+        - PRODUCT_CONFIGURATION_INVALID
+        - BUSINESS_RULE_VIOLATION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TEST_DRIVE_LOCATION_UNAVAILABLE
+              message: Test drives are not available at the configured location.
+              requestId: req_01J00000000000000000000000
+    TestDriveRequest:
+      description: Test-drive request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TestDriveRequestResponse'
+    TestDriveConflict:
+      description: The slot, duplicate fingerprint, expected state, or confirmed capacity conflicts with the request.
+      x-error-codes:
+        - TEST_DRIVE_SLOT_UNAVAILABLE
+        - DUPLICATE_TEST_DRIVE_REQUEST
+        - INVALID_TEST_DRIVE_TRANSITION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TEST_DRIVE_SLOT_UNAVAILABLE
+              message: The selected test-drive slot is no longer available.
+              requestId: req_01J00000000000000000000000
+    ConsultationRequest:
+      description: Consultation request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConsultationRequestResponse'
+    OnRoadEstimate:
+      description: Advisory, versioned on-road estimate
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OnRoadEstimateResponse'
+    EstimateUnavailable:
+      description: Required fee or loan policy is missing, inactive, or incompatible with the calculation input.
+      x-error-codes:
+        - ESTIMATE_POLICY_UNAVAILABLE
+        - LOAN_PACKAGE_UNAVAILABLE
+        - PRODUCT_NOT_PURCHASABLE
+        - PRODUCT_CONFIGURATION_INVALID
+        - PROMOTION_INVALID
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ESTIMATE_POLICY_UNAVAILABLE
+              message: A required estimate policy is unavailable.
+              requestId: req_01J00000000000000000000000
+    InstallmentEstimate:
+      description: Advisory declining-balance installment schedule
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InstallmentEstimateResponse'
+    EstimateConflict:
+      description: The referenced on-road calculation is stale and must be recalculated.
+      x-error-codes:
+        - ESTIMATE_STALE
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ESTIMATE_STALE
+              message: Recalculate the on-road estimate before continuing.
               requestId: req_01J00000000000000000000000
     CustomerProfile:
       description: Current customer profile
@@ -2052,6 +2836,75 @@ components:
               code: INVALID_ORDER_TRANSITION
               message: Order transition is not allowed.
               requestId: req_01J00000000000000000000000
+    TestDriveRequestPage:
+      description: Paginated test-drive requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TestDriveRequestPageResponse'
+    TestDriveSettings:
+      description: Singleton test-drive location and schedule settings
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TestDriveSettingsResponse'
+    PolicyConflict:
+      description: A policy/settings version is stale or overlaps an existing effective version.
+      x-error-codes:
+        - POLICY_VERSION_CONFLICT
+        - SETTINGS_VERSION_CONFLICT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: POLICY_VERSION_CONFLICT
+              message: Policy version conflicts with current state.
+              requestId: req_01J00000000000000000000000
+    ConsultationRequestPage:
+      description: Paginated consultation requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConsultationRequestPageResponse'
+    PrepurchaseTransitionConflict:
+      description: The expected consultation state does not match or the transition is invalid.
+      x-error-codes:
+        - INVALID_CONSULTATION_TRANSITION
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_CONSULTATION_TRANSITION
+              message: Consultation transition is not allowed.
+              requestId: req_01J00000000000000000000000
+    FeePolicyPage:
+      description: Paginated fee policies
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FeePolicyPageResponse'
+    FeePolicy:
+      description: Versioned on-road fee policy
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FeePolicyResponse'
+    LoanPackagePage:
+      description: Paginated installment packages
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoanPackagePageResponse'
+    LoanPackage:
+      description: Versioned installment package
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoanPackageResponse'
   schemas:
     HealthResponse:
       type: object
@@ -2102,6 +2955,17 @@ components:
         - IDEMPOTENCY_KEY_REUSED
         - INVENTORY_VERSION_CONFLICT
         - INVALID_ORDER_TRANSITION
+        - TEST_DRIVE_SLOT_UNAVAILABLE
+        - DUPLICATE_TEST_DRIVE_REQUEST
+        - INVALID_TEST_DRIVE_TRANSITION
+        - TEST_DRIVE_LOCATION_UNAVAILABLE
+        - TEST_DRIVE_PRODUCT_UNAVAILABLE
+        - INVALID_CONSULTATION_TRANSITION
+        - ESTIMATE_POLICY_UNAVAILABLE
+        - LOAN_PACKAGE_UNAVAILABLE
+        - ESTIMATE_STALE
+        - POLICY_VERSION_CONFLICT
+        - SETTINGS_VERSION_CONFLICT
         - BUSINESS_RULE_VIOLATION
         - RATE_LIMIT_EXCEEDED
         - INTERNAL_ERROR
@@ -2699,6 +3563,672 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/ProductDetail'
+    ProvinceReference:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    TestDriveLocation:
+      type: object
+      additionalProperties: false
+      description: Server-owned singleton location. Public write requests never accept a location or showroom identifier.
+      required:
+        - name
+        - addressLine
+        - province
+        - phoneNumber
+        - timezone
+        - isActive
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        addressLine:
+          type: string
+          minLength: 1
+          maxLength: 300
+        province:
+          $ref: '#/components/schemas/ProvinceReference'
+        phoneNumber:
+          type: string
+          pattern: ^\+?[0-9]{9,15}$
+        timezone:
+          type: string
+          const: Asia/Ho_Chi_Minh
+        isActive:
+          type: boolean
+    TestDriveSlotStatus:
+      type: string
+      enum:
+        - AVAILABLE
+        - FULL
+    TestDriveSlot:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - startsAt
+        - endsAt
+        - status
+        - remainingCapacity
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TestDriveSlotStatus'
+        remainingCapacity:
+          type: integer
+          minimum: 0
+    TestDriveAvailability:
+      type: object
+      additionalProperties: false
+      required:
+        - productId
+        - location
+        - slots
+        - generatedAt
+      properties:
+        productId:
+          $ref: '#/components/schemas/Uuid'
+        location:
+          $ref: '#/components/schemas/TestDriveLocation'
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestDriveSlot'
+        generatedAt:
+          type: string
+          format: date-time
+    TestDriveAvailabilityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/TestDriveAvailability'
+    ContactInput:
+      type: object
+      additionalProperties: false
+      required:
+        - fullName
+        - phoneNumber
+        - email
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Trimmed by the server.
+        phoneNumber:
+          type: string
+          pattern: ^\+?[0-9]{9,15}$
+          description: Normalized before persistence and duplicate checks.
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    ConsentInput:
+      type: object
+      additionalProperties: false
+      required:
+        - privacyConsent
+        - privacyPolicyVersion
+        - marketingConsent
+      properties:
+        privacyConsent:
+          type: boolean
+          const: true
+        privacyPolicyVersion:
+          type: string
+          minLength: 1
+          maxLength: 50
+        marketingConsent:
+          type: boolean
+          description: Optional marketing consent recorded independently from required service consent.
+    CreateTestDriveRequest:
+      type: object
+      additionalProperties: false
+      description: Creates a preferred-time request for the one configured location; it does not immediately confirm or reserve an appointment.
+      required:
+        - productId
+        - slotId
+        - contact
+        - consent
+        - licenceAcknowledged
+      examples:
+        - productId: 11111111-1111-4111-8111-111111111111
+          slotId: 22222222-2222-4222-8222-222222222222
+          contact:
+            fullName: Nguyễn Văn A
+            phoneNumber: '0912345678'
+            email: customer@example.com
+          consent:
+            privacyConsent: true
+            privacyPolicyVersion: 2026-07
+            marketingConsent: false
+          licenceAcknowledged: true
+          note: Muốn được tư vấn thêm về pin.
+      properties:
+        productId:
+          $ref: '#/components/schemas/Uuid'
+        slotId:
+          $ref: '#/components/schemas/Uuid'
+        contact:
+          $ref: '#/components/schemas/ContactInput'
+        consent:
+          $ref: '#/components/schemas/ConsentInput'
+        licenceAcknowledged:
+          type: boolean
+          const: true
+          description: Acknowledges that a person who directly drives must present an appropriate valid driving licence; no licence or identity-document image is collected.
+        note:
+          type: string
+          maxLength: 500
+    TestDriveRequestStatus:
+      type: string
+      enum:
+        - REQUESTED
+        - CONFIRMED
+        - DECLINED
+        - CANCELLED
+        - COMPLETED
+        - NO_SHOW
+    TestDriveStatusHistoryEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - fromStatus
+        - toStatus
+        - actorType
+        - changedAt
+      properties:
+        fromStatus:
+          oneOf:
+            - $ref: '#/components/schemas/TestDriveRequestStatus'
+            - type: 'null'
+        toStatus:
+          $ref: '#/components/schemas/TestDriveRequestStatus'
+        actorType:
+          type: string
+          enum:
+            - GUEST
+            - CUSTOMER
+            - ADMIN
+            - SYSTEM
+        reason:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 500
+            - type: 'null'
+        changedAt:
+          type: string
+          format: date-time
+    TestDriveRequestDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - referenceNumber
+        - productId
+        - productName
+        - status
+        - preferredStartsAt
+        - preferredEndsAt
+        - contact
+        - locationSnapshot
+        - note
+        - licenceAcknowledged
+        - privacyPolicyVersion
+        - marketingConsent
+        - history
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        referenceNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+        productId:
+          $ref: '#/components/schemas/Uuid'
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/TestDriveRequestStatus'
+        preferredStartsAt:
+          type: string
+          format: date-time
+        preferredEndsAt:
+          type: string
+          format: date-time
+        contact:
+          $ref: '#/components/schemas/ContactInput'
+        locationSnapshot:
+          $ref: '#/components/schemas/TestDriveLocation'
+        note:
+          oneOf:
+            - type: string
+              maxLength: 500
+            - type: 'null'
+        licenceAcknowledged:
+          type: boolean
+          const: true
+        privacyPolicyVersion:
+          type: string
+          minLength: 1
+          maxLength: 50
+        marketingConsent:
+          type: boolean
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestDriveStatusHistoryEntry'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TestDriveRequestResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/TestDriveRequestDetail'
+    CreateConsultationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - contact
+        - consent
+        - source
+      properties:
+        contact:
+          $ref: '#/components/schemas/ContactInput'
+        consent:
+          $ref: '#/components/schemas/ConsentInput'
+        source:
+          type: string
+          enum:
+            - PRODUCT
+            - ESTIMATE
+            - GENERAL
+        productId:
+          $ref: '#/components/schemas/Uuid'
+        variantId:
+          $ref: '#/components/schemas/Uuid'
+        selectedOptionValueIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+        note:
+          type: string
+          maxLength: 1000
+    ConsultationStatus:
+      type: string
+      enum:
+        - NEW
+        - CONTACTED
+        - QUALIFIED
+        - CLOSED
+        - DUPLICATE
+    ConsultationLead:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - referenceNumber
+        - status
+        - source
+        - contact
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        referenceNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+        status:
+          $ref: '#/components/schemas/ConsultationStatus'
+        source:
+          type: string
+          enum:
+            - PRODUCT
+            - ESTIMATE
+            - GENERAL
+        contact:
+          $ref: '#/components/schemas/ContactInput'
+        productId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        variantId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        note:
+          oneOf:
+            - type: string
+              maxLength: 1000
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ConsultationRequestResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ConsultationLead'
+    EstimateSelection:
+      type: object
+      additionalProperties: false
+      required:
+        - productId
+        - variantId
+        - selectedOptionValueIds
+      properties:
+        productId:
+          $ref: '#/components/schemas/Uuid'
+        variantId:
+          $ref: '#/components/schemas/Uuid'
+        selectedOptionValueIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+    OnRoadEstimateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - selection
+        - registrationProvince
+        - selectedOptionalFeeCodes
+      examples:
+        - selection:
+            productId: 11111111-1111-4111-8111-111111111111
+            variantId: 22222222-2222-4222-8222-222222222222
+            selectedOptionValueIds: []
+          registrationProvince:
+            code: '79'
+            name: TP. Hồ Chí Minh
+          selectedOptionalFeeCodes:
+            - PHYSICAL_INSURANCE
+          promotionCode: FASTLANE10
+      properties:
+        selection:
+          $ref: '#/components/schemas/EstimateSelection'
+        registrationProvince:
+          $ref: '#/components/schemas/ProvinceReference'
+        selectedOptionalFeeCodes:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+            pattern: ^[A-Z0-9_]+$
+        promotionCode:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[A-Za-z0-9_-]+$
+    EstimateBreakdownCategory:
+      type: string
+      enum:
+        - VEHICLE
+        - OPTION
+        - DISCOUNT
+        - TAX_INFO
+        - MANDATORY_FEE
+        - OPTIONAL_FEE
+    EstimateBreakdownLine:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - label
+        - category
+        - amount
+        - included
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[A-Z0-9_]+$
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          $ref: '#/components/schemas/EstimateBreakdownCategory'
+        amount:
+          $ref: '#/components/schemas/Money'
+        included:
+          type: boolean
+          description: True when the amount is informational and already included in another authoritative line, such as included VAT.
+    OnRoadEstimate:
+      type: object
+      additionalProperties: false
+      required:
+        - calculationId
+        - currency
+        - selection
+        - registrationProvince
+        - breakdown
+        - vehiclePriceAfterDiscount
+        - mandatoryFeeTotal
+        - optionalFeeTotal
+        - onRoadTotal
+        - catalogVersion
+        - feePolicyVersions
+        - generatedAt
+        - disclaimer
+      properties:
+        calculationId:
+          $ref: '#/components/schemas/Uuid'
+        currency:
+          type: string
+          enum:
+            - VND
+        selection:
+          $ref: '#/components/schemas/EstimateSelection'
+        registrationProvince:
+          $ref: '#/components/schemas/ProvinceReference'
+        breakdown:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/EstimateBreakdownLine'
+        vehiclePriceAfterDiscount:
+          $ref: '#/components/schemas/Money'
+        mandatoryFeeTotal:
+          $ref: '#/components/schemas/Money'
+        optionalFeeTotal:
+          $ref: '#/components/schemas/Money'
+        onRoadTotal:
+          $ref: '#/components/schemas/Money'
+        catalogVersion:
+          type: string
+          minLength: 1
+          maxLength: 100
+        feePolicyVersions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        generatedAt:
+          type: string
+          format: date-time
+        disclaimer:
+          type: string
+          minLength: 1
+          maxLength: 500
+    OnRoadEstimateResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/OnRoadEstimate'
+    InstallmentEstimateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - onRoadCalculationId
+        - loanPackageId
+        - termMonths
+        - downPaymentPercent
+      properties:
+        onRoadCalculationId:
+          $ref: '#/components/schemas/Uuid'
+        loanPackageId:
+          $ref: '#/components/schemas/Uuid'
+        termMonths:
+          type: integer
+          minimum: 1
+          maximum: 120
+        downPaymentPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+    InstallmentPaymentRow:
+      type: object
+      additionalProperties: false
+      required:
+        - period
+        - openingPrincipal
+        - principalPaid
+        - interestPaid
+        - paymentTotal
+        - closingPrincipal
+      properties:
+        period:
+          type: integer
+          minimum: 1
+        openingPrincipal:
+          $ref: '#/components/schemas/Money'
+        principalPaid:
+          $ref: '#/components/schemas/Money'
+        interestPaid:
+          $ref: '#/components/schemas/Money'
+        paymentTotal:
+          $ref: '#/components/schemas/Money'
+        closingPrincipal:
+          $ref: '#/components/schemas/Money'
+    InstallmentEstimate:
+      type: object
+      additionalProperties: false
+      required:
+        - calculationId
+        - onRoadCalculationId
+        - currency
+        - financeBase
+        - downPayment
+        - loanPrincipal
+        - upfrontCash
+        - annualInterestRate
+        - termMonths
+        - totalInterest
+        - totalLoanAndInterest
+        - schedule
+        - loanPackageVersion
+        - generatedAt
+        - disclaimer
+      properties:
+        calculationId:
+          $ref: '#/components/schemas/Uuid'
+        onRoadCalculationId:
+          $ref: '#/components/schemas/Uuid'
+        currency:
+          type: string
+          enum:
+            - VND
+        financeBase:
+          $ref: '#/components/schemas/Money'
+        downPayment:
+          $ref: '#/components/schemas/Money'
+        loanPrincipal:
+          $ref: '#/components/schemas/Money'
+        upfrontCash:
+          $ref: '#/components/schemas/Money'
+        annualInterestRate:
+          type: number
+          minimum: 0
+          maximum: 100
+        termMonths:
+          type: integer
+          minimum: 1
+          maximum: 120
+        totalInterest:
+          $ref: '#/components/schemas/Money'
+        totalLoanAndInterest:
+          $ref: '#/components/schemas/Money'
+        schedule:
+          type: array
+          minItems: 1
+          maxItems: 120
+          items:
+            $ref: '#/components/schemas/InstallmentPaymentRow'
+        loanPackageVersion:
+          type: string
+          minLength: 1
+          maxLength: 100
+        generatedAt:
+          type: string
+          format: date-time
+        disclaimer:
+          type: string
+          minLength: 1
+          maxLength: 500
+    InstallmentEstimateResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/InstallmentEstimate'
     ShippingAddress:
       type: object
       additionalProperties: false
@@ -4443,10 +5973,620 @@ components:
         note:
           type: string
           maxLength: 500
+    TestDriveRequestSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - referenceNumber
+        - productId
+        - productName
+        - status
+        - preferredStartsAt
+        - preferredEndsAt
+        - contact
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        referenceNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+        productId:
+          $ref: '#/components/schemas/Uuid'
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/TestDriveRequestStatus'
+        preferredStartsAt:
+          type: string
+          format: date-time
+        preferredEndsAt:
+          type: string
+          format: date-time
+        contact:
+          $ref: '#/components/schemas/ContactInput'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TestDriveRequestPageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestDriveRequestSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    TestDriveTransitionAction:
+      type: string
+      enum:
+        - CONFIRM
+        - DECLINE
+        - CANCEL
+        - COMPLETE
+        - MARK_NO_SHOW
+        - RESCHEDULE
+    TestDriveTransitionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - action
+        - expectedCurrentStatus
+      properties:
+        action:
+          $ref: '#/components/schemas/TestDriveTransitionAction'
+        expectedCurrentStatus:
+          $ref: '#/components/schemas/TestDriveRequestStatus'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        newSlotId:
+          $ref: '#/components/schemas/Uuid'
+          description: Required only for RESCHEDULE. A reschedule returns the request to REQUESTED for a new confirmation.
+    DayOfWeek:
+      type: string
+      enum:
+        - MONDAY
+        - TUESDAY
+        - WEDNESDAY
+        - THURSDAY
+        - FRIDAY
+        - SATURDAY
+        - SUNDAY
+    TestDriveBusinessHours:
+      type: object
+      additionalProperties: false
+      required:
+        - dayOfWeek
+        - openTime
+        - closeTime
+        - slotDurationMinutes
+        - capacity
+      properties:
+        dayOfWeek:
+          $ref: '#/components/schemas/DayOfWeek'
+        openTime:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+        closeTime:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+        slotDurationMinutes:
+          type: integer
+          minimum: 15
+          maximum: 240
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 100
+    TestDriveBlackoutPeriod:
+      type: object
+      additionalProperties: false
+      required:
+        - startsAt
+        - endsAt
+        - reason
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+    TestDriveSettings:
+      type: object
+      additionalProperties: false
+      required:
+        - location
+        - businessHours
+        - blackoutPeriods
+        - supportedProductIds
+        - version
+        - updatedAt
+      properties:
+        location:
+          $ref: '#/components/schemas/TestDriveLocation'
+        businessHours:
+          type: array
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TestDriveBusinessHours'
+        blackoutPeriods:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/TestDriveBlackoutPeriod'
+        supportedProductIds:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+        version:
+          type: integer
+          minimum: 0
+        updatedAt:
+          type: string
+          format: date-time
+    TestDriveSettingsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/TestDriveSettings'
+    TestDriveSettingsPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 2
+      required:
+        - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        addressLine:
+          type: string
+          minLength: 1
+          maxLength: 300
+        province:
+          $ref: '#/components/schemas/ProvinceReference'
+        phoneNumber:
+          type: string
+          pattern: ^\+?[0-9]{9,15}$
+        isActive:
+          type: boolean
+        businessHours:
+          type: array
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TestDriveBusinessHours'
+        blackoutPeriods:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/TestDriveBlackoutPeriod'
+        supportedProductIds:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+    ConsultationRequestPageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsultationLead'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    ConsultationTransitionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetStatus
+        - expectedCurrentStatus
+      properties:
+        targetStatus:
+          $ref: '#/components/schemas/ConsultationStatus'
+        expectedCurrentStatus:
+          $ref: '#/components/schemas/ConsultationStatus'
+        note:
+          type: string
+          maxLength: 1000
+    FeeCalculationType:
+      type: string
+      enum:
+        - FIXED
+        - PERCENTAGE
+        - NOT_APPLICABLE
+    FeeCalculationBase:
+      type: string
+      enum:
+        - LIST_PRICE
+        - VEHICLE_PRICE_AFTER_DISCOUNT
+    FeePolicyStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - ARCHIVED
+    FeePolicy:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - code
+        - label
+        - vehicleKind
+        - provinceCode
+        - calculationType
+        - value
+        - calculationBase
+        - mandatory
+        - priority
+        - startsAt
+        - endsAt
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        version:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        vehicleKind:
+          $ref: '#/components/schemas/ProductKind'
+        provinceCode:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 20
+            - type: 'null'
+        calculationType:
+          $ref: '#/components/schemas/FeeCalculationType'
+        value:
+          $ref: '#/components/schemas/Money'
+        calculationBase:
+          $ref: '#/components/schemas/FeeCalculationBase'
+        mandatory:
+          type: boolean
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/FeePolicyStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    FeePolicyPageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeePolicy'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    FeePolicyCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - label
+        - vehicleKind
+        - provinceCode
+        - calculationType
+        - value
+        - calculationBase
+        - mandatory
+        - startsAt
+        - status
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[A-Z0-9_]+$
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        vehicleKind:
+          $ref: '#/components/schemas/ProductKind'
+        provinceCode:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 20
+            - type: 'null'
+          description: Null applies nationally; an exact province policy is more specific.
+        calculationType:
+          $ref: '#/components/schemas/FeeCalculationType'
+        value:
+          $ref: '#/components/schemas/Money'
+        calculationBase:
+          $ref: '#/components/schemas/FeeCalculationBase'
+        mandatory:
+          type: boolean
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          default: 0
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/FeePolicyStatus'
+    FeePolicyResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/FeePolicy'
+    FeePolicyPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 2
+      required:
+        - expectedVersion
+      description: Applied/effective versions are immutable; changing calculation semantics requires creating a new version.
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/FeePolicyStatus'
+    LoanPackageStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - ARCHIVED
+    LoanPackage:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - code
+        - name
+        - lenderName
+        - annualInterestRate
+        - allowedTermMonths
+        - allowedDownPaymentPercents
+        - startsAt
+        - endsAt
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        version:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        lenderName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        annualInterestRate:
+          type: number
+          minimum: 0
+          maximum: 100
+        allowedTermMonths:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+            maximum: 120
+        allowedDownPaymentPercents:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: number
+            minimum: 0
+            maximum: 100
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/LoanPackageStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    LoanPackagePageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoanPackage'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    LoanPackageCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - lenderName
+        - annualInterestRate
+        - allowedTermMonths
+        - allowedDownPaymentPercents
+        - startsAt
+        - status
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[A-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        lenderName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        annualInterestRate:
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.0001
+        allowedTermMonths:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+            maximum: 120
+        allowedDownPaymentPercents:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: number
+            minimum: 0
+            maximum: 100
+            multipleOf: 0.01
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/LoanPackageStatus'
+    LoanPackageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/LoanPackage'
+    LoanPackagePatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 2
+      required:
+        - expectedVersion
+      description: Applied/effective packages are immutable; rate or eligibility changes require a new package version.
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        endsAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/LoanPackageStatus'
 x-prd-alignment:
   document: PRD - Fastlane E-Commerce
   version: 1.0.0
-  date: '2026-07-20'
+  date: '2026-07-22'
   contractScope: API contract only; implementation artifacts owned by other team members may be delivered later.
   priorities:
     must: Contracted as required behavior.
@@ -4461,6 +6601,7 @@ x-contract-boundary:
     - checkout
     - orders
     - inventory
+    - prepurchase
     - admin
   external:
     - Auth0 Universal Login
@@ -4564,6 +6705,22 @@ x-product-configuration-policy:
   stableIdentity: Admin option replacement upserts by group/value code, preserves IDs for matching codes, and archives removed codes.
   cartValidation: Add and reprice validate option ownership, active state, group cardinality, uniqueness, and SKU compatibility.
   snapshots: Cart and order items retain option names, codes, and price adjustments so later catalog edits cannot rewrite an order.
+x-single-showroom-policy:
+  cardinality: Exactly one server-owned test-drive location is configured for the MVP.
+  clientSelection: Public operations never accept showroomId or locationId; availability responses include the configured location.
+  availability: Slots use Asia/Ho_Chi_Minh, business hours, blackout periods, supported products, and confirmed-capacity counts.
+  reservation: Selecting or requesting a slot does not reserve it; only an Admin CONFIRM transition consumes capacity.
+  deactivation: The location cannot be deactivated while unresolved future CONFIRMED appointments exist.
+  history: Test-drive requests retain a location snapshot so later settings changes do not rewrite history.
+x-prepurchase-estimate-policy:
+  advisory: On-road and installment calculations are estimates, not quotations or credit approval.
+  priceAuthority: Catalog, option, promotion, fee, and loan values are resolved by the server; client-supplied totals are never accepted.
+  locality: Registration province selects fee policies independently of the single showroom location.
+  vat: VAT already included in catalog price is informational and is not added twice; missing tax-inclusion metadata fails calculation.
+  missingPolicy: A missing mandatory active fee or compatible loan package fails instead of silently contributing zero.
+  versioning: Effective or previously used policy versions are immutable and every result records its source versions and generatedAt.
+  rounding: Percentage amounts and repayment rows use half-up whole-VND rounding; the final principal row reconciles balance to zero.
+  handoff: Checkout receives identifiers/configuration only and always re-prices before order creation.
 x-filter-policy:
   priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
   createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.

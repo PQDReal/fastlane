@@ -39,6 +39,7 @@ Sort:
 OrderSort: { name: sort, in: query, schema: { type: string, enum: [created_desc, created_asc, status_asc], default: created_desc } }
 ProductSlug: { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' } }
 ProductId: { name: productId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+ProductIdQuery: { name: productId, in: query, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
 CategoryId: { name: categoryId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
 VariantId: { name: variantId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
 ProductImageId: { name: imageId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
@@ -52,3 +53,18 @@ IdempotencyKey:
   required: true
   description: Opaque client-generated key, retained for at least 24 hours for this customer and endpoint.
   schema: { type: string, minLength: 8, maxLength: 255, pattern: '^[A-Za-z0-9._:-]+$' }
+DateFrom:
+  name: dateFrom
+  in: query
+  description: Inclusive local calendar date in the single location timezone. Must not exceed dateTo.
+  schema: { type: string, format: date }
+DateTo:
+  name: dateTo
+  in: query
+  description: Inclusive local calendar date in the single location timezone. Must not be earlier than dateFrom.
+  schema: { type: string, format: date }
+PrepurchaseRequestId: { name: requestId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+TestDriveStatus: { name: status, in: query, schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveRequestStatus' } }
+ConsultationStatus: { name: status, in: query, schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationStatus' } }
+FeePolicyId: { name: feePolicyId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+LoanPackageId: { name: loanPackageId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
