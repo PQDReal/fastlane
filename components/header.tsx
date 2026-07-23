@@ -29,7 +29,9 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
   const { setSearchModalOpen, setCartDrawerOpen, getCartCount } = useAppStore()
-  const isHomePage = pathname === '/'
+  
+  // Header is transparent on homepage and car/bike detail pages
+  const isTransparentPage = pathname === '/' || /^\/(cars|bikes)\/[^\/]+$/.test(pathname)
   const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export function Header() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const headerSolid = scrolled || !isHomePage
+  const headerSolid = scrolled || !isTransparentPage
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[92px] lg:h-[118px]'}`}>

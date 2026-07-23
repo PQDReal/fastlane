@@ -4,7 +4,48 @@
         "url": "https://vinfastauto.com/vn_vi/dat-coc-xe-vf2",
         "price": "Chỉ từ 178.600.000 VNĐ*",
         "deposit": "15.000.000 VNĐ",
-        "colors": [],
+        "colors": [
+            {
+                "name": "Urban Mint",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/urbant-mint-color.webp"
+            },
+            {
+                "name": "Rose Pink",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-rose-pink-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/rose-pink-color.webp"
+            },
+            {
+                "name": "Sky Blue",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-sky-blue-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/sky-blue-color.webp"
+            },
+            {
+                "name": "Solar Ruby",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-solar-ruby-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/solar-ruby-color.webp"
+            },
+            {
+                "name": "Summer Yellow",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-summer-yellow-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/summer-yellow-color.webp"
+            },
+            {
+                "name": "Desat Silver",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-desat-silver-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/desat-silver-color.webp"
+            },
+            {
+                "name": "Pebble Beige",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-pebble-beige-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/pebble-beige-color.webp"
+            },
+            {
+                "name": "Infinity Blanc",
+                "image": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-infinity-blanc-car.webp",
+                "swatch": "https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/infinity-blanc-color.webp"
+            }
+        ],
         "variants": [
             "VF 2 Tiêu chuẩn (Giá ưu đãi): 178.600.000 VNĐ*",
             "VF 2 Tiêu chuẩn (Giá niêm yết gốc): 188.000.000 VNĐ"
@@ -90,13 +131,41 @@
         "price": "Chỉ từ 270.750.000 VNĐ*",
         "deposit": "15.000.000 VNĐ",
         "colors": [
-            "Summer Yellow",
-            "Rose Pink",
-            "Zenith Grey",
-            "Solar Ruby",
-            "Sky Blue",
-            "Urban Mint",
-            "Infinity Blanc"
+            {
+                "name": "Summer Yellow",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf22e2e6c/reserves/VF3/icon/icon-4.png"
+            },
+            {
+                "name": "Rose Pink",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/1821/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4bd690fe/reserves/VF3/icon/icon-1.png"
+            },
+            {
+                "name": "Zenith Grey",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE1V/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw90015c16/reserves/VF3/icon/icon-2.png"
+            },
+            {
+                "name": "Solar Ruby",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE2Q/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3dbfa02e/reserves/VF3/icon/icon-5.png"
+            },
+            {
+                "name": "Sky Blue",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181Y/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw10bdaab2/reserves/VF3/icon/icon-6.png"
+            },
+            {
+                "name": "Urban Mint",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE1W/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc4c49c12/reserves/VF3/icon/icon-7.png"
+            },
+            {
+                "name": "Infinity Blanc",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE18/F1.png",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9cf7173e/reserves/VF3/icon/icon-8.png"
+            }
         ],
         "variants": [
             "VF 3 Eco: 270.750.000 VNĐ* (Niêm yết: 285.000.000 VNĐ)",
@@ -491,7 +560,28 @@
         "url": "https://shop.vinfastauto.com/vn_vi/dat-coc-xe-dien-vf5.html",
         "price": "Chỉ từ 471.200.000 VNĐ*",
         "deposit": "15.000.000 VNĐ",
-        "colors": [],
+        "colors": [
+            {
+                "name": "Zenith Grey",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw81445164/reserves/VF5/2025/i-10.webp"
+            },
+            {
+                "name": "Infinity Blanc",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw32aad97c/reserves/VF5/2025/12.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw38dba041/reserves/VF5/2025/i-12.webp"
+            },
+            {
+                "name": "Solar Ruby",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw13fe4022/reserves/VF5/2025/15.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9c40f106/reserves/VF5/2025/i-15.webp"
+            },
+            {
+                "name": "Summer Yellow Body - Jet Black Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwba68e5c8/reserves/VF5/2025/11.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw230d7bd8/reserves/VF5/2025/i-11.webp"
+            }
+        ],
         "variants": [
             "VF 5 Plus: 471.200.000 VNĐ* (Niêm yết: 496.000.000 VNĐ)"
         ],
@@ -1087,11 +1177,26 @@
         "price": "Chỉ từ 703.000.000 VNĐ*",
         "deposit": "50.000.000 VNĐ",
         "colors": [
-            "Solar Ruby",
-            "Zenith Grey",
-            "Urban Mint",
-            "Infinity Blanc",
-            "Jet Black"
+            {
+                "name": "Solar Ruby",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw91273af3/reserves/color/exterior/CE1M.webp"
+            },
+            {
+                "name": "Zenith Grey",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwee1166a3/reserves/color/exterior/CE1V.webp"
+            },
+            {
+                "name": "Urban Mint",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf71dd9a6/reserves/color/exterior/CE1W.webp"
+            },
+            {
+                "name": "Infinity Blanc",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw76b01a92/reserves/color/exterior/CE18.webp"
+            },
+            {
+                "name": "Jet Black",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw51489d08/reserves/color/exterior/CE11.webp"
+            }
         ],
         "variants": [
             "VF 7 Eco: 703.000.000 VNĐ* (Niêm yết: 740.000.000 VNĐ)",
@@ -1444,7 +1549,38 @@
         "url": "https://shop.vinfastauto.com/vn_vi/dat-coc-xe-vf8.html",
         "price": "Chỉ từ 853.100.000 VNĐ*",
         "deposit": "30.000.000 VNĐ",
-        "colors": [],
+        "colors": [
+            {
+                "name": "Jet Black",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw51489d08/reserves/color/exterior/CE11.webp"
+            },
+            {
+                "name": "Ivy Green",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw585603bd/reserves/VF8/exterior/product-CE22.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5b436975/reserves/color/exterior/CE22.webp"
+            },
+            {
+                "name": "Infinity Blanc",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw23b1a8cb/reserves/VF8/exterior/product-CE18.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw76b01a92/reserves/color/exterior/CE18.webp"
+            },
+            {
+                "name": "Crimson Red",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa5374fce/reserves/VF8/exterior/product-CE1M.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw91273af3/reserves/color/exterior/CE1M.webp"
+            },
+            {
+                "name": "Zenith Grey - Desat Silver Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf0ab6184/reserves/VF8/exterior/product-171V.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw93273248/reserves/color/exterior/171V.webp"
+            },
+            {
+                "name": "Infinity Blanc - Zenith Grey Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw44d79e9d/reserves/VF8/exterior/product-1V18.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61563be0/reserves/color/exterior/1V18.webp"
+            }
+        ],
         "variants": [
             "VF 8 Eco: 853.100.000 VNĐ* (Niêm yết: 898.000.000 VNĐ)",
             "VF 8 Plus: 1.025.050.000 VNĐ* (Niêm yết: 1.079.000.000 VNĐ)"
@@ -1802,7 +1938,43 @@
         "url": "https://shop.vinfastauto.com/vn_vi/dat-coc-xe-vf9.html",
         "price": "Chỉ từ 1.280.600.000 VNĐ*",
         "deposit": "50.000.000 VNĐ",
-        "colors": [],
+        "colors": [
+            {
+                "name": "Zenith Grey",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwee1166a3/reserves/color/exterior/CE1V.webp"
+            },
+            {
+                "name": "Urban Mint",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw37cb98dd/images/PDP/vf9/202406/exterior/CE1W.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf71dd9a6/reserves/color/exterior/CE1W.webp"
+            },
+            {
+                "name": "Jet Black",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9d53cdfe/images/PDP/vf9/202406/exterior/CE11.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw51489d08/reserves/color/exterior/CE11.webp"
+            },
+            {
+                "name": "Ivy Green",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb0ee18c4/images/PDP/vf9/202406/exterior/CE22.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5b436975/reserves/color/exterior/CE22.webp"
+            },
+            {
+                "name": "Infinity Blanc",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw84760cc5/images/PDP/vf9/202406/exterior/CE18.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw76b01a92/reserves/color/exterior/CE18.webp"
+            },
+            {
+                "name": "Desat Silver",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb4f373f5/images/PDP/vf9/202406/exterior/CE17.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7da5b4cd/reserves/color/exterior/CE17.webp"
+            },
+            {
+                "name": "Crimson Red",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf7565bce/images/PDP/vf9/202406/exterior/CE1M.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw91273af3/reserves/color/exterior/CE1M.webp"
+            }
+        ],
         "variants": [
             "VF 9 Eco: 1.280.600.000 VNĐ* (Niêm yết: 1.348.000.000 VNĐ)",
             "VF 9 Plus: 1.452.550.000 VNĐ* (Niêm yết: 1.529.000.000 VNĐ)"
