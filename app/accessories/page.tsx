@@ -11,8 +11,10 @@ export const dynamic = 'force-dynamic'
 
 const categories = ["Tất cả", "Sạc & Cáp", "Nội thất", "Ngoại thất", "Đồ dã ngoại", "Quần áo thời trang"]
 
-export default async function AccessoriesPage({ searchParams }: { searchParams: { page?: string } }) {
-  const currentPage = parseInt(searchParams?.page || '1', 10)
+export default async function AccessoriesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const searchParams = await props.searchParams
+  const pageParam = searchParams?.page
+  const currentPage = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1

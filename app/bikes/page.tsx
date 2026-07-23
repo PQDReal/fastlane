@@ -9,8 +9,10 @@ import { Pagination } from '../../components/pagination'
 
 export const dynamic = 'force-dynamic'
 
-export default async function BikesPage({ searchParams }: { searchParams: { page?: string } }) {
-  const currentPage = parseInt(searchParams?.page || '1', 10)
+export default async function BikesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const searchParams = await props.searchParams
+  const pageParam = searchParams?.page
+  const currentPage = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1
@@ -26,12 +28,20 @@ export default async function BikesPage({ searchParams }: { searchParams: { page
   const bikesData = rawBikes || []
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
-  const bikes = bikesData.map(c => ({
-    name: c.name,
-    desc: c.description || 'Xe máy điện VinFast',
-    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
-    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vento.png',
-  }))
+  const bikes = bikesData.map(c => {
+    let image = c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : null
+    if (!image) {
+      const { getProductImage } = require('../../lib/get-product-image')
+      image = getProductImage(c.name, '/images/vento.png')
+    }
+
+    return {
+      name: c.name,
+      desc: c.description || 'Xe máy điện VinFast',
+      price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
+      image,
+    }
+  })
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">

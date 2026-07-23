@@ -9,8 +9,10 @@ import { Pagination } from '../../components/pagination'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CarsPage({ searchParams }: { searchParams: { page?: string } }) {
-  const currentPage = parseInt(searchParams?.page || '1', 10)
+export default async function CarsPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const searchParams = await props.searchParams
+  const pageParam = searchParams?.page
+  const currentPage = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1
@@ -26,12 +28,21 @@ export default async function CarsPage({ searchParams }: { searchParams: { page?
   const carsData = rawCars || []
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
-  const cars = carsData.map(c => ({
-    name: c.name,
-    desc: c.description || 'Xe ô tô điện VinFast',
-    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
-    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vf8.png',
-  }))
+  const cars = carsData.map(c => {
+    let image = c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : null
+    if (!image) {
+      const { getProductImage } = require('../../lib/get-product-image')
+      image = getProductImage(c.name)
+    }
+    
+    return {
+      name: c.name,
+      desc: c.description || 'Xe ô tô điện VinFast',
+      price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
+      image,
+      href: `/cars/${c.slug}`
+    }
+  })
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -52,17 +63,7 @@ export default async function CarsPage({ searchParams }: { searchParams: { page?
       </div>
 
       <div className="mx-auto max-w-[1440px] px-6 lg:px-12 py-16 w-full">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
-          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-            <div className="relative w-full md:w-[300px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <input type="text" placeholder="Tìm kiếm xe..." className="w-full h-12 pl-12 pr-4 rounded-full border border-muted bg-background focus:outline-none focus:border-brand-500 transition-colors" />
-            </div>
-            <button className="h-12 px-6 rounded-full border border-muted flex items-center gap-2 hover:bg-muted transition-colors font-medium text-sm shrink-0">
-              <SlidersHorizontal size={16} />
-              Bộ lọc
-            </button>
-          </div>
+        <div className="flex justify-end mb-8">
           <div className="text-sm text-muted-foreground font-medium">
             Hiển thị {cars.length} dòng xe
           </div>
