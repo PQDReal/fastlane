@@ -4,7 +4,12 @@ import { TestDriveForm } from './test-drive-form'
 
 export const dynamic = 'force-dynamic'
 
-export default async function TestDrivePage() {
+export default async function TestDrivePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ productId?: string }>
+}) {
+  const { productId } = await searchParams
   const [vehicleResult, userResult] = await Promise.allSettled([
     listTestDriveVehicles(),
     getCurrentUser(),
@@ -24,6 +29,7 @@ export default async function TestDrivePage() {
     <TestDriveForm
       vehicles={vehicleResult.status === 'fulfilled' ? vehicleResult.value : []}
       loadError={vehicleResult.status === 'rejected'}
+      initialVehicleId={productId}
       initialUser={
         user
           ? {
