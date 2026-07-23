@@ -9,8 +9,9 @@ import { Pagination } from '../../components/pagination'
 
 export const dynamic = 'force-dynamic'
 
-export default async function BikesPage({ searchParams }: { searchParams: { page?: string } }) {
-  const currentPage = parseInt(searchParams?.page || '1', 10)
+export default async function BikesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams
+  const currentPage = parseInt(params.page || '1', 10)
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1
