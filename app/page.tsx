@@ -21,11 +21,11 @@ export default async function Home() {
 
     return (
       <main><Header />
-        <section className="relative flex min-h-[680px] items-start justify-center overflow-hidden bg-[#e8e6e6] text-center lg:min-h-[805px]">
+        <section className="home-hero relative flex min-h-[720px] items-center justify-center overflow-hidden bg-[#171411] text-center">
             <img src="/images/maxresdefault.jpg" alt="Xe điện trên cung đường đô thị" className="absolute inset-0 h-full w-full object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/65" />
-            <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col items-center px-5 pt-16 sm:pt-20 lg:pt-20">
-                <h1 className="hero-sunlight text-[40px] font-bold leading-[1.12] tracking-wide sm:text-5xl lg:text-[58px]">
+            <div className="home-hero-overlay absolute inset-0" />
+            <div className="relative z-10 mx-auto flex w-full max-w-[1680px] flex-col items-center px-5 pb-10 pt-28 sm:px-8 lg:pb-20 lg:pt-32">
+                <h1 className="hero-sunlight hero-title-shadow text-[44px] font-bold leading-[1.04] tracking-[-0.045em] sm:text-[64px] lg:text-[clamp(72px,6.15vw,112px)]">
                     <span className="hero-copy">
                         <span>Khởi nguồn</span>
                         <span>Tương lai di chuyển.</span>
@@ -35,10 +35,17 @@ export default async function Home() {
                         <span>Tương lai di chuyển.</span>
                     </span>
                 </h1>
-                <div className="mt-[330px] lg:mt-[365px]"><span className="rounded-full bg-white/75 px-4 py-2 text-xs font-bold shadow-sm">Trải Nghiệm Đẳng Cấp</span>
-                    <p className="mx-auto mt-4 max-w-xl text-base text-slate-700 sm:text-xl">Tuyệt tác công nghệ VinFast VF9. Sẵn sàng đồng hành cùng bạn trên mọi hành trình.</p>
-                    <div className="mt-6 flex justify-center gap-3"><Button variant="gold">Đặt cọc ngay <ArrowRight className="ml-1" size={15} /></Button><Button variant="outline">Tìm hiểu thêm</Button></div></div>
-            </div><p className="absolute bottom-6 left-1/2 w-full -translate-x-1/2 px-4 text-[10px] text-white/80">Images and videos shown contain pre-production level vehicles. Actual production vehicles may differ slightly.</p>
+                <div className="mt-7 sm:mt-9 lg:mt-10">
+                    <p className="mx-auto max-w-[920px] text-lg font-medium leading-snug text-white/90 sm:text-2xl lg:text-[32px] lg:leading-[1.3]">Trải nghiệm giải pháp ô tô điện thông minh, đẳng cấp<br className="hidden sm:block" /> toàn cầu.</p>
+                    <div className="mt-8 flex justify-center sm:mt-10">
+                        <Button variant="outline" className="h-14 rounded-full border-0 bg-white px-10 text-[13px] font-bold uppercase tracking-[0.14em] text-slate-950 shadow-none hover:bg-white/90 sm:h-[72px] sm:px-16 sm:text-base">Khám phá ngay</Button>
+                    </div>
+                </div>
+            </div>
+            <a href="#featured-vehicle" className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center text-white/65 transition-colors hover:text-white" aria-label="Cuộn để xem">
+                <span className="mb-7 text-[10px] font-bold uppercase tracking-[0.3em] sm:text-xs">Cuộn để xem</span>
+                <span className="scroll-line relative h-10 w-px overflow-hidden bg-white/35 sm:h-16"><span className="scroll-line-pulse absolute left-0 top-0 h-8 w-px bg-white" /></span>
+            </a>
         </section>
 
         {/* FEATURED VEHICLE (VF9) */}
