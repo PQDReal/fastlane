@@ -7,6 +7,7 @@ export const auth0 = new Auth0Client({
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
     scope: 'openid profile email',
+    ui_locales: 'vi',
   },
   // FastLane uses the SDK as a token-mediating BFF. Browser code never receives
   // an API access token from the SDK's convenience endpoint.
