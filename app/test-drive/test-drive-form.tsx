@@ -7,6 +7,7 @@ import { Calendar, CarFront, ChevronRight, User } from 'lucide-react'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
+import { createTestDriveRequest } from '@/lib/api/test-drive-client'
 import type { TestDriveVehicleOption } from '@/lib/services/test-drive-service'
 
 type TestDriveFormProps = {
@@ -25,9 +26,48 @@ export function TestDriveForm({
   initialUser = null,
 }: TestDriveFormProps) {
   const [step, setStep] = useState(1)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [referenceNumber, setReferenceNumber] = useState<string | null>(null)
   const hasVehicles = vehicles.length > 0
   const cars = vehicles.filter((vehicle) => vehicle.category === 'Ô tô điện')
   const bikes = vehicles.filter((vehicle) => vehicle.category === 'Xe máy điện')
+  const minimumTestDriveDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(Date.now() + 24 * 60 * 60 * 1000))
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSubmitting(true)
+    setSubmitError(null)
+
+    const formData = new FormData(event.currentTarget)
+
+    try {
+      const reservation = await createTestDriveRequest({
+        productId: formData.get('vehicleId'),
+        testDriveDate: formData.get('testDriveDate'),
+        testDriveTime: formData.get('testDriveTime'),
+        fullName: formData.get('fullName'),
+        phoneNumber: formData.get('phoneNumber'),
+        email: formData.get('email'),
+        note: formData.get('note'),
+        privacyConsent: formData.get('privacyConsent') === 'on',
+        licenceAcknowledged: formData.get('licenceAcknowledged') === 'on',
+        marketingConsent: formData.get('marketingConsent') === 'on',
+      })
+
+      setReferenceNumber(reservation.referenceNumber)
+      setStep(2)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Không thể tạo yêu cầu lái thử')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -49,7 +89,7 @@ export function TestDriveForm({
 
       <div className="mx-auto w-full max-w-[800px] px-6 py-16 lg:px-12">
         <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-glass md:p-12">
-          <form className="space-y-12" onSubmit={(event) => { event.preventDefault(); setStep(2) }}>
+          <form className="space-y-12" onSubmit={handleSubmit}>
             {step === 1 ? (
               <>
                 <section>
@@ -99,7 +139,7 @@ export function TestDriveForm({
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground">Ngày lái thử</label>
-                      <input type="date" name="testDriveDate" className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" required />
+                      <input type="date" name="testDriveDate" min={minimumTestDriveDate} className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" required />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground">Giờ dự kiến</label>
@@ -125,11 +165,32 @@ export function TestDriveForm({
                       <label className="text-sm font-medium text-foreground">Email (Không bắt buộc)</label>
                       <input type="email" name="email" defaultValue={initialUser?.email ?? ''} placeholder="example@gmail.com" className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" />
                     </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-medium text-foreground">Ghi chú (Không bắt buộc)</label>
+                      <textarea name="note" maxLength={500} rows={3} className="w-full rounded-xl border border-muted bg-background px-4 py-3 text-sm focus:border-brand-500 focus:outline-none" />
+                    </div>
                   </div>
                 </section>
 
-                <Button type="submit" disabled={!hasVehicles} className="h-14 w-full rounded-xl bg-foreground text-base font-bold text-background hover:bg-foreground/90">
-                  Xác nhận đặt lịch
+                <section className="space-y-3 text-sm text-muted-foreground">
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" name="licenceAcknowledged" required className="mt-1" />
+                    <span>Tôi xác nhận người lái sẽ mang theo giấy phép lái xe hợp lệ.</span>
+                  </label>
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" name="privacyConsent" required className="mt-1" />
+                    <span>Tôi đồng ý cho Fastlane xử lý thông tin để liên hệ và xác nhận lịch lái thử.</span>
+                  </label>
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" name="marketingConsent" className="mt-1" />
+                    <span>Tôi đồng ý nhận thông tin ưu đãi từ Fastlane (không bắt buộc).</span>
+                  </label>
+                </section>
+
+                {submitError && <p role="alert" className="text-sm text-red-600">{submitError}</p>}
+
+                <Button type="submit" disabled={!hasVehicles || submitting} className="h-14 w-full rounded-xl bg-foreground text-base font-bold text-background hover:bg-foreground/90">
+                  {submitting ? 'Đang gửi yêu cầu...' : 'Xác nhận đặt lịch'}
                 </Button>
               </>
             ) : (
@@ -139,8 +200,11 @@ export function TestDriveForm({
                 <p className="mx-auto max-w-sm text-muted-foreground">
                   Cảm ơn bạn đã đăng ký. Chuyên viên của Fastlane sẽ liên hệ với bạn trong thời gian sớm nhất để xác nhận lịch hẹn.
                 </p>
+                {referenceNumber && <p className="font-semibold text-foreground">Mã yêu cầu: {referenceNumber}</p>}
                 <div className="pt-8">
-                  <Button onClick={() => setStep(1)} variant="outline" className="h-12 rounded-full px-8 font-bold">Về trang chủ</Button>
+                  <Button asChild variant="outline" className="h-12 rounded-full px-8 font-bold">
+                    <Link href="/">Về trang chủ</Link>
+                  </Button>
                 </div>
               </div>
             )}
