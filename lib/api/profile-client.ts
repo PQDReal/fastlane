@@ -12,7 +12,7 @@ type ProfileResponse = { data: CustomerProfile }
 
 async function parseResponse(response: Response): Promise<ProfileResponse> {
   const payload = await response.json()
-  if (!response.ok) throw new Error(payload?.error?.message ?? 'Không thể xử lý hồ sơ')
+  if (!response.ok) throw new Error(payload?.error?.message ?? 'Kh\u00f4ng th\u1ec3 x\u1eed l\u00fd h\u1ed3 s\u01a1')
   return payload as ProfileResponse
 }
 
