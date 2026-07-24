@@ -9,7 +9,7 @@ import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
-import { mockOrders } from '@/lib/mock-db'
+import type { AccessoryOrderSummary } from '@/lib/cart/types'
 
 function ProfileContent() {
   const { user, isLoading } = useUser()
@@ -22,6 +22,9 @@ function ProfileContent() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [userOrders, setUserOrders] = useState<AccessoryOrderSummary[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState<string | null>(null)
 
   function showToast(kind: ToastMessage['kind'], title: string, message?: string) {
     const id = Date.now() + Math.random()
@@ -82,6 +85,32 @@ function ProfileContent() {
     }
   }
 
+  useEffect(() => {
+    if (!user || activeTab !== 'orders') return
+
+    let active = true
+    setOrdersLoading(true)
+    setOrdersError(null)
+    fetch('/api/v1/orders?limit=20')
+      .then(async (response) => {
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.error?.message || 'Không thể tải đơn hàng.')
+        }
+        if (active) setUserOrders(payload.data || [])
+      })
+      .catch((error: unknown) => {
+        if (active) setOrdersError(error instanceof Error ? error.message : 'Không thể tải đơn hàng.')
+      })
+      .finally(() => {
+        if (active) setOrdersLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [activeTab, user])
+
   if (isLoading) {
     return <main className="flex min-h-screen items-center justify-center bg-gray-50"><Loader2 className="h-8 w-8 animate-spin text-[#836100]" /></main>
   }
@@ -99,9 +128,8 @@ function ProfileContent() {
     )
   }
 
-  const userOrders = mockOrders.slice(0, 5)
   const displayName = profile?.fullName || user.name || 'Tài khoản'
-  const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  const formatPrice = (price: number | string) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price))
   const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN')
   const statusIcon = (status: string) => status === 'Completed'
     ? <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -163,15 +191,36 @@ function ProfileContent() {
               <div>
                 <h2 className="mb-6 text-2xl font-bold text-gray-900">Lịch sử đơn hàng</h2>
                 <div className="space-y-4">
-                  {userOrders.map((order) => (
-                    <div key={order.id} className="rounded-xl border border-gray-100 p-5 transition-colors hover:border-[#836100]/30">
-                      <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4">
-                        <div><p className="text-sm font-bold text-gray-900">{order.orderNumber}</p><p className="mt-1 text-xs text-gray-500">Ngày đặt: {formatDate(order.createdAt)}</p></div>
-                        <div className="flex items-center gap-2">{statusIcon(order.status)}<span className="text-sm font-medium text-gray-700">{order.status}</span></div>
+                  {ordersLoading && (
+                    <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-[#836100]" /></div>
+                  )}
+                  {ordersError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{ordersError}</p>}
+                  {!ordersLoading && !ordersError && userOrders.length === 0 && (
+                    <p className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
+                  )}
+                  {userOrders.map(order => (
+                    <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
+                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
+                          <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           {statusIcon(order.status)}
+                          <span className="text-sm font-medium text-gray-700">{order.status}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100"><Package className="h-6 w-6 text-gray-400" /></div><div><p className="font-semibold text-gray-900">{order.vehicle}</p><p className="text-sm text-gray-500">Thanh toán: {order.payment}</p></div></div>
-                        <p className="font-bold text-[#836100]">{formatPrice(order.amount)}</p>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Package className="h-6 w-6 text-gray-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
+                            <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
+                          </div>
+                        </div>
+                         <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
                       </div>
                     </div>
                   ))}

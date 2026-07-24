@@ -24,12 +24,12 @@ const links = [
 
 
 export function Header() {
-  const { user } = useUser()
+  const { user, isLoading: userLoading } = useUser()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
-  const { setSearchModalOpen, setCartDrawerOpen, getCartCount } = useAppStore()
-  
+  const { setSearchModalOpen, getCartCount, loadCart, cartLoaded, clearCartCache } = useAppStore()
+
   // Header is transparent on homepage and car/bike detail pages
   const isTransparentPage = pathname === '/' || /^\/(cars|bikes)\/[^\/]+$/.test(pathname)
   const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
@@ -39,6 +39,15 @@ export function Header() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (!userLoading && user && !cartLoaded) {
+      void loadCart()
+    }
+    if (!userLoading && !user && cartLoaded) {
+      clearCartCache()
+    }
+  }, [cartLoaded, clearCartCache, loadCart, user, userLoading])
 
   const headerSolid = scrolled || !isTransparentPage
 
@@ -65,14 +74,14 @@ export function Header() {
 
         <div className={`flex shrink-0 items-center justify-end gap-4 transition-colors duration-500 xl:gap-6 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={23} strokeWidth={2} /></button>
-          <button aria-label="Giỏ hàng" className="relative hidden sm:block hover:opacity-70 transition-opacity" onClick={() => setCartDrawerOpen(true)}>
+          <Link aria-label="Giỏ hàng" href="/cart" className="relative block hover:opacity-70 transition-opacity">
             <ShoppingCart size={23} strokeWidth={2} />
             {getCartCount() > 0 && (
               <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                 {getCartCount()}
               </span>
             )}
-          </button>
+          </Link>
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               {user.picture ? (

@@ -3,7 +3,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Auth0Provider } from '@auth0/nextjs-auth0/client'
 import { SearchModal } from '@/components/search-modal'
-import { CartDrawer } from '@/components/cart-drawer'
 import { auth0 } from '@/lib/auth0'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter' })
@@ -25,7 +24,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-100/40 via-slate-50 to-slate-50 pointer-events-none" />
           {children}
           <SearchModal />
-          <CartDrawer />
         </Auth0Provider>
       </body>
     </html>

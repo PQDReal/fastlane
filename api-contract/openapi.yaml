@@ -57,7 +57,7 @@ x-contract-boundary:
   deferredImplementationArtifacts: [database migrations, application code, UI, CI, Docker Compose, deployment]
 x-business-rules:
   BR-01: A customer must be authenticated to checkout.
-  BR-02: A cart must contain at least one item to checkout.
+  BR-02: Checkout must contain at least one explicitly selected cart item owned by the authenticated customer.
   BR-03: A cart and resulting order accept at most one promotion code.
   BR-04: Cart operations do not reserve inventory; checkout rechecks and decrements stock atomically.
   BR-05: Only administrators may call management operations directly; authenticated customer workflows may trigger server-owned atomic inventory and promotion mutations.
@@ -74,6 +74,7 @@ x-business-rules:
   BR-16: Cancellation eligibility and refund amount use the immutable order-level policy snapshot; inventory and promotion usage are restored exactly once.
   BR-17: Automatic expiry, overdue marking, cancellation, charge, and refund processing are idempotent and auditable.
   BR-18: Full-payment products cannot use before_balance_due cutoff; mixed-order cancellation derives the most restrictive valid item policy.
+  BR-19: Cart selection is a checkout scope, not an inventory reservation; only selected rows are ordered and removed while unselected rows remain in the active cart.
 x-pricebook-policy:
   pricebook: DEFAULT_VND
   currency: VND

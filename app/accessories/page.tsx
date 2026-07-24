@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
 import { Pagination } from '../../components/pagination'
+import type { AccessoryCatalogProduct } from '../../lib/cart/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,23 +23,97 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
   const supabase = getSupabaseAdmin()
   const { data: rawAccessories, count } = await supabase
     .from('products')
-    .select(`*, category:categories!inner(name)`, { count: 'exact' })
+    .select(`
+      id,
+      name,
+      slug,
+      image_urls,
+      specifications,
+      category:categories!inner(name),
+      product_variants!inner(
+        id,
+        sku,
+        name,
+        original_price,
+        sale_price,
+        is_active,
+        inventory_items(on_hand_quantity)
+      )
+    `, { count: 'exact' })
     .eq('is_active', true)
+    .eq('product_type', 'ACCESSORY')
     .eq('categories.name', 'Phụ kiện')
+    .eq('product_variants.is_active', true)
     .range(start, end)
   
   const accessoriesData = rawAccessories || []
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
-  const accessories = accessoriesData.map(c => ({
-    name: c.name,
-    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
-    oldPrice: null,
-    discount: null,
-    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vf8.png',
-    rating: 4.8,
-    stock: c.stock,
-  }))
+  const accessories: AccessoryCatalogProduct[] = accessoriesData.map((product) => {
+    const image = Array.isArray(product.image_urls)
+      && typeof product.image_urls[0] === 'string'
+      && product.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i)
+      ? product.image_urls[0]
+      : '/images/vf8.png'
+    const specifications = product.specifications
+      && typeof product.specifications === 'object'
+      && !Array.isArray(product.specifications)
+      ? product.specifications as Record<string, unknown>
+      : {}
+    const sourceVariants = Array.isArray(specifications.variants) ? specifications.variants : []
+    const sourceBySku = new Map(sourceVariants.map((variant: any) => [
+      String(variant.sku || variant.variant_id).toUpperCase(),
+      variant,
+    ]))
+
+    const variants = (product.product_variants || []).map((variant) => {
+      const listPrice = Number(variant.original_price)
+      const salePrice = variant.sale_price === null ? null : Number(variant.sale_price)
+      const priceAmount = salePrice ?? listPrice
+      const inventory = Array.isArray(variant.inventory_items)
+        ? variant.inventory_items[0]
+        : variant.inventory_items
+      const sourceVariant: any = sourceBySku.get(String(variant.sku).toUpperCase())
+      const variantImages = [...new Set([
+        sourceVariant?.image,
+        ...(Array.isArray(sourceVariant?.images) ? sourceVariant.images : []),
+      ].filter((url): url is string => typeof url === 'string' && url.length > 0))]
+      const variantImage = variantImages[0] || image
+      const attributes = sourceVariant?.attributes
+        && typeof sourceVariant.attributes === 'object'
+        && !Array.isArray(sourceVariant.attributes)
+        ? sourceVariant.attributes as Record<string, string>
+        : {}
+
+      return {
+        productId: product.id,
+        productSlug: product.slug,
+        variantId: variant.id,
+        sku: variant.sku,
+        variantName: variant.name,
+        name: variant.name === 'Mặc định'
+          ? product.name
+          : `${product.name} - ${variant.name}`,
+        priceAmount,
+        oldPriceAmount: salePrice !== null && salePrice < listPrice ? listPrice : null,
+        discount: salePrice !== null && salePrice < listPrice
+          ? Math.round((1 - salePrice / listPrice) * 100)
+          : null,
+        image: variantImage,
+        images: variantImages.length > 0 ? variantImages : [variantImage],
+        attributes,
+        availableQuantity: Math.max(0, Number(inventory?.on_hand_quantity ?? 0)),
+      }
+    })
+
+    return {
+      productId: product.id,
+      productSlug: product.slug,
+      name: product.name,
+      image,
+      variants,
+    }
+  })
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -105,8 +180,8 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
           </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {accessories.map((item, idx) => (
-                 <AccessoryCard key={idx} {...item} />
+              {accessories.map((item) => (
+                 <AccessoryCard key={item.productId} product={item} />
               ))}
             </div>
             
