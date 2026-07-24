@@ -112,11 +112,13 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" title="View Details"><Eye size={16}/></button>
-                      <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Update Status"><Truck size={16}/></button>
+                    <div className="flex items-center justify-end relative h-8 w-[72px] ml-auto">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+                        <button className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" title="Xem chi tiết"><Eye size={16}/></button>
+                        <button className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Cập nhật trạng thái"><Truck size={16}/></button>
+                      </div>
+                      <button className="p-1.5 text-slate-400 transition-opacity group-hover:opacity-0 absolute right-0 top-0"><MoreHorizontal size={16}/></button>
                     </div>
-                    <button className="p-2 text-slate-400 group-hover:hidden inline-block"><MoreHorizontal size={16}/></button>
                   </td>
                 </tr>
               ))}
