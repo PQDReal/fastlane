@@ -25,8 +25,11 @@ function specificationValue(value: unknown): string {
 
 export function AccessoryDetailClient({ product }: { product: AccessoryDetailData }) {
   const { addToCart } = useAppStore()
-  const [selectedVariantId, setSelectedVariantId] = useState(product.variants[0]?.variantId || '')
-  const [selectedImage, setSelectedImage] = useState(product.images[0] || '/images/vf8.png')
+  const initialVariant = product.variants.find((variant) => variant.variantId === product.initialVariantId)
+    || product.variants.find((variant) => variant.availableQuantity > 0)
+    || product.variants[0]
+  const [selectedVariantId, setSelectedVariantId] = useState(initialVariant?.variantId || '')
+  const [selectedImage, setSelectedImage] = useState(initialVariant?.image || product.images[0] || '/images/vf8.png')
   const [quantity, setQuantity] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -38,7 +41,9 @@ export function AccessoryDetailClient({ product }: { product: AccessoryDetailDat
   const inStock = Boolean(selectedVariant && selectedVariant.availableQuantity > 0)
 
   const changeVariant = (variantId: string) => {
+    const variant = product.variants.find((item) => item.variantId === variantId)
     setSelectedVariantId(variantId)
+    if (variant?.image) setSelectedImage(variant.image)
     setQuantity(1)
     setFeedback(null)
   }

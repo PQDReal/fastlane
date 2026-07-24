@@ -9,10 +9,11 @@ const catalogItem: AccessoryCatalogItem = {
   variantId: '123e4567-e89b-12d3-a456-426614174002',
   sku: 'ACC-001',
   name: 'Phụ kiện thử nghiệm',
+  variantName: 'Mặc định',
   priceAmount: 100000,
   oldPriceAmount: null,
   image: '/images/vf8.png',
-  rating: 4.8,
+  attributes: {},
   availableQuantity: 5,
   discount: null,
 }

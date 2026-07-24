@@ -10,10 +10,13 @@ export const dynamic = 'force-dynamic'
 
 export default async function AccessoryDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams?: Promise<{ variant?: string }>
 }) {
   const { slug } = await params
+  const requestedVariant = (await searchParams)?.variant
   const { data, error } = await getSupabaseAdmin()
     .from('products')
     .select(`
@@ -45,6 +48,15 @@ export default async function AccessoryDetailPage({
     ? data.image_urls.filter((image): image is string => typeof image === 'string' && image.length > 0)
     : []
   const fallbackImage = images[0] || '/images/vf8.png'
+  const specifications =
+    data.specifications && typeof data.specifications === 'object' && !Array.isArray(data.specifications)
+      ? (data.specifications as Record<string, unknown>)
+      : {}
+  const sourceVariants = Array.isArray(specifications.variants) ? specifications.variants : []
+  const sourceBySku = new Map(sourceVariants.map((variant: any) => [
+    String(variant.sku || variant.variant_id).toUpperCase(),
+    variant,
+  ]))
   const variants = (data.product_variants || []).map((variant) => {
     const inventory = Array.isArray(variant.inventory_items)
       ? variant.inventory_items[0]
@@ -52,17 +64,25 @@ export default async function AccessoryDetailPage({
     const listPrice = Number(variant.original_price)
     const salePrice = variant.sale_price === null ? null : Number(variant.sale_price)
     const priceAmount = salePrice ?? listPrice
+    const sourceVariant: any = sourceBySku.get(String(variant.sku).toUpperCase())
+    const variantImage = sourceVariant?.image || sourceVariant?.images?.[0] || fallbackImage
+    const attributes = sourceVariant?.attributes
+      && typeof sourceVariant.attributes === 'object'
+      && !Array.isArray(sourceVariant.attributes)
+      ? sourceVariant.attributes as Record<string, string>
+      : {}
 
     return {
       productId: data.id,
       productSlug: data.slug,
       variantId: variant.id,
       sku: variant.sku,
+      variantName: variant.name,
       name: variant.name === 'Mặc định' ? data.name : variant.name,
       priceAmount,
       oldPriceAmount: salePrice !== null && salePrice < listPrice ? listPrice : null,
-      image: fallbackImage,
-      rating: 4.8,
+      image: variantImage,
+      attributes,
       availableQuantity: Math.max(0, Number(inventory?.on_hand_quantity ?? 0)),
       discount: salePrice !== null && salePrice < listPrice
         ? Math.round((1 - salePrice / listPrice) * 100)
@@ -72,10 +92,6 @@ export default async function AccessoryDetailPage({
 
   if (variants.length === 0) notFound()
 
-  const specifications =
-    data.specifications && typeof data.specifications === 'object' && !Array.isArray(data.specifications)
-      ? (data.specifications as Record<string, unknown>)
-      : {}
   const product: AccessoryDetailData = {
     productId: data.id,
     slug: data.slug,
@@ -84,6 +100,7 @@ export default async function AccessoryDetailPage({
     images: images.length > 0 ? images : [fallbackImage],
     specifications,
     variants,
+    initialVariantId: variants.find((variant) => variant.sku === requestedVariant)?.variantId,
   }
 
   return (

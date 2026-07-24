@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
 import { Pagination } from '../../components/pagination'
-import type { AccessoryCatalogItem } from '../../lib/cart/types'
+import type { AccessoryCatalogProduct } from '../../lib/cart/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +27,7 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
       name,
       slug,
       image_urls,
+      specifications,
       category:categories!inner(name),
       product_variants!inner(
         id,
@@ -47,26 +48,44 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
   const accessoriesData = rawAccessories || []
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
-  const accessories: AccessoryCatalogItem[] = accessoriesData.flatMap((product) => {
+  const accessories: AccessoryCatalogProduct[] = accessoriesData.map((product) => {
     const image = Array.isArray(product.image_urls)
       && typeof product.image_urls[0] === 'string'
       && product.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i)
       ? product.image_urls[0]
       : '/images/vf8.png'
+    const specifications = product.specifications
+      && typeof product.specifications === 'object'
+      && !Array.isArray(product.specifications)
+      ? product.specifications as Record<string, unknown>
+      : {}
+    const sourceVariants = Array.isArray(specifications.variants) ? specifications.variants : []
+    const sourceBySku = new Map(sourceVariants.map((variant: any) => [
+      String(variant.sku || variant.variant_id).toUpperCase(),
+      variant,
+    ]))
 
-    return (product.product_variants || []).map((variant) => {
+    const variants = (product.product_variants || []).map((variant) => {
       const listPrice = Number(variant.original_price)
       const salePrice = variant.sale_price === null ? null : Number(variant.sale_price)
       const priceAmount = salePrice ?? listPrice
       const inventory = Array.isArray(variant.inventory_items)
         ? variant.inventory_items[0]
         : variant.inventory_items
+      const sourceVariant: any = sourceBySku.get(String(variant.sku).toUpperCase())
+      const variantImage = sourceVariant?.image || sourceVariant?.images?.[0] || image
+      const attributes = sourceVariant?.attributes
+        && typeof sourceVariant.attributes === 'object'
+        && !Array.isArray(sourceVariant.attributes)
+        ? sourceVariant.attributes as Record<string, string>
+        : {}
 
       return {
         productId: product.id,
         productSlug: product.slug,
         variantId: variant.id,
         sku: variant.sku,
+        variantName: variant.name,
         name: variant.name === 'Mặc định'
           ? product.name
           : `${product.name} - ${variant.name}`,
@@ -75,11 +94,19 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
         discount: salePrice !== null && salePrice < listPrice
           ? Math.round((1 - salePrice / listPrice) * 100)
           : null,
-        image,
-        rating: 4.8,
+        image: variantImage,
+        attributes,
         availableQuantity: Math.max(0, Number(inventory?.on_hand_quantity ?? 0)),
       }
     })
+
+    return {
+      productId: product.id,
+      productSlug: product.slug,
+      name: product.name,
+      image,
+      variants,
+    }
   })
 
   return (
@@ -148,7 +175,7 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {accessories.map((item) => (
-                 <AccessoryCard key={item.variantId} {...item} />
+                 <AccessoryCard key={item.productId} product={item} />
               ))}
             </div>
             

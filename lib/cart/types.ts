@@ -4,12 +4,21 @@ export type AccessoryCatalogItem = {
   variantId: string
   sku: string
   name: string
+  variantName: string
   priceAmount: number
   oldPriceAmount: number | null
   image: string
-  rating: number
+  attributes: Record<string, string>
   availableQuantity: number
   discount: number | null
+}
+
+export type AccessoryCatalogProduct = {
+  productId: string
+  productSlug: string
+  name: string
+  image: string
+  variants: AccessoryCatalogItem[]
 }
 
 export type ApiCartItem = {
@@ -74,6 +83,7 @@ export type AccessoryDetailData = {
   images: string[]
   specifications: Record<string, unknown>
   variants: AccessoryCatalogItem[]
+  initialVariantId?: string
 }
 
 export type AddCartItemRequest = {
