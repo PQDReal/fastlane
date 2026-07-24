@@ -76,20 +76,19 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
         <h2 className="text-3xl sm:text-4xl lg:text-[56px] font-bold tracking-tight text-foreground mb-16">
           Trải nghiệm cá nhân hóa
         </h2>
-        
+
         <div className="flex flex-col items-center gap-12">
           {/* Image Display */}
           <div className="relative w-full max-w-4xl aspect-[16/9] md:aspect-[2/1] flex items-center justify-center">
             {availableOptions.map(({ color: colorObj, image }, idx) => {
               const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
               return (
-                <img 
+                <img
                   key={colorName}
-                  src={image}
+                  src={images[idx]}
                   alt={colorName}
-                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ease-in-out ${
-                    selectedIndex === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
-                  }`}
+                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ease-in-out ${selectedIndex === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    }`}
                 />
               )
             })}
@@ -102,7 +101,7 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
                 const isSelected = selectedIndex === idx
                 const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
                 const swatchImg = typeof colorObj === 'object' ? colorObj.swatch : null
-                
+
                 const hexCode = colorMap[colorName] || '#CCCCCC'
                 const isLightColor = ['Infinity Blanc', 'Brahminy White', 'Summer Yellow'].includes(colorName)
 
@@ -117,12 +116,12 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
                     {swatchImg && (
                       <img src={swatchImg} alt={colorName} className="absolute inset-0 w-full h-full object-cover" />
                     )}
-                    
+
                     {/* Ring selection effect */}
                     {isSelected && (
                       <span className="absolute -inset-2 rounded-full border-2 border-foreground z-20" />
                     )}
-                    
+
                     {/* Checkmark */}
                     {isSelected && (
                       <Check size={20} className={`relative z-10 ${isLightColor && !swatchImg ? 'text-black' : 'text-white drop-shadow-md'}`} />
@@ -131,7 +130,7 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
                 )
               })}
             </div>
-            
+
             <p className="text-xl font-medium text-foreground">
               {selectedColorName}
             </p>

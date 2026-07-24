@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { CalendarDays, Loader2, RefreshCw, Search } from 'lucide-react'
+import { CalendarDays, FileDown, Loader2, RefreshCw, Search } from 'lucide-react'
 import { getAdminTestDriveRequests, transitionAdminTestDriveRequest } from '@/lib/api/admin-test-drive-client'
 import type { AdminTestDriveRequest, TestDriveStatus } from '@/lib/services/admin-test-drive-service'
 
@@ -45,11 +45,67 @@ export default function AdminTestDrivePage() {
 
   const dateTime = (value: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 
+  function escapeHtml(value: unknown) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character] ?? character)
+  }
+
+  function exportPdf() {
+    if (loading || requests.length === 0) return
+    const printWindow = window.open('', '_blank', 'width=1200,height=800')
+    if (!printWindow) {
+      setError('Kh\u00f4ng th\u1ec3 m\u1edf c\u1eeda s\u1ed5 xu\u1ea5t PDF. Vui l\u00f2ng cho ph\u00e9p popup v\u00e0 th\u1eed l\u1ea1i.')
+      return
+    }
+    printWindow.opener = null
+
+    const rows = requests.map((item, index) => `<tr>
+      <td>${index + 1}</td>
+      <td><strong>${escapeHtml(item.referenceNumber)}</strong></td>
+      <td>${escapeHtml(item.fullName)}<br><small>${escapeHtml(item.phoneNumber)}${item.email ? `<br>${escapeHtml(item.email)}` : ''}</small></td>
+      <td>${escapeHtml(item.productName)}</td>
+      <td>${escapeHtml(dateTime(item.scheduledAt))}</td>
+      <td>${escapeHtml(LABEL[item.status])}</td>
+    </tr>`).join('')
+
+    const generatedAt = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'medium', timeStyle: 'short' }).format(new Date())
+    const statusText = status ? LABEL[status as TestDriveStatus] : 'T\u1ea5t c\u1ea3 tr\u1ea1ng th\u00e1i'
+    const title = `lich-lai-thu-${new Date().toISOString().slice(0, 10)}`
+    printWindow.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${title}</title><style>
+      @page { size: A4 landscape; margin: 12mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #0f172a; font-family: Arial, "Helvetica Neue", sans-serif; font-size: 11px; }
+      h1 { margin: 0 0 6px; font-size: 22px; }
+      .meta { margin-bottom: 16px; color: #475569; line-height: 1.5; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border: 1px solid #cbd5e1; padding: 7px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+      th { background: #f1f5f9; font-size: 10px; text-transform: uppercase; }
+      th:nth-child(1), td:nth-child(1) { width: 4%; text-align: center; }
+      th:nth-child(2), td:nth-child(2) { width: 15%; }
+      th:nth-child(3), td:nth-child(3) { width: 25%; }
+      th:nth-child(4), td:nth-child(4) { width: 18%; }
+      th:nth-child(5), td:nth-child(5) { width: 20%; }
+      th:nth-child(6), td:nth-child(6) { width: 18%; }
+      tr { break-inside: avoid; }
+      small { color: #64748b; }
+      .footer { margin-top: 10px; color: #64748b; font-size: 9px; text-align: right; }
+    </style></head><body>
+      <h1>L\u1ecbch l\u00e1i th\u1eed</h1>
+      <div class="meta">Ng\u00e0y xu\u1ea5t: ${escapeHtml(generatedAt)}<br>B\u1ed9 l\u1ecdc: ${escapeHtml(statusText)}${query.trim() ? ` · T\u00ecm ki\u1ebfm: “${escapeHtml(query.trim())}”` : ''}<br>T\u1ed5ng s\u1ed1 y\u00eau c\u1ea7u: ${requests.length}</div>
+      <table><thead><tr><th>STT</th><th>M\u00e3 y\u00eau c\u1ea7u</th><th>Kh\u00e1ch h\u00e0ng</th><th>M\u1eabu xe</th><th>L\u1ecbch mong mu\u1ed1n</th><th>Tr\u1ea1ng th\u00e1i</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="footer">Xu\u1ea5t l\u00fac ${escapeHtml(generatedAt)}</div>
+      <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),150));<\/script>
+    </body></html>`)
+    printWindow.document.close()
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Lịch lái thử</h1><p className="mt-1 text-sm text-slate-500">Quản lý yêu cầu, xác nhận và cập nhật kết quả lái thử.</p></div>
-        <button onClick={() => void loadRequests()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Làm mới</button>
+        <div className="flex gap-2">
+          <button type="button" onClick={exportPdf} disabled={loading || requests.length === 0} className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"><FileDown size={16} />Xuất PDF</button>
+          <button type="button" onClick={() => void loadRequests()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Làm mới</button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

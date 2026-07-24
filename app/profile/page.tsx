@@ -7,6 +7,7 @@ import { CheckCircle2, Clock, Loader2, Package, User, XCircle } from 'lucide-rea
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import { mockOrders } from '@/lib/mock-db'
 
@@ -20,7 +21,13 @@ function ProfileContent() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [profileLoading, setProfileLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  function showToast(kind: ToastMessage['kind'], title: string, message?: string) {
+    const id = Date.now() + Math.random()
+    setToasts((current) => [...current, { id, kind, title, message }])
+    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4500)
+  }
 
   useEffect(() => {
     if (!user) return
@@ -35,7 +42,7 @@ function ProfileContent() {
         setPhoneNumber(data.phoneNumber ?? '')
       })
       .catch((error: unknown) => {
-        if (active) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Không thể tải hồ sơ' })
+        if (active) showToast('error', 'Kh\u00f4ng th\u1ec3 t\u1ea3i h\u1ed3 s\u01a1', 'Vui l\u00f2ng th\u1eed l\u1ea1i sau.')
       })
       .finally(() => {
         if (active) setProfileLoading(false)
@@ -44,10 +51,20 @@ function ProfileContent() {
     return () => { active = false }
   }, [user])
 
+  const normalizedProfileForm = {
+    fullName: fullName.trim(),
+    phoneNumber: phoneNumber.trim(),
+  }
+  const hasProfileChanges = Boolean(profile) && (
+    normalizedProfileForm.fullName !== profile?.fullName.trim() ||
+    normalizedProfileForm.phoneNumber !== (profile?.phoneNumber ?? '').trim()
+  )
+  const canUpdateProfile = Boolean(normalizedProfileForm.fullName && hasProfileChanges)
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canUpdateProfile) return
     setSaving(true)
-    setMessage(null)
 
     try {
       const updated = await updateMyProfile({
@@ -57,9 +74,9 @@ function ProfileContent() {
       setProfile(updated)
       setFullName(updated.fullName)
       setPhoneNumber(updated.phoneNumber ?? '')
-      setMessage({ type: 'success', text: 'Cập nhật thông tin thành công.' })
+      showToast('success', 'C\u1eadp nh\u1eadt th\u00f4ng tin th\u00e0nh c\u00f4ng')
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Không thể cập nhật hồ sơ' })
+      showToast('error', 'C\u1eadp nh\u1eadt th\u00f4ng tin th\u1ea5t b\u1ea1i', 'Vui l\u00f2ng ki\u1ec3m tra th\u00f4ng tin v\u00e0 th\u1eed l\u1ea1i.')
     } finally {
       setSaving(false)
     }
@@ -95,6 +112,7 @@ function ProfileContent() {
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
       <Header />
+      <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <div className="mx-auto flex w-full max-w-[1000px] flex-1 px-6 py-32">
         <div className="flex w-full flex-col gap-8 md:flex-row">
           <aside className="w-full shrink-0 md:w-64">
@@ -127,15 +145,15 @@ function ProfileContent() {
                     </div>
                     <div>
                       <label htmlFor="profile-phone" className="mb-2 block text-sm font-medium text-gray-700">Số điện thoại</label>
-                      <input id="profile-phone" type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="0901234567" className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:border-[#836100] focus:outline-none" />
+                      <input id="profile-phone" type="tel" inputMode="tel" autoComplete="tel" aria-describedby="profile-phone-hint" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="0901234567 hoặc +84901234567" className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:border-[#836100] focus:outline-none" />
+                      <p id="profile-phone-hint" className="mt-2 text-xs leading-5 text-gray-500">Số điện thoại gồm 9–15 chữ số, có thể bắt đầu bằng dấu +.</p>
                     </div>
                     <div>
                       <label htmlFor="profile-email" className="mb-2 block text-sm font-medium text-gray-700">Email</label>
                       <input id="profile-email" type="email" disabled value={profile?.email || user.email || ''} className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-500" />
-                      <p className="mt-2 text-xs text-gray-500">Email đăng nhập được quản lý bởi Auth0.</p>
+                      <p className="mt-2 text-xs text-gray-500">Không thể thay đổi Email.</p>
                     </div>
-                    {message && <p role="status" className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{message.text}</p>}
-                    <button type="submit" disabled={saving || !fullName.trim()} className="flex items-center gap-2 rounded-full bg-[#836100] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:opacity-60">
+                    <button type="submit" disabled={saving || !canUpdateProfile} className="flex items-center gap-2 rounded-full bg-[#836100] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:opacity-60">
                       {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? 'Đang cập nhật...' : 'Cập nhật thông tin'}
                     </button>
                   </form>
