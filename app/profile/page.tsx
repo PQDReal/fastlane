@@ -7,6 +7,7 @@ import { CheckCircle2, Clock, Loader2, Package, User, XCircle } from 'lucide-rea
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import { mockOrders } from '@/lib/mock-db'
 
@@ -21,6 +22,7 @@ function ProfileContent() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   useEffect(() => {
     if (!user) return
@@ -57,7 +59,9 @@ function ProfileContent() {
       setProfile(updated)
       setFullName(updated.fullName)
       setPhoneNumber(updated.phoneNumber ?? '')
-      setMessage({ type: 'success', text: 'Cập nhật thông tin thành công.' })
+      const toastId = Date.now() + Math.random()
+      setToasts((current) => [...current, { id: toastId, kind: 'success', title: 'C\u1eadp nh\u1eadt th\u00f4ng tin th\u00e0nh c\u00f4ng' }])
+      window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== toastId)), 4500)
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Không thể cập nhật hồ sơ' })
     } finally {
@@ -95,6 +99,7 @@ function ProfileContent() {
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
       <Header />
+      <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <div className="mx-auto flex w-full max-w-[1000px] flex-1 px-6 py-32">
         <div className="flex w-full flex-col gap-8 md:flex-row">
           <aside className="w-full shrink-0 md:w-64">
@@ -132,9 +137,9 @@ function ProfileContent() {
                     <div>
                       <label htmlFor="profile-email" className="mb-2 block text-sm font-medium text-gray-700">Email</label>
                       <input id="profile-email" type="email" disabled value={profile?.email || user.email || ''} className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-500" />
-                      <p className="mt-2 text-xs text-gray-500">Email đăng nhập được quản lý bởi Auth0.</p>
+                      <p className="mt-2 text-xs text-gray-500">Không thể thay đổi Email.</p>
                     </div>
-                    {message && <p role="status" className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{message.text}</p>}
+                    {message?.type === 'error' && <p role="alert" className="text-sm text-red-600">{message.text}</p>}
                     <button type="submit" disabled={saving || !fullName.trim()} className="flex items-center gap-2 rounded-full bg-[#836100] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:opacity-60">
                       {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? 'Đang cập nhật...' : 'Cập nhật thông tin'}
                     </button>

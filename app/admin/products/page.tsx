@@ -93,7 +93,7 @@ export default function AdminProductsPage() {
                 <th className="px-6 py-4">Giá</th>
                 <th className="px-6 py-4">Trạng thái</th>
                 <th className="px-6 py-4">Ngày tạo</th>
-                <th className="px-6 py-4 text-right">Thao tác</th>
+                <th className="relative w-28 px-6 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -130,12 +130,12 @@ export default function AdminProductsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-500">{formatDate(product.created_at)}</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="relative w-28 px-6 py-4 text-right">
+                    <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded"><Edit size={16}/></button>
                       <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
                     </div>
-                    <button className="p-2 text-slate-400 group-hover:hidden inline-block"><MoreHorizontal size={16}/></button>
+                    <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
                   </td>
                 </tr>
               ))}
