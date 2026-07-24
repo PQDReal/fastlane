@@ -20,6 +20,58 @@ export type LocalUser = {
   updated_at: string
 }
 
+export async function findUserByAuth0Subject(
+  subject: string,
+): Promise<LocalUser | null> {
+  const normalizedSubject = subject.trim()
+
+  if (!normalizedSubject) return null
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('users')
+    .select(
+      'id, auth0_subject, email, full_name, phone_number, role, created_at, updated_at',
+    )
+    .eq('auth0_subject', normalizedSubject)
+    .maybeSingle<LocalUser>()
+
+  if (error) {
+    throw new Error(`Unable to load local user: ${error.message}`)
+  }
+
+  return data
+}
+export type UpdateLocalUserProfile = {
+  fullName?: string
+  phoneNumber?: string | null
+}
+
+export async function updateUserProfile(
+  subject: string,
+  profile: UpdateLocalUserProfile,
+): Promise<LocalUser> {
+  const updates: Record<string, string | null> = {
+    updated_at: new Date().toISOString(),
+  }
+
+  if (profile.fullName !== undefined) updates.full_name = profile.fullName
+  if (profile.phoneNumber !== undefined) updates.phone_number = profile.phoneNumber
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('users')
+    .update(updates)
+    .eq('auth0_subject', subject)
+    .select(
+      'id, auth0_subject, email, full_name, phone_number, role, created_at, updated_at',
+    )
+    .single<LocalUser>()
+
+  if (error) {
+    throw new Error(`Unable to update local user: ${error.message}`)
+  }
+
+  return data
+}
 export async function syncAuth0User(
   user: Auth0SessionUser,
 ): Promise<LocalUser> {

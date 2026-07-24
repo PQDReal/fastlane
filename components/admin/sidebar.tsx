@@ -2,15 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, ShoppingCart, Archive, Users, Settings, LogOut, CarFront, Ticket, Tags } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Archive, Users, Settings, LogOut, CarFront, Ticket, Tags, CalendarDays, CircleDollarSign } from 'lucide-react'
 
 const navigation = [
   { name: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
   { name: 'Danh mục', href: '/admin/categories', icon: Tags },
   { name: 'Sản phẩm', href: '/admin/products', icon: Package },
   { name: 'Đơn hàng', href: '/admin/orders', icon: ShoppingCart },
+  { name: 'Lịch lái thử', href: '/admin/test-drive', icon: CalendarDays },
   { name: 'Tồn kho', href: '/admin/inventory', icon: Archive },
   { name: 'Khuyến mãi', href: '/admin/promotions', icon: Ticket },
+  { name: 'Chính sách chi phí', href: '/admin/cost-policies', icon: CircleDollarSign },
   { name: 'Khách hàng', href: '/admin/customers', icon: Users },
 ]
 

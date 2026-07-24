@@ -70,7 +70,7 @@ export default function AdminCustomersPage() {
                 <th className="px-6 py-4">Lần mua cuối</th>
                 <th className="px-6 py-4">Trạng thái</th>
                 <th className="px-6 py-4">Ngày tham gia</th>
-                <th className="px-6 py-4 text-right">Thao tác</th>
+                <th className="relative w-28 px-6 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -100,13 +100,11 @@ export default function AdminCustomersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-500">{formatDate(customer.createdAt)}</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end relative h-8 w-[40px] ml-auto">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
-                        <button className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" title="Xem hồ sơ"><Eye size={16}/></button>
-                      </div>
-                      <button className="p-1.5 text-slate-400 transition-opacity group-hover:opacity-0 absolute right-0 top-0"><MoreHorizontal size={16}/></button>
+                  <td className="relative w-28 px-6 py-4 text-right">
+                    <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" title="View Profile"><Eye size={16}/></button>
                     </div>
+                    <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
                   </td>
                 </tr>
               ))}
