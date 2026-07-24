@@ -73,7 +73,11 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
         ? variant.inventory_items[0]
         : variant.inventory_items
       const sourceVariant: any = sourceBySku.get(String(variant.sku).toUpperCase())
-      const variantImage = sourceVariant?.image || sourceVariant?.images?.[0] || image
+      const variantImages = [...new Set([
+        sourceVariant?.image,
+        ...(Array.isArray(sourceVariant?.images) ? sourceVariant.images : []),
+      ].filter((url): url is string => typeof url === 'string' && url.length > 0))]
+      const variantImage = variantImages[0] || image
       const attributes = sourceVariant?.attributes
         && typeof sourceVariant.attributes === 'object'
         && !Array.isArray(sourceVariant.attributes)
@@ -95,6 +99,7 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
           ? Math.round((1 - salePrice / listPrice) * 100)
           : null,
         image: variantImage,
+        images: variantImages.length > 0 ? variantImages : [variantImage],
         attributes,
         availableQuantity: Math.max(0, Number(inventory?.on_hand_quantity ?? 0)),
       }

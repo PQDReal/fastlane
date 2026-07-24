@@ -2,6 +2,7 @@ import 'server-only'
 
 import { ApiRouteError } from '@/lib/api/errors'
 import type { ApiCart, ApiCartItem } from '@/lib/cart/types'
+import { variantImageForSku } from '@/lib/cart/variant-media'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type CartRow = {
@@ -25,6 +26,7 @@ type VariantRow = {
     product_type: 'ACCESSORY' | 'VEHICLE'
     is_active: boolean
     image_urls: unknown
+    specifications: unknown
   }
   inventory: { on_hand_quantity: number } | null
 }
@@ -56,14 +58,6 @@ function numericMoney(value: number | string | null) {
     )
   }
   return Math.round(amount)
-}
-
-function firstImage(value: unknown) {
-  if (!Array.isArray(value)) return null
-  const image = value.find(
-    (entry) => typeof entry === 'string' && entry.trim().length > 0,
-  )
-  return typeof image === 'string' ? image : null
 }
 
 function cartVersion(updatedAt: string) {
@@ -120,7 +114,7 @@ async function readCartItems(cartId: string) {
         original_price,
         sale_price,
         is_active,
-        product:products!inner(id, name, slug, product_type, is_active, image_urls),
+        product:products!inner(id, name, slug, product_type, is_active, image_urls, specifications),
         inventory:inventory_items(on_hand_quantity)
       )
     `)
@@ -174,7 +168,7 @@ function mapCartItem(row: CartItemRow): ApiCartItem {
     unitAmountDueNow: String(unitPrice),
     lineTotal: String(lineTotal),
     lineAmountDueNow: String(lineTotal),
-    imageUrl: firstImage(variant.product.image_urls),
+    imageUrl: variantImageForSku(variant.product, variant.sku),
     availableQuantity: Math.max(
       0,
       Number(variant.inventory?.on_hand_quantity ?? 0),
@@ -218,7 +212,7 @@ async function readAccessoryVariant(variantId: string) {
       original_price,
       sale_price,
       is_active,
-      product:products!inner(id, name, slug, product_type, is_active, image_urls),
+      product:products!inner(id, name, slug, product_type, is_active, image_urls, specifications),
       inventory:inventory_items(on_hand_quantity)
     `)
     .eq('id', variantId)

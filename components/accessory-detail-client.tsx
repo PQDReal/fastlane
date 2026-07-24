@@ -38,12 +38,15 @@ export function AccessoryDetailClient({ product }: { product: AccessoryDetailDat
     () => product.variants.find((variant) => variant.variantId === selectedVariantId) || product.variants[0],
     [product.variants, selectedVariantId],
   )
+  const selectedImages = selectedVariant?.images.length > 0
+    ? selectedVariant.images
+    : product.images
   const inStock = Boolean(selectedVariant && selectedVariant.availableQuantity > 0)
 
   const changeVariant = (variantId: string) => {
     const variant = product.variants.find((item) => item.variantId === variantId)
     setSelectedVariantId(variantId)
-    if (variant?.image) setSelectedImage(variant.image)
+    setSelectedImage(variant?.images[0] || variant?.image || product.images[0] || '/images/vf8.png')
     setQuantity(1)
     setFeedback(null)
   }
@@ -83,16 +86,16 @@ export function AccessoryDetailClient({ product }: { product: AccessoryDetailDat
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
               <img src={selectedImage} alt={product.name} className="h-full w-full object-contain" />
             </div>
-            {product.images.length > 1 && (
+            {selectedImages.length > 1 && (
               <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-                {product.images.map((image) => (
+                {selectedImages.map((image) => (
                   <button
                     key={image}
                     type="button"
                     onClick={() => setSelectedImage(image)}
                     className={`h-20 w-20 shrink-0 rounded-xl border bg-white p-2 ${selectedImage === image ? 'border-[#836100] ring-2 ring-[#836100]/15' : 'border-slate-200'}`}
                   >
-                    <img src={image} alt="" className="h-full w-full object-contain" />
+                    <img src={image} alt={`${product.name} - ${selectedVariant.variantName}`} className="h-full w-full object-contain" />
                   </button>
                 ))}
               </div>

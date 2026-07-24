@@ -13,6 +13,7 @@ const catalogItem: AccessoryCatalogItem = {
   priceAmount: 100000,
   oldPriceAmount: null,
   image: '/images/vf8.png',
+  images: ['/images/vf8.png'],
   attributes: {},
   availableQuantity: 5,
   discount: null,

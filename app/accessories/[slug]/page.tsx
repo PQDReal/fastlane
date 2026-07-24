@@ -65,7 +65,11 @@ export default async function AccessoryDetailPage({
     const salePrice = variant.sale_price === null ? null : Number(variant.sale_price)
     const priceAmount = salePrice ?? listPrice
     const sourceVariant: any = sourceBySku.get(String(variant.sku).toUpperCase())
-    const variantImage = sourceVariant?.image || sourceVariant?.images?.[0] || fallbackImage
+    const variantImages = [...new Set([
+      sourceVariant?.image,
+      ...(Array.isArray(sourceVariant?.images) ? sourceVariant.images : []),
+    ].filter((url): url is string => typeof url === 'string' && url.length > 0))]
+    const variantImage = variantImages[0] || fallbackImage
     const attributes = sourceVariant?.attributes
       && typeof sourceVariant.attributes === 'object'
       && !Array.isArray(sourceVariant.attributes)
@@ -82,6 +86,7 @@ export default async function AccessoryDetailPage({
       priceAmount,
       oldPriceAmount: salePrice !== null && salePrice < listPrice ? listPrice : null,
       image: variantImage,
+      images: variantImages.length > 0 ? variantImages : [variantImage],
       attributes,
       availableQuantity: Math.max(0, Number(inventory?.on_hand_quantity ?? 0)),
       discount: salePrice !== null && salePrice < listPrice
@@ -92,13 +97,22 @@ export default async function AccessoryDetailPage({
 
   if (variants.length === 0) notFound()
 
+  const specificationText = typeof specifications.specification_text === 'string'
+    ? specifications.specification_text.trim()
+    : ''
+  const detailSpecifications = specifications.specifications
+    && typeof specifications.specifications === 'object'
+    && !Array.isArray(specifications.specifications)
+    ? specifications.specifications as Record<string, unknown>
+    : {}
+
   const product: AccessoryDetailData = {
     productId: data.id,
     slug: data.slug,
     name: data.name,
-    description: data.description,
+    description: specificationText || data.description,
     images: images.length > 0 ? images : [fallbackImage],
-    specifications,
+    specifications: detailSpecifications,
     variants,
     initialVariantId: variants.find((variant) => variant.sku === requestedVariant)?.variantId,
   }

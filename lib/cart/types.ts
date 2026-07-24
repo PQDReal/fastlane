@@ -8,6 +8,7 @@ export type AccessoryCatalogItem = {
   priceAmount: number
   oldPriceAmount: number | null
   image: string
+  images: string[]
   attributes: Record<string, string>
   availableQuantity: number
   discount: number | null
