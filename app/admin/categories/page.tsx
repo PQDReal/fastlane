@@ -92,6 +92,17 @@ export default function AdminCategoriesPage() {
     )
   }, [categories, searchTerm])
 
+  const normalizedForm = {
+    name: form.name.trim(),
+    slug: form.slug.trim(),
+    description: form.description.trim(),
+  }
+  const hasCategoryChanges = !editingCategory ||
+    normalizedForm.name !== editingCategory.name.trim() ||
+    normalizedForm.slug !== editingCategory.slug.trim() ||
+    normalizedForm.description !== (editingCategory.description || '').trim()
+  const canSubmitCategory = Boolean(normalizedForm.name && normalizedForm.slug && hasCategoryChanges)
+
   function openCreateForm() {
     setEditingCategory(null)
     setForm(EMPTY_FORM)
@@ -134,7 +145,7 @@ export default function AdminCategoriesPage() {
       const response = await fetch(endpoint, {
         method: editingCategory ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, name: form.name.trim(), slug: form.slug.trim(), description: form.description.trim() }),
+        body: JSON.stringify(normalizedForm),
       })
       if (!response.ok) throw new Error(await readError(response))
 
@@ -335,7 +346,7 @@ export default function AdminCategoriesPage() {
               </label>
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
                 <Button type="button" variant="outline" onClick={closeForm} disabled={isSaving}>Hủy</Button>
-                <Button type="submit" disabled={isSaving} className="bg-slate-900 text-white hover:bg-slate-800">
+                <Button type="submit" disabled={isSaving || !canSubmitCategory} className="bg-slate-900 text-white hover:bg-slate-800">
                   {isSaving && <Loader2 size={16} className="mr-2 animate-spin" />}
                   {editingCategory ? 'Lưu thay đổi' : 'Thêm danh mục'}
                 </Button>
