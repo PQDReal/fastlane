@@ -81,6 +81,24 @@ export function reconcileSelection(
   return reconciled
 }
 
+/** Applies a UI option change, including deselecting an optional value. */
+export function changeOptionSelection(
+  product: CatalogProduct,
+  selection: CatalogSelection,
+  groupCode: string,
+  valueCode: string,
+): CatalogSelection {
+  const group = product.optionGroups.find((item) => item.code === groupCode)
+  const candidate = { ...selection }
+  const clearsOptionalValue = group?.minimumSelections === 0
+    && (valueCode === '' || selection[groupCode] === valueCode)
+
+  if (clearsOptionalValue) delete candidate[groupCode]
+  else candidate[groupCode] = valueCode
+
+  return reconcileSelection(product, candidate, groupCode)
+}
+
 /** Resolves only when every required group is selected and one variant matches. */
 export function resolveExactVariant(
   product: CatalogProduct,
@@ -91,7 +109,15 @@ export function resolveExactVariant(
     .every((group) => validSelection(group, selection[group.code]))
   if (!hasEveryRequiredSelection) return null
 
-  const matches = filterCompatibleVariants(product.variants, selection)
+  const matches = filterCompatibleVariants(product.variants, selection).filter(
+    (variant) => product.optionGroups.every((group) => (
+      validSelection(group, selection[group.code])
+      || (
+        group.minimumSelections === 0
+        && variant.selectedOptions[group.code] === undefined
+      )
+    )),
+  )
   return matches.length === 1 ? matches[0] : null
 }
 
@@ -183,5 +209,24 @@ export function resolveCatalogImageUrl(
   product: CatalogProduct,
   options: Parameters<typeof resolveCatalogMedia>[1] = {},
 ): string {
-  return resolveCatalogMedia(product, options)[0].url
+  const variantMedia = options.variantId
+    ? product.media.byVariant[options.variantId] ?? []
+    : []
+  const variantSelection = options.variantId
+    ? product.variants.find((variant) => variant.id === options.variantId)?.selectedOptions
+    : undefined
+  const selection = options.selectedOptions ?? variantSelection ?? {}
+  const optionValueId = primarySelectedOptionValueId(product, selection)
+  const optionMedia = optionValueId
+    ? product.media.byOptionValue[optionValueId] ?? []
+    : []
+
+  for (const scope of [variantMedia, optionMedia, product.media.product]) {
+    const image = scope.find((item) => item.mediaType === 'IMAGE')
+    if (image) return image.url
+  }
+
+  return product.legacyImageUrls[0]
+    ?? options.placeholderUrl
+    ?? CATALOG_PLACEHOLDER_IMAGE
 }

@@ -5,8 +5,8 @@ import { Check, ChevronLeft, Loader2, Minus, Plus, ShoppingCart } from 'lucide-r
 import Link from 'next/link'
 
 import {
+  changeOptionSelection,
   getOptionAvailability,
-  reconcileSelection,
   resolveCatalogMedia,
   resolveExactVariant,
 } from '@/lib/catalog/resolver'
@@ -138,7 +138,11 @@ function OptionGroup({
           onChange={(event) => onChange(group.code, event.target.value)}
           className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#836100] focus:ring-2 focus:ring-[#836100]/15"
         >
-          <option value="" disabled>Chọn {group.name.toLocaleLowerCase('vi-VN')}</option>
+          <option value="" disabled={group.minimumSelections > 0}>
+            {group.minimumSelections > 0
+              ? `Chọn ${group.name.toLocaleLowerCase('vi-VN')}`
+              : `Không chọn ${group.name.toLocaleLowerCase('vi-VN')}`}
+          </option>
           {group.values.map((value) => (
             <option
               key={value.id}
@@ -248,10 +252,11 @@ export function AccessoryDetailClient({
   const description = product.content.specificationText || product.description
 
   const changeOption = (groupCode: string, valueCode: string) => {
-    setSelection((current) => reconcileSelection(
+    setSelection((current) => changeOptionSelection(
       product,
-      { ...current, [groupCode]: valueCode },
+      current,
       groupCode,
+      valueCode,
     ))
     setSelectedMediaIndex(0)
     setQuantity(1)
