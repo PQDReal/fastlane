@@ -1977,7 +1977,8 @@
         ],
         "variants": [
             "VF 9 Eco: 1.280.600.000 VNĐ* (Niêm yết: 1.348.000.000 VNĐ)",
-            "VF 9 Plus: 1.452.550.000 VNĐ* (Niêm yết: 1.529.000.000 VNĐ)"
+            "VF 9 Plus: 1.452.550.000 VNĐ* (Niêm yết: 1.529.000.000 VNĐ)",
+            "VF 9 Plus tùy chọn ghế cơ trưởng: 1.482.950.000 VNĐ* (Niêm yết: 1.561.000.000 VNĐ)"
         ],
         "options": [],
         "product_type": "car",
@@ -2459,5 +2460,1079 @@
             "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw80931a17/images/PDP/vf9/car-compare.webp",
             "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfb1b0e26/images/PDP/vf9/202406/vf9-logo.svg"
         ]
+    },
+    {
+        "name": "VinFast VF MPV 7",
+        "url": "https://vinfastauto.com/vn_vi/dat-coc-xe-vf-mpv7",
+        "order_url": "https://shop.vinfastauto.com/vn_vi/dat-coc-o-to-dien-vinfast.html?modelId=Products-Car-VFMPV7",
+        "price": "Chỉ từ 712.500.000 VNĐ*",
+        "list_price": 750000000,
+        "configurator_base_price": 750000000,
+        "pricing": {
+            "advertised_price": 712500000,
+            "advertised_list_price": 750000000,
+            "configurator_base_price": 750000000,
+            "source_conflict": false
+        },
+        "deposit": "15.000.000 VNĐ",
+        "deposit_value": 15000000,
+        "colors": [
+            {
+                "code": "CE18",
+                "name": "Infinity Blanc",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE11",
+                "name": "Jet Black",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE11.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE1V",
+                "name": "Zenith Grey",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE1V.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa6d13dc2/images/deposit/exterior/CE1V.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE2Q",
+                "name": "Solar Ruby",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2Q.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE2J",
+                "name": "Moonlit Ocean",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2J.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw66e078c6/images/deposit/exterior/CE2J.webp",
+                "price_delta": 10000000
+            },
+            {
+                "code": "CE2N",
+                "name": "Introspective Brown",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2N.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3bfc450f/images/deposit/exterior/CE2N.webp",
+                "price_delta": 10000000
+            }
+        ],
+        "variants": [
+            "VF MPV 7 Tiêu chuẩn: 712.500.000 VNĐ* (Niêm yết: 750.000.000 VNĐ)"
+        ],
+        "editions": [
+            {
+                "code": "SL1WV",
+                "name": "VF MPV 7 Tiêu chuẩn",
+                "list_price": 750000000,
+                "promotional_price": 712500000,
+                "interiors": [
+                    {
+                        "code": "CI11",
+                        "name": "Black",
+                        "image": "",
+                        "gallery": [],
+                        "compatible_exterior_codes": [
+                            "CE1V",
+                            "CE2J",
+                            "CE11",
+                            "CE18",
+                            "CE2Q",
+                            "CE2N"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE1V",
+                                "name": "Zenith Grey"
+                            },
+                            {
+                                "code": "CE2J",
+                                "name": "Moonlit Ocean"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            },
+                            {
+                                "code": "CE2Q",
+                                "name": "Solar Ruby"
+                            },
+                            {
+                                "code": "CE2N",
+                                "name": "Introspective Brown"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE1V",
+                                "exterior_name": "Zenith Grey",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE1V-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2J",
+                                "exterior_name": "Moonlit Ocean",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2J-CI11"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE11-CI11"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE18-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2Q",
+                                "exterior_name": "Solar Ruby",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2Q-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2N",
+                                "exterior_name": "Introspective Brown",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2N-CI11"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "CI18",
+                        "name": "Mocca Brown",
+                        "image": "",
+                        "gallery": [],
+                        "compatible_exterior_codes": [
+                            "CE1V",
+                            "CE2J",
+                            "CE11",
+                            "CE18"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE1V",
+                                "name": "Zenith Grey"
+                            },
+                            {
+                                "code": "CE2J",
+                                "name": "Moonlit Ocean"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE1V",
+                                "exterior_name": "Zenith Grey",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE1V-CI18"
+                            },
+                            {
+                                "exterior_code": "CE2J",
+                                "exterior_name": "Moonlit Ocean",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2J-CI18"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE11-CI18"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE18-CI18"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "options": [
+            "Màu nâng cao: + 10.000.000 VNĐ"
+        ],
+        "product_type": "car",
+        "specs": {
+            "Tiêu chuẩn": {
+                "price": 750000000,
+                "specs": {
+                    "dimension": {
+                        "length": "4.740 x 1.872 x 1.734 mm",
+                        "wheelbase": 2840,
+                        "groundClearance": 185
+                    },
+                    "powertrain": {
+                        "maxPower": "150 kW",
+                        "maxTorque": "280 Nm",
+                        "distance": "450 km (NEDC)",
+                        "batteryCapacity": "60,13 kWh",
+                        "fastChargingTime": "30 phút (10%-70%)",
+                        "drivetrain": "FWD/Cầu trước"
+                    },
+                    "interior": {
+                        "numberOfSeats": 7,
+                        "informationCenter": "10,1 inch",
+                        "audioSystem": "4 loa"
+                    },
+                    "ID": "VF MPV 7 Tiêu chuẩn",
+                    "edition": "SL1WV"
+                },
+                "interiors": [
+                    {
+                        "code": "CI11",
+                        "name": "Black",
+                        "image": "",
+                        "gallery": [],
+                        "compatible_exterior_codes": [
+                            "CE1V",
+                            "CE2J",
+                            "CE11",
+                            "CE18",
+                            "CE2Q",
+                            "CE2N"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE1V",
+                                "name": "Zenith Grey"
+                            },
+                            {
+                                "code": "CE2J",
+                                "name": "Moonlit Ocean"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            },
+                            {
+                                "code": "CE2Q",
+                                "name": "Solar Ruby"
+                            },
+                            {
+                                "code": "CE2N",
+                                "name": "Introspective Brown"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE1V",
+                                "exterior_name": "Zenith Grey",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE1V-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2J",
+                                "exterior_name": "Moonlit Ocean",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2J-CI11"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE11-CI11"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE18-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2Q",
+                                "exterior_name": "Solar Ruby",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2Q-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2N",
+                                "exterior_name": "Introspective Brown",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2N-CI11"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "CI18",
+                        "name": "Mocca Brown",
+                        "image": "",
+                        "gallery": [],
+                        "compatible_exterior_codes": [
+                            "CE1V",
+                            "CE2J",
+                            "CE11",
+                            "CE18"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE1V",
+                                "name": "Zenith Grey"
+                            },
+                            {
+                                "code": "CE2J",
+                                "name": "Moonlit Ocean"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE1V",
+                                "exterior_name": "Zenith Grey",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE1V-CI18"
+                            },
+                            {
+                                "exterior_code": "CE2J",
+                                "exterior_name": "Moonlit Ocean",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE2J-CI18"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE11-CI18"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC1V_2025-SL1WV-CE18-CI18"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "gallery": {
+            "banner_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp"
+            ],
+            "exterior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE1V.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa6d13dc2/images/deposit/exterior/CE1V.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2J.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw66e078c6/images/deposit/exterior/CE2J.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2N.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3bfc450f/images/deposit/exterior/CE2N.webp"
+            ],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE1V.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa6d13dc2/images/deposit/exterior/CE1V.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2J.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw66e078c6/images/deposit/exterior/CE2J.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2N.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3bfc450f/images/deposit/exterior/CE2N.webp"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE11.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE1V.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa6d13dc2/images/deposit/exterior/CE1V.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2Q.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2J.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw66e078c6/images/deposit/exterior/CE2J.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE2N.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3bfc450f/images/deposit/exterior/CE2N.webp"
+        ],
+        "id": "vf-mpv-7",
+        "slug": "vf-mpv-7",
+        "base_price": 712500000,
+        "range_km": 450,
+        "range_text": "450 km (NEDC)",
+        "seat_count": 7,
+        "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp",
+        "source": {
+            "landing_page": "https://vinfastauto.com/vn_vi/dat-coc-xe-vf-mpv7",
+            "configurator": "https://shop.vinfastauto.com/vn_vi/dat-coc-o-to-dien-vinfast.html?modelId=Products-Car-VFMPV7",
+            "deposit_api": "https://shop.vinfastauto.com/on/demandware.store/Sites-app_vinfast_vn-Site/vi_VN/CarsDeposit-BankInfo?modelID=Products-Car-VFMPV7&UNCID=",
+            "crawled_at": "2026-07-24T03:59:28.668Z"
+        }
+    },
+    {
+        "name": "VinFast VF 8 The All-New 2026",
+        "url": "https://vinfastauto.com/vn_vi/dat-coc-xe-vf8-the-all-new-2026",
+        "order_url": "https://shop.vinfastauto.com/vn_vi/dat-coc-o-to-dien-vinfast.html?modelId=Products-Car-VF8-THE-ALL-NEW",
+        "price": "Chỉ từ 854.050.000 VNĐ*",
+        "list_price": 899000000,
+        "configurator_base_price": 899000000,
+        "pricing": {
+            "advertised_price": 854050000,
+            "advertised_list_price": 899000000,
+            "configurator_base_price": 899000000,
+            "source_conflict": false
+        },
+        "deposit": "15.000.000 VNĐ",
+        "deposit_value": 15000000,
+        "colors": [
+            {
+                "code": "CE18",
+                "name": "Infinity Blanc",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE33",
+                "name": "Starburst Blue",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9497945d/images/VF8-THE-ALL-NEW/HC11V/CE33.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae19c0ba/images/deposit/exterior/CE33.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE2Q",
+                "name": "Solar Ruby",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd511da03/images/VF8-THE-ALL-NEW/HC11V/CE2Q.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "CE11",
+                "name": "Jet Black",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb2337694/images/VF8-THE-ALL-NEW/HC11V/CE11.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+                "price_delta": 0
+            },
+            {
+                "code": "112Q",
+                "name": "Solar Ruby Body - Jet Black Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwed3bf97b/images/VF8-THE-ALL-NEW/HC11V/112Q.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw389f6525/images/deposit/exterior/112Q.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "1132",
+                "name": "Vitality Orange Body - Jet Black Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfdf63c1/images/VF8-THE-ALL-NEW/HC11V/1132.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb6983960/images/deposit/exterior/1132.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "1833",
+                "name": "Starburst Blue Body - Infinity Blanc Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd84f7689/images/VF8-THE-ALL-NEW/HC11V/1833.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8147af2/images/deposit/exterior/1833.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "312O",
+                "name": "Mysterioso Purple Body - Stealth Gray Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd0f6cced/images/VF8-THE-ALL-NEW/HC11V/312O.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3c5dfffc/images/deposit/exterior/312O.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "3111",
+                "name": "Jet Black Body - Stealth Gray Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw14d5c233/images/VF8-THE-ALL-NEW/HC11V/3111.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw83cd6e0f/images/deposit/exterior/3111.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "1832",
+                "name": "Vitality Orange Body - Infinity Blanc Roof",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw024461bf/images/VF8-THE-ALL-NEW/HC11V/1832.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd98efeb2/images/deposit/exterior/1832.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "CE32",
+                "name": "Vitality Orange",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw58844690/images/VF8-THE-ALL-NEW/HC11V/CE32.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0081e81c/images/deposit/exterior/CE32.webp",
+                "price_delta": 12000000
+            },
+            {
+                "code": "CE2O",
+                "name": "Mysterioso Purple",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9ed73f08/images/VF8-THE-ALL-NEW/HC11V/CE2O.webp",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9146dad5/images/deposit/exterior/CE2O.webp",
+                "price_delta": 12000000
+            }
+        ],
+        "variants": [
+            "VF 8 The All New Comfort: 854.050.000 VNĐ* (Niêm yết: 899.000.000 VNĐ)"
+        ],
+        "editions": [
+            {
+                "code": "HC11V",
+                "name": "VF 8 The All New Comfort",
+                "list_price": 899000000,
+                "promotional_price": 854050000,
+                "interiors": [
+                    {
+                        "code": "CI12",
+                        "name": "Saddle Brown",
+                        "image": "",
+                        "gallery": [
+                            {
+                                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI12/1.webp",
+                                "alt": "Nội thất xe điện VF 8 All New"
+                            }
+                        ],
+                        "compatible_exterior_codes": [
+                            "CE33",
+                            "1833",
+                            "CE11",
+                            "3111",
+                            "CE18"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE33",
+                                "name": "Starburst Blue"
+                            },
+                            {
+                                "code": "1833",
+                                "name": "Starburst Blue Body - Infinity Blanc Roof"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "3111",
+                                "name": "Jet Black Body - Stealth Gray Roof"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE33",
+                                "exterior_name": "Starburst Blue",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE33-CI12"
+                            },
+                            {
+                                "exterior_code": "1833",
+                                "exterior_name": "Starburst Blue Body - Infinity Blanc Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1833-CI12"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE11-CI12"
+                            },
+                            {
+                                "exterior_code": "3111",
+                                "exterior_name": "Jet Black Body - Stealth Gray Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-3111-CI12"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE18-CI12"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "CI11",
+                        "name": "Black",
+                        "image": "",
+                        "gallery": [
+                            {
+                                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI11/1.webp",
+                                "alt": "Nội thất xe điện VF 8 All New"
+                            }
+                        ],
+                        "compatible_exterior_codes": [
+                            "CE33",
+                            "1832",
+                            "1833",
+                            "CE11",
+                            "CE32",
+                            "112Q",
+                            "3111",
+                            "CE2O",
+                            "1132",
+                            "CE18",
+                            "CE2Q",
+                            "312O"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE33",
+                                "name": "Starburst Blue"
+                            },
+                            {
+                                "code": "1832",
+                                "name": "Vitality Orange Body - Infinity Blanc Roof"
+                            },
+                            {
+                                "code": "1833",
+                                "name": "Starburst Blue Body - Infinity Blanc Roof"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "CE32",
+                                "name": "Vitality Orange"
+                            },
+                            {
+                                "code": "112Q",
+                                "name": "Solar Ruby Body - Jet Black Roof"
+                            },
+                            {
+                                "code": "3111",
+                                "name": "Jet Black Body - Stealth Gray Roof"
+                            },
+                            {
+                                "code": "CE2O",
+                                "name": "Mysterioso Purple"
+                            },
+                            {
+                                "code": "1132",
+                                "name": "Vitality Orange Body - Jet Black Roof"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            },
+                            {
+                                "code": "CE2Q",
+                                "name": "Solar Ruby"
+                            },
+                            {
+                                "code": "312O",
+                                "name": "Mysterioso Purple Body - Stealth Gray Roof"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE33",
+                                "exterior_name": "Starburst Blue",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE33-CI11"
+                            },
+                            {
+                                "exterior_code": "1832",
+                                "exterior_name": "Vitality Orange Body - Infinity Blanc Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1832-CI11"
+                            },
+                            {
+                                "exterior_code": "1833",
+                                "exterior_name": "Starburst Blue Body - Infinity Blanc Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1833-CI11"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE11-CI11"
+                            },
+                            {
+                                "exterior_code": "CE32",
+                                "exterior_name": "Vitality Orange",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE32-CI11"
+                            },
+                            {
+                                "exterior_code": "112Q",
+                                "exterior_name": "Solar Ruby Body - Jet Black Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-112Q-CI11"
+                            },
+                            {
+                                "exterior_code": "3111",
+                                "exterior_name": "Jet Black Body - Stealth Gray Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-3111-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2O",
+                                "exterior_name": "Mysterioso Purple",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE2O-CI11"
+                            },
+                            {
+                                "exterior_code": "1132",
+                                "exterior_name": "Vitality Orange Body - Jet Black Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1132-CI11"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE18-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2Q",
+                                "exterior_name": "Solar Ruby",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE2Q-CI11"
+                            },
+                            {
+                                "exterior_code": "312O",
+                                "exterior_name": "Mysterioso Purple Body - Stealth Gray Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-312O-CI11"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "options": [
+            "Màu nâng cao: + 12.000.000 VNĐ"
+        ],
+        "product_type": "car",
+        "specs": {
+            "Comfort": {
+                "price": 899000000,
+                "specs": {
+                    "dimension": {
+                        "length": "4.701 x 1.872 x 1.670 mm",
+                        "wheelbase": 2840
+                    },
+                    "powertrain": {
+                        "maxPower": "170 kW",
+                        "maxTorque": "330 Nm",
+                        "distance": "480-500 km (NEDC)",
+                        "batteryCapacity": "60,13 kWh",
+                        "fastChargingTime": "Dưới 30 phút (10%-70%)"
+                    },
+                    "interior": {
+                        "numberOfSeats": 5,
+                        "informationCenter": "12,9 inch"
+                    },
+                    "ID": "VF 8 The All New Comfort",
+                    "edition": "HC11V"
+                },
+                "interiors": [
+                    {
+                        "code": "CI12",
+                        "name": "Saddle Brown",
+                        "image": "",
+                        "gallery": [
+                            {
+                                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI12/1.webp",
+                                "alt": "Nội thất xe điện VF 8 All New"
+                            }
+                        ],
+                        "compatible_exterior_codes": [
+                            "CE33",
+                            "1833",
+                            "CE11",
+                            "3111",
+                            "CE18"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE33",
+                                "name": "Starburst Blue"
+                            },
+                            {
+                                "code": "1833",
+                                "name": "Starburst Blue Body - Infinity Blanc Roof"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "3111",
+                                "name": "Jet Black Body - Stealth Gray Roof"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE33",
+                                "exterior_name": "Starburst Blue",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE33-CI12"
+                            },
+                            {
+                                "exterior_code": "1833",
+                                "exterior_name": "Starburst Blue Body - Infinity Blanc Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1833-CI12"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE11-CI12"
+                            },
+                            {
+                                "exterior_code": "3111",
+                                "exterior_name": "Jet Black Body - Stealth Gray Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-3111-CI12"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE18-CI12"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "CI11",
+                        "name": "Black",
+                        "image": "",
+                        "gallery": [
+                            {
+                                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI11/1.webp",
+                                "alt": "Nội thất xe điện VF 8 All New"
+                            }
+                        ],
+                        "compatible_exterior_codes": [
+                            "CE33",
+                            "1832",
+                            "1833",
+                            "CE11",
+                            "CE32",
+                            "112Q",
+                            "3111",
+                            "CE2O",
+                            "1132",
+                            "CE18",
+                            "CE2Q",
+                            "312O"
+                        ],
+                        "compatible_exterior_colors": [
+                            {
+                                "code": "CE33",
+                                "name": "Starburst Blue"
+                            },
+                            {
+                                "code": "1832",
+                                "name": "Vitality Orange Body - Infinity Blanc Roof"
+                            },
+                            {
+                                "code": "1833",
+                                "name": "Starburst Blue Body - Infinity Blanc Roof"
+                            },
+                            {
+                                "code": "CE11",
+                                "name": "Jet Black"
+                            },
+                            {
+                                "code": "CE32",
+                                "name": "Vitality Orange"
+                            },
+                            {
+                                "code": "112Q",
+                                "name": "Solar Ruby Body - Jet Black Roof"
+                            },
+                            {
+                                "code": "3111",
+                                "name": "Jet Black Body - Stealth Gray Roof"
+                            },
+                            {
+                                "code": "CE2O",
+                                "name": "Mysterioso Purple"
+                            },
+                            {
+                                "code": "1132",
+                                "name": "Vitality Orange Body - Jet Black Roof"
+                            },
+                            {
+                                "code": "CE18",
+                                "name": "Infinity Blanc"
+                            },
+                            {
+                                "code": "CE2Q",
+                                "name": "Solar Ruby"
+                            },
+                            {
+                                "code": "312O",
+                                "name": "Mysterioso Purple Body - Stealth Gray Roof"
+                            }
+                        ],
+                        "configurations": [
+                            {
+                                "exterior_code": "CE33",
+                                "exterior_name": "Starburst Blue",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE33-CI11"
+                            },
+                            {
+                                "exterior_code": "1832",
+                                "exterior_name": "Vitality Orange Body - Infinity Blanc Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1832-CI11"
+                            },
+                            {
+                                "exterior_code": "1833",
+                                "exterior_name": "Starburst Blue Body - Infinity Blanc Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1833-CI11"
+                            },
+                            {
+                                "exterior_code": "CE11",
+                                "exterior_name": "Jet Black",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE11-CI11"
+                            },
+                            {
+                                "exterior_code": "CE32",
+                                "exterior_name": "Vitality Orange",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE32-CI11"
+                            },
+                            {
+                                "exterior_code": "112Q",
+                                "exterior_name": "Solar Ruby Body - Jet Black Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-112Q-CI11"
+                            },
+                            {
+                                "exterior_code": "3111",
+                                "exterior_name": "Jet Black Body - Stealth Gray Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-3111-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2O",
+                                "exterior_name": "Mysterioso Purple",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE2O-CI11"
+                            },
+                            {
+                                "exterior_code": "1132",
+                                "exterior_name": "Vitality Orange Body - Jet Black Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-1132-CI11"
+                            },
+                            {
+                                "exterior_code": "CE18",
+                                "exterior_name": "Infinity Blanc",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE18-CI11"
+                            },
+                            {
+                                "exterior_code": "CE2Q",
+                                "exterior_name": "Solar Ruby",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-CE2Q-CI11"
+                            },
+                            {
+                                "exterior_code": "312O",
+                                "exterior_name": "Mysterioso Purple Body - Stealth Gray Roof",
+                                "pid": "VF-ZVEH-EC25_2025-HC11V-312O-CI11"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "gallery": {
+            "banner_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp"
+            ],
+            "exterior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9497945d/images/VF8-THE-ALL-NEW/HC11V/CE33.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae19c0ba/images/deposit/exterior/CE33.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd511da03/images/VF8-THE-ALL-NEW/HC11V/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb2337694/images/VF8-THE-ALL-NEW/HC11V/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwed3bf97b/images/VF8-THE-ALL-NEW/HC11V/112Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw389f6525/images/deposit/exterior/112Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfdf63c1/images/VF8-THE-ALL-NEW/HC11V/1132.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb6983960/images/deposit/exterior/1132.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd84f7689/images/VF8-THE-ALL-NEW/HC11V/1833.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8147af2/images/deposit/exterior/1833.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd0f6cced/images/VF8-THE-ALL-NEW/HC11V/312O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3c5dfffc/images/deposit/exterior/312O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw14d5c233/images/VF8-THE-ALL-NEW/HC11V/3111.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw83cd6e0f/images/deposit/exterior/3111.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw024461bf/images/VF8-THE-ALL-NEW/HC11V/1832.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd98efeb2/images/deposit/exterior/1832.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw58844690/images/VF8-THE-ALL-NEW/HC11V/CE32.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0081e81c/images/deposit/exterior/CE32.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9ed73f08/images/VF8-THE-ALL-NEW/HC11V/CE2O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9146dad5/images/deposit/exterior/CE2O.webp"
+            ],
+            "interior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI12/1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI11/1.webp"
+            ],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9497945d/images/VF8-THE-ALL-NEW/HC11V/CE33.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae19c0ba/images/deposit/exterior/CE33.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd511da03/images/VF8-THE-ALL-NEW/HC11V/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb2337694/images/VF8-THE-ALL-NEW/HC11V/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwed3bf97b/images/VF8-THE-ALL-NEW/HC11V/112Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw389f6525/images/deposit/exterior/112Q.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfdf63c1/images/VF8-THE-ALL-NEW/HC11V/1132.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb6983960/images/deposit/exterior/1132.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd84f7689/images/VF8-THE-ALL-NEW/HC11V/1833.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8147af2/images/deposit/exterior/1833.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd0f6cced/images/VF8-THE-ALL-NEW/HC11V/312O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3c5dfffc/images/deposit/exterior/312O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw14d5c233/images/VF8-THE-ALL-NEW/HC11V/3111.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw83cd6e0f/images/deposit/exterior/3111.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw024461bf/images/VF8-THE-ALL-NEW/HC11V/1832.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd98efeb2/images/deposit/exterior/1832.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw58844690/images/VF8-THE-ALL-NEW/HC11V/CE32.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0081e81c/images/deposit/exterior/CE32.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9ed73f08/images/VF8-THE-ALL-NEW/HC11V/CE2O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9146dad5/images/deposit/exterior/CE2O.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI12/1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI11/1.webp"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301d5100/images/deposit/exterior/CE18.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9497945d/images/VF8-THE-ALL-NEW/HC11V/CE33.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae19c0ba/images/deposit/exterior/CE33.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd511da03/images/VF8-THE-ALL-NEW/HC11V/CE2Q.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f54daa8/images/deposit/exterior/CE2Q.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb2337694/images/VF8-THE-ALL-NEW/HC11V/CE11.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf37040d4/images/deposit/exterior/CE11.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwed3bf97b/images/VF8-THE-ALL-NEW/HC11V/112Q.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw389f6525/images/deposit/exterior/112Q.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfdf63c1/images/VF8-THE-ALL-NEW/HC11V/1132.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb6983960/images/deposit/exterior/1132.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd84f7689/images/VF8-THE-ALL-NEW/HC11V/1833.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8147af2/images/deposit/exterior/1833.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd0f6cced/images/VF8-THE-ALL-NEW/HC11V/312O.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3c5dfffc/images/deposit/exterior/312O.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw14d5c233/images/VF8-THE-ALL-NEW/HC11V/3111.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw83cd6e0f/images/deposit/exterior/3111.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw024461bf/images/VF8-THE-ALL-NEW/HC11V/1832.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd98efeb2/images/deposit/exterior/1832.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw58844690/images/VF8-THE-ALL-NEW/HC11V/CE32.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0081e81c/images/deposit/exterior/CE32.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9ed73f08/images/VF8-THE-ALL-NEW/HC11V/CE2O.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9146dad5/images/deposit/exterior/CE2O.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI12/1.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/CI11/1.webp"
+        ],
+        "id": "vf-8-all-new",
+        "slug": "vf-8-all-new",
+        "base_price": 854050000,
+        "range_km": 500,
+        "range_text": "480-500 km (NEDC)",
+        "seat_count": 5,
+        "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp",
+        "source": {
+            "landing_page": "https://vinfastauto.com/vn_vi/dat-coc-xe-vf8-the-all-new-2026",
+            "configurator": "https://shop.vinfastauto.com/vn_vi/dat-coc-o-to-dien-vinfast.html?modelId=Products-Car-VF8-THE-ALL-NEW",
+            "deposit_api": "https://shop.vinfastauto.com/on/demandware.store/Sites-app_vinfast_vn-Site/vi_VN/CarsDeposit-BankInfo?modelID=Products-Car-VF8-THE-ALL-NEW&UNCID=",
+            "crawled_at": "2026-07-24T03:59:28.668Z"
+        }
     }
 ]
