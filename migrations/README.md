@@ -36,6 +36,11 @@ The dynamic options sequence is:
   normalized catalog tables. `anon` and `authenticated` retain `SELECT` only;
   the service-role importer retains full access for catalog replacement and
   backups. Application catalog consumers only read these relations.
+- `008_finalize_order_snapshot_after_items.sql` fixes the checkout finalization
+  order discovered by rollback-only live QA. It inserts all order-item
+  snapshots while the parent is still mutable, then sets
+  `snapshot_finalized_at`; this preserves the immutability trigger without
+  blocking the initial item insert.
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 
@@ -47,3 +52,6 @@ includes a guarded rollback recipe because restoring `1..10` would reject any
 quantities above 10 created after the contract is widened. Migration `007`
 does not automatically restore broad public-role grants because RLS does not
 protect `TRUNCATE`; its rollback guidance requires an explicit security review.
+Migration `008` should be retained during application rollback because the
+function ordering installed by `005` is incompatible with the live
+`order_items_guard_snapshot` trigger.
