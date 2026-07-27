@@ -4,14 +4,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { PromoCard } from '@/components/promo-card'
+import type { PromotionProductType } from '@/lib/promotions/product-types'
 
-type ProductType = 'ALL' | 'CAR' | 'BIKE' | 'ACCESSORY'
+type ProductFilter = 'ALL' | PromotionProductType
 
 export type PromotionListItem = {
   id: string
   title: string
   desc: string
-  productType: ProductType
+  productTypes: PromotionProductType[]
   productLabel: string
   expires: string
   image: string
@@ -19,7 +20,7 @@ export type PromotionListItem = {
   discount: string
 }
 
-const filters: Array<{ value: ProductType; label: string }> = [
+const filters: Array<{ value: ProductFilter; label: string }> = [
   { value: 'ALL', label: 'Tất cả' },
   { value: 'CAR', label: 'Ô tô' },
   { value: 'BIKE', label: 'Xe máy' },
@@ -28,10 +29,10 @@ const filters: Array<{ value: ProductType; label: string }> = [
 const PAGE_SIZE = 5
 
 export function PromotionsList({ promotions }: { promotions: PromotionListItem[] }) {
-  const [selected, setSelected] = useState<ProductType>('ALL')
+  const [selected, setSelected] = useState<ProductFilter>('ALL')
   const [page, setPage] = useState(1)
   const filtered = useMemo(
-    () => selected === 'ALL' ? promotions : promotions.filter((item) => item.productType === selected || item.productType === 'ALL'),
+    () => selected === 'ALL' ? promotions : promotions.filter((item) => item.productTypes.includes(selected)),
     [promotions, selected],
   )
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
