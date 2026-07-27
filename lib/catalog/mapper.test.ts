@@ -14,6 +14,11 @@ describe('mapCatalogProduct', () => {
       displayed_price: '250000',
       image_urls: ['legacy.jpg'],
       specifications: {
+        category: 'Thời trang',
+        categories: ['Phong cách sống', ' Thời trang '],
+        compatible_models: ['VF 7'],
+        service_labels: ['Nhận tại showroom'],
+        policy_notes: 'Đổi trong 3 ngày',
         specification_text: 'Chất liệu cotton',
         specifications: { material: 'Cotton' },
         variants: [{ sku: 'must-not-be-read' }],
@@ -108,6 +113,11 @@ describe('mapCatalogProduct', () => {
       },
     ])
     expect(product.content).toEqual({
+      sourceCategory: 'Thời trang',
+      categories: ['Phong cách sống', 'Thời trang'],
+      compatibleModels: ['VF 7'],
+      serviceLabels: ['Nhận tại showroom'],
+      policyNotes: 'Đổi trong 3 ngày',
       specificationText: 'Chất liệu cotton',
       specifications: { material: 'Cotton' },
     })

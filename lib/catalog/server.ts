@@ -1,7 +1,12 @@
 import 'server-only'
 
 import { mapCatalogProduct } from '@/lib/catalog/mapper'
+import {
+  buildAccessoryFacets,
+  filterAccessoryProducts,
+} from '@/lib/catalog/accessory-filters'
 import type {
+  AccessoryCatalogFilters,
   AccessoryCatalogPage,
   CatalogProduct,
   CatalogVariantContext,
@@ -101,6 +106,33 @@ const CATALOG_PRODUCT_SELECT = `
   )
 `
 
+// The first pass intentionally omits option values, mappings and media. It keeps
+// search/facet requests small, then the second pass hydrates only the current page.
+const ACCESSORY_CATALOG_SUMMARY_SELECT = `
+  id,
+  category_id,
+  name,
+  slug,
+  description,
+  product_type,
+  displayed_price,
+  specifications,
+  category:categories!inner(id,name,slug),
+  variants:product_variants!inner(
+    id,
+    product_id,
+    sku,
+    name,
+    original_price,
+    sale_price,
+    deposit_amount,
+    option_signature,
+    is_active,
+    metadata,
+    inventory:inventory_items(on_hand_quantity)
+  )
+`
+
 function accessoryProductsQuery() {
   return getSupabaseAdmin()
     .from('products')
@@ -118,30 +150,60 @@ export async function listAccessoryCatalog(options: {
   page?: number
   pageSize?: number
   categorySlug?: string
+  filters?: AccessoryCatalogFilters
 } = {}): Promise<AccessoryCatalogPage> {
   const page = positiveInteger(options.page, 1)
   const pageSize = Math.min(100, positiveInteger(options.pageSize, 12))
-  const start = (page - 1) * pageSize
   let query = getSupabaseAdmin()
     .from('products')
-    .select(CATALOG_PRODUCT_SELECT, { count: 'exact' })
+    .select(ACCESSORY_CATALOG_SUMMARY_SELECT)
     .eq('is_active', true)
     .eq('product_type', 'ACCESSORY')
     .eq('variants.is_active', true)
 
   if (options.categorySlug) query = query.eq('category.slug', options.categorySlug)
-  const { data, count, error } = await query
+  const { data, error } = await query
     .order('name', { ascending: true })
-    .range(start, start + pageSize - 1)
 
   if (error) throw new Error(`Unable to list accessory catalog: ${error.message}`)
-  const total = count ?? 0
+  const allProducts = (data ?? []).map(mapCatalogProduct)
+  const products = options.filters
+    ? filterAccessoryProducts(allProducts, options.filters)
+    : allProducts
+  const total = products.length
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const start = (currentPage - 1) * pageSize
+  const pageIds = products
+    .slice(start, start + pageSize)
+    .map((product) => product.id)
+  let pageProducts: CatalogProduct[] = []
+
+  if (pageIds.length > 0) {
+    const { data: pageData, error: pageError } = await accessoryProductsQuery()
+      .in('id', pageIds)
+    if (pageError) {
+      throw new Error(`Unable to hydrate accessory catalog: ${pageError.message}`)
+    }
+    const byId = new Map(
+      (pageData ?? []).map((row) => {
+        const product = mapCatalogProduct(row)
+        return [product.id, product] as const
+      }),
+    )
+    pageProducts = pageIds.flatMap((id) => {
+      const product = byId.get(id)
+      return product ? [product] : []
+    })
+  }
+
   return {
-    products: (data ?? []).map(mapCatalogProduct),
-    page,
+    products: pageProducts,
+    page: currentPage,
     pageSize,
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages,
+    facets: buildAccessoryFacets(allProducts),
   }
 }
 

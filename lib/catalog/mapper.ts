@@ -70,8 +70,8 @@ function isActive(row: UnknownRecord): boolean {
 
 function strings(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return [...new Set(value.filter((item): item is string => (
-    typeof item === 'string' && item.trim().length > 0
+  return [...new Set(value.flatMap((item) => (
+    typeof item === 'string' && item.trim().length > 0 ? [item.trim()] : []
   )))]
 }
 
@@ -157,6 +157,11 @@ function mapProductContent(value: unknown): CatalogProductContent {
   const source = object(value)
   const specificationText = nullableString(source.specification_text)
   return {
+    sourceCategory: nullableString(source.category),
+    categories: strings(source.categories),
+    compatibleModels: strings(source.compatible_models),
+    serviceLabels: strings(source.service_labels),
+    policyNotes: nullableString(source.policy_notes),
     specificationText,
     specifications: object(source.specifications),
   }

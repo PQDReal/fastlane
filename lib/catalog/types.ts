@@ -138,8 +138,42 @@ export type CatalogPriceRange = {
 }
 
 export type CatalogProductContent = {
+  sourceCategory: string | null
+  categories: string[]
+  compatibleModels: string[]
+  serviceLabels: string[]
+  policyNotes: string | null
   specificationText: string | null
   specifications: Record<string, unknown>
+}
+
+export type AccessoryCatalogSort = 'name-asc' | 'price-asc' | 'price-desc'
+
+export type AccessoryStockFilter = 'all' | 'in-stock' | 'out-of-stock'
+
+export type AccessoryCatalogFilters = {
+  query: string
+  category: string | null
+  vehicle: string | null
+  service: string | null
+  stock: AccessoryStockFilter
+  minimumPrice: number | null
+  maximumPrice: number | null
+  sort: AccessoryCatalogSort
+}
+
+export type AccessoryCatalogFacetOption = {
+  value: string
+  count: number
+}
+
+export type AccessoryCatalogFacets = {
+  categories: AccessoryCatalogFacetOption[]
+  vehicles: AccessoryCatalogFacetOption[]
+  services: AccessoryCatalogFacetOption[]
+  minimumPrice: number | null
+  maximumPrice: number | null
+  total: number
 }
 
 export type CatalogProduct = {
@@ -184,6 +218,7 @@ export type AccessoryCatalogPage = {
   pageSize: number
   total: number
   totalPages: number
+  facets: AccessoryCatalogFacets
 }
 
 export type CatalogVariantContext = {
