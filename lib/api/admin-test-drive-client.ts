@@ -6,10 +6,11 @@ async function payload(response: Response) {
   return result
 }
 
-export async function getAdminTestDriveRequests(input: { query?: string; status?: string }): Promise<AdminTestDriveRequest[]> {
+export async function getAdminTestDriveRequests(input: { query?: string; status?: string; sort?: string }): Promise<AdminTestDriveRequest[]> {
   const search = new URLSearchParams()
   if (input.query) search.set('q', input.query)
   if (input.status) search.set('status', input.status)
+  if (input.sort) search.set('sort', input.sort)
   const response = await fetch(`/api/v1/admin/test-drive/requests?${search}`, { headers: { Accept: 'application/json' }, cache: 'no-store' })
   return (await payload(response)).data
 }

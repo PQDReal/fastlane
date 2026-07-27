@@ -50,7 +50,8 @@ export async function POST(
 
   if (
     !TEST_DRIVE_STATUSES.includes(expectedCurrentStatus as TestDriveStatus) ||
-    (reason && reason.length > 500)
+    (reason && reason.length > 500) ||
+    (action === 'DECLINE' && !reason)
   ) {
     return NextResponse.json(
       { error: { code: 'VALIDATION_FAILED', message: 'Dữ liệu chuyển trạng thái không hợp lệ' } },

@@ -13,6 +13,9 @@ export const TEST_DRIVE_STATUSES = [
 
 export type TestDriveStatus = (typeof TEST_DRIVE_STATUSES)[number]
 
+export const ADMIN_TEST_DRIVE_SORTS = ['CREATED_DESC', 'SCHEDULED_ASC', 'SCHEDULED_DESC'] as const
+export type AdminTestDriveSort = (typeof ADMIN_TEST_DRIVE_SORTS)[number]
+
 export type AdminTestDriveRequest = {
   id: string
   referenceNumber: string
@@ -73,12 +76,16 @@ const SELECT_COLUMNS =
 export async function listAdminTestDriveRequests(input: {
   query?: string
   status?: TestDriveStatus
+  sort?: AdminTestDriveSort
 }): Promise<AdminTestDriveRequest[]> {
+  const sort = input.sort ?? 'CREATED_DESC'
+  const sortColumn = sort === 'CREATED_DESC' ? 'created_at' : 'scheduled_at'
+  const ascending = sort === 'SCHEDULED_ASC'
   let query = getSupabaseAdmin()
     .from('reservations')
     .select(SELECT_COLUMNS)
     .eq('type', 'TEST_DRIVE')
-    .order('scheduled_at', { ascending: false })
+    .order(sortColumn, { ascending })
 
   if (input.status) query = query.eq('status', input.status)
 
@@ -132,6 +139,9 @@ export async function transitionTestDriveRequest(input: {
   reason?: string | null
 }): Promise<AdminTestDriveRequest> {
   const targetStatus = ACTION_STATUS[input.action]
+  if (input.action === 'DECLINE' && !input.reason?.trim()) {
+    throw new TestDriveTransitionError('Lý do từ chối là bắt buộc', 'INVALID_ACTION')
+  }
   if (!targetStatus) {
     throw new TestDriveTransitionError('Thao tác trạng thái không hợp lệ', 'INVALID_ACTION')
   }

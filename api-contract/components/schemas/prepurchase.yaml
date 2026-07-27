@@ -172,7 +172,11 @@ TestDriveTransitionRequest:
   properties:
     action: { $ref: '../../openapi.yaml#/components/schemas/TestDriveTransitionAction' }
     expectedCurrentStatus: { $ref: '../../openapi.yaml#/components/schemas/TestDriveRequestStatus' }
-    reason: { type: string, minLength: 1, maxLength: 500 }
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+      description: Required when action is DECLINE.
     newSlotId:
       $ref: '../../openapi.yaml#/components/schemas/Uuid'
       description: Required only for RESCHEDULE. A reschedule returns the request to REQUESTED for a new confirmation.
