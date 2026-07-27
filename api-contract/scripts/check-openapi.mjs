@@ -915,6 +915,7 @@ function checkSchemas(specPath) {
     ["HealthResponse", { data: { status: "ok" } }],
     ["ProductDetail", product],
     ["ProductCreateRequest", productCreate],
+    ["AddCartItemRequest", { variantId: u3, quantity: 1 }],
     ["Cart", { id: u1, version: 3, pricedAt: timestamp, items: [cartItem], promotion: applied, pricing }],
     ["CheckoutRequest", {
       cartItemIds: [u1],
@@ -1119,7 +1120,7 @@ function checkSchemas(specPath) {
   negative("PurchaseTerms", { paymentMode: "deposit", depositAmount: null });
   negative("CancellationPolicy", { ...cancellationPolicy, refundPercentage: 101 });
   negative("CancelOrderRequest", { expectedCurrentStatus: "Shipped", reasonCode: "changed_mind" });
-  negative("AddCartItemRequest", { variantId: u3, quantity: 1 });
+  negative("AddCartItemRequest", { variantId: u3, selectedOptionValueIds: [], quantity: 1 });
   const withoutImages = structuredClone(productCreate);
   delete withoutImages.images;
   negative("ProductCreateRequest", withoutImages);

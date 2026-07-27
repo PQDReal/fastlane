@@ -1,8 +1,10 @@
 import 'server-only'
 
 import { ApiRouteError } from '@/lib/api/errors'
-import type { ApiCart, ApiCartItem } from '@/lib/cart/types'
-import { variantImageForSku } from '@/lib/cart/variant-media'
+import { getAccessoryCatalogVariantsByIds } from '@/lib/catalog/server'
+import type { CatalogVariantContext } from '@/lib/catalog/types'
+import { mapCatalogCartItem } from '@/lib/cart/catalog-item'
+import type { ApiCart } from '@/lib/cart/types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type CartRow = {
@@ -12,52 +14,9 @@ type CartRow = {
   updated_at: string
 }
 
-type VariantRow = {
-  id: string
-  sku: string
-  name: string
-  original_price: number | string
-  sale_price: number | string | null
-  is_active: boolean
-  product: {
-    id: string
-    name: string
-    slug: string
-    product_type: 'ACCESSORY' | 'VEHICLE'
-    is_active: boolean
-    image_urls: unknown
-    specifications: unknown
-  }
-  inventory: { on_hand_quantity: number } | null
-}
-
-type CartItemRow = { quantity: number; variant: VariantRow }
-
-const fullPurchaseTerms: ApiCartItem['purchaseTerms'] = {
-  paymentMode: 'full',
-  depositAmount: null,
-  initialPaymentWindowMinutes: 30,
-  balancePaymentWindowDays: null,
-  gracePeriodHours: null,
-  cancellationPolicy: {
-    customerCancellationAllowed: true,
-    customerCancellationCutoff: 'before_shipping',
-    refundPercentage: 100,
-    overdueRefundPercentage: 100,
-    cancellationFeeAmount: '0',
-  },
-}
-
-function numericMoney(value: number | string | null) {
-  const amount = Number(value ?? 0)
-  if (!Number.isFinite(amount) || amount < 0) {
-    throw new ApiRouteError(
-      422,
-      'PRICE_CHANGED',
-      'A catalog price is invalid.',
-    )
-  }
-  return Math.round(amount)
+type CartItemRow = {
+  variant_id: string
+  quantity: number
 }
 
 function cartVersion(updatedAt: string) {
@@ -102,84 +61,55 @@ async function ensureActiveCart(customerId: string) {
   throw new Error(`Unable to create cart: ${error?.message ?? 'unknown error'}`)
 }
 
-async function readCartItems(cartId: string) {
+async function readCartItems(cartId: string): Promise<CartItemRow[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('cart_items')
-    .select(`
-      quantity,
-      variant:product_variants!inner(
-        id,
-        sku,
-        name,
-        original_price,
-        sale_price,
-        is_active,
-        product:products!inner(id, name, slug, product_type, is_active, image_urls, specifications),
-        inventory:inventory_items(on_hand_quantity)
-      )
-    `)
+    .select('variant_id, quantity')
     .eq('cart_id', cartId)
 
   if (error) {
     throw new Error(`Unable to read cart items: ${error.message}`)
   }
 
-  return (data ?? []) as unknown as CartItemRow[]
+  return (data ?? []) as CartItemRow[]
 }
 
-function mapCartItem(row: CartItemRow): ApiCartItem {
-  const variant = row.variant
-  if (
-    !variant?.is_active ||
-    !variant.product?.is_active ||
-    variant.product.product_type !== 'ACCESSORY'
-  ) {
+async function readCartItemContexts(
+  rows: CartItemRow[],
+): Promise<Map<string, CatalogVariantContext>> {
+  const contexts = await getAccessoryCatalogVariantsByIds(
+    rows.map((row) => row.variant_id),
+  )
+  return new Map(contexts.map((context) => [context.variant.id, context]))
+}
+
+function cartItemQuantity(row: CartItemRow): number {
+  const quantity = Number(row.quantity)
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
     throw new ApiRouteError(
       409,
       'CART_CHANGED',
-      'A cart item is no longer available.',
+      'A cart item has an invalid quantity.',
     )
   }
-
-  const listPrice = numericMoney(variant.original_price)
-  const salePrice =
-    variant.sale_price === null ? null : numericMoney(variant.sale_price)
-  const unitPrice = salePrice ?? listPrice
-  const quantity = Number(row.quantity)
-  const lineTotal = unitPrice * quantity
-
-  return {
-    id: variant.id,
-    variantId: variant.id,
-    productId: variant.product.id,
-    productSlug: variant.product.slug,
-    productName: variant.product.name,
-    productKind: 'accessory',
-    purchaseTerms: fullPurchaseTerms,
-    sku: variant.sku,
-    variantAttributes:
-      variant.name === 'Mặc định' ? {} : { name: variant.name },
-    selectedOptions: [],
-    quantity,
-    unitListPrice: String(listPrice),
-    unitSalePrice: salePrice === null ? null : String(salePrice),
-    unitOptionTotal: '0',
-    unitPrice: String(unitPrice),
-    unitAmountDueNow: String(unitPrice),
-    lineTotal: String(lineTotal),
-    lineAmountDueNow: String(lineTotal),
-    imageUrl: variantImageForSku(variant.product, variant.sku),
-    availableQuantity: Math.max(
-      0,
-      Number(variant.inventory?.on_hand_quantity ?? 0),
-    ),
-  }
+  return quantity
 }
 
 export async function readCustomerCart(customerId: string): Promise<ApiCart> {
   const cart = await ensureActiveCart(customerId)
   const rows = await readCartItems(cart.id)
-  const items = rows.map(mapCartItem)
+  const contextsByVariantId = await readCartItemContexts(rows)
+  const items = rows.map((row) => {
+    const context = contextsByVariantId.get(row.variant_id)
+    if (!context) {
+      throw new ApiRouteError(
+        409,
+        'CART_CHANGED',
+        'A cart item is no longer available.',
+      )
+    }
+    return mapCatalogCartItem(context, cartItemQuantity(row))
+  })
   const subtotal = items.reduce(
     (total, item) => total + Number(item.lineTotal),
     0,
@@ -202,38 +132,14 @@ export async function readCustomerCart(customerId: string): Promise<ApiCart> {
   }
 }
 
-async function readAccessoryVariant(variantId: string) {
-  const { data, error } = await getSupabaseAdmin()
-    .from('product_variants')
-    .select(`
-      id,
-      sku,
-      name,
-      original_price,
-      sale_price,
-      is_active,
-      product:products!inner(id, name, slug, product_type, is_active, image_urls, specifications),
-      inventory:inventory_items(on_hand_quantity)
-    `)
-    .eq('id', variantId)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`Unable to read variant: ${error.message}`)
-  }
-  if (!data) {
+async function readAccessoryVariant(
+  variantId: string,
+): Promise<CatalogVariantContext> {
+  const context = (await getAccessoryCatalogVariantsByIds([variantId]))[0]
+  if (!context) {
     throw new ApiRouteError(404, 'RESOURCE_NOT_FOUND', 'Variant was not found.')
   }
-
-  const variant = data as unknown as VariantRow
-  if (
-    !variant.is_active ||
-    !variant.product?.is_active ||
-    variant.product.product_type !== 'ACCESSORY'
-  ) {
-    throw new ApiRouteError(404, 'RESOURCE_NOT_FOUND', 'Variant was not found.')
-  }
-  return variant
+  return context
 }
 
 async function touchCart(cartId: string) {
@@ -250,8 +156,8 @@ export async function addCustomerCartItem(
   variantId: string,
   requestedQuantity: number,
 ) {
-  const variant = await readAccessoryVariant(variantId)
-  const available = Number(variant.inventory?.on_hand_quantity ?? 0)
+  const context = await readAccessoryVariant(variantId)
+  const available = context.variant.availableQuantity
   const cart = await ensureActiveCart(customerId)
   const { data: existing, error: existingError } = await getSupabaseAdmin()
     .from('cart_items')
@@ -292,9 +198,8 @@ export async function updateCustomerCartItem(
   variantId: string,
   quantity: number,
 ) {
-  const variant = await readAccessoryVariant(variantId)
-  const available = Number(variant.inventory?.on_hand_quantity ?? 0)
-  if (available < quantity) {
+  const context = await readAccessoryVariant(variantId)
+  if (context.variant.availableQuantity < quantity) {
     throw new ApiRouteError(
       409,
       'OUT_OF_STOCK',

@@ -1,19 +1,12 @@
 AddCartItemRequest:
   type: object
   additionalProperties: false
-  required: [variantId, selectedOptionValueIds, quantity]
+  required: [variantId, quantity]
   examples:
     - variantId: 123e4567-e89b-12d3-a456-426614174002
-      selectedOptionValueIds: [123e4567-e89b-12d3-a456-426614174003]
       quantity: 1
   properties:
     variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    selectedOptionValueIds:
-      type: array
-      maxItems: 20
-      uniqueItems: true
-      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-      description: Explicit selected non-inventory options; send an empty array when the product has no options.
     quantity: { type: integer, minimum: 1, maximum: 99 }
 UpdateCartItemRequest:
   type: object

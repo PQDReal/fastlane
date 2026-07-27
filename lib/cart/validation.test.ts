@@ -15,10 +15,17 @@ describe('cart request validation', () => {
     expect(
       parseAddCartItemRequest({
         variantId,
-        selectedOptionValueIds: [],
         quantity: 2,
       }),
-    ).toEqual({ variantId, selectedOptionValueIds: [], quantity: 2 })
+    ).toEqual({ variantId, quantity: 2 })
+  })
+
+  it('temporarily accepts an empty legacy option array but returns the canonical shape', () => {
+    expect(parseAddCartItemRequest({
+      variantId,
+      selectedOptionValueIds: [],
+      quantity: 1,
+    })).toEqual({ variantId, quantity: 1 })
   })
 
   it('accepts UUID values already stored by PostgreSQL without RFC version bits', () => {
@@ -26,7 +33,6 @@ describe('cart request validation', () => {
     expect(
       parseAddCartItemRequest({
         variantId: databaseVariantId,
-        selectedOptionValueIds: [],
         quantity: 1,
       }),
     ).toMatchObject({ variantId: databaseVariantId })

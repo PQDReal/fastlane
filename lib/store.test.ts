@@ -87,14 +87,15 @@ describe('useAppStore cart cache', () => {
   })
 
   it('reconciles an optimistic add with the server response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: apiCart(1) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ data: apiCart(1) }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+      fetchMock,
     )
 
     const result = await useAppStore.getState().addToCart(catalogItem)
@@ -108,6 +109,13 @@ describe('useAppStore cart cache', () => {
       }),
     ])
     expect(useAppStore.getState().getCartTotal()).toBe(100000)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/cart/items',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ variantId: catalogItem.variantId, quantity: 1 }),
+      }),
+    )
   })
 
   it('rolls back optimistic state when the server rejects the item', async () => {

@@ -19,7 +19,7 @@
     x-prd-references: [US-C06, FR-CART-01, BR-04, BR-13]
     x-required-roles: [customer]
     summary: Add a variant to the current cart
-    description: The server validates option ownership, group cardinality, active state, uniqueness, and variant-SKU compatibility. Adding the same variant with the same option selection increments its existing line quantity; a different selection creates another line. The availability check is provisional and does not reserve stock.
+    description: The server validates the active accessory variant and derives its normalized option selection from the variant mapping. Adding the same variant increments its existing line quantity. The availability check is provisional and does not reserve stock.
     requestBody:
       required: true
       content:
