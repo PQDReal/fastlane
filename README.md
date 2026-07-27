@@ -5,7 +5,7 @@ FastLane là ứng dụng thương mại điện tử và đặt lịch lái th�
 ## Chức năng hiện có
 
 - Trang chủ và danh mục ô tô điện, xe máy điện, phụ kiện.
-- So sánh các mẫu xe lấy trực tiếp từ Supabase.
+- So sánh các mẫu xe có trong database.
 - Đặt lịch lái thử theo mẫu xe và tự điền thông tin người dùng đã đăng nhập.
 - Không cho phép đặt lịch trong ngày hiện tại hoặc ngày đã qua.
 - Trang hồ sơ cho phép cập nhật họ tên và số điện thoại.
