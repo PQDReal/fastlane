@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Check } from 'lucide-react'
 
 interface CarColorSelectorProps {
@@ -32,20 +32,42 @@ const colorMap: Record<string, string> = {
   'Summer Yellow Body - Jet Black Roof': '#FFD700',
   'Ivy Green': '#556B2F',
   'Zenith Grey - Desat Silver Roof': '#5E5E5E',
-  'Infinity Blanc - Zenith Grey Roof': '#F8F9FA'
+  'Infinity Blanc - Zenith Grey Roof': '#F8F9FA',
+  'Xám': '#747B7D',
+  'Đen': '#171717',
+  'Đen nhám': '#171717',
+  'Đen bóng': '#111111',
+  'Đỏ tươi': '#C8202F',
+  'Đỏ': '#C8202F',
+  'Đỏ Đen': '#C8202F',
+  'Đỏ tươi - Đen nhám': '#C8202F',
+  'Trắng': '#F5F3EC',
+  'Trắng Cam': '#F5F3EC',
+  'Tím': '#6B5B95',
+  'Xanh': '#607D6A',
+  'Xanh Rêu': '#607D6A',
+  'Xanh Oliu': '#788A57',
+  'Xanh oliu': '#788A57',
+  'Xanh tím than': '#26354A',
+  'Đen Xám Xi Măng': '#747B7D',
+  'Vàng Cát': '#C9A45C',
+  'Vàng cát': '#C9A45C',
+  'Xanh rêu': '#829B8B',
+  'Trắng ngọc trai': '#F5F3EC'
 }
 
 export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
-  // If we have no colors, or no images, or different lengths, we can't reliably map them.
-  if (!colors || colors.length === 0 || !images || images.length === 0) return null
-
-  // Ensure we don't exceed the shortest array
-  const availableColors = colors.slice(0, Math.min(colors.length, images.length))
+  // Keep the color/image association but omit entries whose image is unavailable.
+  // Empty strings remain valid placeholders in the database; they must not reach <img src>.
+  const availableOptions = colors
+    .slice(0, Math.min(colors.length, images.length))
+    .map((color, index) => ({ color, image: images[index]?.trim() ?? '' }))
+    .filter((option) => option.image !== '')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  if (availableColors.length === 0) return null
+  if (availableOptions.length === 0) return null
 
-  const selectedColorObj = availableColors[selectedIndex]
+  const selectedColorObj = availableOptions[selectedIndex].color
   const selectedColorName = typeof selectedColorObj === 'string' ? selectedColorObj : selectedColorObj.name
 
   return (
@@ -58,7 +80,7 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
         <div className="flex flex-col items-center gap-12">
           {/* Image Display */}
           <div className="relative w-full max-w-4xl aspect-[16/9] md:aspect-[2/1] flex items-center justify-center">
-            {availableColors.map((colorObj, idx) => {
+            {availableOptions.map(({ color: colorObj, image }, idx) => {
               const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
               return (
                 <img
@@ -75,7 +97,7 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
           {/* Color Swatches */}
           <div className="flex flex-col items-center gap-6">
             <div className="flex flex-wrap items-center justify-center gap-4">
-              {availableColors.map((colorObj, idx) => {
+              {availableOptions.map(({ color: colorObj }, idx) => {
                 const isSelected = selectedIndex === idx
                 const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
                 const swatchImg = typeof colorObj === 'object' ? colorObj.swatch : null

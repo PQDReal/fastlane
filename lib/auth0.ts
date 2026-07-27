@@ -11,7 +11,7 @@ export const auth0 = new Auth0Client({
   },
   // FastLane uses the SDK as a token-mediating BFF. Browser code never receives
   // an API access token from the SDK's convenience endpoint.
-  enableAccessTokenEndpoint: false,
+  enableAccessTokenEndpoint: true,
   onCallback: async (error, context, session) => {
     const baseUrl = context.appBaseUrl ?? process.env.APP_BASE_URL
 

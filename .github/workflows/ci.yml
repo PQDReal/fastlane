@@ -27,6 +27,8 @@ jobs:
       AUTH0_JWKS_URI: https://example.us.auth0.com/.well-known/jwks.json
       AUTH0_ROLE_CLAIM: https://fastlane.example.com/roles
       AUTH0_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_SERVICE_ROLE_KEY: ci-supabase-service-role-key
 
     steps:
       - name: Check out repository
@@ -60,7 +62,19 @@ jobs:
         run: npm run build
 
       - name: Build production container
-        run: docker build --tag fastlane:ci .
+        run: |
+          docker build --tag fastlane:ci \
+            --build-arg APP_BASE_URL \
+            --build-arg AUTH0_AUDIENCE \
+            --build-arg AUTH0_CLIENT_ID \
+            --build-arg AUTH0_CLIENT_SECRET \
+            --build-arg AUTH0_DOMAIN \
+            --build-arg AUTH0_ISSUER_BASE_URL \
+            --build-arg AUTH0_JWKS_URI \
+            --build-arg AUTH0_ROLE_CLAIM \
+            --build-arg AUTH0_SECRET \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL \
+            --build-arg SUPABASE_SERVICE_ROLE_KEY .
 
       - name: Smoke-test production container
         run: |
@@ -68,7 +82,9 @@ jobs:
             --env APP_BASE_URL --env AUTH0_AUDIENCE --env AUTH0_CLIENT_ID \
             --env AUTH0_CLIENT_SECRET --env AUTH0_DOMAIN \
             --env AUTH0_ISSUER_BASE_URL --env AUTH0_JWKS_URI \
-            --env AUTH0_ROLE_CLAIM --env AUTH0_SECRET fastlane:ci
+            --env AUTH0_ROLE_CLAIM --env AUTH0_SECRET \
+            --env NEXT_PUBLIC_SUPABASE_URL \
+            --env SUPABASE_SERVICE_ROLE_KEY fastlane:ci
           for attempt in {1..20}; do
             if curl --fail --silent http://127.0.0.1:3000/api/v1/health \
               && curl --fail --silent --output /dev/null http://127.0.0.1:3000/; then

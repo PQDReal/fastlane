@@ -7,6 +7,7 @@ import { CheckCircle2, Clock, Loader2, Package, User, XCircle } from 'lucide-rea
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrderSummary } from '@/lib/cart/types'
@@ -121,7 +122,7 @@ function ProfileContent() {
         <Header />
         <div className="flex flex-1 flex-col items-center justify-center pb-20 pt-32 text-center">
           <h1 className="text-2xl font-bold">Vui lòng đăng nhập để xem hồ sơ</h1>
-          <a href="/auth/login" className="mt-4 inline-block rounded-full bg-[#836100] px-6 py-3 font-bold text-white transition-colors hover:bg-[#6a4e00]">Đăng nhập ngay</a>
+          <PopupLoginButton className="mt-4 inline-block rounded-full bg-[#836100] px-6 py-3 font-bold text-white transition-colors hover:bg-[#6a4e00]">Đăng nhập ngay</PopupLoginButton>
         </div>
         <Footer />
       </main>

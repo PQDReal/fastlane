@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
+import { PopupLoginButton } from '@/components/auth/popup-login-button'
 
 export function MotionDiv(props: HTMLMotionProps<'div'>) {
   return <motion.div {...props} />
@@ -112,12 +113,8 @@ export function Header() {
           ) : (
             <div className="hidden sm:flex items-center gap-3">
               {/* <UserRound aria-hidden="true" size={23} strokeWidth={2} /> */}
-              <a
-                className={`whitespace-nowrap rounded-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] shadow-sm transition-all active:scale-95 lg:px-7 lg:py-3 lg:text-[11px] ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
-                href="/auth/login"
-              >
-                Đăng nhập
-              </a>
+              <PopupLoginButton className={`whitespace-nowrap rounded-full px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] shadow-sm transition-all active:scale-95 lg:px-7 lg:py-3 lg:text-[11px] ${headerSolid ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}>Đăng nhập
+              </PopupLoginButton>
             </div>
           )}
           <button className="xl:hidden hover:opacity-70 transition-opacity" aria-label="Menu" onClick={() => setOpen(!open)}>
@@ -145,12 +142,7 @@ export function Header() {
                 {link.name}
               </Link>
             ))}
-            <a
-              className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600"
-              href={user ? '/auth/logout' : '/auth/login'}
-            >
-              {user ? 'Đăng xuất' : 'Đăng nhập'}
-            </a>
+            {user ? <a className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600" href="/auth/logout">Đăng xuất</a> : <PopupLoginButton onSuccess={()=>setOpen(false)} className="border-t border-slate-200 pt-6 text-left text-lg font-bold text-brand-600">Đăng nhập</PopupLoginButton>}
           </motion.nav>
         )}
       </AnimatePresence>

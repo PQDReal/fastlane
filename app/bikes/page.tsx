@@ -9,6 +9,27 @@ import { Pagination } from '../../components/pagination'
 
 export const dynamic = 'force-dynamic'
 
+function getListingImage(imageUrls: unknown): string | null {
+  if (!Array.isArray(imageUrls)) return null
+
+  const listingImage = imageUrls.find(
+    (item): item is { type: string; url: string } =>
+      typeof item === 'object' &&
+      item !== null &&
+      'type' in item &&
+      'url' in item &&
+      item.type === 'listing' &&
+      typeof item.url === 'string' &&
+      item.url.trim() !== '',
+  )
+
+  if (listingImage) return listingImage.url
+
+  return imageUrls.find(
+    (item): item is string => typeof item === 'string' && item.trim() !== '',
+  ) ?? null
+}
+
 export default async function BikesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const searchParams = await props.searchParams
   const pageParam = searchParams?.page
@@ -29,7 +50,7 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
   const bikes = bikesData.map(c => {
-    let image = c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : null
+    let image = getListingImage(c.image_urls)
     if (!image) {
       const { getProductImage } = require('../../lib/get-product-image')
       image = getProductImage(c.name, '/images/vento.png')
@@ -40,6 +61,7 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
       desc: c.description || 'Xe máy điện VinFast',
       price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
       image,
+      href: `/bikes/${c.slug}`,
     }
   })
 

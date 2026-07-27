@@ -24,20 +24,23 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
     .eq('is_active', true)
     .eq('categories.name', 'Ô tô điện')
     .range(start, end)
-  
-  const carsData = rawCars || []
+
+  const carsData = (rawCars || []).sort((a, b) => {
+    const numA = parseInt(a.name.match(/\d+/)?.[0] || '0', 10)
+    const numB = parseInt(b.name.match(/\d+/)?.[0] || '0', 10)
+    if (numA !== numB) return numA - numB
+    return a.name.localeCompare(b.name)
+  })
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
   const cars = carsData.map(c => {
-    let image = c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : null
-    if (!image) {
-      const { getProductImage } = require('../../lib/get-product-image')
-      image = getProductImage(c.name)
-    }
+    const { getProductImage, getCarSpecsSummary } = require('../../lib/get-product-image')
+    const image = getProductImage(c.name, c.image_urls)
+    const specsSummary = getCarSpecsSummary(c.name)
     
     return {
-      name: c.name,
-      desc: c.description || 'Xe ô tô điện VinFast',
+      name: c.name.toUpperCase().startsWith('VINFAST') ? c.name.toUpperCase() : `VINFAST ${c.name.toUpperCase()}`,
+      desc: specsSummary || c.description || 'Xe ô tô điện VinFast',
       price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
       image,
       href: `/cars/${c.slug}`
@@ -47,7 +50,7 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
-      
+
       <div className="bg-muted py-24 border-b border-black/5">
         <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
           <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-8">
@@ -71,10 +74,10 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {cars.map((car, idx) => (
-             <VehicleCard key={idx} {...car} />
+            <VehicleCard key={idx} {...car} />
           ))}
         </div>
-        
+
         <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/cars" />
       </div>
 
