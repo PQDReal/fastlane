@@ -4,31 +4,12 @@ import { VehicleCard } from '../../components/vehicle-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
+import { getProductImage } from '../../lib/get-product-image'
+import { getBikeListingImage } from '../../lib/bike-images'
 
 import { Pagination } from '../../components/pagination'
 
 export const dynamic = 'force-dynamic'
-
-function getListingImage(imageUrls: unknown): string | null {
-  if (!Array.isArray(imageUrls)) return null
-
-  const listingImage = imageUrls.find(
-    (item): item is { type: string; url: string } =>
-      typeof item === 'object' &&
-      item !== null &&
-      'type' in item &&
-      'url' in item &&
-      item.type === 'listing' &&
-      typeof item.url === 'string' &&
-      item.url.trim() !== '',
-  )
-
-  if (listingImage) return listingImage.url
-
-  return imageUrls.find(
-    (item): item is string => typeof item === 'string' && item.trim() !== '',
-  ) ?? null
-}
 
 export default async function BikesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const searchParams = await props.searchParams
@@ -44,24 +25,55 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
     .select(`*, category:categories!inner(name)`, { count: 'exact' })
     .eq('is_active', true)
     .eq('categories.name', 'Xe máy điện')
+    .order('name', { ascending: true })
+    .order('id', { ascending: true })
     .range(start, end)
   
   const bikesData = rawBikes || []
   const totalPages = count ? Math.ceil(count / pageSize) : 1
 
-  const bikes = bikesData.map(c => {
-    let image = getListingImage(c.image_urls)
-    if (!image) {
-      const { getProductImage } = require('../../lib/get-product-image')
-      image = getProductImage(c.name, '/images/vento.png')
-    }
+  const bikes = bikesData.map((bike) => {
+    const specifications =
+      bike.specifications &&
+      typeof bike.specifications === 'object' &&
+      !Array.isArray(bike.specifications)
+        ? bike.specifications
+        : {}
+
+    const colorDetails = Array.isArray(specifications.color_details)
+      ? specifications.color_details
+      : []
+
+
+    const colorDetailImage = colorDetails
+      .map((color: any) =>
+        typeof color?.image_url === 'string'
+          ? color.image_url
+          : typeof color?.image === 'string'
+            ? color.image
+            : null,
+      )
+      .find(
+        (image: string | null): image is string =>
+          typeof image === 'string' &&
+          /\.(jpeg|jpg|gif|png|webp|avif)(?:\?.*)?$/i.test(image),
+      )
+
+    const image = getBikeListingImage(
+      bike.slug,
+      bike.image_urls,
+      colorDetailImage ??
+        getProductImage(bike.name, '/images/vento.png'),
+    )
 
     return {
-      name: c.name,
-      desc: c.description || 'Xe máy điện VinFast',
-      price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
+      name: bike.name,
+      desc: bike.description || 'Xe máy điện VinFast',
+      price: new Intl.NumberFormat('vi-VN').format(
+        bike.displayed_price ?? 0,
+      ),
       image,
-      href: `/bikes/${c.slug}`,
+      href: `/bikes/${bike.slug}`,
     }
   })
 
@@ -101,8 +113,8 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {bikes.map((bike, idx) => (
-             <VehicleCard key={idx} {...bike} />
+          {bikes.map((bike) => (
+            <VehicleCard key={bike.href} {...bike} />
           ))}
         </div>
         
