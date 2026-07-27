@@ -32,6 +32,10 @@ The dynamic options sequence is:
   rows, then atomically replaces and validates the named quantity checks as
   `1..99`; migration `001` could not replace same-named legacy `1..10` checks
   because its guards intentionally used `IF NOT EXISTS`.
+- `007_catalog_read_permissions.sql` resets direct grants on the four
+  normalized catalog tables. `anon` and `authenticated` retain `SELECT` only;
+  the service-role importer retains full access for catalog replacement and
+  backups. Application catalog consumers only read these relations.
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 
@@ -40,4 +44,6 @@ and must be reviewed before use on an environment containing orders. Migration
 `004` intentionally retains validated checks on rollback because weakening
 them would require dropping and recreating constraints. Migration `006`
 includes a guarded rollback recipe because restoring `1..10` would reject any
-quantities above 10 created after the contract is widened.
+quantities above 10 created after the contract is widened. Migration `007`
+does not automatically restore broad public-role grants because RLS does not
+protect `TRUNCATE`; its rollback guidance requires an explicit security review.
