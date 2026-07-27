@@ -5,7 +5,7 @@ import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { legacyProductType, promotionProductTypes } from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
-const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,starts_at,ends_at,is_active,created_at,updated_at'
+const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
 type Context = { params: Promise<{ promotionId: string }> }
 
 function authError(error: unknown) {
@@ -25,7 +25,7 @@ export async function PATCH(request: Request, context: Context) {
       updates.is_active = body.isActive
     }
 
-    const hasFormFields = ['code', 'name', 'description', 'type', 'value', 'applicableProductTypes', 'maxDiscountAmount', 'minimumOrderAmount', 'startsAt', 'endsAt'].some((key) => key in body)
+    const hasFormFields = ['code', 'name', 'description', 'type', 'value', 'applicableProductTypes', 'maxDiscountAmount', 'minimumOrderAmount', 'usageLimit', 'startsAt', 'endsAt'].some((key) => key in body)
     if (hasFormFields) {
       const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : ''
       const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -35,6 +35,7 @@ export async function PATCH(request: Request, context: Context) {
       const applicableProductTypes = promotionProductTypes(body.applicableProductTypes)
       const maxDiscountAmount = body.maxDiscountAmount === null || body.maxDiscountAmount === '' ? null : Number(body.maxDiscountAmount)
       const minimumOrderAmount = Number(body.minimumOrderAmount ?? 0)
+      const usageLimit = body.usageLimit === null || body.usageLimit === '' ? null : Number(body.usageLimit)
       const startsAt = typeof body.startsAt === 'string' ? new Date(body.startsAt) : new Date(NaN)
       const endsAt = typeof body.endsAt === 'string' ? new Date(body.endsAt) : new Date(NaN)
 
@@ -44,6 +45,7 @@ export async function PATCH(request: Request, context: Context) {
       if (applicableProductTypes.length === 0) return NextResponse.json({ error: 'Vui lòng chọn ít nhất một loại sản phẩm áp dụng.' }, { status: 400 })
       if (maxDiscountAmount !== null && (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount < 0)) return NextResponse.json({ error: 'Giá trị khuyến mãi tối đa không hợp lệ.' }, { status: 400 })
       if (!Number.isFinite(minimumOrderAmount) || minimumOrderAmount < 0) return NextResponse.json({ error: 'Giá trị đơn hàng tối thiểu không hợp lệ.' }, { status: 400 })
+      if (usageLimit !== null && (!Number.isInteger(usageLimit) || usageLimit < 1)) return NextResponse.json({ error: 'Số lượt sử dụng phải là số nguyên lớn hơn 0.' }, { status: 400 })
       if (!Number.isFinite(value) || value <= 0 || (type === 'PERCENT' && value > 100)) return NextResponse.json({ error: type === 'PERCENT' ? 'Phần trăm giảm phải lớn hơn 0 và không vượt quá 100.' : 'Số tiền giảm phải lớn hơn 0.' }, { status: 400 })
       if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) return NextResponse.json({ error: 'Thời gian kết thúc phải sau thời gian bắt đầu.' }, { status: 400 })
 
@@ -57,6 +59,7 @@ export async function PATCH(request: Request, context: Context) {
         applicable_product_type: legacyProductType(applicableProductTypes),
         max_discount_amount: maxDiscountAmount,
         minimum_order_amount: minimumOrderAmount,
+        usage_limit: usageLimit,
         starts_at: startsAt.toISOString(),
         ends_at: endsAt.toISOString(),
       })

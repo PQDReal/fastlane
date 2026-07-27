@@ -9,8 +9,8 @@ import {
 } from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
-const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,starts_at,ends_at,is_active,created_at,updated_at'
-const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,starts_at,ends_at,is_active,created_at,updated_at'
+const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
+const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
 
 function authError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -35,6 +35,7 @@ function parseBody(body: any) {
   const applicableProductTypes = promotionProductTypes(body.applicableProductTypes)
   const maxDiscountAmount = body.maxDiscountAmount === null || body.maxDiscountAmount === '' ? null : Number(body.maxDiscountAmount)
   const minimumOrderAmount = Number(body.minimumOrderAmount ?? 0)
+  const usageLimit = body.usageLimit === null || body.usageLimit === '' ? null : Number(body.usageLimit)
   const startsAt = typeof body.startsAt === 'string' ? new Date(body.startsAt) : new Date(NaN)
   const endsAt = typeof body.endsAt === 'string' ? new Date(body.endsAt) : new Date(NaN)
 
@@ -45,6 +46,7 @@ function parseBody(body: any) {
   if (applicableProductTypes.length === 0) throw new Error('Vui lòng chọn ít nhất một loại sản phẩm áp dụng.')
   if (maxDiscountAmount !== null && (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount < 0)) throw new Error('Giá trị khuyến mãi tối đa không hợp lệ.')
   if (!Number.isFinite(minimumOrderAmount) || minimumOrderAmount < 0) throw new Error('Giá trị đơn hàng tối thiểu không hợp lệ.')
+  if (usageLimit !== null && (!Number.isInteger(usageLimit) || usageLimit < 1)) throw new Error('Số lượt sử dụng phải là số nguyên lớn hơn 0.')
   if (!Number.isFinite(value) || value <= 0 || (type === 'PERCENT' && value > 100)) throw new Error(type === 'PERCENT' ? 'Phần trăm giảm phải lớn hơn 0 và không vượt quá 100.' : 'Số tiền giảm phải lớn hơn 0.')
   if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) throw new Error('Thời gian kết thúc phải sau thời gian bắt đầu.')
 
@@ -61,9 +63,10 @@ function parseBody(body: any) {
     applicable_product_type: legacyProductType(applicableProductTypes),
     max_discount_amount: maxDiscountAmount,
     minimum_order_amount: minimumOrderAmount,
+    usage_limit: usageLimit,
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
-    is_active: body.isActive === true,
+    is_active: body.isActive !== false,
   }
 }
 

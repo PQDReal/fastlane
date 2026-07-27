@@ -4,8 +4,8 @@ import { AdminPromotionsTable, type Promotion } from './promotions-table'
 
 export const dynamic = 'force-dynamic'
 
-const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,starts_at,ends_at,is_active,created_at,updated_at'
-const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,starts_at,ends_at,is_active,created_at,updated_at'
+const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
+const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
 
 export default async function AdminPromotionsPage() {
   const supabase = getSupabaseAdmin()
