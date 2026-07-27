@@ -22,6 +22,16 @@ export type AccessoryCatalogProduct = {
   variants: AccessoryCatalogItem[]
 }
 
+export type SelectedProductOption = {
+  groupId: string
+  groupCode: string
+  groupName: string
+  valueId: string
+  valueCode: string
+  valueName: string
+  priceAdjustment: string
+}
+
 export type ApiCartItem = {
   id: string
   variantId: string
@@ -45,7 +55,7 @@ export type ApiCartItem = {
   }
   sku: string
   variantAttributes: Record<string, string>
-  selectedOptions: []
+  selectedOptions: SelectedProductOption[]
   quantity: number
   unitListPrice: string
   unitSalePrice: string | null
@@ -165,7 +175,7 @@ export type AccessoryOrder = {
     sku: string
     productName: string
     variantAttributes: Record<string, string>
-    selectedOptions: []
+    selectedOptions: SelectedProductOption[]
     unitListPrice: string
     unitSalePrice: null
     unitOptionTotal: '0'

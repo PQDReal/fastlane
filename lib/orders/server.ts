@@ -6,6 +6,7 @@ import type {
   AccessoryOrderSummary,
   ShippingAddress,
 } from '@/lib/cart/types'
+import { readSelectedOptionsSnapshot } from '@/lib/orders/selected-options'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type OrderItemRow = {
@@ -14,6 +15,7 @@ type OrderItemRow = {
   sku_snapshot: string
   product_name_snapshot: string
   variant_name_snapshot: string
+  selected_options_snapshot: unknown
   unit_price: number | string
   quantity: number
   line_subtotal: number | string
@@ -137,7 +139,9 @@ function mapOrder(row: OrderRow): AccessoryOrder {
         item.variant_name_snapshot === 'Mặc định'
           ? ({} as Record<string, string>)
           : { name: item.variant_name_snapshot },
-      selectedOptions: [],
+      selectedOptions: readSelectedOptionsSnapshot(
+        item.selected_options_snapshot,
+      ),
       unitListPrice: money(item.unit_price),
       unitSalePrice: null,
       unitOptionTotal: '0',
@@ -169,6 +173,7 @@ const orderSelection = `
     sku_snapshot,
     product_name_snapshot,
     variant_name_snapshot,
+    selected_options_snapshot,
     unit_price,
     quantity,
     line_subtotal
