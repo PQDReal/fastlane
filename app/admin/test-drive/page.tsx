@@ -18,6 +18,7 @@ export default function AdminTestDrivePage() {
   const [requests, setRequests] = useState<AdminTestDriveRequest[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
+  const [sort, setSort] = useState('CREATED_DESC')
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,12 +35,12 @@ export default function AdminTestDrivePage() {
 
   const loadRequests = useCallback(async () => {
     setLoading(true); setError(null)
-    try { setRequests(await getAdminTestDriveRequests({ query: query.trim() || undefined, status: status || undefined })) }
+    try { setRequests(await getAdminTestDriveRequests({ query: query.trim() || undefined, status: status || undefined, sort })) }
     catch (e) { setError(e instanceof Error ? e.message : 'Không thể tải lịch lái thử') }
     finally { setLoading(false) }
-  }, [query, status])
+  }, [query, sort, status])
 
-  useEffect(() => { void loadRequests() }, [status, loadRequests])
+  useEffect(() => { void loadRequests() }, [sort, status, loadRequests])
 
   async function handleSearch(event: FormEvent) { event.preventDefault(); await loadRequests() }
 
@@ -142,6 +143,7 @@ export default function AdminTestDrivePage() {
         <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row">
           <form onSubmit={handleSearch} className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm mã yêu cầu, tên, số điện thoại hoặc email..." className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-4 text-sm focus:border-brand-500 focus:outline-none" /></form>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm focus:border-brand-500 focus:outline-none"><option value="">Tất cả trạng thái</option>{Object.entries(LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sắp xếp lịch lái thử" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm focus:border-brand-500 focus:outline-none"><option value="CREATED_DESC">Ngày tạo: mới nhất</option><option value="SCHEDULED_ASC">Lịch mong muốn: gần nhất</option><option value="SCHEDULED_DESC">Lịch mong muốn: xa nhất</option></select>
         </div>
         {error && <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         <div className="overflow-x-auto">

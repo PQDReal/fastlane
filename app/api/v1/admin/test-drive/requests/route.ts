@@ -3,8 +3,10 @@ import { NextResponse } from 'next/server'
 import { authorizeAdminPrepurchaseRequest } from '@/lib/auth/prepurchase'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import {
+  ADMIN_TEST_DRIVE_SORTS,
   listAdminTestDriveRequests,
   TEST_DRIVE_STATUSES,
+  type AdminTestDriveSort,
   type TestDriveStatus,
 } from '@/lib/services/admin-test-drive-service'
 
@@ -18,9 +20,17 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
+  const sort = searchParams.get('sort')
   if (status && !TEST_DRIVE_STATUSES.includes(status as TestDriveStatus)) {
     return NextResponse.json(
       { error: { code: 'VALIDATION_FAILED', message: 'Trạng thái không hợp lệ' } },
+      { status: 400 },
+    )
+  }
+
+  if (sort && !ADMIN_TEST_DRIVE_SORTS.includes(sort as AdminTestDriveSort)) {
+    return NextResponse.json(
+      { error: { code: 'VALIDATION_FAILED', message: 'Kiểu sắp xếp không hợp lệ' } },
       { status: 400 },
     )
   }
@@ -29,6 +39,7 @@ export async function GET(request: Request) {
     const data = await listAdminTestDriveRequests({
       query: searchParams.get('q') ?? undefined,
       status: (status as TestDriveStatus | null) ?? undefined,
+      sort: (sort as AdminTestDriveSort | null) ?? undefined,
     })
     return NextResponse.json({
       data,
