@@ -35,24 +35,26 @@ export function parseAddCartItemRequest(body: unknown): AddCartItemRequest {
   if (!Number.isInteger(quantity) || Number(quantity) < 1 || Number(quantity) > 99) {
     validationError('quantity', 'quantity must be an integer from 1 to 99.')
   }
-  if (!Array.isArray(selected) || selected.some((item) => typeof item !== 'string')) {
+  if (
+    selected !== undefined
+    && (!Array.isArray(selected) || selected.some((item) => typeof item !== 'string'))
+  ) {
     validationError(
       'selectedOptionValueIds',
       'selectedOptionValueIds must be an array.',
     )
   }
-  if (selected.length > 0) {
+  if (Array.isArray(selected) && selected.length > 0) {
     throw new ApiRouteError(
       422,
       'OPTION_SELECTION_INVALID',
-      'Accessory options are not supported by the current catalog.',
+      'Options are derived from variantId and must not be submitted separately.',
     )
   }
 
   return {
     variantId,
     quantity: Number(quantity),
-    selectedOptionValueIds: [],
   }
 }
 

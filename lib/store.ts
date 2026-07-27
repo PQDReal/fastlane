@@ -149,7 +149,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       method: 'POST',
       body: JSON.stringify({
         variantId: item.variantId,
-        selectedOptionValueIds: [],
         quantity,
       }),
     })

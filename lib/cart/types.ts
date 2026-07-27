@@ -99,7 +99,6 @@ export type AccessoryDetailData = {
 
 export type AddCartItemRequest = {
   variantId: string
-  selectedOptionValueIds: string[]
   quantity: number
 }
 
