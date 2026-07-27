@@ -41,6 +41,10 @@ The dynamic options sequence is:
   snapshots while the parent is still mutable, then sets
   `snapshot_finalized_at`; this preserves the immutability trigger without
   blocking the initial item insert.
+- `009_order_snapshot_guard_schema_drift.sql` makes the order immutability
+  guard compatible with both current schemas and legacy schemas that still
+  contain `showroom_id`. It avoids runtime field dereference while retaining
+  the legacy field's immutability when present.
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 
@@ -55,3 +59,5 @@ protect `TRUNCATE`; its rollback guidance requires an explicit security review.
 Migration `008` should be retained during application rollback because the
 function ordering installed by `005` is incompatible with the live
 `order_items_guard_snapshot` trigger.
+Migration `009` should likewise be retained: its predecessor cannot execute
+against an `orders` row type without `showroom_id`.
