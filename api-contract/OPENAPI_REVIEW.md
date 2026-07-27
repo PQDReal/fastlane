@@ -129,7 +129,7 @@ Mỗi non-health operation còn có `x-prd-references` riêng. Bảng trên ch�
 - `productKind` điều khiển workflow; không suy luận workflow từ category name/slug.
 - `batteryOption` là enum typed trên Variant; null khi không áp dụng.
 - Option động chỉ dùng cho lựa chọn không giữ tồn kho riêng. Mọi lựa chọn đổi SKU/tồn kho phải tiếp tục là Variant.
-- Cart nhận `variantId + selectedOptionValueIds`; server kiểm tra ownership, active state, cardinality, uniqueness và SKU compatibility.
+- Cart nhận `variantId + quantity`; server suy ra option selection từ normalized variant mapping và kiểm tra active state/tồn kho.
 - Cart/Order snapshot option code/name/price adjustment để chỉnh catalog sau đó không làm đổi lịch sử đơn.
 - `grandTotal = amountDueNow + balanceDue`. Promotion giảm balance trước, sau đó mới giảm amount due now.
 - Mock payment approved trên `Created` chỉ thu `amountDueNow`; order đi vào `DepositPaid` nếu còn balance, ngược lại vào `Paid`. Gọi lại trên `DepositPaid/BalanceOverdue` thu đúng balance còn lại.
@@ -320,7 +320,7 @@ Các mục này phải được kiểm tra ở node Backend, Frontend, QA và De
 
 - Seed/migration Product phải gán `productKind`, `purchaseTerms` và `optionGroups`; phụ kiện dùng `{ paymentMode: full, depositAmount: null }`.
 - Mỗi Variant phải có `batteryOption`; dùng null khi không áp dụng, `included` khi pin đã là cấu hình cố định, `purchase`/`subscription` cho hai phương án mua hoặc thuê.
-- Client add-to-cart luôn gửi `selectedOptionValueIds`; gửi `[]` cho sản phẩm không có option.
+- Client add-to-cart chỉ gửi `variantId + quantity`; không gửi lại option IDs đã được variant mapping xác định.
 - Cart/Checkout client hiển thị và xác nhận cả `grandTotal` lẫn `amountDueNow`; không tự tính tiền cọc.
 - Order client hỗ trợ `DepositPaid`, `payment`, `amountDueNow` và `balanceDue`; dashboard status count thêm `DepositPaid`.
 - Đây là thay đổi breaking ở draft contract. Backend/Frontend phải regenerate type từ bundle mới và deploy đồng bộ; rollback bằng bundle `0.2.0-draft` cùng migration ngược trước khi ghi dữ liệu 0.3.

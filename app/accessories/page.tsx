@@ -1,11 +1,11 @@
 import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
 import { AccessoryCard } from '../../components/accessory-card'
-import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
+import { Search, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
 import { Pagination } from '../../components/pagination'
+import { listAccessoryCatalog } from '../../lib/catalog/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,31 +14,16 @@ const categories = ["Tất cả", "Sạc & Cáp", "Nội thất", "Ngoại thấ
 export default async function AccessoriesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const searchParams = await props.searchParams
   const pageParam = searchParams?.page
-  const currentPage = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
+  const parsedPage = typeof pageParam === 'string' ? Number.parseInt(pageParam, 10) : 1
+  const requestedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1
   const pageSize = 12
-  const start = (currentPage - 1) * pageSize
-  const end = start + pageSize - 1
-
-  const supabase = getSupabaseAdmin()
-  const { data: rawAccessories, count } = await supabase
-    .from('products')
-    .select(`*, category:categories!inner(name)`, { count: 'exact' })
-    .eq('is_active', true)
-    .eq('categories.name', 'Phụ kiện')
-    .range(start, end)
-  
-  const accessoriesData = rawAccessories || []
-  const totalPages = count ? Math.ceil(count / pageSize) : 1
-
-  const accessories = accessoriesData.map(c => ({
-    name: c.name,
-    price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
-    oldPrice: null,
-    discount: null,
-    image: c.image_urls && c.image_urls.length > 0 && c.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? c.image_urls[0] : '/images/vf8.png',
-    rating: 4.8,
-    stock: c.stock,
-  }))
+  const catalogPage = await listAccessoryCatalog({
+    page: requestedPage,
+    pageSize,
+  })
+  const accessories = catalogPage.products
+  const currentPage = catalogPage.page
+  const totalPages = catalogPage.totalPages
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -105,8 +90,8 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
           </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {accessories.map((item, idx) => (
-                 <AccessoryCard key={idx} {...item} />
+              {accessories.map((item) => (
+                 <AccessoryCard key={item.id} product={item} />
               ))}
             </div>
             

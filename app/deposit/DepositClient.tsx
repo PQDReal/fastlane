@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
 export function DepositClient({ carsData, specsData, initialCar }: { carsData: any[], specsData: any, initialCar?: string }) {
   const defaultCar = initialCar && carsData.some(c => c.name === initialCar) ? initialCar : 'VF 8'
   const defaultVariant = defaultCar === 'VF 3' ? 'VF 3 Eco' : (defaultCar === 'VF 2' ? 'VF 2 Tiêu chuẩn' : `${defaultCar} Plus`)
@@ -124,7 +130,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
 
   const activeColorObj = colors.find((c: any) => c.name === selectedColor)
   
-  const allExterior = currentCar.gallery?.exterior_images || []
+  const allExterior = stringArray(currentCar.gallery?.exterior_images)
   const nonLogoExterior = allExterior.find((img: string) => !img.toLowerCase().includes('logo') && !img.toLowerCase().endsWith('.svg') && !img.toLowerCase().includes('icon') && !img.toLowerCase().includes('uu-diem') && !img.toLowerCase().includes('tuy-chon'))
   let displayImage = activeColorObj?.image || nonLogoExterior || currentCar.image_url || allExterior[0]
 
@@ -198,7 +204,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
         'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI11/2.jpg'
       ]
     } else {
-      interiorImages = Array.from(new Set(currentCar.gallery?.interior_images || []))
+      interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
         .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
     }
   } else if (currentCar.name === 'VF 8') {
@@ -227,12 +233,12 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
       if (currentCar.name === 'VF 7') {
         interiorImages = Array.from({length: 5}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF7/interior/CI11/${i+1}.webp`)
       } else {
-        interiorImages = Array.from(new Set(currentCar.gallery?.interior_images || []))
+        interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
           .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
       }
     }
   } else {
-    interiorImages = Array.from(new Set(currentCar.gallery?.interior_images || []))
+    interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
       .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
   }
 
@@ -585,7 +591,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
               <div className="mb-8">
                 <span className="text-xs uppercase tracking-widest font-bold text-slate-400 mb-4 block">Màu tiêu chuẩn</span>
                 <div className="flex flex-wrap gap-5">
-                  {baseColors.map((c: any, i) => {
+                  {baseColors.map((c: any, i: number) => {
                     const isSelected = selectedColor === c.name
                     return (
                       <button 
@@ -612,7 +618,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                 <div>
                   <span className="text-xs uppercase tracking-widest font-bold text-slate-400 mb-4 block">Màu nâng cao <span className="text-blue-600 normal-case">{['VF 8', 'VF 7', 'VF 9'].includes(currentCar.name) ? '+12.000.000đ' : '+8.000.000đ'}</span></span>
                   <div className="flex flex-wrap gap-5">
-                    {advancedColors.map((c: any, i) => {
+                    {advancedColors.map((c: any, i: number) => {
                       const isSelected = selectedColor === c.name
                       return (
                         <button 

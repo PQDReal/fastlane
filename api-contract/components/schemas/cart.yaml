@@ -1,19 +1,12 @@
 AddCartItemRequest:
   type: object
   additionalProperties: false
-  required: [variantId, selectedOptionValueIds, quantity]
+  required: [variantId, quantity]
   examples:
     - variantId: 123e4567-e89b-12d3-a456-426614174002
-      selectedOptionValueIds: [123e4567-e89b-12d3-a456-426614174003]
       quantity: 1
   properties:
     variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    selectedOptionValueIds:
-      type: array
-      maxItems: 20
-      uniqueItems: true
-      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-      description: Explicit selected non-inventory options; send an empty array when the product has no options.
     quantity: { type: integer, minimum: 1, maximum: 99 }
 UpdateCartItemRequest:
   type: object
@@ -44,10 +37,15 @@ SelectedProductOption:
 CartItem:
   type: object
   additionalProperties: false
-  required: [id, variantId, productName, productKind, purchaseTerms, sku, variantAttributes, selectedOptions, quantity, unitListPrice, unitSalePrice, unitOptionTotal, unitPrice, unitAmountDueNow, lineTotal, lineAmountDueNow]
+  required: [id, variantId, productId, productSlug, productName, productKind, purchaseTerms, sku, variantAttributes, selectedOptions, quantity, unitListPrice, unitSalePrice, unitOptionTotal, unitPrice, unitAmountDueNow, lineTotal, lineAmountDueNow]
   properties:
     id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productSlug:
+      type: string
+      pattern: '^[a-z0-9-]+$'
+      description: Stable catalog route used to open the accessory detail page.
     productName: { type: string, minLength: 1, maxLength: 200 }
     productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
     purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
@@ -68,6 +66,13 @@ CartItem:
       description: Before cart-level promotion; equals unitPrice for full payment or the fixed per-unit deposit capped at unitPrice.
     lineTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     lineAmountDueNow: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    imageUrl:
+      oneOf: [{ type: string, format: uri }, { type: 'null' }]
+      description: Optional catalog thumbnail used by cart UI.
+    availableQuantity:
+      type: integer
+      minimum: 0
+      description: Provisional availability at pricedAt; checkout rechecks inventory.
 AppliedPromotion:
   type: object
   additionalProperties: false
@@ -109,9 +114,10 @@ CartResponse: { type: object, required: [data], properties: { data: { $ref: '../
 CheckoutRequest:
   type: object
   additionalProperties: false
-  required: [expectedCartVersion, acceptedGrandTotal, acceptedAmountDueNow, shippingAddress]
+  required: [cartItemIds, expectedCartVersion, acceptedGrandTotal, acceptedAmountDueNow, shippingAddress]
   examples:
-    - expectedCartVersion: 4
+    - cartItemIds: [123e4567-e89b-12d3-a456-426614174005]
+      expectedCartVersion: 4
       acceptedGrandTotal: '1200000000'
       acceptedAmountDueNow: '30000000'
       shippingAddress:
@@ -128,6 +134,13 @@ CheckoutRequest:
         countryCode: VN
       note: Liên hệ trước khi giao.
   properties:
+    cartItemIds:
+      type: array
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+      description: Cart item rows explicitly selected by the customer for this checkout. Unselected rows remain in the active cart.
     expectedCartVersion: { type: integer, minimum: 0 }
     acceptedGrandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
     acceptedAmountDueNow:

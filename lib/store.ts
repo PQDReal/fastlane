@@ -1,69 +1,238 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+
+import type {
+  AccessoryCatalogItem,
+  ApiCart,
+  CartResponse,
+} from '@/lib/cart/types'
 
 export interface CartItem {
   id: string
+  variantId: string
+  productId: string
+  productSlug: string
   name: string
   price: number
   image: string
   quantity: number
   sku: string
+  availableQuantity: number
 }
 
+type CartActionResult =
+  | { ok: true }
+  | { ok: false; code: string; message: string }
+
+type ApiFailure = { error?: { code?: string; message?: string } }
+
 interface AppState {
-  // UI State
   searchModalOpen: boolean
   setSearchModalOpen: (open: boolean) => void
-  cartDrawerOpen: boolean
-  setCartDrawerOpen: (open: boolean) => void
-
-  // Cart State
   cartItems: CartItem[]
-  addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void
-  removeFromCart: (id: string) => void
-  updateQuantity: (id: string, quantity: number) => void
-  clearCart: () => void
+  cartId: string | null
+  cartVersion: number
+  cartLoading: boolean
+  cartLoaded: boolean
+  cartError: string | null
+  loadCart: () => Promise<CartActionResult>
+  addToCart: (
+    item: AccessoryCatalogItem,
+    quantity?: number,
+  ) => Promise<CartActionResult>
+  removeFromCart: (id: string) => Promise<CartActionResult>
+  updateQuantity: (id: string, quantity: number) => Promise<CartActionResult>
+  clearCartCache: () => void
   getCartTotal: () => number
   getCartCount: () => number
 }
 
-export const useAppStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      // UI State
-      searchModalOpen: false,
-      setSearchModalOpen: (open) => set({ searchModalOpen: open }),
-      cartDrawerOpen: false,
-      setCartDrawerOpen: (open) => set({ cartDrawerOpen: open }),
+function mapApiCart(cart: ApiCart) {
+  return cart.items.map<CartItem>((item) => ({
+    id: item.id,
+    variantId: item.variantId,
+    productId: item.productId,
+    productSlug: item.productSlug,
+    name: item.productName,
+    price: Number(item.unitPrice),
+    image: item.imageUrl || '/images/vf8.png',
+    quantity: item.quantity,
+    sku: item.sku,
+    availableQuantity: item.availableQuantity,
+  }))
+}
 
-      // Cart State
-      cartItems: [],
-      addToCart: (item, quantity = 1) => set((state) => {
-        const existingItem = state.cartItems.find(i => i.id === item.id)
-        if (existingItem) {
-          return {
-            cartItems: state.cartItems.map(i => 
-              i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
-            )
-          }
-        }
-        return { cartItems: [...state.cartItems, { ...item, quantity }] }
-      }),
-      removeFromCart: (id) => set((state) => ({
-        cartItems: state.cartItems.filter(i => i.id !== id)
-      })),
-      updateQuantity: (id, quantity) => set((state) => ({
-        cartItems: state.cartItems.map(i =>
-          i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i
-        )
-      })),
-      clearCart: () => set({ cartItems: [] }),
-      getCartTotal: () => get().cartItems.reduce((total, item) => total + (item.price * item.quantity), 0),
-      getCartCount: () => get().cartItems.reduce((count, item) => count + item.quantity, 0),
-    }),
-    {
-      name: 'fastlane-storage',
-      partialize: (state) => ({ cartItems: state.cartItems }), // Only persist cartItems
+async function requestCart(url: string, init?: RequestInit) {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+  })
+  const payload = (await response.json().catch(() => ({}))) as
+    | CartResponse
+    | ApiFailure
+
+  if (!response.ok) {
+    const failure = payload as ApiFailure
+    return {
+      ok: false as const,
+      code: failure.error?.code || 'REQUEST_FAILED',
+      message: failure.error?.message || 'Không thể cập nhật giỏ hàng.',
     }
-  )
-)
+  }
+
+  return { ok: true as const, cart: (payload as CartResponse).data }
+}
+
+function cartState(cart: ApiCart) {
+  return {
+    cartItems: mapApiCart(cart),
+    cartId: cart.id,
+    cartVersion: cart.version,
+    cartLoaded: true,
+    cartLoading: false,
+    cartError: null,
+  }
+}
+
+export const useAppStore = create<AppState>()((set, get) => ({
+  searchModalOpen: false,
+  setSearchModalOpen: (open) => set({ searchModalOpen: open }),
+  cartItems: [],
+  cartId: null,
+  cartVersion: 0,
+  cartLoading: false,
+  cartLoaded: false,
+  cartError: null,
+
+  loadCart: async () => {
+    set({ cartLoading: true, cartError: null })
+    const result = await requestCart('/api/v1/cart')
+    if (!result.ok) {
+      set({ cartLoading: false, cartLoaded: true, cartError: result.message })
+      return result
+    }
+    set(cartState(result.cart))
+    return { ok: true }
+  },
+
+  addToCart: async (item, quantity = 1) => {
+    const previousItems = get().cartItems
+    const existing = previousItems.find(
+      (cartItem) => cartItem.variantId === item.variantId,
+    )
+    const optimisticItems = existing
+      ? previousItems.map((cartItem) =>
+          cartItem.variantId === item.variantId
+            ? { ...cartItem, quantity: cartItem.quantity + quantity }
+            : cartItem,
+        )
+      : [
+          ...previousItems,
+          {
+            id: item.variantId,
+            variantId: item.variantId,
+            productId: item.productId,
+            productSlug: item.productSlug,
+            name: item.name,
+            price: item.priceAmount,
+            image: item.image,
+            quantity,
+            sku: item.sku,
+            availableQuantity: item.availableQuantity,
+          },
+        ]
+
+    set({ cartItems: optimisticItems, cartLoading: true, cartError: null })
+    const result = await requestCart('/api/v1/cart/items', {
+      method: 'POST',
+      body: JSON.stringify({
+        variantId: item.variantId,
+        quantity,
+      }),
+    })
+    if (!result.ok) {
+      set({
+        cartItems: previousItems,
+        cartLoading: false,
+        cartError: result.message,
+      })
+      return result
+    }
+    set(cartState(result.cart))
+    return { ok: true }
+  },
+
+  removeFromCart: async (id) => {
+    const previousItems = get().cartItems
+    set({
+      cartItems: previousItems.filter((item) => item.id !== id),
+      cartLoading: true,
+      cartError: null,
+    })
+    const result = await requestCart(`/api/v1/cart/items/${id}`, {
+      method: 'DELETE',
+    })
+    if (!result.ok) {
+      set({
+        cartItems: previousItems,
+        cartLoading: false,
+        cartError: result.message,
+      })
+      return result
+    }
+    set(cartState(result.cart))
+    return { ok: true }
+  },
+
+  updateQuantity: async (id, quantity) => {
+    const item = get().cartItems.find((cartItem) => cartItem.id === id)
+    if (!item || quantity < 1 || quantity > 99 || quantity > item.availableQuantity) {
+      return {
+        ok: false,
+        code: 'VALIDATION_ERROR',
+        message: 'Số lượng không hợp lệ hoặc vượt tồn kho.',
+      }
+    }
+
+    const previousItems = get().cartItems
+    set({
+      cartItems: previousItems.map((cartItem) =>
+        cartItem.id === id ? { ...cartItem, quantity } : cartItem,
+      ),
+      cartLoading: true,
+      cartError: null,
+    })
+    const result = await requestCart(`/api/v1/cart/items/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ quantity }),
+    })
+    if (!result.ok) {
+      set({
+        cartItems: previousItems,
+        cartLoading: false,
+        cartError: result.message,
+      })
+      return result
+    }
+    set(cartState(result.cart))
+    return { ok: true }
+  },
+
+  clearCartCache: () =>
+    set({
+      cartItems: [],
+      cartId: null,
+      cartVersion: 0,
+      cartLoaded: false,
+      cartError: null,
+    }),
+  getCartTotal: () =>
+    get().cartItems.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0,
+    ),
+  getCartCount: () =>
+    get().cartItems.reduce((count, item) => count + item.quantity, 0),
+}))
