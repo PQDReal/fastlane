@@ -1,40 +1,57 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import Link from 'next/link'
 
 export default function AdminProductsPage() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
+  const [categories, setCategories] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch('/api/v1/admin/products')
-        if (res.ok) {
-          const data = await res.json()
-          setProducts(data)
-        }
-      } catch (error) {
-        console.error('Failed to fetch products:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    
-    fetchProducts()
+    const timer = window.setTimeout(() => {
+      setPage(1)
+      setDebouncedSearch(searchTerm.trim())
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
+    fetch('/api/v1/admin/categories', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]))
   }, [])
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = categoryFilter === 'All' || p.category === categoryFilter
-    return matchesSearch && matchesCategory
-  })
-
+  useEffect(() => {
+    const controller = new AbortController()
+    const fetchProducts = async () => {
+      setIsLoading(true)
+      try {
+        const params = new URLSearchParams({ page: String(page), limit: '10' })
+        if (debouncedSearch) params.set('q', debouncedSearch)
+        if (categoryFilter !== 'All') params.set('categoryId', categoryFilter)
+        const res = await fetch(`/api/v1/admin/products?${params}`, { cache: 'no-store', signal: controller.signal })
+        if (!res.ok) throw new Error('Không thể tải sản phẩm')
+        const payload = await res.json()
+        setProducts(Array.isArray(payload.data) ? payload.data : [])
+        setMeta(payload.meta ?? { page, limit: 10, total: 0, totalPages: 1 })
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') console.error('Failed to fetch products:', error)
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false)
+      }
+    }
+    void fetchProducts()
+    return () => controller.abort()
+  }, [categoryFilter, debouncedSearch, page])
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN')
 
@@ -70,12 +87,12 @@ export default function AdminProductsPage() {
               <select 
                 className="bg-transparent focus:outline-none w-full"
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1) }}
               >
                 <option value="All">Tất cả danh mục</option>
                 {/* Dynamically generate categories if needed, but for now hardcoded based on known values is ok, or unique from data */}
-                {Array.from(new Set(products.map(p => p.category))).map(cat => (
-                  <option key={cat as string} value={cat as string}>{cat as string}</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
             </div>
@@ -105,7 +122,7 @@ export default function AdminProductsPage() {
                     </div>
                   </td>
                 </tr>
-              ) : filteredProducts.map(product => (
+              ) : products.map(product => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -140,7 +157,7 @@ export default function AdminProductsPage() {
                 </tr>
               ))}
               
-              {!isLoading && filteredProducts.length === 0 && (
+              {!isLoading && products.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     Không tìm thấy sản phẩm nào.
@@ -150,7 +167,16 @@ export default function AdminProductsPage() {
             </tbody>
           </table>
         </div>
-      </div>
+        {!isLoading && meta.total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <span>Hiển thị {(meta.page - 1) * meta.limit + 1}–{Math.min(meta.page * meta.limit, meta.total)} / {meta.total} sản phẩm</span>
+            <div className="flex items-center gap-3">
+              <span>Trang {meta.page} / {meta.totalPages}</span>
+              <button type="button" aria-label="Trang trước" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={meta.page <= 1} className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16} /></button>
+              <button type="button" aria-label="Trang sau" onClick={() => setPage((value) => Math.min(meta.totalPages, value + 1))} disabled={meta.page >= meta.totalPages} className="rounded-md border border-slate-200 bg-white p-2 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16} /></button>
+            </div>
+          </div>
+        )}      </div>
     </div>
   )
 }
