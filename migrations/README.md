@@ -27,10 +27,17 @@ The dynamic options sequence is:
   because cart rows are keyed by `(cart_id, variant_id)` and have no `id`
   column. Every ownership, lock, pricing, insert, inventory, and partial-delete
   predicate is scoped by both the active cart and those variant UUIDs.
+- `006_checkout_quantity_contract.sql` reconciles pre-existing database checks
+  with the OpenAPI/runtime quantity contract. It preflights both cart and order
+  rows, then atomically replaces and validates the named quantity checks as
+  `1..99`; migration `001` could not replace same-named legacy `1..10` checks
+  because its guards intentionally used `IF NOT EXISTS`.
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 
 Rollback statements or guidance are included at the bottom of each migration
 and must be reviewed before use on an environment containing orders. Migration
 `004` intentionally retains validated checks on rollback because weakening
-them would require dropping and recreating constraints.
+them would require dropping and recreating constraints. Migration `006`
+includes a guarded rollback recipe because restoring `1..10` would reject any
+quantities above 10 created after the contract is widened.
