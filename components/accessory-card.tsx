@@ -1,10 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Eye, Heart, Loader2, ShoppingCart } from 'lucide-react'
+import { Eye, Heart, Loader2, ShoppingCart } from 'lucide-react'
 import Link from 'next/link'
 
-import type { AccessoryCatalogItem, AccessoryCatalogProduct } from '@/lib/cart/types'
+import type { AccessoryCatalogItem } from '@/lib/cart/types'
+import {
+  filterCompatibleVariants,
+  resolveCatalogImageUrl,
+  resolveCatalogMedia,
+  resolveExactVariant,
+} from '@/lib/catalog/resolver'
+import type {
+  CatalogOptionGroup,
+  CatalogProduct,
+  CatalogResolvedMedia,
+  CatalogSelection,
+  CatalogVariant,
+} from '@/lib/catalog/types'
 import { useAppStore } from '@/lib/store'
 import { Button } from './ui/button'
 
@@ -15,66 +28,167 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 0,
   }).format(price)
 
-const colorValues: Array<[string[], string]> = [
-  [['xanh la', 'green'], '#2f9e44'],
-  [['xanh duong', 'xanh bien', 'blue', 'xanh'], '#1689e8'],
-  [['den', 'black'], '#171717'],
-  [['trang', 'white'], '#ffffff'],
-  [['do', 'red'], '#e03131'],
-  [['vang', 'yellow'], '#f5c542'],
-  [['cam', 'orange'], '#f08c00'],
-  [['hong', 'pink'], '#f783ac'],
-  [['tim', 'purple'], '#7950f2'],
-  [['nau', 'brown'], '#8b5e3c'],
-  [['beige', 'be'], '#d9c7a5'],
-  [['bac', 'silver'], '#adb5bd'],
-  [['xam', 'gray', 'grey'], '#868e96'],
-]
-
-function getColorOption(attributes: Record<string, string>) {
-  const entry = Object.entries(attributes).find(([key]) => /^(color|màu|mau)$/i.test(key.trim()))
-  if (!entry) return null
-
-  const label = String(entry[1])
-  const normalizedLabel = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase()
-  const color = colorValues.find(([names]) => names.some((name) => normalizedLabel.includes(name)))?.[1]
-  return color ? { label, color } : null
+function primaryOptionGroup(product: CatalogProduct): CatalogOptionGroup | null {
+  return product.optionGroups.find((group) => group.metadata.primary === true)
+    ?? product.optionGroups.find((group) => (
+      group.code === 'color'
+      || group.code.endsWith('_color')
+      || group.code.startsWith('color_')
+    ))
+    ?? product.optionGroups.find((group) => group.displayType === 'SWATCH')
+    ?? product.optionGroups[0]
+    ?? null
 }
 
-function optionLabel(variant: AccessoryCatalogItem) {
-  const attributeValues = Object.values(variant.attributes).filter(Boolean)
-  return attributeValues.join(' / ') || variant.variantName
+function valueSelection(
+  group: CatalogOptionGroup | null,
+  valueCode: string | null,
+): CatalogSelection {
+  return group && valueCode ? { [group.code]: valueCode } : {}
 }
 
-export function AccessoryCard({ product }: { product: AccessoryCatalogProduct }) {
+function initialValueCode(
+  product: CatalogProduct,
+  group: CatalogOptionGroup | null,
+): string | null {
+  if (!group) return null
+
+  const withStock = group.values.find((value) => (
+    filterCompatibleVariants(product.variants, { [group.code]: value.code })
+      .some((variant) => variant.availableQuantity > 0)
+  ))
+  if (withStock) return withStock.code
+
+  return group.values.find((value) => (
+    filterCompatibleVariants(product.variants, { [group.code]: value.code })
+      .length > 0
+  ))?.code ?? group.values[0]?.code ?? null
+}
+
+function priceLabel(product: CatalogProduct, useFromLabel: boolean): string {
+  if (!product.priceRange) return 'Liên hệ'
+  if (product.priceRange.minimum === product.priceRange.maximum) {
+    return formatPrice(product.priceRange.minimum)
+  }
+  if (useFromLabel) return `Từ ${formatPrice(product.priceRange.minimum)}`
+  return `${formatPrice(product.priceRange.minimum)} – ${formatPrice(product.priceRange.maximum)}`
+}
+
+function storeItemAdapter(
+  product: CatalogProduct,
+  variant: CatalogVariant,
+  media: CatalogResolvedMedia[],
+): AccessoryCatalogItem {
+  const imageUrls = media
+    .filter((item) => item.mediaType === 'IMAGE')
+    .map((item) => item.url)
+  const image = imageUrls[0] ?? resolveCatalogImageUrl(product, {
+    variantId: variant.id,
+    selectedOptions: variant.selectedOptions,
+  })
+  const discounted = variant.salePrice !== null
+    && variant.salePrice < variant.originalPrice
+
+  return {
+    productId: product.id,
+    productSlug: product.slug,
+    variantId: variant.id,
+    sku: variant.sku,
+    name: variant.name === 'Mặc định'
+      ? product.name
+      : `${product.name} - ${variant.name}`,
+    variantName: variant.name,
+    priceAmount: variant.effectivePrice,
+    oldPriceAmount: discounted ? variant.originalPrice : null,
+    image,
+    images: imageUrls.length > 0 ? imageUrls : [image],
+    attributes: Object.fromEntries(
+      variant.selectedOptionDetails.map((option) => [
+        option.groupName,
+        option.valueName,
+      ]),
+    ),
+    availableQuantity: variant.availableQuantity,
+    discount: discounted
+      ? Math.round((1 - variant.effectivePrice / variant.originalPrice) * 100)
+      : null,
+  }
+}
+
+export function AccessoryCard({ product }: { product: CatalogProduct }) {
   const { addToCart } = useAppStore()
-  const initialIndex = Math.max(0, product.variants.findIndex((variant) => variant.availableQuantity > 0))
-  const [selectedIndex, setSelectedIndex] = useState(initialIndex)
+  const primaryGroup = primaryOptionGroup(product)
+  const [selectedValueCode, setSelectedValueCode] = useState(() => (
+    initialValueCode(product, primaryGroup)
+  ))
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const selected = product.variants[selectedIndex]
-  const hasOptions = product.variants.length > 1
-  const inStock = Boolean(selected && selected.availableQuantity > 0)
-  const detailHref = selected
-    ? `/accessories/${product.productSlug}?variant=${encodeURIComponent(selected.sku)}`
-    : `/accessories/${product.productSlug}`
 
-  const selectOption = (index: number) => {
-    setSelectedIndex(index)
+  const selection = valueSelection(primaryGroup, selectedValueCode)
+  const requiredGroups = product.optionGroups.filter(
+    (group) => group.minimumSelections > 0,
+  )
+  const hasOneRequiredGroup = product.optionGroups.length === 1
+    && requiredGroups.length === 1
+  const directVariant = product.optionGroups.length === 0
+    && product.variants.length === 1
+    ? product.variants[0]
+    : null
+  const selectedVariant = hasOneRequiredGroup
+    ? resolveExactVariant(product, selection)
+    : null
+  const resolvedVariant = directVariant ?? selectedVariant
+  const compatibleVariants = Object.keys(selection).length > 0
+    ? filterCompatibleVariants(product.variants, selection)
+    : product.variants
+  const availableQuantity = resolvedVariant?.availableQuantity
+    ?? compatibleVariants.reduce(
+      (total, variant) => total + variant.availableQuantity,
+      0,
+    )
+  const inStock = availableQuantity > 0
+  const detailHref = resolvedVariant
+    ? `/accessories/${product.slug}?variant=${encodeURIComponent(resolvedVariant.sku)}`
+    : `/accessories/${product.slug}`
+  const resolvedMedia = resolveCatalogMedia(product, {
+    variantId: resolvedVariant?.id,
+    selectedOptions: selection,
+  })
+  const displayMedia = resolvedMedia.find((item) => item.mediaType === 'IMAGE')
+    ?? resolvedMedia[0]
+  const imageUrl = displayMedia?.url ?? resolveCatalogImageUrl(product, {
+    variantId: resolvedVariant?.id,
+    selectedOptions: selection,
+  })
+  const selectedValue = primaryGroup?.values.find(
+    (value) => value.code === selectedValueCode,
+  )
+  const discounted = resolvedVariant?.salePrice !== null
+    && resolvedVariant?.salePrice !== undefined
+    && resolvedVariant.salePrice < resolvedVariant.originalPrice
+  const discount = discounted && resolvedVariant
+    ? Math.round(
+      (1 - resolvedVariant.effectivePrice / resolvedVariant.originalPrice) * 100,
+    )
+    : null
+  const displayedPrice = resolvedVariant
+    ? formatPrice(resolvedVariant.effectivePrice)
+    : priceLabel(product, product.optionGroups.length > 1)
+
+  const selectValue = (valueCode: string) => {
+    setSelectedValueCode(valueCode)
     setFeedback(null)
-  }
-
-  const selectRelative = (offset: number) => {
-    if (!hasOptions) return
-    selectOption((selectedIndex + offset + product.variants.length) % product.variants.length)
   }
 
   const handleAddToCart = async () => {
-    if (!selected || !inStock || submitting) return
+    if (!resolvedVariant || !inStock || submitting) return
 
     setSubmitting(true)
     setFeedback(null)
-    const result = await addToCart(selected, 1)
+    const result = await addToCart(
+      storeItemAdapter(product, resolvedVariant, resolvedMedia),
+      1,
+    )
     setSubmitting(false)
 
     if (!result.ok) {
@@ -91,13 +205,11 @@ export function AccessoryCard({ product }: { product: AccessoryCatalogProduct })
     setFeedback('Đã thêm vào giỏ hàng')
   }
 
-  if (!selected) return null
-
   return (
     <article className="group relative flex h-full flex-col pb-4 transition-all duration-500">
-      {selected.discount !== null && (
+      {discount !== null && (
         <div className="absolute left-4 top-4 z-20 rounded-full bg-brand-600 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-          -{selected.discount}%
+          -{discount}%
         </div>
       )}
       <button
@@ -110,21 +222,10 @@ export function AccessoryCard({ product }: { product: AccessoryCatalogProduct })
 
       <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-transparent">
         <img
-          src={selected.image || product.image}
-          alt={`${product.name} - ${optionLabel(selected)}`}
+          src={imageUrl}
+          alt={displayMedia?.altText || `${product.name}${selectedValue ? ` - ${selectedValue.name}` : ''}`}
           className="relative z-10 h-full w-full object-contain drop-shadow-md transition-transform duration-700 group-hover:scale-105"
         />
-
-        {hasOptions && (
-          <>
-            <button type="button" aria-label={`Option trước của ${product.name}`} onClick={() => selectRelative(-1)} className="absolute left-2 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center border border-brand-500/60 bg-white/90 text-brand-600 shadow-sm transition-colors hover:bg-white">
-              <ChevronLeft size={22} />
-            </button>
-            <button type="button" aria-label={`Option tiếp theo của ${product.name}`} onClick={() => selectRelative(1)} className="absolute right-2 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center border border-brand-500/60 bg-white/90 text-brand-600 shadow-sm transition-colors hover:bg-white">
-              <ChevronRight size={22} />
-            </button>
-          </>
-        )}
 
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           <Button asChild variant="outline" className="h-10 translate-y-4 rounded-full border-none bg-white/95 px-6 text-sm font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 hover:bg-white">
@@ -136,30 +237,69 @@ export function AccessoryCard({ product }: { product: AccessoryCatalogProduct })
       </div>
 
       <div className="flex flex-1 flex-col pt-6">
-        {hasOptions && (
-          <div className="mb-4 flex min-h-9 items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={`Các option của ${product.name}`}>
-            {product.variants.map((variant, index) => {
-              const color = getColorOption(variant.attributes)
-              const selectedOption = index === selectedIndex
-              const label = optionLabel(variant)
+        {primaryGroup && primaryGroup.values.length > 0 && (
+          <div className="mb-4 min-h-9" aria-label={`${primaryGroup.name} của ${product.name}`}>
+            {primaryGroup.displayType === 'SELECT' ? (
+              <select
+                value={selectedValueCode ?? ''}
+                onChange={(event) => selectValue(event.target.value)}
+                className="h-9 max-w-full rounded-full border border-muted bg-background px-3 text-xs font-semibold"
+                aria-label={`Chọn ${primaryGroup.name}`}
+              >
+                {primaryGroup.values.map((value) => {
+                  const matching = filterCompatibleVariants(product.variants, {
+                    [primaryGroup.code]: value.code,
+                  })
+                  return (
+                    <option key={value.id} value={value.code} disabled={matching.length === 0}>
+                      {value.name}{matching.length > 0 && matching.every((variant) => variant.availableQuantity <= 0) ? ' — Hết hàng' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            ) : (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {primaryGroup.values.map((value) => {
+                  const matching = filterCompatibleVariants(product.variants, {
+                    [primaryGroup.code]: value.code,
+                  })
+                  const selectable = matching.length > 0
+                  const valueInStock = matching.some(
+                    (variant) => variant.availableQuantity > 0,
+                  )
+                  const selected = value.code === selectedValueCode
+                  const swatch = primaryGroup.displayType === 'SWATCH'
 
-              return (
-                <button
-                  key={variant.variantId}
-                  type="button"
-                  title={`${label}${variant.availableQuantity > 0 ? '' : ' — Hết hàng'}`}
-                  aria-label={`Chọn ${label}${variant.availableQuantity > 0 ? '' : ', hết hàng'}`}
-                  aria-pressed={selectedOption}
-                  onClick={() => selectOption(index)}
-                  className={`relative shrink-0 transition-all ${color ? 'h-8 w-8 rounded-md p-[3px]' : 'h-8 rounded-full px-3 text-xs font-semibold'} ${selectedOption ? 'ring-2 ring-brand-600 ring-offset-2' : 'border border-muted hover:border-brand-400'} ${variant.availableQuantity > 0 ? '' : 'opacity-45'}`}
-                >
-                  {color ? (
-                    <span className="block h-full w-full rounded-[3px] border border-black/10" style={{ backgroundColor: color.color }} />
-                  ) : label}
-                  {variant.availableQuantity <= 0 && <span className="absolute inset-x-0 top-1/2 h-px -rotate-45 bg-red-500" />}
-                </button>
-              )
-            })}
+                  return (
+                    <button
+                      key={value.id}
+                      type="button"
+                      title={`${value.name}${valueInStock ? '' : ' — Hết hàng'}`}
+                      aria-label={`Chọn ${value.name}${valueInStock ? '' : ', hết hàng'}`}
+                      aria-pressed={selected}
+                      disabled={!selectable}
+                      onClick={() => selectValue(value.code)}
+                      className={`relative shrink-0 transition-all disabled:cursor-not-allowed disabled:opacity-30 ${swatch ? 'h-8 w-8 rounded-md p-[3px]' : 'h-8 rounded-full px-3 text-xs font-semibold'} ${selected ? 'ring-2 ring-brand-600 ring-offset-2' : 'border border-muted hover:border-brand-400'} ${valueInStock ? '' : 'opacity-45'}`}
+                    >
+                      {swatch ? (
+                        <span
+                          className="flex h-full w-full items-center justify-center rounded-[3px] border border-black/10 bg-muted bg-cover bg-center text-[9px] font-bold"
+                          style={{
+                            ...(value.colorHex ? { backgroundColor: value.colorHex } : {}),
+                            ...(value.swatchUrl ? { backgroundImage: `url(${value.swatchUrl})` } : {}),
+                          }}
+                        >
+                          {!value.colorHex && !value.swatchUrl ? value.name.slice(0, 2) : null}
+                        </span>
+                      ) : value.name}
+                      {!valueInStock && (
+                        <span className="absolute inset-x-0 top-1/2 h-px -rotate-45 bg-red-500" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -168,12 +308,22 @@ export function AccessoryCard({ product }: { product: AccessoryCatalogProduct })
             {product.name}
           </Link>
         </h3>
-        <p className="mb-3 text-xs text-muted-foreground">Mã: {selected.sku}</p>
+        {resolvedVariant ? (
+          <p className="mb-3 text-xs text-muted-foreground">Mã: {resolvedVariant.sku}</p>
+        ) : (
+          <p className="mb-3 text-xs text-muted-foreground">
+            {product.optionGroups.length > 1
+              ? 'Chọn đầy đủ tùy chọn tại trang chi tiết'
+              : 'Xem chi tiết để chọn phiên bản'}
+          </p>
+        )}
 
         <div className="mb-4 mt-auto flex items-end gap-3">
-          <p className="text-xl font-bold text-brand-700">{formatPrice(selected.priceAmount)}</p>
-          {selected.oldPriceAmount !== null && (
-            <p className="mb-0.5 text-sm font-medium text-muted-foreground line-through">{formatPrice(selected.oldPriceAmount)}</p>
+          <p className="text-xl font-bold text-brand-700">{displayedPrice}</p>
+          {discounted && resolvedVariant && (
+            <p className="mb-0.5 text-sm font-medium text-muted-foreground line-through">
+              {formatPrice(resolvedVariant.originalPrice)}
+            </p>
           )}
         </div>
 
@@ -181,21 +331,33 @@ export function AccessoryCard({ product }: { product: AccessoryCatalogProduct })
           <div className="flex items-center gap-2">
             <div className={`h-2 w-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`} />
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {inStock ? `Còn ${selected.availableQuantity}` : 'Hết hàng'}
+              {inStock
+                ? resolvedVariant ? `Còn ${availableQuantity}` : 'Còn hàng'
+                : 'Hết hàng'}
             </span>
           </div>
 
-          <Button
-            type="button"
-            variant="default"
-            size="icon"
-            aria-label={`Thêm ${selected.name} vào giỏ hàng`}
-            className="h-10 w-10 shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-            disabled={!inStock || submitting}
-            onClick={handleAddToCart}
-          >
-            {submitting ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />}
-          </Button>
+          {resolvedVariant && inStock ? (
+            <Button
+              type="button"
+              variant="default"
+              size="icon"
+              aria-label={`Thêm ${product.name} - ${resolvedVariant.sku} vào giỏ hàng`}
+              className="h-10 w-10 shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+              disabled={submitting}
+              onClick={handleAddToCart}
+            >
+              {submitting
+                ? <Loader2 size={16} className="animate-spin" />
+                : <ShoppingCart size={16} />}
+            </Button>
+          ) : (
+            <Button asChild variant="default" className="h-10 rounded-full px-4">
+              <Link href={detailHref}>
+                <Eye size={15} className="mr-2" /> Xem
+              </Link>
+            </Button>
+          )}
         </div>
         <p aria-live="polite" className={`mt-3 min-h-5 text-xs ${feedback === 'Đã thêm vào giỏ hàng' ? 'text-green-700' : 'text-red-600'}`}>
           {feedback}
