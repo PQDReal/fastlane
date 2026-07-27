@@ -72,19 +72,19 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tổng quan hệ thống</h1>
-        <div className="flex gap-3">
-          <Link href="/admin/orders" className="px-4 py-2 bg-white border border-slate-200 text-sm font-medium rounded-md shadow-sm hover:bg-slate-50 transition-colors">
+        <div className="grid grid-cols-2 gap-3 sm:flex">
+          <Link href="/admin/orders" className="px-3 py-2 text-center bg-white border border-slate-200 text-sm font-medium rounded-md shadow-sm hover:bg-slate-50 transition-colors sm:px-4">
             Xem đơn hàng
           </Link>
-          <Link href="/admin/products/new" className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-md shadow-sm hover:bg-slate-800 transition-colors">
+          <Link href="/admin/products/new" className="px-3 py-2 text-center bg-slate-900 text-white text-sm font-medium rounded-md shadow-sm hover:bg-slate-800 transition-colors sm:px-4">
             Thêm sản phẩm
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         <Card className="shadow-sm border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">Doanh thu hôm nay</CardTitle>
@@ -136,7 +136,7 @@ export default function AdminDashboard() {
             <CardTitle className="text-base font-semibold text-slate-900">Doanh thu (7 ngày qua)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full">
+            <div className="h-[260px] min-w-0 w-full sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />

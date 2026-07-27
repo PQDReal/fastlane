@@ -13,14 +13,15 @@ export async function getCurrentUser(): Promise<LocalUser | null> {
   if (!session) return null
 
   const existingUser = await findUserByAuth0Subject(session.user.sub)
-  if (existingUser) return existingUser
+  if (existingUser) return existingUser.status === 'ACTIVE' ? existingUser : null
 
   const phoneNumber = session.user.phone_number
 
-  return syncAuth0User({
+  const user = await syncAuth0User({
     sub: session.user.sub,
     email: session.user.email,
     name: session.user.name,
     phone_number: typeof phoneNumber === 'string' ? phoneNumber : null,
   })
+  return user.status === 'ACTIVE' ? user : null
 }
