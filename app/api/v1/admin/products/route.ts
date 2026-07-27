@@ -18,6 +18,10 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
+  const categoryId = searchParams.get('categoryId')
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
+  const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('limit') ?? '10', 10) || 10))
+  const from = (page - 1) * limit
   const supabase = getSupabaseAdmin()
 
   let dbQuery = supabase
@@ -27,8 +31,13 @@ export async function GET(request: Request) {
       categories (
         name
       )
-    `)
+    `, { count: 'exact' })
     .order('created_at', { ascending: false })
+    .range(from, from + limit - 1)
+
+  if (categoryId) {
+    dbQuery = dbQuery.eq('category_id', categoryId)
+  }
 
   if (query) {
     const sanitizedQuery = query.replace(/['&|!():*]/g, '').trim()
@@ -40,18 +49,20 @@ export async function GET(request: Request) {
     }
   }
 
-  const { data, error } = await dbQuery
+  const { data, error, count } = await dbQuery
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(
-    data.map((item) => ({
+  const total = count ?? 0
+  return NextResponse.json({
+    data: (data ?? []).map((item) => ({
       ...item,
       category: item.categories?.name || 'Chưa phân loại',
     })),
-  )
+    meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  })
 }
 
 export async function POST(request: Request) {

@@ -101,13 +101,6 @@ export async function createTestDriveReservation(
       changedAt: new Date().toISOString(),
     },
   ]
-  const locationSnapshot = {
-    name: process.env.TEST_DRIVE_LOCATION_NAME ?? 'Fastlane',
-    addressLine: process.env.TEST_DRIVE_LOCATION_ADDRESS ?? '',
-    phoneNumber: process.env.TEST_DRIVE_LOCATION_PHONE ?? '',
-    timezone: 'Asia/Ho_Chi_Minh',
-  }
-
   const { data, error } = await supabase
     .from('reservations')
     .insert({
@@ -123,7 +116,6 @@ export async function createTestDriveReservation(
       phone_number: input.phoneNumber,
       email: input.email,
       product_name_snapshot: product.name,
-      location_snapshot: locationSnapshot,
       licence_acknowledged: true,
       privacy_consent: true,
       privacy_policy_version: input.privacyPolicyVersion,
