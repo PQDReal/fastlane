@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { PromotionsList, type PromotionListItem } from '@/components/promotions-list'
+import { productTypeLabel, productTypesFromLegacy, type PromotionProductType } from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,7 @@ type PromotionRow = {
   description: string | null
   type: 'PERCENT' | 'FIXED'
   value: number
-  applicable_product_type: 'ALL' | 'CAR' | 'BIKE' | 'ACCESSORY'
+  applicable_product_types: PromotionProductType[]
   max_discount_amount: number | null
   minimum_order_amount: number
   ends_at: string
@@ -24,15 +25,9 @@ type PromotionRow = {
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
 const formatDate = (value: string) => new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const PROMOTION_THUMBNAIL = '/images/car-sale.png'
-const productPresentation = {
-  ALL: { label: 'Tất cả sản phẩm', image: '/images/maxresdefault.jpg', href: '/cars' },
-  CAR: { label: 'Ô tô điện', image: '/images/vf9.png', href: '/cars' },
-  BIKE: { label: 'Xe máy điện', image: '/images/vento.png', href: '/bikes' },
-  ACCESSORY: { label: 'Phụ kiện', image: '/images/vf8.png', href: '/accessories' },
-} as const
 
 function details(item: PromotionRow) {
-  const discount = item.type === 'PERCENT' ? `${item.value}%` : money(item.value)
+  const discount = item.type === 'PERCENT' ? `Giảm ${item.value}%` : `Giảm ${money(item.value)}`
   const conditions = [
     item.minimum_order_amount > 0 ? `Áp dụng cho đơn hàng từ ${money(item.minimum_order_amount)}.` : null,
     item.max_discount_amount !== null ? `Mức giảm tối đa ${money(item.max_discount_amount)}.` : null,
@@ -44,35 +39,37 @@ async function loadPromotions(): Promise<PromotionRow[]> {
   const supabase = getSupabaseAdmin()
   const now = new Date().toISOString()
   const current = await supabase.from('promotions')
-    .select('id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,ends_at')
+    .select('id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,ends_at')
     .eq('is_active', true).lte('starts_at', now).gte('ends_at', now).order('ends_at')
   if (!current.error) return (current.data ?? []) as PromotionRow[]
 
   const legacy = await supabase.from('promotions')
-    .select('id,code,name,description,type,value,applicable_vehicle_type,max_discount_amount,minimum_order_amount,ends_at')
+    .select('id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,ends_at')
     .eq('is_active', true).lte('starts_at', now).gte('ends_at', now).order('ends_at')
   if (legacy.error) throw new Error('Không thể tải dữ liệu khuyến mãi.')
-  return (legacy.data ?? []).map(({ applicable_vehicle_type, ...item }) => ({ ...item, applicable_product_type: applicable_vehicle_type })) as PromotionRow[]
+  return (legacy.data ?? []).map(({ applicable_product_type, ...item }) => ({
+    ...item,
+    applicable_product_types: productTypesFromLegacy(applicable_product_type),
+  })) as PromotionRow[]
 }
 
 export default async function PromotionsPage() {
   let promotions: PromotionRow[] = []
   let loadError = false
   try { promotions = await loadPromotions() } catch { loadError = true }
-  const promotionItems: PromotionListItem[] = promotions.map((item) => {
-    const product = productPresentation[item.applicable_product_type] ?? productPresentation.ALL
-    return {
-      id: item.id,
-      title: item.name,
-      desc: details(item),
-      productType: item.applicable_product_type,
-      productLabel: product.label,
-      expires: formatDate(item.ends_at),
-      image: PROMOTION_THUMBNAIL,
-      code: item.code,
-      discount: item.type === 'PERCENT' ? `${item.value}%` : money(item.value),
-    }
-  })
+  const promotionItems: PromotionListItem[] = promotions.map((item) => ({
+    id: item.id,
+    title: item.name,
+    desc: details(item),
+    productTypes: item.applicable_product_types,
+    productLabel: item.applicable_product_types.length === 3
+      ? 'Tất cả sản phẩm'
+      : item.applicable_product_types.map(productTypeLabel).join(', '),
+    expires: formatDate(item.ends_at),
+    image: PROMOTION_THUMBNAIL,
+    code: item.code,
+    discount: item.type === 'PERCENT' ? `${item.value}%` : money(item.value),
+  }))
 
   return <main className="flex min-h-screen flex-col bg-background pt-[74px]">
     <Header />

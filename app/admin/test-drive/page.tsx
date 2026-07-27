@@ -1,9 +1,11 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { CalendarDays, FileDown, Loader2, RefreshCw, Search } from 'lucide-react'
+import { CalendarDays, FileDown, Loader2, RefreshCw, Search, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { getAdminTestDriveRequests, transitionAdminTestDriveRequest } from '@/lib/api/admin-test-drive-client'
 import type { AdminTestDriveRequest, TestDriveStatus } from '@/lib/services/admin-test-drive-service'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 
 const LABEL: Record<TestDriveStatus, string> = { REQUESTED: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', DECLINED: 'Từ chối', CANCELLED: 'Đã hủy', COMPLETED: 'Hoàn thành', NO_SHOW: 'Không đến' }
 const STYLE: Record<TestDriveStatus, string> = { REQUESTED: 'bg-amber-100 text-amber-700', CONFIRMED: 'bg-blue-100 text-blue-700', DECLINED: 'bg-slate-200 text-slate-700', CANCELLED: 'bg-red-100 text-red-700', COMPLETED: 'bg-green-100 text-green-700', NO_SHOW: 'bg-orange-100 text-orange-700' }
@@ -19,6 +21,16 @@ export default function AdminTestDrivePage() {
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reasonRequest, setReasonRequest] = useState<{ item: AdminTestDriveRequest; action: string } | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<AdminTestDriveRequest | null>(null)
+  const [reason, setReason] = useState('')
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const closeToast = useCallback((id: number) => setToasts((items) => items.filter((item) => item.id !== id)), [])
+  const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
+    const id = Date.now() + Math.random()
+    setToasts((items) => [...items, { id, kind, title, message }])
+    window.setTimeout(() => closeToast(id), 4500)
+  }, [closeToast])
 
   const loadRequests = useCallback(async () => {
     setLoading(true); setError(null)
@@ -31,16 +43,33 @@ export default function AdminTestDrivePage() {
 
   async function handleSearch(event: FormEvent) { event.preventDefault(); await loadRequests() }
 
-  async function changeStatus(item: AdminTestDriveRequest, action: string) {
-    const needsReason = action === 'DECLINE' || action === 'CANCEL'
-    const reason = needsReason ? window.prompt('Nhập lý do:') : undefined
-    if (needsReason && !reason?.trim()) return
+  async function updateStatus(item: AdminTestDriveRequest, action: string, reasonValue?: string) {
     setUpdatingId(item.id); setError(null)
     try {
-      const updated = await transitionAdminTestDriveRequest({ id: item.id, action, expectedCurrentStatus: item.status, reason: reason?.trim() })
+      const updated = await transitionAdminTestDriveRequest({ id: item.id, action, expectedCurrentStatus: item.status, reason: reasonValue })
       setRequests((current) => current.map((row) => row.id === updated.id ? updated : row))
-    } catch (e) { setError(e instanceof Error ? e.message : 'Không thể cập nhật trạng thái') }
-    finally { setUpdatingId(null) }
+      setSelectedRequest((current) => current?.id === updated.id ? updated : current)
+      setReasonRequest(null)
+      setReason('')
+      notify('success', 'Cập nhật trạng thái thành công', `Yêu cầu ${item.referenceNumber} đã được cập nhật.`)
+    } catch (e) {
+      notify('error', 'Cập nhật trạng thái thất bại', e instanceof Error ? e.message : 'Không thể cập nhật trạng thái')
+    } finally { setUpdatingId(null) }
+  }
+
+  function changeStatus(item: AdminTestDriveRequest, action: string) {
+    if (action === 'DECLINE' || action === 'CANCEL') {
+      setReasonRequest({ item, action })
+      setReason('')
+      return
+    }
+    void updateStatus(item, action)
+  }
+
+  async function submitReason(event: FormEvent) {
+    event.preventDefault()
+    if (!reasonRequest || !reason.trim()) return
+    await updateStatus(reasonRequest.item, reasonRequest.action, reason.trim())
   }
 
   const dateTime = (value: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
@@ -100,6 +129,7 @@ export default function AdminTestDrivePage() {
 
   return (
     <div className="space-y-6">
+      <ToastViewport toasts={toasts} onClose={closeToast} />
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Lịch lái thử</h1><p className="mt-1 text-sm text-slate-500">Quản lý yêu cầu, xác nhận và cập nhật kết quả lái thử.</p></div>
         <div className="flex gap-2">
@@ -120,12 +150,67 @@ export default function AdminTestDrivePage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? <tr><td colSpan={6} className="px-6 py-16 text-center"><Loader2 className="mx-auto h-7 w-7 animate-spin text-brand-600" /></td></tr> : requests.length === 0 ? <tr><td colSpan={6} className="px-6 py-16 text-center text-slate-500"><CalendarDays className="mx-auto mb-3 h-8 w-8 text-slate-300" />Chưa có yêu cầu lái thử phù hợp.</td></tr> : requests.map((item) => {
                 const actions = ACTIONS[item.status] ?? []
-                return <tr key={item.id} className="hover:bg-slate-50"><td className="px-5 py-4 font-semibold text-slate-900">{item.referenceNumber}</td><td className="px-5 py-4"><p className="font-medium text-slate-900">{item.fullName}</p><p className="text-xs text-slate-500">{item.phoneNumber}</p>{item.email && <p className="text-xs text-slate-500">{item.email}</p>}</td><td className="px-5 py-4 text-slate-700">{item.productName}</td><td className="px-5 py-4 text-slate-700">{dateTime(item.scheduledAt)}</td><td className="px-5 py-4"><span className={`rounded-md px-2 py-1 text-[11px] font-bold uppercase ${STYLE[item.status]}`}>{LABEL[item.status]}</span></td><td className="px-5 py-4">{actions.length ? <select value="" disabled={updatingId === item.id} onChange={(e) => { if (e.target.value) void changeStatus(item, e.target.value) }} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-brand-500 focus:outline-none disabled:opacity-60"><option value="">{updatingId === item.id ? 'Đang cập nhật...' : 'Chọn thao tác'}</option>{actions.map((a) => <option key={a.action} value={a.action}>{a.label}</option>)}</select> : <span className="text-xs text-slate-400">Đã kết thúc</span>}</td></tr>
+                return <tr key={item.id} role="button" tabIndex={0} onClick={() => setSelectedRequest(item)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedRequest(item) } }} className="cursor-pointer transition duration-150 hover:bg-slate-50 active:scale-[0.995] active:bg-brand-50 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"><td className="px-5 py-4 font-semibold text-slate-900">{item.referenceNumber}</td><td className="px-5 py-4"><p className="font-medium text-slate-900">{item.fullName}</p><p className="text-xs text-slate-500">{item.phoneNumber}</p>{item.email && <p className="text-xs text-slate-500">{item.email}</p>}</td><td className="px-5 py-4 text-slate-700">{item.productName}</td><td className="px-5 py-4 text-slate-700">{dateTime(item.scheduledAt)}</td><td className="px-5 py-4"><span className={`rounded-md px-2 py-1 text-[11px] font-bold uppercase ${STYLE[item.status]}`}>{LABEL[item.status]}</span></td><td className="px-5 py-4">{actions.length ? <select value="" disabled={updatingId === item.id} onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(e) => { if (e.target.value) void changeStatus(item, e.target.value) }} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-brand-500 focus:outline-none disabled:opacity-60"><option value="">{updatingId === item.id ? 'Đang cập nhật...' : 'Chọn thao tác'}</option>{actions.map((a) => <option key={a.action} value={a.action}>{a.label}</option>)}</select> : <span className="text-xs text-slate-400">Đã kết thúc</span>}</td></tr>
               })}
             </tbody>
           </table>
         </div>
       </div>
-    </div>
+      <AnimatePresence>
+      {selectedRequest && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedRequest(null) }}>
+          <motion.section initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.97 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }} role="dialog" aria-modal="true" aria-labelledby="test-drive-detail-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
+              <div>
+                <h2 id="test-drive-detail-title" className="text-xl font-bold text-slate-900">Chi tiết lịch lái thử</h2>
+                <p className="mt-1 font-mono text-sm font-semibold text-brand-600">{selectedRequest.referenceNumber}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedRequest(null)} className="rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng"><X size={19} /></button>
+            </header>
+            <div className="space-y-6 p-6">
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3">
+                <span className="text-sm font-medium text-slate-500">Trạng thái</span>
+                <span className={`rounded-md px-3 py-1.5 text-xs font-bold uppercase ${STYLE[selectedRequest.status]}`}>{LABEL[selectedRequest.status]}</span>
+              </div>
+              <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Khách hàng</dt><dd className="mt-1 font-semibold text-slate-900">{selectedRequest.fullName}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mẫu xe</dt><dd className="mt-1 font-semibold text-slate-900">{selectedRequest.productName}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Số điện thoại</dt><dd className="mt-1 text-slate-700">{selectedRequest.phoneNumber}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Email</dt><dd className="mt-1 break-all text-slate-700">{selectedRequest.email || 'Không có'}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lịch mong muốn</dt><dd className="mt-1 text-slate-700">{dateTime(selectedRequest.scheduledAt)}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Thời gian xác nhận</dt><dd className="mt-1 text-slate-700">{selectedRequest.confirmedAt ? dateTime(selectedRequest.confirmedAt) : 'Chưa xác nhận'}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ngày tạo</dt><dd className="mt-1 text-slate-700">{dateTime(selectedRequest.createdAt)}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cập nhật gần nhất</dt><dd className="mt-1 text-slate-700">{dateTime(selectedRequest.updatedAt)}</dd></div>
+              </dl>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-800">Ghi chú khách hàng</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{selectedRequest.note || 'Không có ghi chú.'}</p></div>
+                <div className="rounded-xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-800">Ghi chú quản trị</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{selectedRequest.adminNote || 'Không có ghi chú.'}</p></div>
+              </div>
+            </div>
+          </motion.section>
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      {reasonRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !updatingId) setReasonRequest(null) }}>
+          <form onSubmit={submitReason} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Nhập lý do</h2>
+                <p className="mt-1 text-sm text-slate-500">Yêu cầu {reasonRequest.item.referenceNumber}</p>
+              </div>
+              <button type="button" onClick={() => setReasonRequest(null)} disabled={Boolean(updatingId)} className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50" aria-label="Đóng"><X size={18} /></button>
+            </div>
+            <label className="mt-5 block text-sm font-semibold text-slate-700">Lý do
+              <textarea autoFocus required maxLength={500} rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Nhập lý do từ chối hoặc hủy..." className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none" />
+            </label>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" onClick={() => setReasonRequest(null)} disabled={Boolean(updatingId)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">Hủy</button>
+              <button type="submit" disabled={Boolean(updatingId) || !reason.trim()} className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{updatingId && <Loader2 size={15} className="mr-2 animate-spin" />}Xác nhận</button>
+            </div>
+          </form>
+        </div>
+      )}    </div>
   )
 }

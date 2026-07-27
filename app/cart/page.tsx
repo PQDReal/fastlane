@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { useAppStore } from '@/lib/store'
 
 const formatPrice = (price: number) =>
@@ -39,6 +40,14 @@ export default function CartPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectionInitialized, setSelectionInitialized] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const closeToast = useCallback((id: number) => setToasts((items) => items.filter((item) => item.id !== id)), [])
+  const notify = useCallback((toast: Omit<ToastMessage, 'id'>, duration = 4500) => {
+    const id = Date.now() + Math.random()
+    setToasts((items) => [...items, { ...toast, id }])
+    if (duration > 0) window.setTimeout(() => closeToast(id), duration)
+    return id
+  }, [closeToast])
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -99,12 +108,12 @@ export default function CartPage() {
     if (!result.ok) setActionError(result.message)
   }
 
-  const removeItem = async (itemId: string, itemName: string) => {
-    if (!window.confirm(`Xóa “${itemName}” khỏi giỏ hàng?`)) return
+  const removeItem = async (itemId: string, toastId: number) => {
+    closeToast(toastId)
     setActionError(null)
     const result = await removeFromCart(itemId)
     if (!result.ok) {
-      setActionError(result.message)
+      notify({ kind: 'error', title: 'Xóa sản phẩm thất bại', message: result.message })
       return
     }
     setSelectedIds((current) => {
@@ -112,6 +121,19 @@ export default function CartPage() {
       next.delete(itemId)
       return next
     })
+    notify({ kind: 'success', title: 'Đã xóa sản phẩm khỏi giỏ hàng' })
+  }
+
+  const requestRemove = (itemId: string, itemName: string) => {
+    const id = Date.now() + Math.random()
+    setToasts((items) => [...items, {
+      id,
+      kind: 'warning',
+      title: 'Xóa sản phẩm?',
+      message: `Bạn có chắc muốn xóa “${itemName}” khỏi giỏ hàng?`,
+      secondaryAction: { label: 'Hủy', onClick: () => closeToast(id) },
+      action: { label: 'Xóa', variant: 'danger', onClick: () => void removeItem(itemId, id) },
+    }])
   }
 
   const proceedToCheckout = () => {
@@ -134,6 +156,7 @@ export default function CartPage() {
   return (
     <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">
       <Header />
+      <ToastViewport toasts={toasts} onClose={closeToast} />
 
       <div className="border-y border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-5 py-4 text-sm lg:px-8">
@@ -264,7 +287,7 @@ export default function CartPage() {
                     type="button"
                     aria-label={`Xóa ${item.name}`}
                     disabled={cartLoading}
-                    onClick={() => void removeItem(item.id, item.name)}
+                    onClick={() => requestRemove(item.id, item.name)}
                     className="col-start-2 mt-2 inline-flex w-fit items-center gap-2 text-sm text-slate-400 hover:text-red-600 disabled:opacity-40 md:col-auto md:mt-0 md:grid md:h-10 md:w-10 md:place-items-center"
                   >
                     <Trash2 size={18} />
