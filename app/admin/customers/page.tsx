@@ -1,134 +1,44 @@
 'use client'
 
-import { useState } from 'react'
-import { mockCustomers } from '../../../lib/mock-db'
-import { Search, Filter, MoreHorizontal, Mail, Phone, Eye } from 'lucide-react'
-import { Button } from '../../../components/ui/button'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { AlertCircle, CheckCircle2, Loader2, Mail, Pencil, Phone, Plus, Search, Trash2, Users, X } from 'lucide-react'
+
+type Customer = { id: string; email: string; full_name: string; phone_number: string | null; role: 'ADMIN' | 'CUSTOMER'; status: 'ACTIVE' | 'INACTIVE'; created_at: string; updated_at: string }
+type FormState = { email: string; password: string; fullName: string; phoneNumber: string; status: 'ACTIVE' | 'INACTIVE'; role: 'ADMIN' | 'CUSTOMER' }
+const EMPTY: FormState = { email: '', password: '', fullName: '', phoneNumber: '', status: 'ACTIVE', role: 'CUSTOMER' }, PAGE_SIZE = 20
+const date = (value: string) => new Date(value).toLocaleDateString('vi-VN')
+function initials(name: string) { const parts = name.trim().split(/\s+/).filter(Boolean); return (parts.length > 1 ? parts.slice(0, 2).map(part => part[0]).join('') : parts[0]?.slice(0, 2)).toUpperCase() || 'KH' }
+async function payload(response: Response) { if (response.status === 204) return null; return response.json().catch(() => ({ error: 'Phản hồi không hợp lệ.' })) }
 
 export default function AdminCustomersPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
-
-  const filteredCustomers = mockCustomers.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          c.phone.includes(searchTerm)
-    const matchesStatus = statusFilter === 'All' || c.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
-
-  const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
-  const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN')
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Khách hàng</h1>
-          <p className="text-sm text-slate-500 mt-1">Quản lý hồ sơ, lịch sử mua hàng và thông tin liên hệ.</p>
+    const [customers, setCustomers] = useState<Customer[]>([]), [search, setSearch] = useState(''), [page, setPage] = useState(1), [loading, setLoading] = useState(true), [error, setError] = useState(''), [busy, setBusy] = useState<string | null>(null)
+    const [modal, setModal] = useState<'create' | 'edit' | 'delete' | null>(null), [selected, setSelected] = useState<Customer | null>(null), [form, setForm] = useState<FormState>(EMPTY)
+    const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+    const notify = (type: 'success' | 'error', message: string) => setToast({ type, message })
+    async function load() { setLoading(true); setError(''); try { const response = await fetch('/api/v1/admin/customers', { cache: 'no-store' }), data = await payload(response); if (!response.ok) throw new Error(data?.error ?? 'Không thể tải danh sách khách hàng.'); setCustomers(data) } catch (e) { setError(e instanceof Error ? e.message : 'Không thể tải danh sách khách hàng.') } finally { setLoading(false) } }
+    useEffect(() => { void load() }, [])
+    useEffect(() => setPage(1), [search])
+    useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 3500); return () => window.clearTimeout(timer) }, [toast])
+    const filtered = useMemo(() => { const q = search.trim().toLocaleLowerCase('vi'); return q ? customers.filter(c => c.full_name.toLocaleLowerCase('vi').includes(q) || c.email.toLocaleLowerCase('vi').includes(q) || c.phone_number?.includes(q)) : customers }, [customers, search])
+    const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)), safePage = Math.min(page, pages), shown = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+    function close() { setModal(null); setSelected(null); setForm(EMPTY) }
+    function create() { setForm(EMPTY); setSelected(null); setModal('create') }
+    function edit(customer: Customer) { setSelected(customer); setForm({ email: customer.email, password: '', fullName: customer.full_name, phoneNumber: customer.phone_number ?? '', status: customer.status, role: customer.role }); setModal('edit') }
+    function remove(customer: Customer) { setSelected(customer); setModal('delete') }
+    async function save(event: FormEvent) { event.preventDefault(); const key = selected?.id ?? 'create'; setBusy(key); setError(''); try { const creating = modal === 'create', response = await fetch(creating ? '/api/v1/admin/customers' : `/api/v1/admin/customers/${selected!.id}`, { method: creating ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(creating ? form : { email: form.email, fullName: form.fullName, phoneNumber: form.phoneNumber || null, status: form.status, role: form.role }) }), data = await payload(response); if (!response.ok) throw new Error(data?.error ?? 'Không thể lưu tài khoản.'); setCustomers(items => creating ? [data, ...items] : items.map(item => item.id === data.id ? data : item)); notify('success', creating ? 'Đã tạo tài khoản khách hàng.' : 'Đã cập nhật thông tin khách hàng.'); close() } catch (e) { const message = e instanceof Error ? e.message : 'Không thể lưu tài khoản.'; setError(message); notify('error', message) } finally { setBusy(null) } }
+    async function confirmDelete() { if (!selected) return; setBusy(selected.id); setError(''); try { const response = await fetch(`/api/v1/admin/customers/${selected.id}`, { method: 'DELETE' }), data = await payload(response); if (!response.ok) throw new Error(data?.error ?? 'Không thể xóa tài khoản.'); setCustomers(items => items.filter(item => item.id !== selected.id)); notify('success', 'Đã xóa tài khoản khách hàng.'); close() } catch (e) { const message = e instanceof Error ? e.message : 'Không thể xóa tài khoản.'; setError(message); notify('error', message) } finally { setBusy(null) } }
+    async function toggle(customer: Customer) { setBusy(customer.id); setError(''); try { const response = await fetch(`/api/v1/admin/customers/${customer.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }) }), data = await payload(response); if (!response.ok) throw new Error(data?.error ?? 'Không thể cập nhật trạng thái.'); setCustomers(items => items.map(item => item.id === data.id ? data : item)); notify('success', data.status === 'ACTIVE' ? 'Đã kích hoạt tài khoản.' : 'Đã vô hiệu hóa tài khoản.') } catch (e) { const message = e instanceof Error ? e.message : 'Không thể cập nhật trạng thái.'; setError(message); notify('error', message) } finally { setBusy(null) } }
+    return <div className="min-w-0 space-y-6">
+        {toast && <div role="status" aria-live="polite" className={`fixed right-4 top-4 z-[200] flex max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 text-sm shadow-xl sm:right-6 sm:top-6 ${toast.type === 'success' ? 'border-emerald-200 text-emerald-800' : 'border-red-200 text-red-700'}`}>{toast.type === 'success' ? <CheckCircle2 className="mt-0.5 shrink-0" size={19} /> : <AlertCircle className="mt-0.5 shrink-0" size={19} />}<span className="font-medium">{toast.message}</span><button type="button" onClick={() => setToast(null)} className="ml-2 text-slate-400 hover:text-slate-700" aria-label="Đóng thông báo"><X size={16} /></button></div>}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-bold text-slate-900">Tài khoản</h1><p className="mt-1 text-sm text-slate-500">Quản lý khách hàng và quản trị viên đồng bộ với Auth0 và database.</p></div><button onClick={create} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"><Plus size={17} />Thêm tài khoản</button></div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="relative w-full sm:max-w-md"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm theo tên, email hoặc số điện thoại..." className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-brand-500" /></div><span className="text-sm font-medium text-slate-500">{filtered.length} khách hàng</span></div>
+            {error && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+            <div className="overflow-x-auto"><table className="w-full min-w-[1080px] whitespace-nowrap text-left text-sm"><thead className="border-b bg-slate-50 font-semibold text-slate-500"><tr><th className="px-6 py-4">Khách hàng</th><th className="px-6 py-4">Liên hệ</th><th className="px-6 py-4">Vai trò</th><th className="px-6 py-4">Trạng thái</th><th className="px-6 py-4">Ngày tham gia</th><th className="px-6 py-4">Cập nhật</th><th className="px-6 py-4 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-100">
+                {loading ? <tr><td colSpan={7} className="px-6 py-16"><Loader2 className="mx-auto animate-spin text-brand-600" /></td></tr> : shown.length ? shown.map(c => <tr key={c.id} className="hover:bg-slate-50"><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">{initials(c.full_name)}</div><div><div className="font-semibold text-slate-900">{c.full_name}</div></div></div></td><td className="px-6 py-4"><div className="space-y-1"><span className="flex items-center gap-1.5 text-xs text-slate-600"><Mail size={12} />{c.email}</span><span className="flex items-center gap-1.5 text-xs text-slate-600"><Phone size={12} />{c.phone_number || 'Chưa cập nhật'}</span></div></td><td className="px-6 py-4"><span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold uppercase ${c.role === 'ADMIN' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>{c.role === 'ADMIN' ? 'Quản trị viên' : 'Khách hàng'}</span></td><td className="px-6 py-4"><div className="flex items-center gap-3"><button type="button" role="switch" aria-label={`${c.status === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt'} tài khoản ${c.full_name}`} aria-checked={c.status === 'ACTIVE'} disabled={busy === c.id} onClick={() => void toggle(c)} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50 ${c.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${c.status === 'ACTIVE' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} /></button><span className={`text-xs font-semibold ${c.status === 'ACTIVE' ? 'text-emerald-700' : 'text-slate-500'}`}>{busy === c.id ? 'Đang xử lý...' : c.status === 'ACTIVE' ? 'Hoạt động' : 'Vô hiệu hóa'}</span></div></td><td className="px-6 py-4 text-slate-600">{date(c.created_at)}</td><td className="px-6 py-4 text-slate-600">{date(c.updated_at)}</td><td className="px-6 py-4"><div className="flex justify-end gap-2"><button onClick={() => edit(c)} className="rounded-lg border p-2 text-slate-600 hover:bg-slate-100" title="Sửa"><Pencil size={16} /></button><button onClick={() => remove(c)} disabled={c.role === 'ADMIN'} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300 disabled:hover:bg-white" title={c.role === 'ADMIN' ? 'Không thể xóa tài khoản Admin' : 'Xóa'}><Trash2 size={16} /></button></div></td></tr>) : <tr><td colSpan={7} className="px-6 py-16 text-center text-slate-500"><Users className="mx-auto mb-3 text-slate-300" />Không tìm thấy khách hàng.</td></tr>}
+            </tbody></table></div>
+            {!loading && filtered.length > 0 && <div className="flex flex-col gap-3 border-t bg-slate-50/50 px-4 py-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><span>Hiển thị {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} / {filtered.length}</span><div className="flex items-center gap-3"><span>Trang {safePage} / {pages}</span><button onClick={() => setPage(v => Math.max(1, v - 1))} disabled={safePage === 1} className="rounded-md border bg-white px-3 py-1.5 disabled:opacity-40">Trước</button><button onClick={() => setPage(v => Math.min(pages, v + 1))} disabled={safePage === pages} className="rounded-md border bg-white px-3 py-1.5 disabled:opacity-40">Sau</button></div></div>}
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
-          <div className="relative w-full sm:w-80">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Tìm theo tên, email hoặc SĐT..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-10 pl-9 pr-4 rounded-md border border-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm"
-            />
-          </div>
-          
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-md px-3 h-10 text-sm font-medium text-slate-700 w-full sm:w-auto">
-              <Filter size={16} className="text-slate-400"/>
-              <select 
-                className="bg-transparent focus:outline-none w-full"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="All">Tất cả trạng thái</option>
-                <option value="Active">Hoạt động</option>
-                <option value="Inactive">Vô hiệu hóa</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">Tên khách hàng</th>
-                <th className="px-6 py-4">Thông tin liên hệ</th>
-                <th className="px-6 py-4">Tổng chi tiêu</th>
-                <th className="px-6 py-4">Lần mua cuối</th>
-                <th className="px-6 py-4">Trạng thái</th>
-                <th className="px-6 py-4">Ngày tham gia</th>
-                <th className="relative w-28 px-6 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredCustomers.map(customer => (
-                <tr key={customer.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm shrink-0">
-                        {customer.name.split(' ').pop()?.[0]}
-                      </div>
-                      <span className="font-semibold text-slate-900">{customer.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col space-y-1">
-                      <span className="flex items-center gap-1.5 text-slate-600 text-xs"><Mail size={12} className="text-slate-400"/> {customer.email}</span>
-                      <span className="flex items-center gap-1.5 text-slate-600 text-xs"><Phone size={12} className="text-slate-400"/> {customer.phone}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-bold text-slate-900">{formatMoney(customer.totalSpending)}</td>
-                  <td className="px-6 py-4 text-slate-600">{formatDate(customer.lastPurchase)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
-                      customer.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {customer.status === 'Active' ? 'Hoạt động' : 'Vô hiệu hóa'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500">{formatDate(customer.createdAt)}</td>
-                  <td className="relative w-28 px-6 py-4 text-right">
-                    <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" title="View Profile"><Eye size={16}/></button>
-                    </div>
-                    <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
-                  </td>
-                </tr>
-              ))}
-              
-              {filteredCustomers.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    Không tìm thấy khách hàng nào.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination mock */}
-        <div className="p-4 border-t border-slate-200 bg-white flex items-center justify-between text-sm text-slate-500">
-          <div>Hiển thị 1 đến {filteredCustomers.length > 20 ? 20 : filteredCustomers.length} của {filteredCustomers.length} kết quả</div>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled>Trước</Button>
-            <Button variant="outline" size="sm">Sau</Button>
-          </div>
-        </div>
-      </div>
+        {modal && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onMouseDown={e => { if (e.target === e.currentTarget) close() }}>{modal === 'delete' ? <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><div className="flex justify-between"><h2 className="text-xl font-bold">Xóa tài khoản?</h2><button onClick={close}><X /></button></div><p className="mt-3 text-sm leading-6 text-slate-600">Tài khoản <b>{selected?.email}</b> sẽ bị xóa khỏi cả Auth0 và database. Thao tác này không thể hoàn tác.</p><div className="mt-6 flex justify-end gap-3"><button onClick={close} className="rounded-lg border px-4 py-2 text-sm font-semibold">Hủy</button><button onClick={() => void confirmDelete()} disabled={busy === selected?.id} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy === selected?.id && <Loader2 size={16} className="animate-spin" />}Xóa tài khoản</button></div></div> : <form onSubmit={save} autoComplete={modal==='create'?'off':'on'} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"><div className="flex items-center justify-between"><div><h2 className="text-xl font-bold">{modal === 'create' ? 'Thêm tài khoản' : 'Sửa tài khoản'}</h2><p className="mt-1 text-sm text-slate-500">Dữ liệu được đồng bộ với Auth0.</p></div><button type="button" onClick={close}><X /></button></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label className="grid gap-1.5 text-sm font-medium sm:col-span-2">Họ và tên<input required name={modal==='create'?'fastlane-new-user-name':'name'} autoComplete={modal==='create'?'off':'name'} maxLength={255} value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} className="h-11 rounded-lg border px-3 outline-none focus:border-brand-500" /></label><label className="grid gap-1.5 text-sm font-medium sm:col-span-2">Email<input required type="email" name={modal==='create'?'fastlane-new-user-email':'email'} autoComplete={modal==='create'?'off':'email'} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="h-11 rounded-lg border px-3 outline-none focus:border-brand-500" /></label>{modal === 'create' && <label className="grid gap-1.5 text-sm font-medium sm:col-span-2">Mật khẩu tạm thời<input required type="password" name="fastlane-new-user-password" autoComplete="new-password" minLength={8} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="h-11 rounded-lg border px-3 outline-none focus:border-brand-500" /><span className="text-xs font-normal text-slate-500">Ít nhất 8 ký tự.</span></label>}<label className="grid gap-1.5 text-sm font-medium">Số điện thoại<input name={modal==='create'?'fastlane-new-user-phone':'tel'} autoComplete={modal==='create'?'off':'tel'} value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} placeholder="0901234567" className="h-11 rounded-lg border px-3 outline-none focus:border-brand-500" /></label>{modal === 'edit' && <><label className="grid gap-1.5 text-sm font-medium">Trạng thái<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as FormState['status'] })} className="h-11 rounded-lg border bg-white px-3"><option value="ACTIVE">Hoạt động</option><option value="INACTIVE">Vô hiệu hóa</option></select></label><label className="grid gap-1.5 text-sm font-medium">Vai trò<select value={form.role} onChange={e => setForm({ ...form, role: e.target.value as FormState['role'] })} className="h-11 rounded-lg border bg-white px-3"><option value="CUSTOMER">Khách hàng</option><option value="ADMIN">Quản trị viên</option></select></label></>}</div><div className="mt-7 flex justify-end gap-3"><button type="button" onClick={close} className="rounded-lg border px-4 py-2 text-sm font-semibold">Hủy</button><button disabled={busy !== null} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={16} className="animate-spin" />}{modal === 'create' ? 'Tạo tài khoản' : 'Lưu thay đổi'}</button></div></form>}</div>}
     </div>
-  )
 }

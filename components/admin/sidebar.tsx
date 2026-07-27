@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, ShoppingCart, Archive, Users, Settings, LogOut, CarFront, Ticket, Tags, CalendarDays, CircleDollarSign } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Archive, Users, LogOut, Ticket, Tags, CalendarDays, CircleDollarSign, X } from 'lucide-react'
 
 const navigation = [
   { name: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
@@ -16,16 +16,19 @@ const navigation = [
   { name: 'Khách hàng', href: '/admin/customers', icon: Users },
 ]
 
-export function AdminSidebar() {
+export function AdminSidebar({ open = false, onClose, user }: { open?: boolean; onClose?: () => void; user: { fullName: string; email: string } }) {
+  const nameParts = user.fullName.trim().split(/\s+/).filter(Boolean)
+  const initials = (nameParts.length > 1 ? nameParts.slice(0, 2).map((part) => part[0]).join('') : nameParts[0]?.slice(0, 2)).toUpperCase() || 'AD'
   const pathname = usePathname()
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex flex-col z-50 border-r border-slate-800">
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-300 ease-out md:translate-x-0 ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
       <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950">
-        <Link href="/admin" className="flex items-center gap-2 text-white hover:text-brand-400 transition-colors">
-          <CarFront size={24} className="text-brand-500" />
-          <span className="font-bold text-lg tracking-tight">Fastlane Admin</span>
+        <Link href="/admin" className="group flex items-center gap-2.5" aria-label="FASTLANE Admin">
+          <img src="/images/fastlane-logo.png" alt="Logo FASTLANE" className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+          <span className="font-display mt-0.5 text-xl font-bold tracking-[0.06em] text-[#b88a08] transition-opacity group-hover:opacity-80">FASTLANE</span>
         </Link>
+        <button type="button" onClick={onClose} className="ml-auto rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden" aria-label="Đóng menu"><X size={20} /></button>
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
@@ -50,31 +53,20 @@ export function AdminSidebar() {
       </div>
 
       <div className="p-4 border-t border-slate-800 space-y-1">
-        <Link
-          href="/admin/settings"
-          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-            pathname.startsWith('/admin/settings') 
-              ? 'bg-brand-600/10 text-brand-400' 
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <Settings size={18} className={pathname.startsWith('/admin/settings') ? 'text-brand-500' : 'text-slate-500'} />
-          Cài đặt
-        </Link>
-        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors">
+        <a href="/auth/logout" className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors">
           <LogOut size={18} className="text-slate-500" />
           Đăng xuất
-        </button>
+        </a>
       </div>
-      
+
       {/* Profile Snippet */}
       <div className="p-4 bg-slate-950 flex items-center gap-3 border-t border-slate-900">
         <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">
-          HN
+          {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">Hưng Nguyễn</p>
-          <p className="text-xs text-slate-500 truncate">Quản trị viên</p>
+          <p className="text-sm font-medium text-white truncate">{user.fullName}</p>
+          <p className="text-xs text-slate-500 truncate">{user.email}</p>
         </div>
       </div>
     </aside>

@@ -7,6 +7,7 @@ import {
   type AuthorizationPolicy,
 } from '@/lib/auth/authorize'
 import { ApiAuthError } from '@/lib/auth/errors'
+import { getCurrentUser } from '@/lib/auth/current-user'
 
 export const adminCatalogPolicy = {
   requiredRoles: ['admin'],
@@ -16,6 +17,14 @@ export const adminCatalogPolicy = {
 export async function authorizeAdminCatalogRequest(request: Request) {
   if (request.headers.has('authorization')) {
     return authorizeRequest(request, adminCatalogPolicy)
+  }
+
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  }
+  if (currentUser.role !== 'ADMIN') {
+    throw new ApiAuthError(403, 'INSUFFICIENT_PERMISSION', 'Administrator access is required.')
   }
 
   let token: string
@@ -41,6 +50,14 @@ export const adminInventoryPolicy = {
 export async function authorizeAdminInventoryRequest(request: Request) {
   if (request.headers.has('authorization')) {
     return authorizeRequest(request, adminInventoryPolicy)
+  }
+
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  }
+  if (currentUser.role !== 'ADMIN') {
+    throw new ApiAuthError(403, 'INSUFFICIENT_PERMISSION', 'Administrator access is required.')
   }
 
   let token: string

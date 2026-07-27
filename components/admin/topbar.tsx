@@ -3,7 +3,7 @@
 import { Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
-export function AdminTopbar() {
+export function AdminTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname()
   
   // Format breadcrumb from pathname
@@ -13,12 +13,12 @@ export function AdminTopbar() {
     : 'Tổng quan'
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-40">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
       <div className="flex items-center gap-4">
-        <button className="md:hidden text-slate-500 hover:text-slate-900">
+        <button type="button" onClick={onMenuClick} className="-ml-2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:hidden" aria-label="Mở menu quản trị">
           <Menu size={20} />
         </button>
-        
+        <h1 className="truncate text-sm font-semibold text-slate-900 sm:hidden">{title}</h1>
         <nav className="hidden sm:flex text-sm font-medium text-slate-500">
           <span>Quản trị</span>
           {segments.map((seg, i) => {

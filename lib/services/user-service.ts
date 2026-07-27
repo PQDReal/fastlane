@@ -16,6 +16,7 @@ export type LocalUser = {
   full_name: string
   phone_number: string | null
   role: 'ADMIN' | 'CUSTOMER'
+  status: 'ACTIVE' | 'INACTIVE'
   created_at: string
   updated_at: string
 }
@@ -30,7 +31,7 @@ export async function findUserByAuth0Subject(
   const { data, error } = await getSupabaseAdmin()
     .from('users')
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
     )
     .eq('auth0_subject', normalizedSubject)
     .maybeSingle<LocalUser>()
@@ -62,7 +63,7 @@ export async function updateUserProfile(
     .update(updates)
     .eq('auth0_subject', subject)
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
     )
     .single<LocalUser>()
 
@@ -101,7 +102,7 @@ export async function syncAuth0User(
       },
     )
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
     )
     .single<LocalUser>()
 
