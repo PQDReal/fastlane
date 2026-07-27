@@ -22,7 +22,11 @@ The dynamic options sequence is:
   finds invalid data.
 - `005_accessory_checkout_option_snapshot.sql` keeps selected-item partial
   checkout behavior and snapshots ordered variant option mappings atomically
-  with the order-item insert.
+  with the order-item insert. It also reconciles the selected-item identifier
+  with the live `cart_items` schema: `p_cart_item_ids` contains variant UUIDs,
+  because cart rows are keyed by `(cart_id, variant_id)` and have no `id`
+  column. Every ownership, lock, pricing, insert, inventory, and partial-delete
+  predicate is scoped by both the active cart and those variant UUIDs.
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 

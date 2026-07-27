@@ -24,6 +24,8 @@ declare
   v_subtotal numeric;
   v_selected_count integer;
 begin
+  -- cart_items is keyed by (cart_id, variant_id). The API-facing item ID is
+  -- therefore the variant UUID carried in p_cart_item_ids.
   if p_customer_id is null then
     raise exception using errcode = 'P0001', message = 'AUTHENTICATION_REQUIRED';
   end if;
@@ -76,7 +78,7 @@ begin
     into v_selected_count
     from public.cart_items cart_item
    where cart_item.cart_id = v_cart.id
-     and cart_item.id = any(p_cart_item_ids);
+     and cart_item.variant_id = any(p_cart_item_ids);
 
   if v_selected_count <> cardinality(p_cart_item_ids) then
     raise exception using errcode = 'P0001', message = 'CART_CHANGED';
@@ -88,7 +90,7 @@ begin
     join public.products product on product.id = variant.product_id
     join public.inventory_items inventory on inventory.variant_id = variant.id
    where cart_item.cart_id = v_cart.id
-     and cart_item.id = any(p_cart_item_ids)
+     and cart_item.variant_id = any(p_cart_item_ids)
    for update of inventory;
 
   if exists (
@@ -98,7 +100,7 @@ begin
       left join public.products product on product.id = variant.product_id
       left join public.inventory_items inventory on inventory.variant_id = variant.id
      where cart_item.cart_id = v_cart.id
-       and cart_item.id = any(p_cart_item_ids)
+       and cart_item.variant_id = any(p_cart_item_ids)
        and (
          variant.id is null
          or product.id is null
@@ -116,7 +118,7 @@ begin
       from public.cart_items cart_item
       join public.inventory_items inventory on inventory.variant_id = cart_item.variant_id
      where cart_item.cart_id = v_cart.id
-       and cart_item.id = any(p_cart_item_ids)
+       and cart_item.variant_id = any(p_cart_item_ids)
        and inventory.on_hand_quantity < cart_item.quantity
   ) then
     raise exception using errcode = 'P0001', message = 'OUT_OF_STOCK';
@@ -130,7 +132,7 @@ begin
     from public.cart_items cart_item
     join public.product_variants variant on variant.id = cart_item.variant_id
    where cart_item.cart_id = v_cart.id
-     and cart_item.id = any(p_cart_item_ids);
+     and cart_item.variant_id = any(p_cart_item_ids);
 
   if v_subtotal <> p_accepted_total then
     raise exception using errcode = 'P0001', message = 'PRICE_CHANGED';
@@ -220,19 +222,19 @@ begin
   join public.product_variants variant on variant.id = cart_item.variant_id
   join public.products product on product.id = variant.product_id
   where cart_item.cart_id = v_cart.id
-    and cart_item.id = any(p_cart_item_ids);
+    and cart_item.variant_id = any(p_cart_item_ids);
 
   update public.inventory_items inventory
      set on_hand_quantity = inventory.on_hand_quantity - cart_item.quantity,
          updated_at = clock_timestamp()
     from public.cart_items cart_item
    where cart_item.cart_id = v_cart.id
-     and cart_item.id = any(p_cart_item_ids)
+     and cart_item.variant_id = any(p_cart_item_ids)
      and inventory.variant_id = cart_item.variant_id;
 
   delete from public.cart_items cart_item
    where cart_item.cart_id = v_cart.id
-     and cart_item.id = any(p_cart_item_ids);
+     and cart_item.variant_id = any(p_cart_item_ids);
 
   if exists (select 1 from public.cart_items where cart_id = v_cart.id) then
     update public.carts
