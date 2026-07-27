@@ -19,6 +19,8 @@
     "seed:accessory-inventory": "node scripts/seed-accessory-inventory.mjs",
     "sync:vinfast-accessories": "node --env-file=.env.local scripts/sync-vinfast-accessories.mjs",
     "sync:vinfast-accessories:apply": "node --env-file=.env.local scripts/sync-vinfast-accessories.mjs --apply",
+    "sync:published-catalog": "node --env-file=.env.local scripts/sync-published-catalog-options.mjs",
+    "sync:published-catalog:apply": "node --env-file=.env.local scripts/sync-published-catalog-options.mjs --apply",
     "bundle:openapi": "npm --prefix api-contract run bundle",
     "preview:openapi": "npm --prefix api-contract run preview",
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build"
