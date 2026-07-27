@@ -1,8 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 import { createClient } from '@supabase/supabase-js'
+
+import {
+  assertVerification,
+  buildVerificationReport,
+  sourceSelection,
+} from './published-catalog-verifier.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const REPLACE = process.argv.includes('--replace')
@@ -21,6 +28,16 @@ const GROUP_LABELS = {
   version: 'Phiên bản',
   exterior_color: 'Màu ngoại thất',
 }
+
+const VEHICLE_SKU_PREFIX_OVERRIDES = {
+  vinfastvfmpv7: 'VFMPV7',
+  vinfastvf8theallnew2026: 'VF8ALLNEW',
+}
+
+const PRODUCTS_WITHOUT_MEDIA_ALLOWLIST = new Set([
+  // Published Vero X data currently has no usable gallery or color-detail URL.
+  'Vero X',
+])
 
 function requiredEnvironment(name) {
   const value = process.env[name]?.trim()
@@ -76,7 +93,9 @@ function groupDisplayType(code) {
 }
 
 function variantSku(productName, index) {
-  return `VINFAST-${compactKey(productName).toUpperCase()}-${String(index + 1).padStart(2, '0')}`
+  const productKey = compactKey(productName)
+  const prefix = VEHICLE_SKU_PREFIX_OVERRIDES[productKey] || productKey.toUpperCase()
+  return `VINFAST-${prefix}-${String(index + 1).padStart(2, '0')}`
 }
 
 function parseVehicleVariants(product) {
@@ -204,13 +223,19 @@ function publishedColors(source) {
 
   if (source.kind === 'motorbike') {
     const details = new Map((Array.isArray(product.color_details) ? product.color_details : [])
-      .map(detail => [String(detail.color_name || '').trim().toLocaleLowerCase('vi'), detail.image_url]))
-    return (Array.isArray(product.colors) ? product.colors : []).map((name, index) => ({
-      name,
-      image: details.get(String(name).trim().toLocaleLowerCase('vi')) || null,
-      swatch: null,
-      index,
-    })).filter(color => typeof color.name === 'string' && color.name.trim())
+      .map(detail => [String(detail.color_name || detail.name || '').trim().toLocaleLowerCase('vi'), {
+        image: detail.image_url || detail.image || null,
+        swatch: detail.swatch || null,
+      }]))
+    return (Array.isArray(product.colors) ? product.colors : []).map((name, index) => {
+      const detail = details.get(String(name).trim().toLocaleLowerCase('vi'))
+      return {
+        name,
+        image: detail?.image || null,
+        swatch: detail?.swatch || null,
+        index,
+      }
+    }).filter(color => typeof color.name === 'string' && color.name.trim())
   }
   return []
 }
@@ -234,6 +259,56 @@ async function checked(operation, context) {
   const result = await operation
   if (result.error) throw new Error(`${context}: ${result.error.message}`)
   return result.data
+}
+
+async function selectAll(supabase, table, columns, context, pageSize = 1000) {
+  const rows = []
+  for (let start = 0; ; start += pageSize) {
+    const page = await checked(
+      supabase.from(table).select(columns).range(start, start + pageSize - 1),
+      context,
+    )
+    rows.push(...page)
+    if (page.length < pageSize) return rows
+  }
+}
+
+async function loadCatalogState(supabase) {
+  const [products, variants, groups, values, mappings, media, inventory] = await Promise.all([
+    selectAll(supabase, 'products', '*,category:categories!inner(slug)', 'Load products'),
+    selectAll(
+      supabase,
+      'product_variants',
+      'id,product_id,sku,name,is_active,option_signature',
+      'Load variants',
+    ),
+    selectAll(
+      supabase,
+      'product_option_groups',
+      'id,product_id,code,minimum_selections,is_active',
+      'Load option groups',
+    ),
+    selectAll(
+      supabase,
+      'product_option_values',
+      'id,product_id,option_group_id,code,is_active',
+      'Load option values',
+    ),
+    selectAll(
+      supabase,
+      'product_variant_option_values',
+      'product_id,variant_id,option_group_id,option_value_id',
+      'Load variant option mappings',
+    ),
+    selectAll(
+      supabase,
+      'product_media',
+      'id,product_id,variant_id,option_value_id,is_active',
+      'Load product media',
+    ),
+    selectAll(supabase, 'inventory_items', 'variant_id', 'Load inventory'),
+  ])
+  return { products, variants, groups, values, mappings, media, inventory }
 }
 
 function relatedCategory(product) {
@@ -267,6 +342,46 @@ function findExistingProduct(source, products, variants) {
     return category?.slug === source.categorySlug
       && (product.slug === source.slug || compactKey(product.name) === compactKey(source.data.name))
   }) || null
+}
+
+function resolveSources(sources, products, variants) {
+  return sources.map(source => {
+    const existing = findExistingProduct(source, products, variants)
+    return {
+      source,
+      existing,
+      currentVariants: existing
+        ? variants.filter(variant => variant.product_id === existing.id)
+        : [],
+    }
+  })
+}
+
+function verificationSources(resolved) {
+  return resolved.map(({ source, existing }) => ({
+    name: source.data.name,
+    categorySlug: source.categorySlug,
+    kind: source.kind,
+    productId: existing?.id || null,
+    variants: source.variants.map(variant => ({
+      sku: variant.sku,
+      selection: sourceSelection(variant.attributes),
+    })),
+  }))
+}
+
+function verifyCatalog(resolved, state) {
+  return buildVerificationReport({
+    sources: verificationSources(resolved),
+    products: state.products,
+    variants: state.variants,
+    groups: state.groups,
+    values: state.values,
+    mappings: state.mappings,
+    media: state.media,
+    inventory: state.inventory,
+    productsWithoutMediaAllowlist: PRODUCTS_WITHOUT_MEDIA_ALLOWLIST,
+  })
 }
 
 function productImages(source) {
@@ -312,7 +427,7 @@ async function backupCurrentData(supabase) {
   ]
   const backup = { created_at: new Date().toISOString(), tables: {} }
   for (const table of tableNames) {
-    backup.tables[table] = await checked(supabase.from(table).select('*'), `Backup ${table}`)
+    backup.tables[table] = await selectAll(supabase, table, '*', `Backup ${table}`)
   }
   const directory = path.join(process.cwd(), '.local', 'data', 'db-backups')
   const filename = `published-catalog-before-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
@@ -336,11 +451,6 @@ async function synchronizeNormalizedProduct(supabase, source, product, variants)
   )
 
   const selectionsBySku = new Map(source.variants.map(variant => [variant.sku, { ...variant.attributes }]))
-  if (source.productType === 'VEHICLE') {
-    for (const variant of variants.filter(variant => variant.is_active)) {
-      selectionsBySku.set(variant.sku, { version: variant.name })
-    }
-  }
 
   const groupValues = new Map()
   for (const selection of selectionsBySku.values()) {
@@ -521,52 +631,82 @@ async function main() {
   })
 
   const categories = await checked(supabase.from('categories').select('id,slug'), 'Load categories')
-  const products = await checked(
-    supabase.from('products').select('*,category:categories!inner(slug)'),
-    'Load products',
-  )
-  const allVariants = await checked(supabase.from('product_variants').select('*'), 'Load variants')
+  const state = await loadCatalogState(supabase)
+  const resolved = resolveSources(sources, state.products, state.variants)
+  const verification = verifyCatalog(resolved, state)
   const categoryBySlug = new Map(categories.map(category => [category.slug, category]))
 
   const plan = {
-    publishedProducts: sources.length,
-    existingProducts: 0,
-    insertedProducts: 0,
+    sourceProducts: verification.sourceProducts,
+    matchedProducts: verification.matchedProducts,
+    sourceVariants: verification.sourceVariants,
+    matchedVariants: verification.matchedVariants,
+    insertedProducts: verification.sourceProducts - verification.matchedProducts,
     insertedVariants: 0,
     updatedVariants: 0,
     deactivatedProducts: 0,
+    deactivatedVariants: 0,
   }
 
-  const resolved = sources.map(source => {
-    const existing = findExistingProduct(source, products, allVariants)
-    if (existing) plan.existingProducts++
-    else plan.insertedProducts++
-    const currentVariants = existing
-      ? allVariants.filter(variant => variant.product_id === existing.id)
-      : []
+  for (const { source, currentVariants } of resolved) {
     const currentBySku = new Map(currentVariants.map(variant => [variant.sku.toUpperCase(), variant]))
     plan.insertedVariants += source.variants.filter(variant => !currentBySku.has(variant.sku)).length
     plan.updatedVariants += source.variants.filter(variant => currentBySku.has(variant.sku)).length
-    return { source, existing, currentVariants }
-  })
+  }
+  plan.deactivatedProducts = REPLACE ? verification.productsOutsideSource.length : 0
+  plan.deactivatedVariants = REPLACE ? verification.variantsOutsideSource.length : 0
 
-  const sourceIdentity = new Set(sources.map(source => `${source.categorySlug}:${compactKey(source.data.name)}`))
-  const obsolete = products.filter(product => {
-    const category = relatedCategory(product)
-    return product.is_active
-      && SOURCE_DEFINITIONS.some(definition => definition.categorySlug === category?.slug)
-      && !sourceIdentity.has(`${category.slug}:${compactKey(product.name)}`)
-  })
-  plan.deactivatedProducts = REPLACE ? obsolete.length : 0
+  const replaceWouldDeactivate = verification.productsOutsideSource.map(product => product.name)
+  const replaceWouldDeactivateVariants = verification.variantsOutsideSource
 
   if (!APPLY) {
-    console.log(JSON.stringify({ plan, replaceWouldDeactivate: obsolete.map(product => product.name) }, null, 2))
+    console.log(JSON.stringify({
+      plan,
+      verification,
+      replaceWouldDeactivate,
+      replaceWouldDeactivateVariants,
+    }, null, 2))
     console.log('Dry run complete; no database rows changed.')
+    assertVerification(verification)
     return
+  }
+
+  const sourceBlockingIssues = [
+    ...verification.integrity.duplicateSourceSkus,
+    ...verification.integrity.duplicateSourceSignatures,
+    ...verification.integrity.duplicateDatabaseSkus,
+  ]
+  if (sourceBlockingIssues.length > 0) {
+    throw new Error('Refusing to apply while source or database SKU identity is ambiguous')
+  }
+  if (!REPLACE && (
+    verification.productsOutsideSource.length > 0
+    || verification.variantsOutsideSource.length > 0
+  )) {
+    throw new Error(
+      'Active catalog rows exist outside the published source; review the dry-run and rerun with --replace to deactivate them safely',
+    )
   }
 
   await backupCurrentData(supabase)
   const summary = { ...plan, optionGroups: 0, optionValues: 0, mappings: 0, media: 0 }
+
+  if (REPLACE && verification.variantsOutsideSource.length > 0) {
+    await checked(
+      supabase.from('product_variants')
+        .update({ is_active: false, option_signature: null })
+        .in('id', verification.variantsOutsideSource.map(variant => variant.id)),
+      'Deactivate variants absent from published data',
+    )
+  }
+  if (REPLACE && verification.productsOutsideSource.length > 0) {
+    await checked(
+      supabase.from('products')
+        .update({ is_active: false })
+        .in('id', verification.productsOutsideSource.map(product => product.id)),
+      'Deactivate products absent from published data',
+    )
+  }
 
   for (const item of resolved) {
     const { source } = item
@@ -614,7 +754,7 @@ async function main() {
           `Insert variant ${expected.sku}`,
         )
       }
-      currentBySku.set(variant.sku, variant)
+      currentBySku.set(variant.sku.toUpperCase(), variant)
       await checked(
         supabase.from('inventory_items').upsert({
           variant_id: variant.id,
@@ -634,23 +774,21 @@ async function main() {
     console.log(`[SYNC] ${source.categorySlug}/${product.slug}: ${normalized.groups} groups, ${normalized.values} values, ${normalized.media} media`)
   }
 
-  if (REPLACE && obsolete.length > 0) {
-    await checked(
-      supabase.from('products').update({ is_active: false }).in('id', obsolete.map(product => product.id)),
-      'Deactivate products absent from published data',
-    )
-  }
-
-  const counts = await Promise.all([
-    checked(supabase.from('product_option_groups').select('*', { count: 'exact', head: true }), 'Count groups'),
-    checked(supabase.from('product_option_values').select('*', { count: 'exact', head: true }), 'Count values'),
-    checked(supabase.from('product_variant_option_values').select('*', { count: 'exact', head: true }), 'Count mappings'),
-    checked(supabase.from('product_media').select('*', { count: 'exact', head: true }), 'Count media'),
-  ])
-  console.log(JSON.stringify({ summary, verificationQueriesCompleted: counts.length }, null, 2))
+  const finalState = await loadCatalogState(supabase)
+  const finalResolved = resolveSources(sources, finalState.products, finalState.variants)
+  const finalVerification = verifyCatalog(finalResolved, finalState)
+  console.log(JSON.stringify({ summary, verification: finalVerification }, null, 2))
+  assertVerification(finalVerification)
 }
 
-main().catch(error => {
-  console.error(error.message)
-  process.exitCode = 1
-})
+export { loadPublishedSources, main, variantSku }
+
+const isMainModule = process.argv[1]
+  && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+
+if (isMainModule) {
+  main().catch(error => {
+    console.error(error.message)
+    process.exitCode = 1
+  })
+}

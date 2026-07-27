@@ -448,7 +448,8 @@
             "Trắng ngọc trai"
         ],
         "variants": [
-            "Bản nâng cao (Đã bao gồm VAT & Bộ sạc)"
+            "Bản nâng cao (Đã bao gồm VAT & Bộ sạc)",
+            "Không kèm Pin: 12.500.000 VNĐ"
         ],
         "product_type": "motorbike",
         "status": "Đang kinh doanh",
@@ -620,7 +621,8 @@
             "Trắng ngọc trai"
         ],
         "variants": [
-            "Bản tiêu chuẩn (Đã bao gồm VAT & Bộ sạc)"
+            "Bản tiêu chuẩn (Đã bao gồm VAT & Bộ sạc)",
+            "Không kèm Pin: 35.000.000 VNĐ"
         ],
         "product_type": "motorbike",
         "status": "Đang kinh doanh",
@@ -1498,5 +1500,287 @@
                 "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/FELIZ/BAU.png"
             }
         ]
+    },
+    {
+        "name": "Kinet",
+        "url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+        "order_url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast?modelId=Products-Scooter-KINET",
+        "price": "Kèm Pin: 49.900.000 VNĐ / Không kèm Pin: 40.000.000 VNĐ",
+        "base_price": 40000000,
+        "battery_price": 9900000,
+        "price_with_battery": 49900000,
+        "pricing": {
+            "without_battery": 40000000,
+            "battery": 9900000,
+            "with_battery": 49900000
+        },
+        "deposit": "2.000.000 VNĐ",
+        "deposit_value": 2000000,
+        "colors": [
+            "Đen Bóng",
+            "Trắng Ngọc Trai",
+            "Xám Xi Măng",
+            "Đỏ Đen",
+            "Nâu Ánh Kim"
+        ],
+        "color_details": [
+            {
+                "name": "Đen Bóng",
+                "code": "BAUVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-BAUVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc9e08ce9/images/XMD/KINET/BAUVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png"
+            },
+            {
+                "name": "Trắng Ngọc Trai",
+                "code": "WHRVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-WHRVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw2618206a/images/XMD/KINET/WHRVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png"
+            },
+            {
+                "name": "Xám Xi Măng",
+                "code": "GRCVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-GRCVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbb8ed54d/images/XMD/KINET/GRCVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png"
+            },
+            {
+                "name": "Đỏ Đen",
+                "code": "REQVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-REQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw403de5bd/images/XMD/KINET/REQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png"
+            },
+            {
+                "name": "Nâu Ánh Kim",
+                "code": "BRQVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-BRQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4d630d91/images/XMD/KINET/BRQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+            }
+        ],
+        "variants": [
+            "Kèm Pin: 49.900.000 VNĐ",
+            "Không kèm Pin: 40.000.000 VNĐ"
+        ],
+        "battery_options": [
+            {
+                "id": "Services-Scooter-KINET-Mua-Pin",
+                "name": "Kèm pin (2 pin chạy song song)",
+                "price": 9900000
+            },
+            {
+                "id": "Services-Scooter-KINET-Thue-Pin",
+                "name": "Không kèm Pin (2 pin chạy song song)",
+                "price": 0
+            }
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Vận tốc lên tới": "90 km/h",
+            "Quãng đường đi được 1 lần sạc lên tới": "145 km",
+            "Công suất tối đa lên tới": "5200 W"
+        },
+        "quick_specs": [
+            {
+                "label": "Vận tốc lên tới",
+                "value": "90",
+                "unit": "km/h"
+            },
+            {
+                "label": "Quãng đường đi được 1 lần sạc lên tới",
+                "value": "145",
+                "unit": "km"
+            },
+            {
+                "label": "Công suất tối đa lên tới",
+                "value": "5200",
+                "unit": "W"
+            }
+        ],
+        "top_speed_kmh": 90,
+        "range_km": 145,
+        "max_power_w": 5200,
+        "gallery": {
+            "banner_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png"
+            ],
+            "exterior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+            ],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+        ],
+        "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+        "id": "kinet",
+        "slug": "kinet",
+        "model_key": "Products-Scooter-KINET",
+        "pid": "VF-ZFG-ESNF4LHHHT-GRCVN",
+        "source": {
+            "configurator": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "landing_page": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "crawled_at": "2026-07-24T03:46:26.829Z"
+        }
+    },
+    {
+        "name": "Kyo",
+        "url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+        "order_url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast?modelId=Products-Scooter-KYO",
+        "price": "Kèm Pin: 35.300.000 VNĐ / Không kèm Pin: 30.000.000 VNĐ",
+        "base_price": 30000000,
+        "battery_price": 5300000,
+        "price_with_battery": 35300000,
+        "pricing": {
+            "without_battery": 30000000,
+            "battery": 5300000,
+            "with_battery": 35300000
+        },
+        "deposit": "2.000.000 VNĐ",
+        "deposit_value": 2000000,
+        "colors": [
+            "Nâu Ánh Kim",
+            "Trắng Ngọc Trai",
+            "Xanh Oliu",
+            "Đen Bóng",
+            "Đỏ"
+        ],
+        "color_details": [
+            {
+                "name": "Nâu Ánh Kim",
+                "code": "BRQVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-BRQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwabb414a6/images/XMD/KYO/BRQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png"
+            },
+            {
+                "name": "Trắng Ngọc Trai",
+                "code": "WHRVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-WHRVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf926d65f/images/XMD/KYO/WHRVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png"
+            },
+            {
+                "name": "Xanh Oliu",
+                "code": "GNVVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-GNVVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwac87e2fc/images/XMD/KYO/GNVVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png"
+            },
+            {
+                "name": "Đen Bóng",
+                "code": "BAUVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-BAUVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0526b17e/images/XMD/KYO/BAUVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png"
+            },
+            {
+                "name": "Đỏ",
+                "code": "REQVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-REQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3416186/images/XMD/KYO/REQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+            }
+        ],
+        "variants": [
+            "Kèm Pin: 35.300.000 VNĐ",
+            "Không kèm Pin: 30.000.000 VNĐ"
+        ],
+        "battery_options": [
+            {
+                "id": "Services-Scooter-KYO-Mua-Pin",
+                "name": "Kèm Pin",
+                "price": 5300000
+            },
+            {
+                "id": "Services-Scooter-KYO-Thue-Pin",
+                "name": "Không kèm Pin",
+                "price": 0
+            }
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Vận tốc lên tới": "70 km/h",
+            "Quãng đường đi được 1 lần sạc lên tới": "160 km",
+            "Công suất tối đa lên tới": "3000 W"
+        },
+        "quick_specs": [
+            {
+                "label": "Vận tốc lên tới",
+                "value": "70",
+                "unit": "km/h"
+            },
+            {
+                "label": "Quãng đường đi được 1 lần sạc lên tới",
+                "value": "160",
+                "unit": "km"
+            },
+            {
+                "label": "Công suất tối đa lên tới",
+                "value": "3000",
+                "unit": "W"
+            }
+        ],
+        "top_speed_kmh": 70,
+        "range_km": 160,
+        "max_power_w": 3000,
+        "gallery": {
+            "banner_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png"
+            ],
+            "exterior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+            ],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+        ],
+        "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+        "id": "kyo",
+        "slug": "kyo",
+        "model_key": "Products-Scooter-KYO",
+        "pid": "VF-ZFG-ESNF3LHHHT-BAUVN",
+        "source": {
+            "configurator": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "landing_page": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "crawled_at": "2026-07-24T03:46:26.829Z"
+        }
     }
 ]
