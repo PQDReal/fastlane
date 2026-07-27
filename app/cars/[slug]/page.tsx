@@ -136,7 +136,9 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
           </div>
           <div className="flex items-center gap-3">
             <span className="font-bold hidden md:block mr-2">{formatPrice(product.displayed_price)}</span>
-            <Button size="sm" variant="outline" className="rounded-full font-bold border-brand-600 text-brand-600 hover:bg-brand-50 hidden sm:inline-flex">Dự toán</Button>
+            <Button size="sm" variant="outline" className="rounded-full font-bold border-brand-600 text-brand-600 hover:bg-brand-50 hidden sm:inline-flex" asChild>
+              <Link href={{ pathname: '/cost-estimator', query: { vehicle: product.slug } }}>Dự toán</Link>
+            </Button>
             <Button size="sm" className="rounded-full bg-brand-600 hover:bg-brand-700 text-white font-bold" asChild>
               <Link href={`/deposit?model=${product.name}`}>Đặt cọc</Link>
             </Button>
