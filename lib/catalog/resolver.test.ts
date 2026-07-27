@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { resolveCatalogImageUrl, resolveCatalogMedia } from '@/lib/catalog/resolver'
 import {
+  changeOptionSelection,
   filterCompatibleVariants,
   getOptionAvailability,
   reconcileSelection,
@@ -116,6 +117,38 @@ describe('catalog combination resolver', () => {
     const single = { ...product(), optionGroups: [], variants: [variant('default', {})] }
     expect(resolveExactVariant(single, {})?.id).toBe('default')
   })
+
+  it('resolves the unmapped default when an optional group is not selected', () => {
+    const base = product()
+    const optional = {
+      ...base,
+      optionGroups: [
+        base.optionGroups[0],
+        {
+          id: 'gift-group', code: 'gift', name: 'Gói quà', displayType: 'BUTTON' as const,
+          minimumSelections: 0 as const, maximumSelections: 1 as const,
+          displayOrder: 1, metadata: {},
+          values: [
+            { id: 'wrap-id', code: 'wrap', name: 'Có gói quà', swatchUrl: null, colorHex: null, priceAdjustment: 0, displayOrder: 0, metadata: {} },
+          ],
+        },
+      ],
+      variants: [
+        variant('plain-red', { color: 'red' }),
+        variant('wrapped-red', { color: 'red', gift: 'wrap' }),
+      ],
+    }
+
+    expect(resolveExactVariant(optional, { color: 'red' })?.id).toBe('plain-red')
+    expect(resolveExactVariant(optional, { color: 'red', gift: 'wrap' })?.id)
+      .toBe('wrapped-red')
+    expect(changeOptionSelection(
+      optional,
+      { color: 'red', gift: 'wrap' },
+      'gift',
+      'wrap',
+    )).toEqual({ color: 'red' })
+  })
 })
 
 describe('catalog media resolver', () => {
@@ -144,5 +177,19 @@ describe('catalog media resolver', () => {
     expect(resolveCatalogMedia(placeholder, { placeholderUrl: '/fallback.svg' })[0])
       .toMatchObject({ url: '/fallback.svg', source: 'PLACEHOLDER' })
     expect(resolveCatalogImageUrl(placeholder)).toBe('/images/vf8.png')
+  })
+
+  it('skips variant videos when an image-only consumer needs a URL', () => {
+    const base = product()
+    base.media.byVariant['red-m'] = [{
+      ...media('variant-video', { variantId: 'red-m' }),
+      mediaType: 'VIDEO',
+      url: 'variant.mp4',
+    }]
+
+    expect(resolveCatalogMedia(base, { variantId: 'red-m' })[0])
+      .toMatchObject({ url: 'variant.mp4', mediaType: 'VIDEO' })
+    expect(resolveCatalogImageUrl(base, { variantId: 'red-m' }))
+      .toBe('red.jpg')
   })
 })
