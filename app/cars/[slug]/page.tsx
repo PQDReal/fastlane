@@ -36,13 +36,22 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
   const landingData = fs.existsSync(landingDataPath) ? JSON.parse(fs.readFileSync(landingDataPath, 'utf8')) : {}
 
   // Find matching car data
-  let carRichData = carsData.find((c: any) => product.name.includes(c.name) || c.name.includes(product.name))
+  let carRichData = carsData.find((c: any) => c.name === product.name)
+  if (!carRichData) {
+    carRichData = carsData.find((c: any) => product.name.includes(c.name) || c.name.includes(product.name))
+  }
   if (!carRichData) carRichData = carsData[0] 
   
   let carSpecs = specsData[carRichData.name]
   if (!carSpecs) {
     carSpecs = JSON.parse(JSON.stringify(specsData['VF 8']))
-    carSpecs.variants = {} 
+    if (carRichData.name.includes('All-New')) {
+      carSpecs.variants = {
+        'Comfort': { price: product.displayed_price, specs: carSpecs.variants['Eco']?.specs }
+      }
+    } else if (!carRichData.name.includes('VF 8')) {
+      carSpecs.variants = {} 
+    }
   }
 
   const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price) + ' ₫'
@@ -57,9 +66,21 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
   if (product.name === 'VF 3') {
     bannerImg = carRichData.gallery?.exterior_images?.[1] || bannerImg
+  } else if (product.slug === 'vf-8-all-new' || product.name.toLowerCase().includes('vf 8 the all')) {
+    bannerImg = 'https://vinfastauto.com/themes/porto/img/vf8-new-product/hero-banner.svg'
+  } else if (product.name.includes('MPV')) {
+    bannerImg = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_01.webp'
   }
 
-  const logoImg = [...exteriorImgs, ...interiorImgs, ...(carRichData.gallery?.all_images || [])].find((img: string) => img.toLowerCase().includes('logo') || img.toLowerCase().endsWith('.svg'))
+  let logoImg = [...exteriorImgs, ...interiorImgs, ...(carRichData.gallery?.all_images || [])].find((img: string) => img.toLowerCase().includes('logo') || img.toLowerCase().endsWith('.svg'))
+  
+  if (product.name === 'VF 2') {
+    logoImg = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VF2.svg'
+  } else if (product.slug === 'vf-8-all-new' || product.name.toLowerCase().includes('vf 8 the all')) {
+    logoImg = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VF8-THE-ALL-NEW.svg'
+  } else if (product.name.includes('MPV')) {
+    logoImg = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VFMPV7.svg'
+  }
   
   const validExteriorImgs = exteriorImgs.filter((img: string) => !img.toLowerCase().includes('logo') && !img.toLowerCase().endsWith('.mp4') && !img.toLowerCase().endsWith('.svg') && !img.toLowerCase().includes('banner') && !img.toLowerCase().includes('tvc') && !img.includes('vf3.jpg') && !img.toLowerCase().includes('separate-line') && !img.toLowerCase().includes('/icon/') && !img.toLowerCase().includes('charging'))
   const validInteriorImgs = interiorImgs.filter((img: string) => !img.toLowerCase().includes('logo') && !img.toLowerCase().endsWith('.mp4') && !img.toLowerCase().endsWith('.svg') && !img.toLowerCase().includes('banner') && !img.toLowerCase().includes('tvc') && !img.toLowerCase().includes('separate-line') && !img.toLowerCase().includes('/icon/') && !img.toLowerCase().includes('charging'))
@@ -67,8 +88,16 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
   // Sometimes all images are in 'all_images' and exterior/interior is empty
   const fallbackImgs = (carRichData.gallery?.all_images || []).filter((img: string) => !img.toLowerCase().includes('logo') && !img.toLowerCase().endsWith('.mp4') && !img.toLowerCase().endsWith('.svg') && !img.toLowerCase().includes('banner') && !img.toLowerCase().includes('tvc') && !img.toLowerCase().includes('separate-line') && !img.toLowerCase().includes('/icon/') && !img.toLowerCase().includes('charging'))
   
-  const displayImgs = validExteriorImgs.length > 0 ? validExteriorImgs : fallbackImgs
-  const displayIntImgs = validInteriorImgs.length > 0 ? validInteriorImgs : fallbackImgs.slice(3)
+  let displayImgs = [...(validExteriorImgs.length > 0 ? validExteriorImgs : fallbackImgs)]
+  let displayIntImgs = [...(validInteriorImgs.length > 0 ? validInteriorImgs : fallbackImgs.slice(3))]
+
+  if (product.slug === 'vf-8-all-new' || product.name.toLowerCase().includes('vf 8 the all')) {
+    displayImgs[1] = 'https://vinfastauto.com/themes/porto/img/vf8-new-product/tech/tech3.png'
+  } else if (product.name.includes('MPV')) {
+    displayImgs[1] = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_02.webp'
+    displayImgs[2] = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_03.webp'
+    displayIntImgs[0] = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_05.webp'
+  }
 
   const variantKeys = Object.keys(carSpecs.variants || {})
   const firstVariant = variantKeys.length > 0 ? carSpecs.variants[variantKeys[0]] : null

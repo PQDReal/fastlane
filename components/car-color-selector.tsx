@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface CarColorSelectorProps {
-  colors: (string | { name: string; swatch?: string })[]
+  colors: (string | { name: string; swatch?: string; price_delta?: number })[]
   images: string[]
 }
 
@@ -61,31 +61,70 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
   // Empty strings remain valid placeholders in the database; they must not reach <img src>.
   const availableOptions = colors
     .slice(0, Math.min(colors.length, images.length))
-    .map((color, index) => ({ color, image: images[index]?.trim() ?? '' }))
+    .map((color, index) => ({ color, image: images[index]?.trim() ?? '', optIdx: index }))
     .filter((option) => option.image !== '')
+  
+  // Update optIdx to map correctly after filtering
+  const options = availableOptions.map((opt, idx) => ({ ...opt, optIdx: idx }))
+  
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  if (availableOptions.length === 0) return null
+  if (options.length === 0) return null
 
-  const selectedColorObj = availableOptions[selectedIndex].color
-  const selectedColorName = typeof selectedColorObj === 'string' ? selectedColorObj : selectedColorObj.name
+  const selectedColorObj = options[selectedIndex]?.color
+  const selectedColorName = typeof selectedColorObj === 'string' ? selectedColorObj : selectedColorObj?.name
+
+  const handlePrev = () => setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length - 1))
+  const handleNext = () => setSelectedIndex(prev => (prev < options.length - 1 ? prev + 1 : 0))
+
+  const standardColors = options.filter(opt => typeof opt.color === 'string' || (typeof opt.color === 'object' && (!opt.color.price_delta || opt.color.price_delta === 0)))
+  const advancedColors = options.filter(opt => typeof opt.color === 'object' && opt.color.price_delta && opt.color.price_delta > 0)
+
+  const renderSwatch = ({ color: colorObj, optIdx }: { color: any; optIdx: number }) => {
+    const isSelected = selectedIndex === optIdx
+    const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
+    const swatchImg = typeof colorObj === 'object' ? colorObj.swatch : null
+
+    const hexCode = colorMap[colorName] || '#CCCCCC'
+
+    return (
+      <button
+        key={colorName}
+        onClick={() => setSelectedIndex(optIdx)}
+        className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all hover:scale-110 focus:outline-none shadow-md ${isSelected ? 'ring-2 ring-offset-[3px] ring-[#3b82f6] scale-110' : ''}`}
+        style={{ backgroundColor: swatchImg ? 'transparent' : hexCode }}
+        title={colorName}
+      >
+        {swatchImg && (
+          <img src={swatchImg} alt={colorName} className="absolute inset-0 w-full h-full object-cover rounded-full" />
+        )}
+      </button>
+    )
+  }
 
   return (
-    <section className="py-24 bg-white">
+    <section className="py-24 bg-gradient-to-b from-white to-gray-100">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
         <h2 className="text-3xl sm:text-4xl lg:text-[56px] font-bold tracking-tight text-foreground mb-16">
           Trải nghiệm cá nhân hóa
         </h2>
 
-        <div className="flex flex-col items-center gap-12">
+        <div className="flex flex-col items-center gap-8 sm:gap-12">
           {/* Image Display */}
-          <div className="relative w-full max-w-4xl aspect-[16/9] md:aspect-[2/1] flex items-center justify-center">
-            {availableOptions.map(({ color: colorObj, image }, idx) => {
+          <div className="relative w-full max-w-4xl aspect-[16/9] md:aspect-[2/1] flex items-center justify-center group">
+            <button onClick={handlePrev} className="absolute left-0 sm:left-4 z-20 p-2 sm:p-3 bg-black/5 hover:bg-black/20 text-black rounded-full transition-colors hidden sm:block">
+              <ChevronLeft size={32} />
+            </button>
+            <button onClick={handleNext} className="absolute right-0 sm:right-4 z-20 p-2 sm:p-3 bg-black/5 hover:bg-black/20 text-black rounded-full transition-colors hidden sm:block">
+              <ChevronRight size={32} />
+            </button>
+            
+            {options.map(({ color: colorObj, image }, idx) => {
               const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
               return (
                 <img
                   key={colorName}
-                  src={images[idx]}
+                  src={image}
                   alt={colorName}
                   className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ease-in-out ${selectedIndex === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
                     }`}
@@ -95,45 +134,38 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
           </div>
 
           {/* Color Swatches */}
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {availableOptions.map(({ color: colorObj }, idx) => {
-                const isSelected = selectedIndex === idx
-                const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
-                const swatchImg = typeof colorObj === 'object' ? colorObj.swatch : null
-
-                const hexCode = colorMap[colorName] || '#CCCCCC'
-                const isLightColor = ['Infinity Blanc', 'Brahminy White', 'Summer Yellow'].includes(colorName)
-
-                return (
-                  <button
-                    key={colorName}
-                    onClick={() => setSelectedIndex(idx)}
-                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 overflow-hidden shadow-sm`}
-                    style={{ backgroundColor: swatchImg ? 'transparent' : hexCode }}
-                    title={colorName}
-                  >
-                    {swatchImg && (
-                      <img src={swatchImg} alt={colorName} className="absolute inset-0 w-full h-full object-cover" />
-                    )}
-
-                    {/* Ring selection effect */}
-                    {isSelected && (
-                      <span className="absolute -inset-2 rounded-full border-2 border-foreground z-20" />
-                    )}
-
-                    {/* Checkmark */}
-                    {isSelected && (
-                      <Check size={20} className={`relative z-10 ${isLightColor && !swatchImg ? 'text-black' : 'text-white drop-shadow-md'}`} />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            <p className="text-xl font-medium text-foreground">
+          <div className="flex flex-col items-center gap-8 mt-4">
+            <p className="text-3xl sm:text-4xl font-light text-slate-800">
               {selectedColorName}
             </p>
+
+            {advancedColors.length > 0 ? (
+              <div className="flex flex-col sm:flex-row gap-12 sm:gap-24 items-center sm:items-start justify-center mt-2">
+                <div className="flex flex-col items-center gap-6">
+                   <h3 className="text-xl sm:text-2xl font-light text-slate-600">Màu tiêu chuẩn</h3>
+                   <div className="flex flex-wrap justify-center gap-4 sm:gap-6 max-w-[300px]">
+                     {standardColors.map(opt => renderSwatch(opt))}
+                   </div>
+                </div>
+                <div className="flex flex-col items-center gap-6">
+                   <h3 className="text-xl sm:text-2xl font-light text-slate-600 flex flex-col items-center">
+                     Màu nâng cao
+                     {advancedColors[0]?.color?.price_delta && (
+                       <span className="text-sm font-medium text-blue-600 mt-1">
+                         +{new Intl.NumberFormat('vi-VN').format(advancedColors[0].color.price_delta)} VNĐ
+                       </span>
+                     )}
+                   </h3>
+                   <div className="flex flex-wrap justify-center gap-4 sm:gap-6 max-w-[300px]">
+                     {advancedColors.map(opt => renderSwatch(opt))}
+                   </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 max-w-2xl mt-2">
+                {options.map(opt => renderSwatch(opt))}
+              </div>
+            )}
           </div>
         </div>
       </div>
