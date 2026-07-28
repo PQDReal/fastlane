@@ -46,7 +46,7 @@ function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
 describe('accessory filters', () => {
   it('parses bounded URL values and keeps canonical query names', () => {
     const filters = parseAccessoryFilters({
-      q: '  thảm  ', vehicle: 'VF 7', stock: 'invalid', sort: 'price-desc',
+      q: '  thảm  ', vehicle: 'VF 7', stock: 'out-of-stock', sort: 'price-desc',
       minPrice: '1000000', maxPrice: '500000',
     })
     expect(filters).toMatchObject({
@@ -75,14 +75,58 @@ describe('accessory filters', () => {
       .toEqual(['product-1'])
   })
 
+  it('supports repeated service filters with OR semantics', () => {
+    const showroom = product({
+      id: 'product-showroom',
+      name: 'Phụ kiện nhận tại showroom',
+      content: {
+        ...product().content,
+        serviceLabels: ['Nhận tại showroom'],
+      },
+    })
+    const filters = parseAccessoryFilters({
+      service: ['Có lắp đặt', 'Nhận tại showroom'],
+    })
+
+    expect(filters.services).toEqual(['Có lắp đặt', 'Nhận tại showroom'])
+    expect(filterAccessoryProducts([product(), showroom], filters).map((item) => item.id))
+      .toEqual(['product-showroom', 'product-1'])
+    expect(accessoryCatalogHref(filters)).toContain(
+      'service=C%C3%B3+l%E1%BA%AFp+%C4%91%E1%BA%B7t&service=Nh%E1%BA%ADn+t%E1%BA%A1i+showroom',
+    )
+  })
+
   it('derives real facets and distinguishes unknown fitment', () => {
     const base = product()
     expect(buildAccessoryFacets([base]).vehicles).toEqual([{ value: 'VF 7', count: 1 }])
+    expect(buildAccessoryFacets([base]).vehicleRelevantCategories)
+      .toEqual(['Phụ kiện ô tô điện'])
     expect(accessoryFitmentStatus(base, 'VF 7')).toBe('compatible')
     expect(accessoryFitmentStatus(base, 'VF 8')).toBe('incompatible')
     expect(accessoryFitmentStatus(product({
       content: { ...base.content, compatibleModels: [] },
     }), 'VF 8')).toBe('unknown')
+  })
+
+  it('does not apply a vehicle filter to a vehicle-independent category', () => {
+    const lifestyle = product({
+      id: 'lifestyle-product',
+      content: {
+        ...product().content,
+        sourceCategory: 'Phong cách sống',
+        categories: ['Phong cách sống'],
+        compatibleModels: [],
+      },
+    })
+    const filters = parseAccessoryFilters({
+      category: 'Phong cách sống',
+      vehicle: 'VF 7',
+    })
+
+    expect(filterAccessoryProducts([product(), lifestyle], filters).map((item) => item.id))
+      .toEqual(['lifestyle-product'])
+    expect(buildAccessoryFacets([product(), lifestyle]).vehicleRelevantCategories)
+      .not.toContain('Phong cách sống')
   })
 
   it('keeps products without a price last for both price sorts', () => {

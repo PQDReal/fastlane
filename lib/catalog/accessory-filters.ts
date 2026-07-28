@@ -21,7 +21,6 @@ const SORT_VALUES = new Set<AccessoryCatalogSort>([
 const STOCK_VALUES = new Set<AccessoryStockFilter>([
   'all',
   'in-stock',
-  'out-of-stock',
 ])
 
 function first(value: string | string[] | undefined): string {
@@ -30,6 +29,11 @@ function first(value: string | string[] | undefined): string {
 
 function nullable(value: string | string[] | undefined): string | null {
   return first(value) || null
+}
+
+function selectedValues(value: string | string[] | undefined): string[] {
+  const values = Array.isArray(value) ? value : value ? [value] : []
+  return [...new Set(values.map((item) => item.trim()).filter(Boolean))].slice(0, 20)
 }
 
 function price(value: string | string[] | undefined): number | null {
@@ -51,7 +55,7 @@ export function parseAccessoryFilters(
     query: first(searchParams?.q).slice(0, 120),
     category: nullable(searchParams?.category),
     vehicle: nullable(searchParams?.vehicle),
-    service: nullable(searchParams?.service),
+    services: selectedValues(searchParams?.service),
     stock: STOCK_VALUES.has(stock) ? stock : 'all',
     minimumPrice,
     maximumPrice: maximumPrice !== null
@@ -98,31 +102,36 @@ function matchesQuery(product: CatalogProduct, query: string): boolean {
   return normalized(haystack).includes(normalized(query))
 }
 
+function matchesCategory(product: CatalogProduct, category: string): boolean {
+  return productFacetCategories(product).some((value) => same(value, category))
+}
+
 export function filterAccessoryProducts(
   products: CatalogProduct[],
   filters: AccessoryCatalogFilters,
 ): CatalogProduct[] {
+  const vehicleFilterApplicable = !filters.category || products.some((product) => (
+    matchesCategory(product, filters.category!)
+    && product.content.compatibleModels.length > 0
+  ))
   const filtered = products.filter((product) => {
     if (!matchesQuery(product, filters.query)) return false
 
     if (filters.category) {
-      const categories = [
-        product.content.sourceCategory,
-        ...product.content.categories,
-      ].filter((value): value is string => Boolean(value))
-      if (!categories.some((value) => same(value, filters.category!))) return false
+      if (!matchesCategory(product, filters.category)) return false
     }
 
-    if (filters.vehicle && !product.content.compatibleModels.some(
+    if (filters.vehicle && vehicleFilterApplicable && !product.content.compatibleModels.some(
       (value) => same(value, filters.vehicle!),
     )) return false
 
-    if (filters.service && !product.content.serviceLabels.some(
-      (value) => same(value, filters.service!),
+    if (filters.services.length > 0 && !filters.services.some(
+      (selectedService) => product.content.serviceLabels.some(
+        (value) => same(value, selectedService),
+      ),
     )) return false
 
     if (filters.stock === 'in-stock' && product.availableQuantity <= 0) return false
-    if (filters.stock === 'out-of-stock' && product.availableQuantity > 0) return false
 
     const currentPrice = productPrice(product)
     if (filters.minimumPrice !== null
@@ -164,6 +173,12 @@ function countValues(values: string[]): AccessoryCatalogFacetOption[] {
   ))
 }
 
+function productFacetCategories(product: CatalogProduct): string[] {
+  return product.content.sourceCategory
+    ? [product.content.sourceCategory]
+    : product.content.categories.slice(0, 1)
+}
+
 export function buildAccessoryFacets(
   products: CatalogProduct[],
 ): AccessoryCatalogFacets {
@@ -173,14 +188,14 @@ export function buildAccessoryFacets(
   })
 
   return {
-    categories: countValues(products.flatMap((product) => (
-      product.content.sourceCategory
-        ? [product.content.sourceCategory]
-        : product.content.categories.slice(0, 1)
-    ))),
+    categories: countValues(products.flatMap(productFacetCategories)),
     vehicles: countValues(products.flatMap((product) => (
       [...new Set(product.content.compatibleModels)]
     ))),
+    vehicleRelevantCategories: countValues(products
+      .filter((product) => product.content.compatibleModels.length > 0)
+      .flatMap(productFacetCategories))
+      .map((category) => category.value),
     services: countValues(products.flatMap((product) => (
       [...new Set(product.content.serviceLabels)]
     ))),
@@ -214,7 +229,7 @@ export function accessorySearchParams(
   if (filters.query) params.set('q', filters.query)
   if (filters.category) params.set('category', filters.category)
   if (filters.vehicle) params.set('vehicle', filters.vehicle)
-  if (filters.service) params.set('service', filters.service)
+  for (const service of filters.services) params.append('service', service)
   if (filters.stock !== 'all') params.set('stock', filters.stock)
   if (filters.minimumPrice !== null) params.set('minPrice', String(filters.minimumPrice))
   if (filters.maximumPrice !== null) params.set('maxPrice', String(filters.maximumPrice))

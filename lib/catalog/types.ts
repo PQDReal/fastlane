@@ -149,13 +149,13 @@ export type CatalogProductContent = {
 
 export type AccessoryCatalogSort = 'name-asc' | 'price-asc' | 'price-desc'
 
-export type AccessoryStockFilter = 'all' | 'in-stock' | 'out-of-stock'
+export type AccessoryStockFilter = 'all' | 'in-stock'
 
 export type AccessoryCatalogFilters = {
   query: string
   category: string | null
   vehicle: string | null
-  service: string | null
+  services: string[]
   stock: AccessoryStockFilter
   minimumPrice: number | null
   maximumPrice: number | null
@@ -170,6 +170,7 @@ export type AccessoryCatalogFacetOption = {
 export type AccessoryCatalogFacets = {
   categories: AccessoryCatalogFacetOption[]
   vehicles: AccessoryCatalogFacetOption[]
+  vehicleRelevantCategories: string[]
   services: AccessoryCatalogFacetOption[]
   minimumPrice: number | null
   maximumPrice: number | null
