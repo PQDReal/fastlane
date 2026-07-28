@@ -23,7 +23,6 @@ import type { AccessoryCatalogItem } from '@/lib/cart/types'
 import {
   accessoryFitmentStatus,
   accessoryPrimaryCategoryLabel,
-  accessoryVehicleLabels,
 } from '@/lib/catalog/accessory-filters'
 import {
   changeOptionSelection,
@@ -343,7 +342,6 @@ export function AccessoryDetailClient({
   const maximumQuantity = Math.min(99, selectedVariant?.availableQuantity ?? 0)
   const fitment = accessoryFitmentStatus(product, selectedVehicle)
   const primaryCategory = accessoryPrimaryCategoryLabel(product)
-  const compatibleModels = accessoryVehicleLabels(product)
   const canPurchase = fitment !== 'incompatible'
   const listHref = selectedVehicle
     ? `/accessories?vehicle=${encodeURIComponent(selectedVehicle)}`
@@ -548,48 +546,31 @@ export function AccessoryDetailClient({
           </section>
         </div>
 
-        <div className="mt-16 grid gap-8 border-t border-slate-200 pt-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-12">
-          <section aria-labelledby="description-heading">
+        <section className="mt-16 border-t border-slate-200 pt-12" aria-labelledby="description-heading">
+          <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Product brief</p>
             <h2 id="description-heading" className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Câu chuyện sản phẩm</h2>
-            {product.description ? (
-              <p className="mt-6 whitespace-pre-line text-base leading-8 text-slate-600">{product.description}</p>
-            ) : (
-              <p className="mt-6 text-slate-500">Chưa có mô tả bổ sung cho sản phẩm này.</p>
-            )}
+          </div>
+
+          <div className={`mt-7 grid gap-8 ${product.content.specificationText ? 'lg:grid-cols-2 lg:gap-12' : 'max-w-4xl'}`}>
+            <div>
+              {product.description ? (
+                <p className="whitespace-pre-line text-base leading-8 text-slate-600">{product.description}</p>
+              ) : (
+                <p className="text-slate-500">Chưa có mô tả bổ sung cho sản phẩm này.</p>
+              )}
+            </div>
 
             {product.content.specificationText && (
-              <div className="mt-10 border-l-2 border-brand-500 pl-6">
+              <div className="h-fit rounded-xl border border-slate-200 bg-white p-6">
                 <h3 className="text-lg font-bold text-slate-950">Chi tiết sử dụng & kỹ thuật</h3>
                 <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">
                   {product.content.specificationText}
                 </p>
               </div>
             )}
-          </section>
-
-          <aside className="h-fit rounded-xl border border-slate-200 bg-white p-6">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Part index</p>
-            <dl className="mt-5 divide-y divide-slate-100 text-sm">
-              <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
-                <dt className="text-slate-400">SKU</dt>
-                <dd className="break-all font-mono font-semibold text-slate-900">{selectedVariant?.sku ?? 'Theo cấu hình'}</dd>
-              </div>
-              <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
-                <dt className="text-slate-400">Danh mục</dt>
-                <dd className="font-semibold text-slate-900">{primaryCategory ?? product.category?.name ?? 'Phụ kiện'}</dd>
-              </div>
-              <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
-                <dt className="text-slate-400">Xe áp dụng</dt>
-                <dd className="font-semibold text-slate-900">{compatibleModels.join(', ') || 'Cần xác nhận'}</dd>
-              </div>
-              <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
-                <dt className="text-slate-400">Tồn kho</dt>
-                <dd className="font-semibold text-slate-900">{selectedVariant?.availableQuantity ?? product.availableQuantity}</dd>
-              </div>
-            </dl>
-          </aside>
-        </div>
+          </div>
+        </section>
 
         {Object.keys(product.content.specifications).length > 0 && (
           <section className="mt-14 border-t border-slate-200 pt-12" aria-labelledby="specifications-heading">
