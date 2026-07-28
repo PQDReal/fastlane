@@ -146,7 +146,7 @@ function OptionGroup({
 }) {
   if (group.displayType === 'SELECT') {
     return (
-      <label className="mt-7 block">
+      <label className="mt-5 block">
         <span className="flex items-center justify-between gap-4 text-sm font-bold text-slate-900">
           <span>{group.name}{group.minimumSelections > 0 && <span className="text-red-500"> *</span>}</span>
           <span className="text-xs font-medium text-slate-400">Chọn 1</span>
@@ -154,7 +154,7 @@ function OptionGroup({
         <select
           value={selectedValue ?? ''}
           onChange={(event) => onChange(group.code, event.target.value)}
-          className="mt-3 h-12 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
         >
           <option value="" disabled={group.minimumSelections > 0}>
             {group.minimumSelections > 0
@@ -176,12 +176,12 @@ function OptionGroup({
   }
 
   return (
-    <fieldset className="mt-7">
+    <fieldset className="mt-5">
       <legend className="flex w-full items-center justify-between gap-4 text-sm font-bold text-slate-900">
         <span>{group.name}{group.minimumSelections > 0 && <span className="text-red-500"> *</span>}</span>
         <span className="text-xs font-medium text-slate-400">Chọn 1</span>
       </legend>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         {group.values.map((value) => {
           const selected = value.code === selectedValue
           const available = availability[value.code] ?? false
@@ -192,7 +192,7 @@ function OptionGroup({
               disabled={!available}
               aria-pressed={selected}
               onClick={() => onChange(group.code, value.code)}
-              className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
+              className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
                 selected
                   ? 'border-brand-600 bg-brand-50 text-brand-800 ring-2 ring-brand-100'
                   : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
@@ -425,32 +425,45 @@ export function AccessoryDetailClient({
               </p>
 
               {product.description && (
-                <p className="mt-5 line-clamp-5 text-sm leading-6 text-slate-600">{product.description}</p>
+                <div className="mt-6">
+                  <h2 className="text-base font-bold text-slate-950">Mô tả sản phẩm</h2>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{product.description}</p>
+                </div>
               )}
 
-              {price !== undefined && (
-                <div className="mt-6 flex flex-wrap items-end gap-3 border-y border-slate-200 py-5">
-                  <p className="text-3xl font-bold tracking-tight text-brand-700">
-                    {formatPrice(price)}
-                    {maximumPrice !== null && maximumPrice !== undefined && maximumPrice !== price
-                      ? ` – ${formatPrice(maximumPrice)}`
-                      : ''}
+              {product.content.specificationText && (
+                <div className="mt-6 border-t border-slate-200 pt-5">
+                  <h2 className="text-base font-bold text-slate-950">Chi tiết sử dụng &amp; kỹ thuật</h2>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
+                    {product.content.specificationText}
                   </p>
-                  {selectedVariant && hasDiscount && (
-                    <p className="mb-1 text-sm text-slate-400 line-through">
-                      {formatPrice(selectedVariant.originalPrice)}
-                    </p>
-                  )}
                 </div>
               )}
             </section>
 
             <section
               aria-label="Cấu hình và mua hàng"
-              className="h-fit rounded-xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-[98px]"
+              className="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-[98px]"
             >
+              <div className="border-b border-slate-200 pb-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Giá bán</p>
+                <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
+                  <p className="text-2xl font-bold tracking-tight text-brand-700">
+                    {price === undefined ? 'Liên hệ' : formatPrice(price)}
+                    {price !== undefined && maximumPrice !== null && maximumPrice !== undefined && maximumPrice !== price
+                      ? ` – ${formatPrice(maximumPrice)}`
+                      : ''}
+                  </p>
+                  {selectedVariant && hasDiscount && (
+                    <p className="mb-0.5 text-xs text-slate-400 line-through">
+                      {formatPrice(selectedVariant.originalPrice)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {product.content.serviceLabels.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {product.content.serviceLabels.map((service) => (
                     <span key={service} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
                       <Wrench size={14} className="text-brand-600" /> {service}
@@ -459,70 +472,70 @@ export function AccessoryDetailClient({
                 </div>
               )}
 
-            {product.optionGroups.map((group) => (
-              <OptionGroup
-                key={group.id}
-                group={group}
-                selectedValue={selection[group.code]}
-                availability={availability[group.code] ?? {}}
-                onChange={changeOption}
-              />
-            ))}
+              {product.optionGroups.map((group) => (
+                <OptionGroup
+                  key={group.id}
+                  group={group}
+                  selectedValue={selection[group.code]}
+                  availability={availability[group.code] ?? {}}
+                  onChange={changeOption}
+                />
+              ))}
 
-            <div className="mt-7 flex items-end justify-between gap-5 border-t border-slate-200 pt-5">
-              <div>
-                <p className="text-sm font-bold text-slate-900">Số lượng</p>
-                <div className="mt-3 inline-flex items-center rounded-lg border border-slate-300 bg-white">
-                  <button
-                    type="button"
-                    aria-label="Giảm số lượng"
-                    disabled={!inStock || quantity <= 1}
-                    onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                    className="flex h-11 w-11 items-center justify-center text-slate-500 transition hover:bg-slate-50 disabled:opacity-30"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="w-12 text-center font-bold tabular-nums text-slate-900">{quantity}</span>
-                  <button
-                    type="button"
-                    aria-label="Tăng số lượng"
-                    disabled={!inStock || quantity >= maximumQuantity}
-                    onClick={() => setQuantity((current) => Math.min(maximumQuantity, current + 1))}
-                    className="flex h-11 w-11 items-center justify-center text-slate-500 transition hover:bg-slate-50 disabled:opacity-30"
-                  >
-                    <Plus size={16} />
-                  </button>
+              <div className="mt-5 flex items-end justify-between gap-4 border-t border-slate-200 pt-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Số lượng</p>
+                  <div className="mt-2 inline-flex items-center rounded-lg border border-slate-300 bg-white">
+                    <button
+                      type="button"
+                      aria-label="Giảm số lượng"
+                      disabled={!inStock || quantity <= 1}
+                      onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                      className="flex h-10 w-9 items-center justify-center text-slate-500 transition hover:bg-slate-50 disabled:opacity-30"
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <span className="w-10 text-center text-sm font-bold tabular-nums text-slate-900">{quantity}</span>
+                    <button
+                      type="button"
+                      aria-label="Tăng số lượng"
+                      disabled={!inStock || quantity >= maximumQuantity}
+                      onClick={() => setQuantity((current) => Math.min(maximumQuantity, current + 1))}
+                      className="flex h-10 w-9 items-center justify-center text-slate-500 transition hover:bg-slate-50 disabled:opacity-30"
+                    >
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                </div>
+                <div className="pb-1 text-right">
+                  <p className={`text-sm font-bold ${inStock ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {!selectedVariant
+                      ? 'Chưa chọn đủ cấu hình'
+                      : inStock
+                        ? `Còn ${selectedVariant.availableQuantity} sản phẩm`
+                        : 'Tạm hết hàng'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">Tối đa 99 / đơn</p>
                 </div>
               </div>
-              <div className="pb-2 text-right">
-                <p className={`text-sm font-bold ${inStock ? 'text-emerald-700' : 'text-red-600'}`}>
-                  {!selectedVariant
-                    ? 'Chưa chọn đủ cấu hình'
-                    : inStock
-                      ? `Còn ${selectedVariant.availableQuantity} sản phẩm`
-                      : 'Tạm hết hàng'}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">Tối đa 99 / đơn</p>
-              </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={!selectedVariant || !inStock || !canPurchase || submitting}
-              className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 py-4 text-base font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
-              {submitting
-                ? 'Đang thêm...'
-                : !canPurchase
-                  ? 'Đổi xe hoặc xác nhận với showroom'
-                  : !selectedVariant
-                    ? 'Chọn đầy đủ cấu hình'
-                    : inStock
-                      ? 'Thêm vào giỏ hàng'
-                      : 'Tạm hết hàng'}
-            </button>
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+                className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
+                {submitting
+                  ? 'Đang thêm...'
+                  : !canPurchase
+                    ? 'Đổi xe hoặc xác nhận với showroom'
+                    : !selectedVariant
+                      ? 'Chọn đầy đủ cấu hình'
+                      : inStock
+                        ? 'Thêm vào giỏ hàng'
+                        : 'Tạm hết hàng'}
+              </button>
 
             {feedback && (
               <div role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
@@ -543,32 +556,6 @@ export function AccessoryDetailClient({
             </section>
           </div>
         </div>
-
-        <section className="mt-16 border-t border-slate-200 pt-12" aria-labelledby="description-heading">
-          <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Product brief</p>
-            <h2 id="description-heading" className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Câu chuyện sản phẩm</h2>
-          </div>
-
-          <div className={`mt-7 grid gap-8 ${product.content.specificationText ? 'lg:grid-cols-2 lg:gap-12' : 'max-w-4xl'}`}>
-            <div>
-              {product.description ? (
-                <p className="whitespace-pre-line text-base leading-8 text-slate-600">{product.description}</p>
-              ) : (
-                <p className="text-slate-500">Chưa có mô tả bổ sung cho sản phẩm này.</p>
-              )}
-            </div>
-
-            {product.content.specificationText && (
-              <div className="h-fit rounded-xl border border-slate-200 bg-white p-6">
-                <h3 className="text-lg font-bold text-slate-950">Chi tiết sử dụng & kỹ thuật</h3>
-                <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">
-                  {product.content.specificationText}
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
 
         {relatedProducts.length > 0 && (
           <section className="mt-16 border-t border-slate-200 pt-12" aria-labelledby="related-heading">
