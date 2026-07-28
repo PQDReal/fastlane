@@ -2,12 +2,69 @@ import { describe, expect, it } from 'vitest'
 
 import {
   accessoryCatalogHref,
+  accessoryPrimaryCategoryLabel,
+  accessoryVehicleLabels,
   accessoryFitmentStatus,
   buildAccessoryFacets,
   filterAccessoryProducts,
   parseAccessoryFilters,
 } from '@/lib/catalog/accessory-filters'
-import type { CatalogProduct } from '@/lib/catalog/types'
+import type {
+  CatalogCollectionMembership,
+  CatalogProduct,
+} from '@/lib/catalog/types'
+
+function membership({
+  id,
+  kind,
+  name,
+  slug,
+  displayOrder,
+}: {
+  id: string
+  kind: 'CATEGORY' | 'MODEL'
+  name: string
+  slug: string
+  displayOrder: number
+}): CatalogCollectionMembership {
+  return {
+    id: `membership-${id}`,
+    sourceSystem: 'VINFAST_DEMANDWARE',
+    isPrimary: kind === 'CATEGORY',
+    firstSeenAt: '2026-07-27T00:00:00Z',
+    lastSeenAt: '2026-07-27T00:00:00Z',
+    metadata: {},
+    collection: {
+      id,
+      parentId: kind === 'MODEL' ? 'category-car' : null,
+      kind,
+      sourceSystem: 'VINFAST_DEMANDWARE',
+      sourceKey: id,
+      slug,
+      name,
+      vehicleFilterMode: kind === 'MODEL' ? 'COLLECTION_MEMBERSHIP' : 'NONE',
+      displayOrder,
+      metadata: {},
+      vehicleModel: kind === 'MODEL' ? {
+        id: `model-${id}`,
+        code: slug.replaceAll('-', '_').toUpperCase(),
+        slug,
+        name,
+        vehicleKind: 'CAR',
+        metadata: {},
+      } : null,
+    },
+  }
+}
+
+const carCategory = membership({
+  id: 'category-car', kind: 'CATEGORY', name: 'Phụ kiện ô tô điện',
+  slug: 'phu-kien-o-to-dien', displayOrder: 20,
+})
+
+const vf7Model = membership({
+  id: 'model-vf-7', kind: 'MODEL', name: 'VF 7', slug: 'vf-7', displayOrder: 30,
+})
 
 function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
   return {
@@ -28,6 +85,7 @@ function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
       specificationText: null,
       specifications: {},
     },
+    collectionMemberships: [carCategory, vf7Model],
     legacyImageUrls: [],
     optionGroups: [],
     variants: [{
@@ -66,6 +124,9 @@ describe('accessory filters', () => {
         compatibleModels: ['VF 8'],
         serviceLabels: [],
       },
+      collectionMemberships: [carCategory, membership({
+        id: 'model-vf-8', kind: 'MODEL', name: 'VF 8', slug: 'vf-8', displayOrder: 20,
+      })],
     })
     const filters = parseAccessoryFilters({
       q: 'tham', vehicle: 'VF 7', service: 'Có lắp đặt',
@@ -98,13 +159,18 @@ describe('accessory filters', () => {
 
   it('derives real facets and distinguishes unknown fitment', () => {
     const base = product()
-    expect(buildAccessoryFacets([base]).vehicles).toEqual([{ value: 'VF 7', count: 1 }])
+    expect(accessoryPrimaryCategoryLabel(base)).toBe('Phụ kiện ô tô điện')
+    expect(accessoryVehicleLabels(base)).toEqual(['VF 7'])
+    expect(buildAccessoryFacets([base]).vehicles).toEqual([{
+      value: 'VF 7', label: 'VF 7', count: 1,
+    }])
     expect(buildAccessoryFacets([base]).vehicleRelevantCategories)
       .toEqual(['Phụ kiện ô tô điện'])
     expect(accessoryFitmentStatus(base, 'VF 7')).toBe('compatible')
     expect(accessoryFitmentStatus(base, 'VF 8')).toBe('incompatible')
     expect(accessoryFitmentStatus(product({
       content: { ...base.content, compatibleModels: [] },
+      collectionMemberships: [carCategory],
     }), 'VF 8')).toBe('unknown')
   })
 
@@ -117,6 +183,10 @@ describe('accessory filters', () => {
         categories: ['Phong cách sống'],
         compatibleModels: [],
       },
+      collectionMemberships: [membership({
+        id: 'category-lifestyle', kind: 'CATEGORY', name: 'Phong cách sống',
+        slug: 'phong-cach-song', displayOrder: 10,
+      })],
     })
     const filters = parseAccessoryFilters({
       category: 'Phong cách sống',

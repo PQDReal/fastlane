@@ -57,7 +57,7 @@ function AdvancedFilterFields({
                   defaultChecked={filters.services.includes(service.value)}
                   className="h-4 w-4 rounded border-slate-300 accent-brand-600"
                 />
-                <span>{service.value} <span className="text-slate-400">({service.count})</span></span>
+                <span>{service.label} <span className="text-slate-400">({service.count})</span></span>
               </label>
             ))}
           </div>
@@ -102,18 +102,28 @@ function AdvancedFilterFields({
   )
 }
 
-function activeFilterChips(filters: AccessoryCatalogFilters) {
+function activeFilterChips(
+  filters: AccessoryCatalogFilters,
+  facets: AccessoryCatalogFacets,
+) {
+  const categoryLabel = facets.categories.find(
+    (category) => category.value === filters.category,
+  )?.label ?? filters.category
+  const vehicleLabel = facets.vehicles.find(
+    (vehicle) => vehicle.value === filters.vehicle,
+  )?.label ?? filters.vehicle
+
   return [
     filters.query && {
       label: `“${filters.query}”`,
       href: accessoryCatalogHref(filters, { q: null, page: null }),
     },
     filters.category && {
-      label: filters.category,
+      label: categoryLabel!,
       href: accessoryCatalogHref(filters, { category: null, page: null }),
     },
     filters.vehicle && {
-      label: `Xe ${filters.vehicle}`,
+      label: `Xe ${vehicleLabel}`,
       href: accessoryCatalogHref(filters, { vehicle: null, page: null }),
     },
     ...filters.services.map((service) => ({
@@ -154,7 +164,7 @@ export default async function AccessoriesPage({
     && !catalogPage.facets.vehicleRelevantCategories.includes(filters.category)) {
     filters = { ...filters, vehicle: null }
   }
-  const chips = activeFilterChips(filters)
+  const chips = activeFilterChips(filters, catalogPage.facets)
   const firstResult = catalogPage.total === 0
     ? 0
     : (catalogPage.page - 1) * catalogPage.pageSize + 1

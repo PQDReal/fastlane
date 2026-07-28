@@ -47,7 +47,7 @@ export function AccessoryCategoryVehicleFields({
           <option value="">Tất cả danh mục</option>
           {categories.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.value} ({option.count})
+              {option.label} ({option.count})
             </option>
           ))}
         </select>
@@ -68,7 +68,7 @@ export function AccessoryCategoryVehicleFields({
           </option>
           {vehicleEnabled && vehicles.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.value} ({option.count})
+              {option.label} ({option.count})
             </option>
           ))}
         </select>

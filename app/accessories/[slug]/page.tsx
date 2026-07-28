@@ -3,7 +3,10 @@ import { notFound } from 'next/navigation'
 import { AccessoryDetailClient } from '@/components/accessory-detail-client'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
-import { parseAccessoryFilters } from '@/lib/catalog/accessory-filters'
+import {
+  accessoryPrimaryCategoryLabel,
+  parseAccessoryFilters,
+} from '@/lib/catalog/accessory-filters'
 import {
   getAccessoryCatalogProductBySlug,
   listAccessoryCatalog,
@@ -31,7 +34,7 @@ export default async function AccessoryDetailPage({
     : undefined
   const relatedFilters = parseAccessoryFilters(selectedVehicle
     ? { vehicle: selectedVehicle }
-    : { category: product.content.sourceCategory ?? undefined })
+    : { category: accessoryPrimaryCategoryLabel(product) ?? undefined })
   const relatedPage = await listAccessoryCatalog({
     pageSize: 8,
     filters: relatedFilters,

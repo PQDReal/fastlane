@@ -164,6 +164,7 @@ export type AccessoryCatalogFilters = {
 
 export type AccessoryCatalogFacetOption = {
   value: string
+  label: string
   count: number
 }
 

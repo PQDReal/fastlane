@@ -24,7 +24,11 @@ import Link from 'next/link'
 
 import { AccessoryCard } from '@/components/accessory-card'
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
-import { accessoryFitmentStatus } from '@/lib/catalog/accessory-filters'
+import {
+  accessoryFitmentStatus,
+  accessoryPrimaryCategoryLabel,
+  accessoryVehicleLabels,
+} from '@/lib/catalog/accessory-filters'
 import {
   changeOptionSelection,
   getOptionAvailability,
@@ -256,7 +260,7 @@ function FitmentPassport({
   selectedVehicle?: string
 }) {
   const status = accessoryFitmentStatus(product, selectedVehicle)
-  const models = product.content.compatibleModels
+  const models = accessoryVehicleLabels(product)
   const detailBase = `/accessories/${product.slug}`
 
   const presentation = status === 'compatible'
@@ -432,6 +436,8 @@ export function AccessoryDetailClient({
   )
   const maximumQuantity = Math.min(99, selectedVariant?.availableQuantity ?? 0)
   const fitment = accessoryFitmentStatus(product, selectedVehicle)
+  const primaryCategory = accessoryPrimaryCategoryLabel(product)
+  const compatibleModels = accessoryVehicleLabels(product)
   const canPurchase = fitment !== 'incompatible'
   const listHref = selectedVehicle
     ? `/accessories?vehicle=${encodeURIComponent(selectedVehicle)}`
@@ -511,7 +517,7 @@ export function AccessoryDetailClient({
 
           <section className="h-fit lg:sticky lg:top-[98px]">
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-brand-700">
-              <span>{product.content.sourceCategory ?? 'Phụ kiện chính hãng'}</span>
+              <span>{primaryCategory ?? 'Phụ kiện chính hãng'}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span>{product.variants.length} cấu hình</span>
             </div>
@@ -667,11 +673,11 @@ export function AccessoryDetailClient({
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
                 <dt className="text-slate-400">Danh mục</dt>
-                <dd className="font-semibold text-slate-900">{product.content.sourceCategory ?? product.category?.name ?? 'Phụ kiện'}</dd>
+                <dd className="font-semibold text-slate-900">{primaryCategory ?? product.category?.name ?? 'Phụ kiện'}</dd>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
                 <dt className="text-slate-400">Xe áp dụng</dt>
-                <dd className="font-semibold text-slate-900">{product.content.compatibleModels.join(', ') || 'Cần xác nhận'}</dd>
+                <dd className="font-semibold text-slate-900">{compatibleModels.join(', ') || 'Cần xác nhận'}</dd>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-4 py-3">
                 <dt className="text-slate-400">Tồn kho</dt>
