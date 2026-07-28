@@ -87,20 +87,38 @@ export async function syncAuth0User(
     throw new Error('Auth0 session is missing the email claim')
   }
 
+  const existingUser = await findUserByAuth0Subject(subject)
+  if (existingUser) {
+    if (existingUser.email === email) return existingUser
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('users')
+      .update({
+        email,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('auth0_subject', subject)
+      .select(
+        'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+      )
+      .single<LocalUser>()
+
+    if (error) {
+      throw new Error(`Unable to synchronize Auth0 user email: ${error.message}`)
+    }
+
+    return data
+  }
+
   const { data, error } = await getSupabaseAdmin()
     .from('users')
-    .upsert(
-      {
-        auth0_subject: subject,
-        email,
-        full_name: user.name?.trim() || email,
-        phone_number: user.phone_number?.trim() || null,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'auth0_subject',
-      },
-    )
+    .insert({
+      auth0_subject: subject,
+      email,
+      full_name: user.name?.trim() || email,
+      phone_number: user.phone_number?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
     .select(
       'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
     )

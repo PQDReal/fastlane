@@ -123,6 +123,7 @@ export type CheckoutRequest = {
   expectedCartVersion: number
   acceptedGrandTotal: string
   acceptedAmountDueNow: string
+  promotionCode?: string
   shippingAddress: ShippingAddress
   note?: string
 }

@@ -227,12 +227,23 @@ export function parseCheckoutRequest(body: unknown): CheckoutRequest {
     typeof body.note === 'string' && body.note.trim()
       ? body.note.trim().slice(0, 500)
       : undefined
+  const promotionCode =
+    typeof body.promotionCode === 'string' && body.promotionCode.trim()
+      ? body.promotionCode.trim().toUpperCase()
+      : undefined
+  if (promotionCode !== undefined && !/^[A-Z0-9_-]{3,64}$/.test(promotionCode)) {
+    validationError(
+      'promotionCode',
+      'promotionCode must contain 3 to 64 letters, numbers, hyphens, or underscores.',
+    )
+  }
 
   return {
     cartItemIds: [...(body.cartItemIds as string[])].sort(),
     expectedCartVersion: Number(body.expectedCartVersion),
     acceptedGrandTotal: body.acceptedGrandTotal,
     acceptedAmountDueNow: body.acceptedAmountDueNow,
+    ...(promotionCode ? { promotionCode } : {}),
     shippingAddress: parseShippingAddress(body.shippingAddress),
     ...(note ? { note } : {}),
   }

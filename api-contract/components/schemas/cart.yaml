@@ -17,11 +17,17 @@ UpdateCartItemRequest:
 ApplyPromotionRequest:
   type: object
   additionalProperties: false
-  required: [code]
+  required: [code, cartItemIds]
   examples:
-    - { code: WELCOME10 }
+    - { code: WELCOME10, cartItemIds: [123e4567-e89b-12d3-a456-426614174005] }
   properties:
     code: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', example: WELCOME10 }
+    cartItemIds:
+      type: array
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
 SelectedProductOption:
   type: object
   additionalProperties: false
@@ -146,5 +152,6 @@ CheckoutRequest:
     acceptedAmountDueNow:
       allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
       description: Must equal the server-repriced cart amountDueNow or checkout returns CART_CHANGED or PRICE_CHANGED.
+    promotionCode: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' }
     shippingAddress: { $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }
     note: { type: string, maxLength: 500 }
