@@ -48,15 +48,6 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 0,
   }).format(price)
 
-function specificationValue(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-  if (Array.isArray(value)) return value.map(specificationValue).join(', ')
-  return JSON.stringify(value)
-}
-
 function initialVariant(product: CatalogProduct, initialVariantId?: string): CatalogVariant | null {
   return product.variants.find((variant) => variant.id === initialVariantId)
     ?? product.variants.find((variant) => variant.availableQuantity > 0)
@@ -571,24 +562,6 @@ export function AccessoryDetailClient({
             )}
           </div>
         </section>
-
-        {Object.keys(product.content.specifications).length > 0 && (
-          <section className="mt-14 border-t border-slate-200 pt-12" aria-labelledby="specifications-heading">
-            <div className="max-w-2xl">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Technical sheet</p>
-              <h2 id="specifications-heading" className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Thông số chi tiết</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-500">Thông tin được giữ nguyên theo dữ liệu công bố của sản phẩm.</p>
-            </div>
-            <dl className="mt-7 overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid sm:grid-cols-2">
-              {Object.entries(product.content.specifications).map(([key, value], index) => (
-                <div key={key} className={`grid grid-cols-[minmax(110px,0.8fr)_1.2fr] gap-4 border-slate-100 p-5 text-sm ${index > 1 ? 'border-t' : ''} ${index % 2 === 1 ? 'sm:border-l' : ''} ${index === 1 ? 'border-t sm:border-t-0' : ''}`}>
-                  <dt className="font-semibold text-slate-400">{key}</dt>
-                  <dd className="leading-6 text-slate-900">{specificationValue(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
 
         {relatedProducts.length > 0 && (
           <section className="mt-16 border-t border-slate-200 pt-12" aria-labelledby="related-heading">
