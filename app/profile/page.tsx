@@ -3,12 +3,17 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
+<<<<<<< HEAD
 import { CheckCircle2, Clock, Loader2, Package, User, XCircle, CarFront, X, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+=======
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle } from 'lucide-react'
+>>>>>>> b7827b2085cb95cfc5a9a492dbf2751b4fb9f5f0
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
+import { ProfileSavedAddresses } from '@/components/profile-saved-addresses'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrderSummary } from '@/lib/cart/types'
@@ -16,10 +21,16 @@ import type { AccessoryOrderSummary } from '@/lib/cart/types'
 function ProfileContent() {
   const { user, isLoading } = useUser()
   const searchParams = useSearchParams()
+<<<<<<< HEAD
   const validTabs = ['info', 'orders', 'car-orders']
   const tabParam = searchParams?.get('tab')
   const initialTab = validTabs.includes(tabParam || '') ? tabParam : 'info'
   const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'car-orders'>(initialTab as any)
+=======
+  const requestedTab = searchParams?.get('tab')
+  const initialTab = requestedTab === 'orders' || requestedTab === 'addresses' ? requestedTab : 'info'
+  const [activeTab, setActiveTab] = useState<'info' | 'addresses' | 'orders'>(initialTab)
+>>>>>>> b7827b2085cb95cfc5a9a492dbf2751b4fb9f5f0
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -31,10 +42,17 @@ function ProfileContent() {
   const [ordersError, setOrdersError] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
 
-  function showToast(kind: ToastMessage['kind'], title: string, message?: string) {
+  function showToast(
+    kind: ToastMessage['kind'],
+    title: string,
+    message?: string,
+    actions?: Pick<ToastMessage, 'action' | 'secondaryAction'>,
+  ) {
     const id = Date.now() + Math.random()
-    setToasts((current) => [...current, { id, kind, title, message }])
-    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4500)
+    const dismiss = () => setToasts((current) => current.filter((toast) => toast.id !== id))
+    const wrap = (action: ToastMessage['action']) => action ? { ...action, onClick: () => { action.onClick(); dismiss() } } : undefined
+    setToasts((current) => [...current, { id, kind, title, message, action: wrap(actions?.action), secondaryAction: wrap(actions?.secondaryAction) }])
+    window.setTimeout(dismiss, 4500)
   }
 
   useEffect(() => {
@@ -160,8 +178,13 @@ function ProfileContent() {
               </div>
               <div className="p-2">
                 <button onClick={() => setActiveTab('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
+<<<<<<< HEAD
                 <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
                 <button onClick={() => setActiveTab('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử đặt xe</button>
+=======
+                <button onClick={() => setActiveTab('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
+                <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử đơn hàng</button>
+>>>>>>> b7827b2085cb95cfc5a9a492dbf2751b4fb9f5f0
               </div>
             </div>
           </aside>
@@ -194,6 +217,8 @@ function ProfileContent() {
                   </form>
                 )}
               </div>
+            ) : activeTab === 'addresses' ? (
+              <ProfileSavedAddresses profileName={profile?.fullName ?? ''} profilePhone={profile?.phoneNumber ?? ''} showToast={showToast} />
             ) : (
               <div>
                 <h2 className="mb-6 text-2xl font-bold text-gray-900">
@@ -207,6 +232,7 @@ function ProfileContent() {
                   {!ordersLoading && !ordersError && userOrders.length === 0 && (
                     <p className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
                   )}
+<<<<<<< HEAD
                   {userOrders.map(order => {
                     if (activeTab === 'car-orders') {
                       const getCarImageUrl = (model: string) => {
@@ -249,6 +275,24 @@ function ProfileContent() {
                                 <CheckCircle2 className="w-3 h-3" /> Đã đặt cọc
                               </div>
                             )}
+=======
+                  {userOrders.map(order => (
+                    <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
+                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
+                          <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {statusIcon(order.status)}
+                          <span className="text-sm font-medium text-gray-700">{order.status}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Package className="h-6 w-6 text-gray-400" />
+>>>>>>> b7827b2085cb95cfc5a9a492dbf2751b4fb9f5f0
                           </div>
 
                           {/* Info Section */}
