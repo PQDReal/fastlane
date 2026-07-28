@@ -1,28 +1,33 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { getCurrentUser } from '@/lib/auth/current-user'
 
 export async function POST(req: Request) {
   try {
     const data = await req.json()
     const supabase = getSupabaseAdmin()
 
-    if (!data.order_number || !data.full_name || !data.phone_number || !data.car_model) {
+    if (!data.order_number || (!data.full_name && !data.company_name) || !data.phone_number || !data.car_model) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+
+    const finalFullName = data.full_name || data.company_name || 'Khách hàng Doanh nghiệp'
+    const user = await getCurrentUser()
 
     const { error } = await supabase
       .from('deposit_orders')
       .insert([
         {
           order_number: data.order_number,
+          customer_id: user?.id || null,
           customer_type: data.customer_type || 'personal',
-          full_name: data.full_name,
+          full_name: finalFullName,
           company_name: data.company_name || null,
           phone_number: data.phone_number,
           email: data.email || '',
           id_card_number: data.id_card_number || '',
           province: data.province || '',
-          district: data.district || '',
+          ward: data.ward || '',
           car_model: data.car_model,
           car_variant: data.car_variant,
           exterior_color: data.exterior_color,

@@ -192,6 +192,9 @@ export type AccessoryOrderSummary = Pick<
   AccessoryOrder,
   'id' | 'orderNumber' | 'status' | 'createdAt' | 'statusUpdatedAt'
 > & {
+  orderType?: 'accessory' | 'deposit'
+  carModel?: string
+  carVariant?: string
   paymentStatus: 'Pending' | 'Paid'
   nextPaymentDueAt: string | null
   pricing: Pick<

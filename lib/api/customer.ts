@@ -14,11 +14,11 @@ export async function requireCurrentCustomer() {
     )
   }
 
-  if (user.role !== 'CUSTOMER') {
+  if (user.role !== 'CUSTOMER' && user.role !== 'ADMIN') {
     throw new ApiRouteError(
       403,
       'INSUFFICIENT_PERMISSION',
-      'A customer account is required.',
+      'A customer or admin account is required.',
     )
   }
 

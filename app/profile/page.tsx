@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, Package, User, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, Package, User, XCircle, CarFront } from 'lucide-react'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
@@ -15,8 +15,10 @@ import type { AccessoryOrderSummary } from '@/lib/cart/types'
 function ProfileContent() {
   const { user, isLoading } = useUser()
   const searchParams = useSearchParams()
-  const initialTab = searchParams?.get('tab') === 'orders' ? 'orders' : 'info'
-  const [activeTab, setActiveTab] = useState<'info' | 'orders'>(initialTab)
+  const validTabs = ['info', 'orders', 'car-orders']
+  const tabParam = searchParams?.get('tab')
+  const initialTab = validTabs.includes(tabParam || '') ? tabParam : 'info'
+  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'car-orders'>(initialTab as any)
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -87,12 +89,13 @@ function ProfileContent() {
   }
 
   useEffect(() => {
-    if (!user || activeTab !== 'orders') return
+    if (!user || (activeTab !== 'orders' && activeTab !== 'car-orders')) return
 
     let active = true
     setOrdersLoading(true)
     setOrdersError(null)
-    fetch('/api/v1/orders?limit=20')
+    const typeQuery = activeTab === 'orders' ? 'accessory' : 'car'
+    fetch(`/api/v1/orders?limit=20&type=${typeQuery}`)
       .then(async (response) => {
         const payload = await response.json()
         if (!response.ok) {
@@ -155,7 +158,8 @@ function ProfileContent() {
               </div>
               <div className="p-2">
                 <button onClick={() => setActiveTab('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
-                <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử đơn hàng</button>
+                <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
+                <button onClick={() => setActiveTab('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử đặt xe</button>
               </div>
             </div>
           </aside>
@@ -190,7 +194,9 @@ function ProfileContent() {
               </div>
             ) : (
               <div>
-                <h2 className="mb-6 text-2xl font-bold text-gray-900">Lịch sử đơn hàng</h2>
+                <h2 className="mb-6 text-2xl font-bold text-gray-900">
+                  {activeTab === 'orders' ? 'Lịch sử mua hàng' : 'Lịch sử đặt xe'}
+                </h2>
                 <div className="space-y-4">
                   {ordersLoading && (
                     <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-[#836100]" /></div>
@@ -214,10 +220,18 @@ function ProfileContent() {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                           <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Package className="h-6 w-6 text-gray-400" />
+                            {order.orderType === 'deposit' ? (
+                              <CarFront className="h-6 w-6 text-gray-400" />
+                            ) : (
+                              <Package className="h-6 w-6 text-gray-400" />
+                            )}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
+                            <p className="font-semibold text-gray-900">
+                              {order.orderType === 'deposit' 
+                                ? `Đơn đặt cọc xe ${order.carModel || ''} ${order.carVariant || ''}`.trim()
+                                : 'Đơn phụ kiện FASTLANE'}
+                            </p>
                             <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
                           </div>
                         </div>

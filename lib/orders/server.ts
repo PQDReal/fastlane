@@ -198,43 +198,99 @@ export async function readCustomerOrder(customerId: string, orderId: string) {
 
 export async function listCustomerOrders(
   customerId: string,
+  customerEmail: string,
   page: number,
   limit: number,
+  type?: 'accessory' | 'car'
 ) {
+  const supabase = getSupabaseAdmin()
+
+  let accessorySummaries: AccessoryOrderSummary[] = []
+  let depositSummaries: AccessoryOrderSummary[] = []
+
+  if (!type || type === 'accessory') {
+    const { data: accessoryData, error: accessoryError } = await supabase
+      .from('orders')
+      .select(orderSelection)
+      .eq('customer_id', customerId)
+  
+    if (accessoryError) throw new Error(`Unable to list orders: ${accessoryError.message}`)
+  
+    const accessoryOrders = ((accessoryData ?? []) as unknown as OrderRow[]).map(mapOrder)
+    
+    accessorySummaries = accessoryOrders.map((order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      orderType: 'accessory',
+      status: order.status,
+      paymentStatus: order.payment.status,
+      nextPaymentDueAt:
+        order.payment.status === 'Pending'
+          ? order.payment.schedule.initialPaymentDueAt
+          : null,
+      pricing: {
+        currency: 'VND',
+        grandTotal: order.pricing.grandTotal,
+        amountDueNow: order.pricing.amountDueNow,
+        balanceDue: order.pricing.balanceDue,
+      },
+      createdAt: order.createdAt,
+      statusUpdatedAt: order.statusUpdatedAt,
+    }))
+  }
+
+  if (!type || type === 'car') {
+    const { data: depositData, error: depositError } = await supabase
+      .from('deposit_orders')
+      .select('*')
+      .or(`customer_id.eq.${customerId},email.eq.${customerEmail}`)
+  
+    if (depositError) throw new Error(`Unable to list deposit orders: ${depositError.message}`)
+  
+    depositSummaries = (depositData ?? []).map((deposit: any) => {
+      let paymentStatus: 'Pending' | 'Paid' = 'Pending'
+      let orderStatus: AccessoryOrder['status'] = 'Created'
+      
+      if (deposit.status === 'PAID') {
+        paymentStatus = 'Paid'
+        orderStatus = 'Paid'
+      } else if (deposit.status === 'CANCELLED') {
+        orderStatus = 'Cancelled'
+      }
+      
+      return {
+        id: deposit.id,
+        orderNumber: deposit.order_number,
+        orderType: 'deposit',
+        carModel: deposit.car_model,
+        carVariant: deposit.car_variant,
+        status: orderStatus,
+        paymentStatus,
+        nextPaymentDueAt: null,
+        pricing: {
+          currency: 'VND',
+          grandTotal: '10000000', // Cọc cố định 10 triệu
+          amountDueNow: '10000000',
+          balanceDue: '0',
+        },
+        createdAt: deposit.created_at,
+        statusUpdatedAt: deposit.updated_at,
+      }
+    })
+  }
+
+  // Combine and sort by createdAt descending
+  const combined = [...accessorySummaries, ...depositSummaries].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+
+  const total = combined.length
   const start = (page - 1) * limit
-  const end = start + limit - 1
-  const { data, error, count } = await getSupabaseAdmin()
-    .from('orders')
-    .select(orderSelection, { count: 'exact' })
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false })
-    .range(start, end)
-
-  if (error) throw new Error(`Unable to list orders: ${error.message}`)
-
-  const total = count ?? 0
-  const orders = ((data ?? []) as unknown as OrderRow[]).map(mapOrder)
-  const summaries: AccessoryOrderSummary[] = orders.map((order) => ({
-    id: order.id,
-    orderNumber: order.orderNumber,
-    status: order.status,
-    paymentStatus: order.payment.status,
-    nextPaymentDueAt:
-      order.payment.status === 'Pending'
-        ? order.payment.schedule.initialPaymentDueAt
-        : null,
-    pricing: {
-      currency: 'VND',
-      grandTotal: order.pricing.grandTotal,
-      amountDueNow: order.pricing.amountDueNow,
-      balanceDue: order.pricing.balanceDue,
-    },
-    createdAt: order.createdAt,
-    statusUpdatedAt: order.statusUpdatedAt,
-  }))
+  const end = start + limit
+  const paginatedData = combined.slice(start, end)
 
   return {
-    data: summaries,
+    data: paginatedData,
     meta: {
       page,
       limit,

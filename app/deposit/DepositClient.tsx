@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
+import provincesData from '@/public/data/vietnamese-provinces.json'
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -24,7 +25,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
   const [selectedPackages, setSelectedPackages] = useState<string[]>([])
   const [currentStep, setCurrentStep] = useState(1)
   const [customerType, setCustomerType] = useState<'personal' | 'corporate'>('personal')
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', district: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', ward: '' })
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -123,7 +124,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
       const isMissingPersonal = customerType === 'personal' && !formData.name;
       const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
       
-      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.district) {
+      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.ward) {
         addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
         return;
       }
@@ -169,7 +170,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
           email: formData.email,
           id_card_number: formData.idCard,
           province: formData.province,
-          district: formData.district,
+          ward: formData.ward,
           car_model: currentCarObj.name,
           car_variant: selectedVariant,
           exterior_color: selectedColor,
@@ -917,22 +918,20 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, district: ''})}>
+                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, ward: ''})}>
                         <option value="">Chọn Tỉnh/Thành</option>
-                        <option value="HN">Hà Nội</option>
-                        <option value="HCM">TP. Hồ Chí Minh</option>
-                        <option value="DN">Đà Nẵng</option>
-                        <option value="HP">Hải Phòng</option>
+                        {provincesData.map((p: any) => (
+                          <option key={p.Code} value={p.FullName}>{p.FullName}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Quận / Huyện <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
-                        <option value="">Chọn Quận/Huyện</option>
-                        {formData.province === 'HN' && <><option value="Ba Đình">Ba Đình</option><option value="Hoàn Kiếm">Hoàn Kiếm</option><option value="Cầu Giấy">Cầu Giấy</option></>}
-                        {formData.province === 'HCM' && <><option value="Q1">Quận 1</option><option value="Q3">Quận 3</option><option value="QTD">Thủ Đức</option></>}
-                        {formData.province === 'DN' && <><option value="HC">Hải Châu</option><option value="TK">Thanh Khê</option></>}
-                        {formData.province === 'HP' && <><option value="HB">Hồng Bàng</option><option value="LC">Lê Chân</option></>}
+                      <label className="text-sm font-semibold text-slate-700">Phường / Xã <span className="text-red-500">*</span></label>
+                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.ward} onChange={e => setFormData({...formData, ward: e.target.value})} disabled={!formData.province}>
+                        <option value="">Chọn Phường/Xã</option>
+                        {formData.province && provincesData.find((p: any) => p.FullName === formData.province)?.Wards?.map((w: any) => (
+                          <option key={w.Code} value={w.FullName}>{w.FullName}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
