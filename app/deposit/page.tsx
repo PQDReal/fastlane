@@ -8,7 +8,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   const params = await searchParams
   const carsDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json')
   const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
-  
+
   const carsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
   const specsData = JSON.parse(fs.readFileSync(specsDataPath, 'utf8'))
 

@@ -14,10 +14,10 @@ export type ToastMessage = {
   secondaryAction?: ToastAction
 }
 
-const styles: Record<ToastKind, { box: string; Icon: typeof CheckCircle2 }> = {
-  success: { box: 'border-emerald-500 bg-emerald-600', Icon: CheckCircle2 },
-  error: { box: 'border-red-500 bg-red-600', Icon: CircleAlert },
-  warning: { box: 'border-red-500 bg-red-600', Icon: AlertTriangle },
+const styles: Record<ToastKind, { box: string; Icon: typeof CheckCircle2; iconColor: string; titleColor: string; msgColor: string; closeColor: string; closeHover: string }> = {
+  success: { box: 'border-emerald-500 bg-emerald-600 shadow-emerald-900/20', Icon: CheckCircle2, iconColor: 'text-white', titleColor: 'text-white', msgColor: 'text-white/85', closeColor: 'text-white/75', closeHover: 'hover:bg-white/15 hover:text-white' },
+  error: { box: 'border-red-500 bg-red-600 shadow-red-900/20', Icon: CircleAlert, iconColor: 'text-white', titleColor: 'text-white', msgColor: 'text-white/85', closeColor: 'text-white/75', closeHover: 'hover:bg-white/15 hover:text-white' },
+  warning: { box: 'border-amber-400 bg-white shadow-amber-900/10', Icon: AlertTriangle, iconColor: 'text-amber-500', titleColor: 'text-slate-900', msgColor: 'text-slate-600', closeColor: 'text-slate-400', closeHover: 'hover:bg-slate-100 hover:text-slate-900' },
 }
 
 function ActionButton({ action }: { action: ToastAction }) {
@@ -33,7 +33,7 @@ export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onC
     <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3" aria-live="polite" aria-atomic="false">
       <AnimatePresence initial={false}>
         {toasts.map((toast) => {
-          const { box, Icon } = styles[toast.kind]
+          const { box, Icon, iconColor, titleColor, msgColor, closeColor, closeHover } = styles[toast.kind]
           return (
             <motion.div
               layout="position"
@@ -43,12 +43,12 @@ export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onC
               exit={{ opacity: 0, x: 28, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 420, damping: 32 }}
               role={toast.kind === 'error' ? 'alert' : 'status'}
-              className={`pointer-events-auto flex items-start gap-3 rounded-xl border p-4 text-white shadow-xl ${box}`}
+              className={`pointer-events-auto flex items-start gap-3 rounded-xl border p-4 shadow-xl ${box}`}
             >
-              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white" />
+              <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconColor}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-white">{toast.title}</p>
-                {toast.message && <p className="mt-1 text-sm leading-5 text-white/85">{toast.message}</p>}
+                <p className={`text-sm font-semibold ${titleColor}`}>{toast.title}</p>
+                {toast.message && <p className={`mt-1 text-sm leading-5 ${msgColor}`}>{toast.message}</p>}
                 {(toast.action || toast.secondaryAction) && (
                   <div className="mt-3 flex justify-end gap-2">
                     {toast.secondaryAction && <ActionButton action={toast.secondaryAction} />}
@@ -56,7 +56,7 @@ export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onC
                   </div>
                 )}
               </div>
-              <button type="button" onClick={() => onClose(toast.id)} className="rounded p-1 text-white/75 transition-colors hover:bg-white/15 hover:text-white" aria-label="Close notification"><X size={16} /></button>
+              <button type="button" onClick={() => onClose(toast.id)} className={`rounded p-1 transition-colors ${closeColor} ${closeHover}`} aria-label="Close notification"><X size={16} /></button>
             </motion.div>
           )
         })}

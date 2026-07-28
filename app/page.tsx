@@ -5,6 +5,7 @@ import { ProductCard } from '../components/product-card'
 import { Footer } from '../components/footer'
 import { auth0 } from '../lib/auth0'
 import { getSupabaseAdmin } from '../lib/supabase-admin'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,29 @@ export default async function Home() {
     .eq('is_active', true)
     .limit(2) // Get two products for the homepage section
 
+  const fs = require('fs')
+  const path = require('path')
+  let vf9Specs: any = {}
+  try {
+    const specsRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'master_car_specs.json'), 'utf8')
+    const specsData = JSON.parse(specsRaw)
+    vf9Specs = specsData['VF 9']?.variants?.['Plus tùy chọn 7 chỗ']?.specs || {}
+  } catch (e) {
+    console.error('Failed to load VF9 specs', e)
+  }
+
+  const distanceStr = vf9Specs.powertrain?.distance || '602'
+  const distance = distanceStr.match(/\d+/)?.[0] || '602'
+
+  const maxPowerStr = vf9Specs.powertrain?.maxPower || '402'
+  const maxPower = maxPowerStr.match(/\d+/)?.[0] || '402'
+
+  const drivetrainStr = vf9Specs.powertrain?.drivetrain || 'AWD'
+  const drivetrain = drivetrainStr.includes('AWD') ? 'AWD' : drivetrainStr.split('/')[0]
+
+  const { getProductImage, getCarSpecsSummary } = require('../lib/get-product-image')
+  const vf9Image = getProductImage('VF 9')
+
   const sortedProducts = (rawProducts || []).sort((a, b) => {
     const numA = parseInt(a.name.match(/\d+/)?.[0] || '0', 10)
     const numB = parseInt(b.name.match(/\d+/)?.[0] || '0', 10)
@@ -33,7 +57,6 @@ export default async function Home() {
   })
 
   const products = sortedProducts.map(p => {
-    const { getProductImage, getCarSpecsSummary } = require('../lib/get-product-image')
     const image = getProductImage(p.name, p.image_urls)
     const specsSummary = getCarSpecsSummary(p.name)
     return {
@@ -92,22 +115,26 @@ export default async function Home() {
 
               <div className="mt-12 grid grid-cols-3 gap-8 border-t border-muted pt-8">
                 <div>
-                  <p className="text-3xl font-bold text-foreground tracking-tighter">680<span className="text-lg font-medium text-muted-foreground ml-1">km</span></p>
+                  <p className="text-3xl font-bold text-foreground tracking-tighter">{distance}<span className="text-lg font-medium text-muted-foreground ml-1">km</span></p>
                   <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">Phạm vi di chuyển</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-foreground tracking-tighter">6.5<span className="text-lg font-medium text-muted-foreground ml-1">s</span></p>
-                  <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">0-100 km/h</p>
+                  <p className="text-3xl font-bold text-foreground tracking-tighter">{maxPower}<span className="text-lg font-medium text-muted-foreground ml-1">hp</span></p>
+                  <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">Công suất tối đa</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-foreground tracking-tighter">AWD</p>
+                  <p className="text-3xl font-bold text-foreground tracking-tighter">{drivetrain}</p>
                   <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">Dẫn động</p>
                 </div>
               </div>
 
               <div className="mt-12 flex flex-wrap gap-4">
-                <Button variant="default" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 font-bold">Đặt cọc ngay</Button>
-                <Button variant="outline" className="h-12 px-8 border-muted-foreground/30 text-foreground hover:bg-muted font-bold">Thông số kỹ thuật</Button>
+                <Button asChild variant="default" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 font-bold relative z-20">
+                  <Link href="/deposit?car=VF 9">Đặt cọc ngay</Link>
+                </Button>
+                <Button asChild variant="outline" className="h-12 px-8 border-muted-foreground/30 text-foreground hover:bg-muted font-bold relative z-20">
+                  <Link href="/cars/vf-9">Thông số kỹ thuật</Link>
+                </Button>
               </div>
             </MotionDiv>
 
@@ -119,7 +146,7 @@ export default async function Home() {
               className="relative h-[400px] sm:h-[500px] lg:h-[600px] w-full rounded-[2rem] overflow-hidden bg-muted flex items-center justify-center p-8"
             >
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-muted to-muted opacity-50" />
-              <img src="/images/vf9.png" alt="VinFast VF9" className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-1000 ease-out" />
+              <img src={vf9Image} alt="VinFast VF9" className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-1000 ease-out" />
             </MotionDiv>
           </div>
         </div>
