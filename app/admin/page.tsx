@@ -1,192 +1,86 @@
-'use client'
-
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Package, ShoppingCart, DollarSign, TrendingUp, AlertCircle, ArrowUpRight } from 'lucide-react'
-import { mockOrders, mockInventory } from '../../lib/mock-db'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
-import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
+import {
+  Archive, ArrowUpRight, CalendarDays, CircleDollarSign, Clock3, Database,
+  Package, ShoppingCart, Tags, Ticket, TrendingUp, Users,
+} from 'lucide-react'
 
-export default function AdminDashboard() {
-  const [productCount, setProductCount] = useState(0)
+import { RevenueChart } from '@/components/admin/revenue-chart'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getAdminDashboardData } from '@/lib/services/admin-dashboard-service'
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch('/api/v1/products')
-        if (res.ok) {
-          const data = await res.json()
-          setProductCount(data.length)
-        }
-      } catch (e) {
-        console.error('Failed to fetch product count', e)
-      }
-    }
-    fetchStats()
-  }, [])
+export const dynamic = 'force-dynamic'
 
-  const stats = useMemo(() => {
-    const today = new Date()
-    today.setHours(0,0,0,0)
-    
-    const todayOrders = mockOrders.filter(o => new Date(o.createdAt) >= today)
-    const revenue = todayOrders.reduce((acc, o) => acc + o.amount, 0)
-    
-    const lowStock = mockInventory.filter(i => i.status === 'Low Stock' || i.status === 'Out of Stock').length
-    const pendingOrders = mockOrders.filter(o => o.status === 'Pending').length
+const MODULES = {
+  categories: { name: 'Danh mục', description: 'Phân nhóm ô tô, xe máy điện và phụ kiện.', href: '/admin/categories', icon: Tags },
+  products: { name: 'Sản phẩm', description: 'Sản phẩm, phiên bản và thông tin bán hàng.', href: '/admin/products', icon: Package },
+  orders: { name: 'Đơn hàng', description: 'Đơn mua phụ kiện và dữ liệu thanh toán.', href: '/admin/orders', icon: ShoppingCart },
+  testDrive: { name: 'Lịch lái thử', description: 'Yêu cầu đăng ký và lịch hẹn lái thử.', href: '/admin/test-drive', icon: CalendarDays },
+  inventory: { name: 'Tồn kho', description: 'Số lượng tồn theo từng phiên bản sản phẩm.', href: '/admin/inventory', icon: Archive },
+  promotions: { name: 'Khuyến mãi', description: 'Mã giảm giá, điều kiện và lượt sử dụng.', href: '/admin/promotions', icon: Ticket },
+  costPolicies: { name: 'Chính sách chi phí', description: 'Phí đăng ký, biển số, đường bộ và bảo hiểm.', href: '/admin/cost-policies', icon: CircleDollarSign },
+  customers: { name: 'Tài khoản', description: 'Khách hàng và tài khoản quản trị hệ thống.', href: '/admin/customers', icon: Users },
+} as const
 
-    return {
-      revenue,
-      todayOrders: todayOrders.length,
-      totalOrders: mockOrders.length,
-      products: productCount,
-      lowStock,
-      pendingOrders
-    }
-  }, [productCount])
+const ORDER_STATUS: Record<string, string> = {
+  PENDING: 'Chờ xử lý', CONFIRMED: 'Đã xác nhận', READY: 'Sẵn sàng giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy',
+}
+const TEST_DRIVE_STATUS: Record<string, string> = {
+  REQUESTED: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', DECLINED: 'Từ chối', CANCELLED: 'Đã hủy', COMPLETED: 'Hoàn thành', NO_SHOW: 'Không đến',
+}
 
-  const chartData = useMemo(() => {
-    // Group orders by day for the last 7 days
-    const data = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-      
-      const dayOrders = mockOrders.filter(o => {
-        const od = new Date(o.createdAt)
-        return od.getDate() === d.getDate() && od.getMonth() === d.getMonth()
-      })
-      
-      data.push({
-        name: dateStr,
-        revenue: dayOrders.reduce((sum, o) => sum + o.amount, 0),
-        orders: dayOrders.length
-      })
-    }
-    return data
-  }, [])
+const formatNumber = (value: number) => new Intl.NumberFormat('vi-VN').format(value)
+const formatMoney = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
+const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 
-  const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
-  const compactMoney = (val: number) => (val / 1000000).toFixed(1) + 'M'
+export default async function AdminDashboard() {
+  const { modules, metrics, recentOrders, recentTestDrives, revenueOrders } = await getAdminDashboardData()
+  const availableCount = modules.filter((module) => module.available).length
+  const totalRecords = modules.reduce((total, module) => total + (module.count ?? 0), 0)
+  const operationalStats = [
+    { label: 'Doanh thu hôm nay', value: formatMoney(metrics.todayRevenue), detail: `${metrics.todayOrders} đơn hàng hôm nay`, icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Đơn chờ xử lý', value: formatNumber(metrics.pendingOrders), detail: 'Đơn hàng trạng thái chờ', icon: ShoppingCart, color: 'text-amber-600 bg-amber-50' },
+    { label: 'Tồn kho thấp', value: formatNumber(metrics.lowStockItems), detail: 'Phiên bản còn ít hơn 5 sản phẩm', icon: Archive, color: 'text-red-600 bg-red-50' },
+    { label: 'Lịch lái thử mới', value: formatNumber(metrics.pendingTestDrives), detail: '', icon: CalendarDays, color: 'text-blue-600 bg-blue-50' },
+  ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tổng quan hệ thống</h1>
-        <div className="grid grid-cols-2 gap-3 sm:flex">
-          <Link href="/admin/orders" className="px-3 py-2 text-center bg-white border border-slate-200 text-sm font-medium rounded-md shadow-sm hover:bg-slate-50 transition-colors sm:px-4">
-            Xem đơn hàng
-          </Link>
-          <Link href="/admin/products/new" className="px-3 py-2 text-center bg-slate-900 text-white text-sm font-medium rounded-md shadow-sm hover:bg-slate-800 transition-colors sm:px-4">
-            Thêm sản phẩm
-          </Link>
+    <div className="space-y-7">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tổng quan hệ thống</h1>
+          <p className="mt-1 text-sm text-slate-500">Dữ liệu vận hành được cập nhật trực tiếp từ database.</p>
         </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500"><Database size={15} className="text-emerald-600" /></div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-        <Card className="shadow-sm border-slate-200">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Doanh thu hôm nay</CardTitle>
-            <DollarSign size={16} className="text-slate-400" />
-          </CardHeader>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {operationalStats.map((stat) => <Card key={stat.label} className="border-slate-200 shadow-sm"><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-slate-500">{stat.label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{stat.value}</p></div><div className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.color}`}><stat.icon size={19} /></div></div><p className="mt-3 text-xs text-slate-500">{stat.detail}</p></CardContent></Card>)}
+      </div>
+
+      <RevenueChart orders={revenueOrders} />
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-base">Đơn hàng gần đây</CardTitle><Link href="/admin/orders" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">Xem tất cả <ArrowUpRight size={14} /></Link></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{formatMoney(stats.revenue)}</div>
-            <p className="text-xs text-green-600 mt-1 flex items-center"><TrendingUp size={12} className="mr-1"/> +12.5% so với hôm qua</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-sm border-slate-200">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Đơn hàng hôm nay</CardTitle>
-            <ShoppingCart size={16} className="text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">+{stats.todayOrders}</div>
-            <p className="text-xs text-slate-500 mt-1">{stats.totalOrders} đơn hàng trong tháng</p>
+            {recentOrders.length ? <div className="divide-y divide-slate-100">{recentOrders.map((order) => <div key={order.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{order.customerName}</p><p className="mt-1 text-xs text-slate-500">{order.orderNumber} · {formatDate(order.createdAt)}</p></div><div className="shrink-0 text-right"><p className="text-sm font-bold text-slate-900">{formatMoney(order.totalAmount)}</p><p className="mt-1 text-xs text-slate-500">{ORDER_STATUS[order.status] ?? order.status}</p></div></div>)}</div> : <p className="py-8 text-center text-sm text-slate-500">Chưa có đơn hàng trong database.</p>}
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-slate-200">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Cần xử lý</CardTitle>
-            <AlertCircle size={16} className="text-amber-500" />
-          </CardHeader>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-base">Lịch lái thử gần đây</CardTitle><Link href="/admin/test-drive" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">Xem tất cả <ArrowUpRight size={14} /></Link></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.pendingOrders}</div>
-            <p className="text-xs text-amber-600 mt-1 font-medium">Đơn hàng đang chờ xử lý</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-slate-200">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Sắp hết hàng</CardTitle>
-            <Package size={16} className="text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.lowStock}</div>
-            <p className="text-xs text-slate-500 mt-1">Trong tổng số {stats.products} mã sản phẩm</p>
+            {recentTestDrives.length ? <div className="divide-y divide-slate-100">{recentTestDrives.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{item.customerName}</p><p className="mt-1 truncate text-xs text-slate-500">{item.referenceNumber} · {item.productName}</p></div><div className="shrink-0 text-right"><p className="flex items-center justify-end gap-1 text-xs font-medium text-slate-700"><Clock3 size={13} />{formatDate(item.scheduledAt)}</p><p className="mt-1 text-xs text-slate-500">{TEST_DRIVE_STATUS[item.status] ?? item.status}</p></div></div>)}</div> : <p className="py-8 text-center text-sm text-slate-500">Chưa có lịch lái thử trong database.</p>}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="col-span-1 lg:col-span-2 shadow-sm border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold text-slate-900">Doanh thu (7 ngày qua)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[260px] min-w-0 w-full sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
-                  <YAxis tickFormatter={compactMoney} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <Tooltip 
-                    formatter={(value: any) => [formatMoney(value), 'Doanh thu']}
-                    cursor={{ fill: '#f1f5f9' }}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="revenue" fill="#0f172a" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-slate-200 flex flex-col">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold text-slate-900">Đơn hàng gần đây</CardTitle>
-            <Link href="/admin/orders" className="text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center">
-              Xem tất cả <ArrowUpRight size={14} className="ml-1"/>
-            </Link>
-          </CardHeader>
-          <CardContent className="flex-1">
-            <div className="space-y-5">
-              {mockOrders.slice(0, 5).map(order => (
-                <div key={order.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{order.customerName}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{order.orderNumber}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-900">{formatMoney(order.amount)}</p>
-                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase mt-1 ${
-                      order.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                      order.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                      order.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {order.status === 'Completed' ? 'Hoàn thành' : order.status === 'Pending' ? 'Chờ xử lý' : order.status === 'Cancelled' ? 'Đã hủy' : 'Đang xử lý'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section>
+        <div className="mb-4"><h2 className="text-lg font-bold text-slate-900">Module dữ liệu</h2><p className="mt-1 text-sm text-slate-500">Truy cập nhanh các khu vực quản trị và theo dõi số bản ghi.</p></div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {modules.map((summary) => { const module = MODULES[summary.key as keyof typeof MODULES]; const Icon = module.icon; return <Link key={summary.key} href={module.href} className="group rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><Card className="h-full border-slate-200 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-200 group-hover:shadow-md group-active:scale-[0.99]"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600"><Icon size={19} /></div><p className="text-2xl font-bold text-slate-900">{summary.count === null ? '—' : formatNumber(summary.count)}</p></div><h3 className="mt-4 font-bold text-slate-900">{module.name}</h3><p className="mt-1 text-xs leading-5 text-slate-500">{module.description}</p><div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3"><span className="font-mono text-[10px] text-slate-400">{summary.table}</span><span className={`text-[11px] font-medium ${summary.available ? 'text-emerald-600' : 'text-red-600'}`}>{summary.available ? 'Hoạt động' : 'Lỗi truy vấn'}</span></div></CardContent></Card></Link> })}
+        </div>
+      </section>
     </div>
   )
 }
-

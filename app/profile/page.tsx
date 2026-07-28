@@ -3,11 +3,12 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, Package, User, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle } from 'lucide-react'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
+import { ProfileSavedAddresses } from '@/components/profile-saved-addresses'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrderSummary } from '@/lib/cart/types'
@@ -15,8 +16,9 @@ import type { AccessoryOrderSummary } from '@/lib/cart/types'
 function ProfileContent() {
   const { user, isLoading } = useUser()
   const searchParams = useSearchParams()
-  const initialTab = searchParams?.get('tab') === 'orders' ? 'orders' : 'info'
-  const [activeTab, setActiveTab] = useState<'info' | 'orders'>(initialTab)
+  const requestedTab = searchParams?.get('tab')
+  const initialTab = requestedTab === 'orders' || requestedTab === 'addresses' ? requestedTab : 'info'
+  const [activeTab, setActiveTab] = useState<'info' | 'addresses' | 'orders'>(initialTab)
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -27,10 +29,17 @@ function ProfileContent() {
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
 
-  function showToast(kind: ToastMessage['kind'], title: string, message?: string) {
+  function showToast(
+    kind: ToastMessage['kind'],
+    title: string,
+    message?: string,
+    actions?: Pick<ToastMessage, 'action' | 'secondaryAction'>,
+  ) {
     const id = Date.now() + Math.random()
-    setToasts((current) => [...current, { id, kind, title, message }])
-    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4500)
+    const dismiss = () => setToasts((current) => current.filter((toast) => toast.id !== id))
+    const wrap = (action: ToastMessage['action']) => action ? { ...action, onClick: () => { action.onClick(); dismiss() } } : undefined
+    setToasts((current) => [...current, { id, kind, title, message, action: wrap(actions?.action), secondaryAction: wrap(actions?.secondaryAction) }])
+    window.setTimeout(dismiss, 4500)
   }
 
   useEffect(() => {
@@ -155,6 +164,7 @@ function ProfileContent() {
               </div>
               <div className="p-2">
                 <button onClick={() => setActiveTab('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
+                <button onClick={() => setActiveTab('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
                 <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử đơn hàng</button>
               </div>
             </div>
@@ -188,6 +198,8 @@ function ProfileContent() {
                   </form>
                 )}
               </div>
+            ) : activeTab === 'addresses' ? (
+              <ProfileSavedAddresses profileName={profile?.fullName ?? ''} profilePhone={profile?.phoneNumber ?? ''} showToast={showToast} />
             ) : (
               <div>
                 <h2 className="mb-6 text-2xl font-bold text-gray-900">Lịch sử đơn hàng</h2>
@@ -205,9 +217,9 @@ function ProfileContent() {
                         <div>
                           <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
                           <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
-                         </div>
-                         <div className="flex items-center gap-2">
-                           {statusIcon(order.status)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {statusIcon(order.status)}
                           <span className="text-sm font-medium text-gray-700">{order.status}</span>
                         </div>
                       </div>
@@ -221,7 +233,7 @@ function ProfileContent() {
                             <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
                           </div>
                         </div>
-                         <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                        <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
                       </div>
                     </div>
                   ))}
