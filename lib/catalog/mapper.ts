@@ -159,6 +159,8 @@ function mapProductContent(value: unknown): CatalogProductContent {
   return {
     specificationText,
     specifications: object(source.specifications),
+    category: nullableString(source.category),
+    categories: strings(source.categories),
   }
 }
 
@@ -354,6 +356,7 @@ export function mapCatalogProduct(value: unknown): CatalogProduct {
     description: nullableString(row.description),
     productType: productType(row.product_type),
     displayedPrice: nullableNumber(row.displayed_price),
+    createdAt: nullableString(row.created_at),
     content: mapProductContent(row.specifications),
     collectionMemberships: mapCollectionMemberships(
       row.collection_memberships ?? row.product_collection_memberships,

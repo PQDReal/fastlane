@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const MAX_BUDGET = 20_000_000
 const BUDGET_STEP = 100_000
-const DEFAULT_BUDGET = 10_000_000
+export const DEFAULT_ACCESSORY_BUDGET = 10_000_000
 
 const formatBudget = (value: number) =>
   new Intl.NumberFormat('vi-VN').format(value)
@@ -17,43 +17,50 @@ const floorBudget = (value: number) =>
   BUDGET_STEP
 
 type AccessoryFiltersProps = {
-  categories: string[]
+  categories: readonly string[]
+  selectedCategories: string[]
+  onSelectedCategoriesChange: (categories: string[]) => void
+  budget: number
+  onBudgetChange: (budget: number) => void
 }
 
 export function AccessoryFilters({
   categories,
+  selectedCategories,
+  onSelectedCategoriesChange,
+  budget,
+  onBudgetChange,
 }: AccessoryFiltersProps) {
   const allCategory = categories[0] ?? 'Tất cả'
-  const [selectedCategories, setSelectedCategories] =
-    useState<string[]>([allCategory])
-  const [budget, setBudget] = useState(DEFAULT_BUDGET)
   const [budgetInput, setBudgetInput] = useState(
-    formatBudget(DEFAULT_BUDGET),
+    formatBudget(budget),
   )
+
+  useEffect(() => {
+    setBudgetInput(formatBudget(budget))
+  }, [budget])
 
   const toggleCategory = (category: string) => {
     if (category === allCategory) {
-      setSelectedCategories([allCategory])
+      onSelectedCategoriesChange([allCategory])
       return
     }
 
-    setSelectedCategories((current) => {
-      const individualCategories = current.filter(
-        (item) => item !== allCategory,
-      )
-      const next = individualCategories.includes(category)
-        ? individualCategories.filter(
-            (item) => item !== category,
-          )
-        : [...individualCategories, category]
+    const individualCategories = selectedCategories.filter(
+      (item) => item !== allCategory,
+    )
+    const next = individualCategories.includes(category)
+      ? individualCategories.filter((item) => item !== category)
+      : [...individualCategories, category]
 
-      return next.length > 0 ? next : [allCategory]
-    })
+    onSelectedCategoriesChange(
+      next.length > 0 ? next : [allCategory],
+    )
   }
 
   const commitBudget = (value = budget) => {
     const nextBudget = floorBudget(value)
-    setBudget(nextBudget)
+    onBudgetChange(nextBudget)
     setBudgetInput(formatBudget(nextBudget))
   }
 
@@ -61,13 +68,13 @@ export function AccessoryFilters({
     const digits = value.replace(/\D/g, '')
 
     if (digits === '') {
-      setBudget(0)
+      onBudgetChange(0)
       setBudgetInput('')
       return
     }
 
     const nextBudget = clampBudget(Number(digits))
-    setBudget(nextBudget)
+    onBudgetChange(nextBudget)
     setBudgetInput(formatBudget(nextBudget))
   }
 
@@ -126,7 +133,7 @@ export function AccessoryFilters({
           step="1"
           value={budget}
           onChange={(event) =>
-            setBudget(Number(event.target.value))
+            onBudgetChange(Number(event.target.value))
           }
           onPointerUp={() => commitBudget()}
           onKeyUp={() => commitBudget()}

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { BikeColorSelector } from '../../../components/bike-color-selector'
 import { getSupabaseAdmin } from '../../../lib/supabase-admin'
 import { Button } from '../../../components/ui/button'
-import { Check } from 'lucide-react'
+import { Check, CircleHelp } from 'lucide-react'
 import {
   getBikeColorFallbacks,
   getBikeColorImage,
@@ -229,7 +229,7 @@ export default async function BikeDetailPage(
     product.slug,
   )
   const colorDetails =
-    fallbackColorDetails.length > rawColorDetails.length
+    fallbackColorDetails.length > 0
       ? fallbackColorDetails
       : rawColorDetails
           .map(asObject)
@@ -371,37 +371,89 @@ export default async function BikeDetailPage(
     })
 
   const technologyFeatures = [
-    findSpecValue(specEntries, ['Khóa xe']),
-    findSpecValue(specEntries, [
-      'Loại pin',
-      'Loại pin/ắc quy',
-      'Loại ắc quy',
-    ]),
-    findSpecValue(specEntries, [
-      'Đèn pha trước',
-    ]),
-    findSpecValue(specEntries, ['Loại sạc']),
-  ].filter(Boolean)
+    {
+      label: 'Hệ thống khóa',
+      value:
+        findSpecValue(specEntries, ['Khóa xe']) ||
+        'Chưa cập nhật',
+      description:
+        'Phương thức khóa và bảo vệ xe khi dừng đỗ.',
+    },
+    {
+      label: 'Pin / ắc quy',
+      value:
+        findSpecValue(specEntries, [
+          'Loại pin',
+          'Loại pin/ắc quy',
+          'Loại ắc quy',
+        ]) || 'Chưa cập nhật',
+      description:
+        'Loại nguồn năng lượng ảnh hưởng đến độ bền, khối lượng và cách sạc.',
+    },
+    {
+      label: 'Đèn pha trước',
+      value:
+        findSpecValue(specEntries, [
+          'Đèn pha trước',
+        ]) || 'Chưa cập nhật',
+      description:
+        'Trang bị chiếu sáng phía trước hỗ trợ quan sát khi di chuyển.',
+    },
+    {
+      label: 'Bộ sạc',
+      value:
+        findSpecValue(specEntries, ['Loại sạc']) ||
+        'Chưa cập nhật',
+      description:
+        'Công suất hoặc loại bộ sạc dùng để nạp năng lượng cho xe.',
+    },
+  ]
 
   const safetyFeatures = [
-    findSpecValue(specEntries, [
-      'Phanh trước và sau',
-    ]),
-    findSpecValue(specEntries, [
-      'Giảm xóc trước và sau',
-      'Giảm xóc',
-    ]),
-    findSpecValue(specEntries, [
-      'Tiêu chuẩn chống nước động cơ',
-    ]),
-    findSpecValue(specEntries, [
-      'Kích thước lốp Trước - Sau',
-    ]),
-  ].filter(Boolean)
+    {
+      label: 'Phanh trước và sau',
+      value:
+        findSpecValue(specEntries, [
+          'Phanh trước và sau',
+        ]) || 'Chưa cập nhật',
+      description:
+        'Cấu hình phanh ở hai bánh, ảnh hưởng trực tiếp đến khả năng kiểm soát tốc độ.',
+    },
+    {
+      label: 'Hệ thống giảm xóc',
+      value:
+        findSpecValue(specEntries, [
+          'Giảm xóc trước và sau',
+          'Giảm xóc',
+        ]) || 'Chưa cập nhật',
+      description:
+        'Cấu hình giảm chấn giúp xe ổn định và êm hơn trên mặt đường không bằng phẳng.',
+    },
+    {
+      label: 'Chuẩn chống nước động cơ',
+      value:
+        findSpecValue(specEntries, [
+          'Tiêu chuẩn chống nước động cơ',
+        ]) || 'Chưa cập nhật',
+      description:
+        'Mức bảo vệ động cơ trước bụi và nước trong điều kiện sử dụng phù hợp.',
+    },
+    {
+      label: 'Lốp trước và sau',
+      value:
+        findSpecValue(specEntries, [
+          'Kích thước lốp Trước - Sau',
+        ]) || 'Chưa cập nhật',
+      description:
+        'Kích thước lốp ảnh hưởng đến độ bám đường và độ ổn định của xe.',
+    },
+  ]
 
   const description =
     asString(product.description) ||
     `Xe máy điện VinFast ${product.name}.`
+  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}`
+  const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
 
   return (
     <main className="flex min-h-screen flex-col bg-background selection:bg-brand-500 selection:text-white">
@@ -427,13 +479,13 @@ className={`absolute inset-0 h-full w-full object-center ${
 
         <div className="relative z-10 flex w-full flex-col items-center pb-12">
           <div className="mb-12 flex gap-4">
-            <button className="h-12 rounded-full bg-white px-8 text-sm font-bold uppercase tracking-widest text-black shadow-xl transition-all hover:scale-105 hover:bg-white/90 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
+            <Link href={testDriveHref} className="flex h-12 items-center justify-center rounded-full bg-white px-8 text-sm font-bold uppercase tracking-widest text-black shadow-xl transition-all hover:scale-105 hover:bg-white/90 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
               Trải nghiệm
-            </button>
+            </Link>
 
-            <button className="h-12 rounded-full border-2 border-white bg-transparent px-8 text-sm font-bold uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/10 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
+            <Link href={depositHref} className="flex h-12 items-center justify-center rounded-full border-2 border-white bg-transparent px-8 text-sm font-bold uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/10 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
               Đặt cọc ngay
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -491,10 +543,11 @@ className={`absolute inset-0 h-full w-full object-center ${
             </Button>
 
             <Button
+              asChild
               size="sm"
               className="rounded-full bg-brand-600 font-bold text-white hover:bg-brand-700"
             >
-              Đặt cọc
+              <Link href={depositHref}>Đặt cọc</Link>
             </Button>
           </div>
         </div>
@@ -609,21 +662,47 @@ className={`absolute inset-0 h-full w-full object-center ${
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               {technologyFeatures.map(
-                (feature) => (
+                (feature) => {
+                  const isAvailable =
+                    feature.value !== 'Chưa cập nhật'
+
+                  return (
                   <div
-                    key={feature}
-                    className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
+                    key={feature.label}
+                    className={`rounded-2xl border bg-white p-6 shadow-sm ${
+                      isAvailable
+                        ? 'border-black/5'
+                        : 'border-dashed border-slate-300'
+                    }`}
                   >
-                    <Check
-                      className="mb-4 text-brand-500"
-                      size={24}
-                    />
+                    {isAvailable ? (
+                      <Check
+                        className="mb-4 text-brand-500"
+                        size={24}
+                      />
+                    ) : (
+                      <CircleHelp
+                        className="mb-4 text-slate-400"
+                        size={24}
+                      />
+                    )}
+
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      {feature.label}
+                    </p>
 
                     <h4 className="font-bold text-slate-900">
-                      {feature}
+                      {feature.value}
                     </h4>
+
+                    <p className="mt-3 text-sm leading-6 text-slate-600">
+                      {isAvailable
+                        ? feature.description
+                        : 'VinFast chưa công bố thông tin này.'}
+                    </p>
                   </div>
-                ),
+                  )
+                },
               )}
             </div>
           </div>
@@ -635,21 +714,47 @@ className={`absolute inset-0 h-full w-full object-center ${
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               {safetyFeatures.map(
-                (feature) => (
+                (feature) => {
+                  const isAvailable =
+                    feature.value !== 'Chưa cập nhật'
+
+                  return (
                   <div
-                    key={feature}
-                    className="rounded-2xl bg-black p-6 text-white shadow-sm"
+                    key={feature.label}
+                    className={`rounded-2xl p-6 text-white shadow-sm ${
+                      isAvailable
+                        ? 'bg-black'
+                        : 'border border-dashed border-white/20 bg-slate-900'
+                    }`}
                   >
-                    <Check
-                      className="mb-4 text-white"
-                      size={24}
-                    />
+                    {isAvailable ? (
+                      <Check
+                        className="mb-4 text-white"
+                        size={24}
+                      />
+                    ) : (
+                      <CircleHelp
+                        className="mb-4 text-white/50"
+                        size={24}
+                      />
+                    )}
+
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+                      {feature.label}
+                    </p>
 
                     <h4 className="font-bold">
-                      {feature}
+                      {feature.value}
                     </h4>
+
+                    <p className="mt-3 text-sm leading-6 text-white/70">
+                      {isAvailable
+                        ? feature.description
+                        : 'VinFast chưa công bố thông tin này.'}
+                    </p>
                   </div>
-                ),
+                  )
+                },
               )}
             </div>
           </div>
@@ -733,15 +838,16 @@ className={`absolute inset-0 h-full w-full object-center ${
           </p>
 
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            <Button className="h-14 rounded-full bg-white px-10 text-sm font-bold uppercase tracking-wider text-black hover:bg-white/90">
-              Đặt cọc ngay
+            <Button asChild className="h-14 rounded-full bg-white px-10 text-sm font-bold uppercase tracking-wider text-black hover:bg-white/90">
+              <Link href={depositHref}>Đặt cọc ngay</Link>
             </Button>
 
             <Button
               variant="outline"
               className="h-14 rounded-full border-white/20 px-10 text-sm font-bold uppercase tracking-wider text-white hover:bg-white/10"
+              asChild
             >
-              Đăng ký lái thử
+              <Link href={testDriveHref}>Đăng ký lái thử</Link>
             </Button>
           </div>
         </div>
