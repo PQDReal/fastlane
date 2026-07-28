@@ -211,6 +211,50 @@ ProductImageResponse:
   required: [data]
   properties:
     data: { $ref: '../../openapi.yaml#/components/schemas/ProductImage' }
+CatalogCollectionKind:
+  type: string
+  enum: [CATEGORY, MODEL, CAMPAIGN]
+CatalogVehicleFilterMode:
+  type: string
+  enum: [NONE, COLLECTION_MEMBERSHIP, VERIFIED_FITMENT]
+  description: COLLECTION_MEMBERSHIP is source taxonomy membership and is not a verified installation-fitment claim.
+CatalogVehicleModel:
+  type: object
+  additionalProperties: false
+  required: [id, code, slug, name, vehicleKind]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 1, maxLength: 80 }
+    slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    vehicleKind: { type: string, enum: [CAR, MOTORBIKE, OTHER] }
+CatalogCollection:
+  type: object
+  additionalProperties: false
+  required: [id, parentId, kind, sourceSystem, sourceKey, slug, name, vehicleFilterMode, displayOrder, vehicleModel]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    parentId: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/Uuid' }, { type: 'null' }] }
+    kind: { $ref: '../../openapi.yaml#/components/schemas/CatalogCollectionKind' }
+    sourceSystem: { type: string, minLength: 1, maxLength: 80 }
+    sourceKey: { type: string, minLength: 1, maxLength: 160 }
+    slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    vehicleFilterMode: { $ref: '../../openapi.yaml#/components/schemas/CatalogVehicleFilterMode' }
+    displayOrder: { type: integer, minimum: 0 }
+    vehicleModel:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/CatalogVehicleModel' }, { type: 'null' }]
+CatalogCollectionMembership:
+  type: object
+  additionalProperties: false
+  required: [id, sourceSystem, isPrimary, firstSeenAt, lastSeenAt, collection]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    sourceSystem: { type: string, minLength: 1, maxLength: 80 }
+    isPrimary: { type: boolean }
+    firstSeenAt: { type: string, format: date-time }
+    lastSeenAt: { type: string, format: date-time }
+    collection: { $ref: '../../openapi.yaml#/components/schemas/CatalogCollection' }
 ProductSummary:
   type: object
   additionalProperties: false
@@ -225,6 +269,10 @@ ProductSummary:
     thumbnailUrl: { oneOf: [{ type: string, format: uri }, { type: 'null' }], description: Non-null for public active products; may be null in admin draft results. }
     priceRange: { $ref: '../../openapi.yaml#/components/schemas/PriceRange' }
     isActive: { type: boolean }
+    collectionMemberships:
+      type: array
+      items: { $ref: '../../openapi.yaml#/components/schemas/CatalogCollectionMembership' }
+      description: Optional normalized taxonomy projection during the v1 compatibility rollout.
 ProductDetail:
   type: object
   additionalProperties: false
@@ -248,6 +296,10 @@ ProductDetail:
       maxItems: 20
       items: { $ref: '../../openapi.yaml#/components/schemas/ProductOptionGroup' }
       description: Non-inventory configuration modifiers. Choices that alter SKU or inventory remain variant attributes. Public detail exposes active groups and active values only; admin detail may include inactive entries.
+    collectionMemberships:
+      type: array
+      items: { $ref: '../../openapi.yaml#/components/schemas/CatalogCollectionMembership' }
+      description: Optional normalized taxonomy projection; MODEL membership does not imply verified technical fitment.
     createdAt: { type: string, format: date-time }
     updatedAt: { type: string, format: date-time }
 ProductDetailResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/ProductDetail' } } }

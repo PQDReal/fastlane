@@ -19,6 +19,31 @@ describe('mapCatalogProduct', () => {
         variants: [{ sku: 'must-not-be-read' }],
       },
       category: { id: 'category-1', name: 'Phụ kiện', slug: 'accessories' },
+      collection_memberships: [{
+        id: 'membership-1', source_system: 'VINFAST_DEMANDWARE', is_primary: true,
+        first_seen_at: '2026-07-27T00:00:00Z', last_seen_at: '2026-07-27T00:00:00Z',
+        is_active: true, metadata: {},
+        collection: {
+          id: 'collection-1', parent_id: null, kind: 'CATEGORY',
+          source_system: 'VINFAST_DEMANDWARE', source_key: '5003',
+          slug: 'phong-cach-song', name: 'Phong cách sống',
+          vehicle_filter_mode: 'NONE', display_order: 10, is_active: true, metadata: {},
+        },
+      }, {
+        id: 'membership-2', source_system: 'VINFAST_DEMANDWARE', is_primary: false,
+        first_seen_at: '2026-07-27T00:00:00Z', last_seen_at: '2026-07-27T00:00:00Z',
+        is_active: true, metadata: {},
+        collection: {
+          id: 'collection-2', parent_id: 'collection-car', kind: 'MODEL',
+          source_system: 'VINFAST_DEMANDWARE', source_key: '5007',
+          slug: 'vf-3', name: 'VF 3', vehicle_filter_mode: 'COLLECTION_MEMBERSHIP',
+          display_order: 80, is_active: true, metadata: {},
+          vehicle_model: {
+            id: 'model-1', code: 'VF_3', slug: 'vf-3', name: 'VF 3',
+            vehicle_kind: 'CAR', is_active: true, metadata: {},
+          },
+        },
+      }],
       option_groups: [
         {
           id: 'size-group', code: 'size', name: 'Kích thước', display_type: 'BUTTON',
@@ -68,6 +93,20 @@ describe('mapCatalogProduct', () => {
     expect(product.media.product[0].url).toBe('product.jpg')
     expect(product.media.byVariant['variant-red-m'][0].url).toBe('variant.jpg')
     expect(product.media.byOptionValue.red[0].url).toBe('red.jpg')
+    expect(product.collectionMemberships).toMatchObject([
+      {
+        isPrimary: true,
+        collection: { sourceKey: '5003', vehicleFilterMode: 'NONE' },
+      },
+      {
+        isPrimary: false,
+        collection: {
+          sourceKey: '5007',
+          vehicleFilterMode: 'COLLECTION_MEMBERSHIP',
+          vehicleModel: { code: 'VF_3' },
+        },
+      },
+    ])
     expect(product.content).toEqual({
       specificationText: 'Chất liệu cotton',
       specifications: { material: 'Cotton' },
@@ -83,6 +122,7 @@ describe('mapCatalogProduct', () => {
       }],
     })
     expect(product.optionGroups).toEqual([])
+    expect(product.collectionMemberships).toEqual([])
     expect(product.variants[0].selectedOptions).toEqual({})
     expect(product.variants[0].availableQuantity).toBe(0)
   })

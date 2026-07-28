@@ -1,5 +1,8 @@
 import type {
   CatalogCategory,
+  CatalogCollection,
+  CatalogCollectionKind,
+  CatalogCollectionMembership,
   CatalogMedia,
   CatalogMediaCollection,
   CatalogMediaRole,
@@ -12,6 +15,8 @@ import type {
   CatalogProductType,
   CatalogSelectedOption,
   CatalogVariant,
+  CatalogVehicleFilterMode,
+  CatalogVehicleModel,
 } from '@/lib/catalog/types'
 
 type UnknownRecord = Record<string, unknown>
@@ -78,6 +83,74 @@ function mapCategory(value: unknown): CatalogCategory | null {
     name: string(row.name),
     slug: string(row.slug),
   }
+}
+
+function collectionKind(value: unknown): CatalogCollectionKind {
+  if (value === 'MODEL' || value === 'CAMPAIGN') return value
+  return 'CATEGORY'
+}
+
+function vehicleFilterMode(value: unknown): CatalogVehicleFilterMode {
+  if (value === 'COLLECTION_MEMBERSHIP' || value === 'VERIFIED_FITMENT') return value
+  return 'NONE'
+}
+
+function vehicleKind(value: unknown): CatalogVehicleModel['vehicleKind'] {
+  if (value === 'MOTORBIKE' || value === 'OTHER') return value
+  return 'CAR'
+}
+
+function mapVehicleModel(value: unknown): CatalogVehicleModel | null {
+  const row = firstRecord(value)
+  if (!row || !isActive(row)) return null
+  return {
+    id: string(row.id),
+    code: string(row.code),
+    slug: string(row.slug),
+    name: string(row.name),
+    vehicleKind: vehicleKind(row.vehicle_kind),
+    metadata: object(row.metadata),
+  }
+}
+
+function mapCollection(value: unknown): CatalogCollection | null {
+  const row = firstRecord(value)
+  if (!row || !isActive(row)) return null
+  return {
+    id: string(row.id),
+    parentId: nullableString(row.parent_id),
+    kind: collectionKind(row.kind),
+    sourceSystem: string(row.source_system),
+    sourceKey: string(row.source_key),
+    slug: string(row.slug),
+    name: string(row.name),
+    vehicleFilterMode: vehicleFilterMode(row.vehicle_filter_mode),
+    displayOrder: integer(row.display_order),
+    metadata: object(row.metadata),
+    vehicleModel: mapVehicleModel(row.vehicle_model ?? row.vehicle_models),
+  }
+}
+
+function mapCollectionMemberships(value: unknown): CatalogCollectionMembership[] {
+  return records(value)
+    .filter(isActive)
+    .flatMap((row) => {
+      const collection = mapCollection(row.collection ?? row.catalog_collections)
+      if (!collection) return []
+      return [{
+        id: string(row.id),
+        sourceSystem: string(row.source_system),
+        isPrimary: row.is_primary === true,
+        firstSeenAt: string(row.first_seen_at),
+        lastSeenAt: string(row.last_seen_at),
+        metadata: object(row.metadata),
+        collection,
+      }]
+    })
+    .sort((left, right) => (
+      left.collection.displayOrder - right.collection.displayOrder
+      || left.collection.id.localeCompare(right.collection.id)
+    ))
 }
 
 function mapProductContent(value: unknown): CatalogProductContent {
@@ -282,6 +355,9 @@ export function mapCatalogProduct(value: unknown): CatalogProduct {
     productType: productType(row.product_type),
     displayedPrice: nullableNumber(row.displayed_price),
     content: mapProductContent(row.specifications),
+    collectionMemberships: mapCollectionMemberships(
+      row.collection_memberships ?? row.product_collection_memberships,
+    ),
     legacyImageUrls: strings(row.image_urls),
     optionGroups,
     variants,
