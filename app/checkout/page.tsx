@@ -2,12 +2,15 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { ArrowLeft, Loader2, LockKeyhole, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, LockKeyhole, MapPin, ShoppingBag, Star } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
+import { CheckoutAddressModal, type CheckoutSavedAddress } from '@/components/checkout-address-modal'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import type { AccessoryOrder } from '@/lib/cart/types'
 import { useAppStore } from '@/lib/store'
 
@@ -27,6 +30,18 @@ type PromotionQuote = {
   subtotal: number
   grandTotal: number
   isBest?: boolean
+}
+
+type SavedAddress = {
+  id: string
+  label: string
+  recipientName: string
+  addressLine: string
+  ward: string | null
+  province: string
+  phoneNumber: string
+  note: string | null
+  isDefault: boolean
 }
 
 const formatPrice = (price: number) =>
@@ -58,11 +73,13 @@ export default function CheckoutPage() {
   const [availablePromotions, setAvailablePromotions] = useState<PromotionQuote[]>([])
   const [promotionsLoading, setPromotionsLoading] = useState(false)
   const [recipientName, setRecipientName] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [line1, setLine1] = useState('')
-  const [ward, setWard] = useState('')
-  const [province, setProvince] = useState('')
-  const [note, setNote] = useState('')
+  const [profilePhone, setProfilePhone] = useState('')
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState('')
+  const [addressesLoading, setAddressesLoading] = useState(false)
+  const [addressesError, setAddressesError] = useState<string | null>(null)
+  const [addressModalOpen, setAddressModalOpen] = useState(false)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
   const idempotencyKey = useRef<string | null>(null)
 
   useEffect(() => {
@@ -83,8 +100,66 @@ export default function CheckoutPage() {
   }, [cartLoaded, loadCart, user])
 
   useEffect(() => {
-    if (user?.name && !recipientName) setRecipientName(user.name)
-  }, [recipientName, user?.name])
+    if (!user) return
+
+    const controller = new AbortController()
+    setAddressesLoading(true)
+    setAddressesError(null)
+
+    Promise.all([
+      fetch('/api/v1/users/me/addresses', {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }),
+      fetch('/api/v1/users/me', {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }),
+    ])
+      .then(async ([addressesResponse, profileResponse]) => {
+        const addressesPayload = await addressesResponse.json().catch(() => ({}))
+        const profilePayload = await profileResponse.json().catch(() => ({}))
+        if (!addressesResponse.ok) {
+          throw new Error(
+            addressesPayload?.error?.message || 'Không thể tải địa chỉ đã lưu.',
+          )
+        }
+
+        const addresses = (addressesPayload.data ?? []) as SavedAddress[]
+        setSavedAddresses(addresses)
+        setSelectedAddressId(
+          addresses.find((address) => address.isDefault)?.id ??
+            addresses[0]?.id ??
+            '',
+        )
+        setRecipientName(
+          (profileResponse.ok ? profilePayload?.data?.fullName : '') ||
+            user.name ||
+            '',
+        )
+        setProfilePhone(
+          profileResponse.ok ? profilePayload?.data?.phoneNumber || '' : '',
+        )
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        setSavedAddresses([])
+        setSelectedAddressId('')
+        setRecipientName(user.name || '')
+        setAddressesError(
+          error instanceof Error
+            ? error.message
+            : 'Không thể tải địa chỉ đã lưu.',
+        )
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAddressesLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [user])
 
   const selectedItems = useMemo(() => {
     if (!selectedCartItemIds) return []
@@ -100,6 +175,34 @@ export default function CheckoutPage() {
     0,
   )
   const grandTotal = appliedPromotion?.grandTotal ?? selectedTotal
+  const selectedAddress =
+    savedAddresses.find((address) => address.id === selectedAddressId) ?? null
+  const showToast = (
+    kind: ToastMessage['kind'],
+    title: string,
+    message?: string,
+  ) => {
+    const id = Date.now()
+    setToasts((current) => [...current, { id, kind, title, message }])
+    window.setTimeout(
+      () => setToasts((current) => current.filter((toast) => toast.id !== id)),
+      4500,
+    )
+  }
+
+  const handleAddressSaved = (saved: CheckoutSavedAddress) => {
+    setSavedAddresses((current) => [
+      saved,
+      ...current.map((address) => ({
+        ...address,
+        isDefault: saved.isDefault ? false : address.isDefault,
+      })),
+    ])
+    setSelectedAddressId(saved.id)
+    setAddressesError(null)
+    setAddressModalOpen(false)
+    showToast('success', 'Đã thêm địa chỉ nhận hàng')
+  }
 
   useEffect(() => {
     setAppliedPromotion(null)
@@ -124,6 +227,7 @@ export default function CheckoutPage() {
         const promotions = (payload.data ?? []) as PromotionQuote[]
         setAvailablePromotions(promotions)
         setPromotionCode(promotions[0]?.code ?? '')
+        setAppliedPromotion(promotions[0] ?? null)
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -165,7 +269,13 @@ export default function CheckoutPage() {
   }
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (submitting || !selectionIsValid) return
+    if (
+      submitting ||
+      !selectionIsValid ||
+      !selectedAddress ||
+      !selectedAddress.ward ||
+      !selectedAddress.recipientName.trim()
+    ) return
 
     setSubmitting(true)
     setSubmitError(null)
@@ -185,14 +295,14 @@ export default function CheckoutPage() {
         acceptedAmountDueNow: total,
         ...(appliedPromotion ? { promotionCode: appliedPromotion.code } : {}),
         shippingAddress: {
-          recipientName,
-          phoneNumber,
-          line1,
-          communeLevel: { name: ward, type: 'WARD' },
-          province: { name: province },
+          recipientName: selectedAddress.recipientName.trim(),
+          phoneNumber: selectedAddress.phoneNumber,
+          line1: selectedAddress.addressLine,
+          communeLevel: { name: selectedAddress.ward, type: 'WARD' },
+          province: { name: selectedAddress.province },
           countryCode: 'VN',
         },
-        ...(note.trim() ? { note } : {}),
+        ...(selectedAddress.note?.trim() ? { note: selectedAddress.note.trim() } : {}),
       }),
     })
     const payload = (await response.json().catch(() => ({}))) as
@@ -270,33 +380,96 @@ export default function CheckoutPage() {
         ) : (
           <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr_420px]">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="text-xl font-bold text-slate-900">Thông tin nhận hàng</h2>
-              <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <label className="sm:col-span-2 text-sm font-medium text-slate-700">
-                  Họ và tên
-                  <input required maxLength={120} value={recipientName} onChange={(event) => setRecipientName(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#836100]" />
-                </label>
-                <label className="sm:col-span-2 text-sm font-medium text-slate-700">
-                  Số điện thoại
-                  <input required inputMode="tel" pattern="\+?[0-9]{9,15}" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="0901234567" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#836100]" />
-                </label>
-                <label className="sm:col-span-2 text-sm font-medium text-slate-700">
-                  Địa chỉ
-                  <input required maxLength={255} value={line1} onChange={(event) => setLine1(event.target.value)} placeholder="Số nhà, tên đường" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#836100]" />
-                </label>
-                <label className="text-sm font-medium text-slate-700">
-                  Phường/Xã
-                  <input required maxLength={120} value={ward} onChange={(event) => setWard(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#836100]" />
-                </label>
-                <label className="text-sm font-medium text-slate-700">
-                  Tỉnh/Thành phố
-                  <input required maxLength={120} value={province} onChange={(event) => setProvince(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#836100]" />
-                </label>
-                <label className="sm:col-span-2 text-sm font-medium text-slate-700">
-                  Ghi chú (không bắt buộc)
-                  <textarea maxLength={500} rows={3} value={note} onChange={(event) => setNote(event.target.value)} className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#836100]" />
-                </label>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Địa chỉ nhận hàng</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Địa chỉ mặc định được chọn tự động. Bạn có thể chọn địa chỉ khác.
+                  </p>
+                </div>
+                <Link
+                  href="/profile?tab=addresses"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#836100] hover:text-[#836100] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]"
+                >
+                  Quản lý địa chỉ
+                </Link>
               </div>
+
+              {addressesLoading ? (
+                <div className="mt-6 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang tải địa chỉ đã lưu...
+                </div>
+              ) : addressesError ? (
+                <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+                  {addressesError}
+                </div>
+              ) : savedAddresses.length === 0 ? (
+                <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+                  <MapPin className="mx-auto h-8 w-8 text-slate-400" />
+                  <p className="mt-3 font-semibold text-slate-800">Bạn chưa có địa chỉ nhận hàng</p>
+                  <p className="mt-1 text-sm text-slate-500">Hãy thêm địa chỉ trong trang hồ sơ trước khi thanh toán.</p>
+                  <button type="button" onClick={() => setAddressModalOpen(true)} className="mt-4 inline-flex rounded-full bg-[#836100] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6a4e00] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]">
+                    Thêm địa chỉ
+                  </button>
+                </div>
+              ) : (
+                <div role="radiogroup" aria-label="Địa chỉ nhận hàng đã lưu" className="mt-6 max-h-[430px] space-y-3 overflow-y-auto pr-1">
+                  {savedAddresses.map((address) => {
+                    const selected = address.id === selectedAddressId
+                    return (
+                      <button
+                        key={address.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setSelectedAddressId(address.id)
+                          setSubmitError(null)
+                        }}
+                        className={`w-full rounded-2xl border p-5 text-left transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] ${
+                          selected
+                            ? 'border-[#836100] bg-[#836100]/5 shadow-sm'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                            selected ? 'border-[#836100] bg-[#836100] text-white' : 'border-slate-300 text-transparent'
+                          }`}>
+                            <Check className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-slate-900">{address.label}</span>
+                              {address.isDefault && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                                  <Star className="h-3 w-3 fill-current" />
+                                  Mặc định
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-slate-800">
+                              {address.recipientName} · {address.phoneNumber}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                              {[address.addressLine, address.ward, address.province].filter(Boolean).join(', ')}
+                            </p>
+                            {address.note && (
+                              <p className="mt-2 text-xs text-slate-500">Ghi chú: {address.note}</p>
+                            )}
+                            {!address.ward && (
+                              <p className="mt-2 text-xs font-medium text-red-600">
+                                Địa chỉ này thiếu phường/xã. Vui lòng cập nhật trước khi đặt hàng.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </section>
 
             <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
@@ -320,7 +493,7 @@ export default function CheckoutPage() {
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-slate-700">Chọn mã giảm giá</p>
                   {availablePromotions[0]?.isBest && (
-                    <span className="text-xs font-semibold text-emerald-700">Đã xếp theo mức giảm tốt nhất</span>
+                    <span className="text-xs font-semibold text-emerald-700">Đã chọn voucher tốt nhất</span>
                   )}
                 </div>
 
@@ -407,7 +580,7 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <button type="submit" disabled={submitting || cartLoading} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#836100] px-6 py-4 font-bold text-white transition-colors hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="submit" disabled={submitting || cartLoading || addressesLoading || !selectedAddress || !selectedAddress.ward || !selectedAddress.recipientName.trim()} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#836100] px-6 py-4 font-bold text-white transition-colors hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:opacity-60">
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <LockKeyhole className="h-5 w-5" />}
                 {submitting ? 'Đang tạo đơn...' : 'Xác nhận thanh toán'}
               </button>
@@ -416,6 +589,25 @@ export default function CheckoutPage() {
         )}
       </div>
       <Footer />
+      <AnimatePresence>
+        {addressModalOpen && (
+          <CheckoutAddressModal
+            initialName={recipientName}
+            initialPhone={profilePhone}
+            onClose={() => setAddressModalOpen(false)}
+            onSaved={handleAddressSaved}
+            onError={(message) =>
+              showToast('error', 'Không thể thêm địa chỉ', message)
+            }
+          />
+        )}
+      </AnimatePresence>
+      <ToastViewport
+        toasts={toasts}
+        onClose={(id) =>
+          setToasts((current) => current.filter((toast) => toast.id !== id))
+        }
+      />
     </main>
   )
 }
