@@ -8,16 +8,9 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import {
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  CircleHelp,
-  XCircle,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
-import { accessoryFitmentStatus } from '@/lib/catalog/accessory-filters'
 import {
   filterCompatibleVariants,
   resolveCatalogImageUrl,
@@ -227,8 +220,6 @@ function AccessoryImageCarousel({
   images,
   productName,
   detailHref,
-  selectedVehicle,
-  fitmentStatus,
   visualOptionGroup,
   selectedVisualValueCode,
   onSelectVisualValue,
@@ -237,8 +228,6 @@ function AccessoryImageCarousel({
   images: CatalogResolvedMedia[]
   productName: string
   detailHref: string
-  selectedVehicle?: string
-  fitmentStatus: ReturnType<typeof accessoryFitmentStatus>
   visualOptionGroup: CatalogOptionGroup | null
   selectedVisualValueCode: string | null
   onSelectVisualValue: (valueCode: string) => void
@@ -324,15 +313,6 @@ function AccessoryImageCarousel({
     ? (((activeIndex - 1) % images.length + images.length) % images.length) + 1
     : 1
 
-  const fitment = selectedVehicle
-    ? fitmentStatus === 'compatible'
-      ? { icon: CheckCircle2, label: `Phù hợp ${selectedVehicle}`, className: 'bg-emerald-600 text-white' }
-      : fitmentStatus === 'incompatible'
-        ? { icon: XCircle, label: `Chưa khớp ${selectedVehicle}`, className: 'bg-red-600 text-white' }
-        : { icon: CircleHelp, label: `Kiểm tra ${selectedVehicle}`, className: 'bg-amber-500 text-white' }
-    : null
-  const FitmentIcon = fitment?.icon
-
   return (
     <div
       role="region"
@@ -363,12 +343,6 @@ function AccessoryImageCarousel({
         isAnimating.current = false
       }}
     >
-      {fitment && FitmentIcon && (
-        <span className={`absolute left-4 top-4 z-20 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-bold ${fitment.className}`}>
-          <FitmentIcon size={13} /> {fitment.label}
-        </span>
-      )}
-
       <Link
         href={detailHref}
         aria-label={`Xem ${productName}`}
@@ -489,7 +463,6 @@ export function AccessoryCard({
   if (selectedVehicle) detailParams.set('vehicle', selectedVehicle)
   const detailQuery = detailParams.toString()
   const detailHref = `/accessories/${product.slug}${detailQuery ? `?${detailQuery}` : ''}`
-  const fitmentStatus = accessoryFitmentStatus(product, selectedVehicle)
   const discounted = variant?.salePrice !== null
     && variant?.salePrice !== undefined
     && variant.salePrice < variant.originalPrice
@@ -501,8 +474,6 @@ export function AccessoryCard({
         images={images}
         productName={product.name}
         detailHref={detailHref}
-        selectedVehicle={selectedVehicle}
-        fitmentStatus={fitmentStatus}
         visualOptionGroup={visualOptionGroup}
         selectedVisualValueCode={selectedVisualValueCode}
         onSelectVisualValue={setSelectedVisualValueCode}

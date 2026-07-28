@@ -4,7 +4,6 @@ import {
   PackageSearch,
   Search,
   SlidersHorizontal,
-  X,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -15,7 +14,6 @@ import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { Pagination } from '@/components/pagination'
 import {
-  accessoryCatalogHref,
   accessorySearchParams,
   parseAccessoryFilters,
   parseAccessoryPage,
@@ -28,13 +26,6 @@ import type {
 } from '@/lib/catalog/types'
 
 export const dynamic = 'force-dynamic'
-
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(price)
 
 function AdvancedFilterFields({
   filters,
@@ -103,52 +94,6 @@ function AdvancedFilterFields({
   )
 }
 
-function activeFilterChips(
-  filters: AccessoryCatalogFilters,
-  facets: AccessoryCatalogFacets,
-) {
-  const categoryLabel = facets.categories.find(
-    (category) => category.value === filters.category,
-  )?.label ?? filters.category
-  const vehicleLabel = facets.vehicles.find(
-    (vehicle) => vehicle.value === filters.vehicle,
-  )?.label ?? filters.vehicle
-
-  return [
-    filters.query && {
-      label: `“${filters.query}”`,
-      href: accessoryCatalogHref(filters, { q: null, page: null }),
-    },
-    filters.category && {
-      label: categoryLabel!,
-      href: accessoryCatalogHref(filters, { category: null, page: null }),
-    },
-    filters.vehicle && {
-      label: `Xe ${vehicleLabel}`,
-      href: accessoryCatalogHref(filters, { vehicle: null, page: null }),
-    },
-    ...filters.services.map((service) => ({
-      label: service,
-      href: accessoryCatalogHref({
-        ...filters,
-        services: filters.services.filter((item) => item !== service),
-      }, { page: null }),
-    })),
-    filters.stock !== 'all' && {
-      label: 'Đang có hàng',
-      href: accessoryCatalogHref(filters, { stock: null, page: null }),
-    },
-    filters.minimumPrice !== null && {
-      label: `Từ ${formatPrice(filters.minimumPrice)}`,
-      href: accessoryCatalogHref(filters, { minPrice: null, page: null }),
-    },
-    filters.maximumPrice !== null && {
-      label: `Đến ${formatPrice(filters.maximumPrice)}`,
-      href: accessoryCatalogHref(filters, { maxPrice: null, page: null }),
-    },
-  ].filter((item): item is { label: string; href: string } => Boolean(item))
-}
-
 export default async function AccessoriesPage({
   searchParams,
 }: {
@@ -165,7 +110,6 @@ export default async function AccessoriesPage({
     && !catalogPage.facets.vehicleRelevantCategories.includes(filters.category)) {
     filters = { ...filters, vehicle: null }
   }
-  const chips = activeFilterChips(filters, catalogPage.facets)
   const firstResult = catalogPage.total === 0
     ? 0
     : (catalogPage.page - 1) * catalogPage.pageSize + 1
@@ -260,23 +204,6 @@ export default async function AccessoriesPage({
               Hiển thị <span className="font-semibold tabular-nums text-slate-800">{firstResult}–{lastResult}</span> / {catalogPage.total}
             </p>
           </div>
-
-          {chips.length > 0 && (
-            <div aria-label="Bộ lọc đang áp dụng" className="mt-4 flex flex-wrap gap-2">
-              {chips.map((chip) => (
-                <Link
-                  key={`${chip.label}-${chip.href}`}
-                  href={chip.href}
-                  className="inline-flex min-h-9 items-center gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 text-xs font-bold text-brand-800 transition hover:border-brand-400"
-                >
-                  {chip.label} <X size={13} aria-hidden="true" />
-                </Link>
-              ))}
-              <Link href="/accessories" className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-slate-950">
-                Xóa tất cả
-              </Link>
-            </div>
-          )}
 
           {catalogPage.products.length > 0 ? (
             <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
