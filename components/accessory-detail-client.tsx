@@ -349,7 +349,7 @@ export function AccessoryDetailClient({
           <span className="max-w-[60vw] truncate text-slate-800">{product.name}</span>
         </nav>
 
-        <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,580px)_minmax(420px,1fr)] xl:gap-12">
+        <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-10">
           <section aria-label="Hình ảnh sản phẩm" className="min-w-0">
             <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
               <div className="absolute left-4 top-4 z-10 rounded-md border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
@@ -395,7 +395,7 @@ export function AccessoryDetailClient({
               </div>
             )}
 
-            <div className="mt-7 grid grid-cols-3 border-y border-slate-200 bg-white">
+            <div className="mt-7 grid max-w-[520px] grid-cols-3 border-y border-slate-200 bg-white">
               {[
                 { icon: ShieldCheck, title: 'Chính hãng', detail: 'Nguồn VinFast' },
                 { icon: PackageCheck, title: 'Theo tồn kho', detail: 'Cập nhật theo SKU' },
@@ -410,48 +410,54 @@ export function AccessoryDetailClient({
             </div>
           </section>
 
-          <section className="h-fit lg:sticky lg:top-[98px]">
-            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-brand-700">
-              <span>{primaryCategory ?? 'Phụ kiện chính hãng'}</span>
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
-              <span>{product.variants.length} cấu hình</span>
-            </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-              {product.name}
-            </h1>
-            <p className="mt-3 font-mono text-xs text-slate-400">
-              PART NO. {selectedVariant?.sku ?? 'CHỌN CẤU HÌNH'}
-            </p>
+          <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(280px,1fr)_minmax(320px,390px)] xl:gap-10">
+            <section aria-labelledby="product-heading" className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-brand-700">
+                <span>{primaryCategory ?? 'Phụ kiện chính hãng'}</span>
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span>{product.variants.length} cấu hình</span>
+              </div>
+              <h1 id="product-heading" className="mt-3 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+                {product.name}
+              </h1>
+              <p className="mt-3 font-mono text-xs text-slate-400">
+                PART NO. {selectedVariant?.sku ?? 'CHỌN CẤU HÌNH'}
+              </p>
 
-            {product.description && (
-              <p className="mt-5 line-clamp-3 text-sm leading-6 text-slate-600">{product.description}</p>
-            )}
+              {product.description && (
+                <p className="mt-5 line-clamp-5 text-sm leading-6 text-slate-600">{product.description}</p>
+              )}
 
-            {price !== undefined && (
-              <div className="mt-6 flex flex-wrap items-end gap-3 border-y border-slate-200 py-5">
-                <p className="text-3xl font-bold tracking-tight text-brand-700">
-                  {formatPrice(price)}
-                  {maximumPrice !== null && maximumPrice !== undefined && maximumPrice !== price
-                    ? ` – ${formatPrice(maximumPrice)}`
-                    : ''}
-                </p>
-                {selectedVariant && hasDiscount && (
-                  <p className="mb-1 text-sm text-slate-400 line-through">
-                    {formatPrice(selectedVariant.originalPrice)}
+              {price !== undefined && (
+                <div className="mt-6 flex flex-wrap items-end gap-3 border-y border-slate-200 py-5">
+                  <p className="text-3xl font-bold tracking-tight text-brand-700">
+                    {formatPrice(price)}
+                    {maximumPrice !== null && maximumPrice !== undefined && maximumPrice !== price
+                      ? ` – ${formatPrice(maximumPrice)}`
+                      : ''}
                   </p>
-                )}
-              </div>
-            )}
+                  {selectedVariant && hasDiscount && (
+                    <p className="mb-1 text-sm text-slate-400 line-through">
+                      {formatPrice(selectedVariant.originalPrice)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
 
-            {product.content.serviceLabels.length > 0 && (
-              <div className="mt-5 flex flex-wrap gap-2">
-                {product.content.serviceLabels.map((service) => (
-                  <span key={service} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
-                    <Wrench size={14} className="text-brand-600" /> {service}
-                  </span>
-                ))}
-              </div>
-            )}
+            <section
+              aria-label="Cấu hình và mua hàng"
+              className="h-fit rounded-xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-[98px]"
+            >
+              {product.content.serviceLabels.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {product.content.serviceLabels.map((service) => (
+                    <span key={service} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
+                      <Wrench size={14} className="text-brand-600" /> {service}
+                    </span>
+                  ))}
+                </div>
+              )}
 
             {product.optionGroups.map((group) => (
               <OptionGroup
@@ -463,7 +469,7 @@ export function AccessoryDetailClient({
               />
             ))}
 
-            <div className="mt-7 flex items-end justify-between gap-5">
+            <div className="mt-7 flex items-end justify-between gap-5 border-t border-slate-200 pt-5">
               <div>
                 <p className="text-sm font-bold text-slate-900">Số lượng</p>
                 <div className="mt-3 inline-flex items-center rounded-lg border border-slate-300 bg-white">
@@ -534,7 +540,8 @@ export function AccessoryDetailClient({
                 <p className="whitespace-pre-line"><span className="font-bold">Lưu ý trước khi mua: </span>{product.content.policyNotes}</p>
               </div>
             )}
-          </section>
+            </section>
+          </div>
         </div>
 
         <section className="mt-16 border-t border-slate-200 pt-12" aria-labelledby="description-heading">
