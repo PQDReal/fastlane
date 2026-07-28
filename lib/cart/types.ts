@@ -202,4 +202,17 @@ export type AccessoryOrderSummary = Pick<
     AccessoryOrder['pricing'],
     'currency' | 'grandTotal' | 'amountDueNow' | 'balanceDue'
   >
+  depositDetails?: {
+    showroom: string
+    exteriorColor: string
+    interiorColor: string
+    optionalPackages: string[]
+    customerName: string
+    customerPhone: string
+    idCardNumber: string
+    province: string
+    district: string
+    customerType: string
+    totalEstimatedPrice: string
+  }
 }

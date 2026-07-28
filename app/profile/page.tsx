@@ -3,7 +3,8 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, Package, User, XCircle, CarFront } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, Package, User, XCircle, CarFront, X, Check } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
@@ -28,6 +29,7 @@ function ProfileContent() {
   const [userOrders, setUserOrders] = useState<AccessoryOrderSummary[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
 
   function showToast(kind: ToastMessage['kind'], title: string, message?: string) {
     const id = Date.now() + Math.random()
@@ -205,46 +207,251 @@ function ProfileContent() {
                   {!ordersLoading && !ordersError && userOrders.length === 0 && (
                     <p className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
                   )}
-                  {userOrders.map(order => (
-                    <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
-                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
-                          <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
-                         </div>
-                         <div className="flex items-center gap-2">
-                           {statusIcon(order.status)}
-                          <span className="text-sm font-medium text-gray-700">{order.status}</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                            {order.orderType === 'deposit' ? (
-                              <CarFront className="h-6 w-6 text-gray-400" />
-                            ) : (
-                              <Package className="h-6 w-6 text-gray-400" />
+                  {userOrders.map(order => {
+                    if (activeTab === 'car-orders') {
+                      const getCarImageUrl = (model: string) => {
+                        const m = model?.toLowerCase() || '';
+                        if (m.includes('vf 3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE11.webp';
+                        if (m.includes('vf 5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF5/GA12V/CE11.webp';
+                        if (m.includes('vf 6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/CE11.webp';
+                        if (m.includes('vf 7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF7/CE11.webp';
+                        if (m.includes('vf 9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE11.webp';
+                        if (m.includes('vf 2')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE11.webp'; // Fallback for VF2 if needed
+                        return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                      }
+
+                      const carImage = getCarImageUrl(order.carModel || '');
+                      const isPending = order.paymentStatus === 'Pending';
+                      const isCancelled = order.status === 'Cancelled';
+                      const isPaid = order.paymentStatus === 'Paid';
+                      
+                      const modelText = order.carModel || '';
+                      const variantText = order.carVariant || '';
+                      const carName = variantText.toLowerCase().includes(modelText.toLowerCase()) 
+                        ? variantText 
+                        : `${modelText} ${variantText}`.trim();
+
+                      return (
+                        <div key={order.id} className="border border-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all duration-300 bg-white flex flex-col md:flex-row gap-6">
+                          {/* Image Section */}
+                          <div className="w-full md:w-1/3 aspect-[16/9] bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center relative border border-slate-100">
+                            <img 
+                              src={carImage} 
+                              alt={carName} 
+                              className="w-full h-full object-cover mix-blend-multiply" 
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                                e.currentTarget.onerror = null;
+                              }}
+                            />
+                            {isPaid && (
+                              <div className="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Đã đặt cọc
+                              </div>
                             )}
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {order.orderType === 'deposit' 
-                                ? `Đơn đặt cọc xe ${order.carModel || ''} ${order.carVariant || ''}`.trim()
-                                : 'Đơn phụ kiện FASTLANE'}
-                            </p>
-                            <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
+
+                          {/* Info Section */}
+                          <div className="flex-1 flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+                                  VinFast {carName}
+                                </h3>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Mã đơn: {order.orderNumber}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4 mb-4">
+                                <p className="text-[#836100] text-xl font-bold">
+                                  Cọc: {formatPrice(order.pricing.amountDueNow)}
+                                </p>
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                                <p className="text-sm text-gray-500">
+                                  Ngày đặt: {formatDate(order.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Status & Actions */}
+                            <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                              <div className="flex-1 w-full">
+                                {isPending && !isCancelled && (
+                                  <div className="flex items-center gap-2 text-yellow-600 bg-yellow-50 px-4 py-2 rounded-lg">
+                                    <Clock className="w-5 h-5" />
+                                    <span className="text-sm font-medium">Đang chờ thanh toán cọc. Vui lòng hoàn tất để giữ ưu đãi!</span>
+                                  </div>
+                                )}
+                                {isCancelled && (
+                                  <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                                    <XCircle className="w-5 h-5" />
+                                    <span className="text-sm font-medium">Đơn hàng đã bị hủy.</span>
+                                  </div>
+                                )}
+                                {isPaid && (
+                                  <div className="flex items-center gap-2 text-green-700 bg-green-50 px-4 py-2 rounded-lg">
+                                    <CheckCircle2 className="w-5 h-5" />
+                                    <span className="text-sm font-medium">Đã xác nhận cọc. Sắp tới tư vấn viên sẽ liên hệ để bổ sung hồ sơ!</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex gap-3 w-full sm:w-auto">
+                                <button 
+                                  onClick={() => setSelectedOrder(order)}
+                                  className="px-5 py-2.5 rounded-xl font-medium text-sm border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors w-full sm:w-auto text-center"
+                                >
+                                  Xem chi tiết
+                                </button>
+                                {isPending && !isCancelled && (
+                                  <button className="px-5 py-2.5 rounded-xl font-medium text-sm bg-[#836100] text-white hover:bg-[#6a4f00] transition-colors w-full sm:w-auto text-center shadow-md">
+                                    Thanh toán ngay
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                         <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                      )
+                    }
+
+                    // Original Accessory Order UI
+                    return (
+                      <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
+                        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
+                            <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {statusIcon(order.status)}
+                            <span className="text-sm font-medium text-gray-700">{order.status}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <Package className="h-6 w-6 text-gray-400" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
+                              <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
+                            </div>
+                          </div>
+                          <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
           </section>
         </div>
       </div>
+      
+      {/* Order Details Modal */}
+      <AnimatePresence>
+        {selectedOrder && selectedOrder.orderType === 'deposit' && selectedOrder.depositDetails && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedOrder(null)}
+              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+            />
+            <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl pointer-events-auto flex flex-col"
+              >
+                <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Chi tiết đơn đặt xe</h3>
+                    <p className="text-sm text-gray-500">Mã đơn: {selectedOrder.orderNumber}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+              <div className="p-6 space-y-8">
+                {/* Thông tin xe */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin xe</h4>
+                  <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Dòng xe</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.carModel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Phiên bản</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.carVariant}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Màu ngoại thất</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.exteriorColor}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Màu nội thất</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.interiorColor}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Thông tin thanh toán */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thanh toán & Giao nhận</h4>
+                  <div className="bg-gray-50 rounded-xl p-5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Showroom nhận xe</span>
+                      <span className="font-semibold text-gray-900 text-right">{selectedOrder.depositDetails.showroom}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Tổng giá trị dự kiến</span>
+                      <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
+                    </div>
+                    <div className="border-t border-gray-200 pt-4 flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Số tiền đã cọc</span>
+                      <span className="font-bold text-[#836100] text-lg">{formatPrice(selectedOrder.pricing.amountDueNow)}</span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Thông tin khách hàng */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin khách hàng</h4>
+                  <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Số điện thoại</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerPhone}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-gray-500 mb-1">CMND/CCCD/MST</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.idCardNumber}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-gray-500 mb-1">Khu vực</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.district}, {selectedOrder.depositDetails.province}</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
       <Footer />
     </main>
   )

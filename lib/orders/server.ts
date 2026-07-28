@@ -275,6 +275,19 @@ export async function listCustomerOrders(
         },
         createdAt: deposit.created_at,
         statusUpdatedAt: deposit.updated_at,
+        depositDetails: {
+          showroom: deposit.showroom,
+          exteriorColor: deposit.exterior_color,
+          interiorColor: deposit.interior_color,
+          optionalPackages: deposit.optional_packages || [],
+          customerName: deposit.full_name,
+          customerPhone: deposit.phone_number,
+          idCardNumber: deposit.id_card_number,
+          province: deposit.province,
+          district: deposit.district,
+          customerType: deposit.customer_type,
+          totalEstimatedPrice: deposit.total_estimated_price,
+        }
       }
     })
   }
