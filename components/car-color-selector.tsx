@@ -150,7 +150,7 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
                 <div className="flex flex-col items-center gap-6">
                    <h3 className="text-xl sm:text-2xl font-light text-slate-600 flex flex-col items-center">
                      Màu nâng cao
-                     {advancedColors[0]?.color?.price_delta && (
+                     {typeof advancedColors[0]?.color !== 'string' && advancedColors[0]?.color?.price_delta && (
                        <span className="text-sm font-medium text-blue-600 mt-1">
                          +{new Intl.NumberFormat('vi-VN').format(advancedColors[0].color.price_delta)} VNĐ
                        </span>
