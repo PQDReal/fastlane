@@ -195,7 +195,7 @@ export function filterAccessoryProducts(
     if (filters.vehicle && vehicleFilterApplicable
       && !matchesVehicle(product, filters.vehicle)) return false
 
-    if (filters.services.length > 0 && !filters.services.some(
+    if (filters.services.length > 0 && !filters.services.every(
       (selectedService) => product.content.serviceLabels.some(
         (value) => same(value, selectedService),
       ),

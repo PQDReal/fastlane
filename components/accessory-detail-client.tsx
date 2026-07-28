@@ -4,12 +4,9 @@ import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
-  CarFront,
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
   Loader2,
   Minus,
   PackageCheck,
@@ -18,7 +15,6 @@ import {
   ShoppingCart,
   Store,
   Wrench,
-  XCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -252,96 +248,6 @@ function MediaPreview({ media, productName, thumbnail = false }: {
   )
 }
 
-function FitmentPassport({
-  product,
-  selectedVehicle,
-}: {
-  product: CatalogProduct
-  selectedVehicle?: string
-}) {
-  const status = accessoryFitmentStatus(product, selectedVehicle)
-  const models = accessoryVehicleLabels(product)
-  const detailBase = `/accessories/${product.slug}`
-
-  const presentation = status === 'compatible'
-    ? {
-        icon: CheckCircle2,
-        eyebrow: 'Fitment đã xác nhận',
-        title: `Phù hợp với ${selectedVehicle}`,
-        description: 'Dòng xe này nằm trong dữ liệu tương thích của sản phẩm.',
-        shell: 'border-emerald-200 bg-emerald-50',
-        iconShell: 'bg-emerald-600 text-white',
-        eyebrowClass: 'text-emerald-700',
-      }
-    : status === 'incompatible'
-      ? {
-          icon: XCircle,
-          eyebrow: 'Fitment không khớp',
-          title: `Chưa xác nhận cho ${selectedVehicle}`,
-          description: 'Hãy đổi dòng xe hoặc liên hệ showroom trước khi đặt mua.',
-          shell: 'border-red-200 bg-red-50',
-          iconShell: 'bg-red-600 text-white',
-          eyebrowClass: 'text-red-700',
-        }
-      : status === 'unknown'
-        ? {
-            icon: CircleHelp,
-            eyebrow: 'Fitment cần kiểm tra',
-            title: `Chưa có dữ liệu cho ${selectedVehicle}`,
-            description: 'Sản phẩm không khai báo dòng xe cụ thể; showroom cần xác nhận.',
-            shell: 'border-amber-200 bg-amber-50',
-            iconShell: 'bg-amber-500 text-white',
-            eyebrowClass: 'text-amber-800',
-          }
-        : {
-            icon: CarFront,
-            eyebrow: 'Garage passport',
-            title: models.length > 0 ? 'Chọn xe để xác nhận fitment' : 'Fitment dùng chung / cần xác nhận',
-            description: models.length > 0
-              ? `Dữ liệu hiện có: ${models.join(', ')}.`
-              : 'Sản phẩm chưa khai báo dòng xe cụ thể.',
-            shell: 'border-brand-200 bg-brand-50',
-            iconShell: 'bg-brand-600 text-white',
-            eyebrowClass: 'text-brand-700',
-          }
-  const StatusIcon = presentation.icon
-
-  return (
-    <section className={`mt-6 rounded-xl border p-4 ${presentation.shell}`} aria-labelledby="fitment-heading">
-      <div className="flex gap-3">
-        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${presentation.iconShell}`}>
-          <StatusIcon size={20} />
-        </span>
-        <div className="min-w-0">
-          <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${presentation.eyebrowClass}`}>
-            {presentation.eyebrow}
-          </p>
-          <h2 id="fitment-heading" className="mt-1 font-bold text-slate-950">{presentation.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-600">{presentation.description}</p>
-        </div>
-      </div>
-
-      {models.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-current/10 pt-4">
-          {models.map((model) => (
-            <Link
-              key={model}
-              href={`${detailBase}?vehicle=${encodeURIComponent(model)}`}
-              className={`inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-bold transition ${
-                selectedVehicle === model
-                  ? 'border-slate-950 bg-slate-950 text-white'
-                  : 'border-white/80 bg-white/80 text-slate-700 hover:border-brand-400'
-              }`}
-            >
-              {model}
-            </Link>
-          ))}
-        </div>
-      )}
-    </section>
-  )
-}
-
 export function AccessoryDetailClient({
   product,
   initialVariantId,
@@ -445,7 +351,7 @@ export function AccessoryDetailClient({
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[1440px] px-6 py-8 lg:px-12 lg:py-12">
+      <div className="mx-auto w-full max-w-[1720px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12 xl:px-10">
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
           <Link href={listHref} className="inline-flex items-center gap-2 transition hover:text-brand-700">
             <ArrowLeft size={15} /> Phụ kiện
@@ -454,9 +360,9 @@ export function AccessoryDetailClient({
           <span className="max-w-[60vw] truncate text-slate-800">{product.name}</span>
         </nav>
 
-        <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(390px,5fr)] xl:gap-14">
+        <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] xl:gap-12">
           <section aria-label="Hình ảnh sản phẩm" className="min-w-0">
-            <div className="relative mx-auto flex aspect-square w-full max-w-[600px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-6 sm:p-10">
+            <div className="relative mx-auto flex aspect-square w-full max-w-[760px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-6 sm:p-10">
               <div className="absolute left-4 top-4 z-10 rounded-md border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
                 Media {String(selectedMediaIndex + 1).padStart(2, '0')} / {String(selectedMedia.length).padStart(2, '0')}
               </div>
@@ -547,8 +453,6 @@ export function AccessoryDetailClient({
                 )}
               </div>
             )}
-
-            <FitmentPassport product={product} selectedVehicle={selectedVehicle} />
 
             {product.content.serviceLabels.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-2">
@@ -644,7 +548,7 @@ export function AccessoryDetailClient({
           </section>
         </div>
 
-        <div className="mt-16 grid gap-8 border-t border-slate-200 pt-12 lg:grid-cols-[minmax(0,7fr)_minmax(300px,5fr)] lg:gap-14">
+        <div className="mt-16 grid gap-8 border-t border-slate-200 pt-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-12">
           <section aria-labelledby="description-heading">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Product brief</p>
             <h2 id="description-heading" className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Câu chuyện sản phẩm</h2>

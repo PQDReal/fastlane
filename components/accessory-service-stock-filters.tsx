@@ -78,7 +78,7 @@ export function AccessoryServiceStockFilters({
       )}
 
       <label className="text-xs font-bold text-slate-600">
-        Tình trạng kho
+        Tình trạng
         <select
           value={stock}
           disabled={pending}
@@ -89,8 +89,8 @@ export function AccessoryServiceStockFilters({
           }}
           className="mt-2 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-wait disabled:text-slate-400"
         >
-          <option value="all">Tất cả tình trạng</option>
-          <option value="in-stock">Đang có hàng</option>
+          <option value="all">Tất cả</option>
+          <option value="in-stock">Còn hàng</option>
         </select>
       </label>
     </div>

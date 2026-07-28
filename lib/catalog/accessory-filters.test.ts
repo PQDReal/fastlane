@@ -151,7 +151,7 @@ describe('accessory filters', () => {
     )).toEqual([])
   })
 
-  it('supports repeated service filters with OR semantics', () => {
+  it('requires every selected service with AND semantics', () => {
     const showroom = product({
       id: 'product-showroom',
       name: 'Phụ kiện nhận tại showroom',
@@ -160,13 +160,23 @@ describe('accessory filters', () => {
         serviceLabels: ['Nhận tại showroom'],
       },
     })
+    const fullService = product({
+      id: 'product-full-service',
+      name: 'Phụ kiện đủ dịch vụ',
+      content: {
+        ...product().content,
+        serviceLabels: ['Có lắp đặt', 'Nhận tại showroom'],
+      },
+    })
     const filters = parseAccessoryFilters({
       service: ['Có lắp đặt', 'Nhận tại showroom'],
     })
 
     expect(filters.services).toEqual(['Có lắp đặt', 'Nhận tại showroom'])
-    expect(filterAccessoryProducts([product(), showroom], filters).map((item) => item.id))
-      .toEqual(['product-showroom', 'product-1'])
+    expect(filterAccessoryProducts(
+      [product(), showroom, fullService],
+      filters,
+    ).map((item) => item.id)).toEqual(['product-full-service'])
     expect(accessoryCatalogHref(filters)).toContain(
       'service=C%C3%B3+l%E1%BA%AFp+%C4%91%E1%BA%B7t&service=Nh%E1%BA%ADn+t%E1%BA%A1i+showroom',
     )

@@ -94,7 +94,7 @@ export default async function AccessoriesPage({
                   <SlidersHorizontal size={16} /> Bộ lọc nâng cao
                 </span>
                 <span className="text-xs font-medium text-slate-400">
-                  {advancedFilterCount > 0 ? `${advancedFilterCount} đang dùng` : 'Dịch vụ, tồn kho'}
+                  {advancedFilterCount > 0 ? `${advancedFilterCount} đang dùng` : 'Dịch vụ, tình trạng'}
                 </span>
               </summary>
               <AccessoryServiceStockFilters
