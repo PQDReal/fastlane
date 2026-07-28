@@ -159,6 +159,15 @@ function normalizeSpecifications(value: unknown): Record<string, string> {
   )
 }
 
+function normalizeMotorbikeSpecifications(value: unknown): Record<string, string> {
+  const root = asRecord(value)
+  if (!root) return {}
+
+  // Published motorbike records keep technical fields under `specs`.
+  // Other root fields are catalog metadata and media, not specifications.
+  return normalizeSpecifications(asRecord(root.specs) ?? root)
+}
+
 export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('products')
@@ -181,7 +190,9 @@ export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
         category: category?.name ?? '',
         imageUrl: category?.name === CAR_CATEGORY ? getProductImage(product.name, images) : images[0] ?? null,
         displayedPrice: product.displayed_price,
-        specifications: category?.name === CAR_CATEGORY ? normalizeCarSpecifications(product.specifications) : normalizeSpecifications(product.specifications),
+        specifications: category?.name === CAR_CATEGORY
+          ? normalizeCarSpecifications(product.specifications)
+          : normalizeMotorbikeSpecifications(product.specifications),
         variants: (product.product_variants ?? []).map((variant) => ({
           id: variant.id,
           name: variant.name,
