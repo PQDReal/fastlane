@@ -53,6 +53,9 @@ The dynamic options sequence is:
   hierarchical collections, and source-provenanced product memberships. It
   keeps the three root `categories` unchanged and grants public roles SELECT
   only through active-row RLS policies.
+- `012_catalog_collection_fk_indexes.sql` adds full covering indexes for the
+  two composite membership foreign keys. The active-row lookup indexes from
+  `011` remain separate because partial indexes cannot cover FK maintenance.
 
 The taxonomy v2 rollout is intentionally staged:
 
