@@ -12161,7 +12161,28 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VINFASTVF3SCALECARMODELS.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": false
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "3DTRUNKMATVF6",
@@ -12235,7 +12256,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/3DTRUNKMATVF6.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5008",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP70051005",
@@ -12301,7 +12337,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP70051005.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5008",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "VF3ROOFRACKCROSSBAR",
@@ -12384,7 +12435,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VF3ROOFRACKCROSSBAR.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP31001000",
@@ -12450,7 +12516,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP31001000.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP73111000AA",
@@ -12516,7 +12597,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP73111000AA.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5006",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "NERIOGREENBATTERYCOVER",
@@ -12605,7 +12701,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/NERIOGREENBATTERYCOVER.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5005",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP71061000",
@@ -12671,7 +12782,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP71061000.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5009",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP80001000",
@@ -12735,7 +12861,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP80001000.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVF3",
@@ -12849,7 +12990,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVF3.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMCEILINGVF7",
@@ -12925,7 +13081,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMCEILINGVF7.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5009",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS30000142",
@@ -12991,7 +13162,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS30000142.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP69072176AB",
@@ -13049,7 +13235,28 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP69072176AB.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": false
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5004",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS30000141",
@@ -13111,7 +13318,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS30000141.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "BIN69052209AA",
@@ -13160,7 +13382,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/BIN69052209AA.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "VF5FLORALEMBROIDEREDCAP",
@@ -13229,7 +13466,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VF5FLORALEMBROIDEREDCAP.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "VF5PLUSEMBROIDEREDPOLO",
@@ -13447,7 +13693,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VF5PLUSEMBROIDEREDPOLO.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "VF5PLUSEMBROIDEREDTSHIRT",
@@ -13665,7 +13920,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VF5PLUSEMBROIDEREDTSHIRT.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "VHC69012100AA",
@@ -13719,7 +13983,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VHC69012100AA.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "CHS69060008AB",
@@ -13773,7 +14052,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/CHS69060008AB.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "EEP73090003AB",
@@ -13827,7 +14121,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP73090003AB.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "VHC69011000AA",
@@ -13881,7 +14190,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VHC69011000AA.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "VINFASTSILKSCARF",
@@ -13952,7 +14276,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VINFASTSILKSCARF.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "THERMOSVINFASTVF7",
@@ -14030,7 +14363,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/THERMOSVINFASTVF7.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS30000104",
@@ -14079,7 +14421,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS30000104.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "VF7SPECIALTSHIRT",
@@ -14309,7 +14660,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VF7SPECIALTSHIRT.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "VF7TSHIRT",
@@ -14539,7 +14899,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VF7TSHIRT.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "EEP30000011",
@@ -14598,7 +14967,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/EEP30000011.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": false
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5004",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVF7",
@@ -14713,7 +15097,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVF7.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5009",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000042",
@@ -14773,7 +15172,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000042.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5009",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000041",
@@ -14822,7 +15236,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000041.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5009",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000040",
@@ -14873,7 +15302,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000040.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5009",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS30000078",
@@ -14930,7 +15374,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS30000078.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "FLOORMATS3DVF9",
@@ -14996,7 +15449,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/FLOORMATS3DVF9.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "VINFASTVF8SCALECARMODELS",
@@ -15084,7 +15552,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VINFASTVF8SCALECARMODELS.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "VINFASTVF9SCALECARMODELS",
@@ -15172,7 +15649,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/VINFASTVF9SCALECARMODELS.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000039",
@@ -15240,7 +15726,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000039.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": false
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5004",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVF6",
@@ -15355,7 +15856,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVF6.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5008",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000035",
@@ -15404,7 +15920,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000035.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5008",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000037",
@@ -15464,7 +15995,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000037.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5008",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "CHG00009020",
@@ -15526,7 +16072,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/CHG00009020.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": false
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5004",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "LEATHERBELTSVINFAST",
@@ -15766,7 +16327,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/LEATHERBELTSVINFAST.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMCEILINGVF8",
@@ -15843,7 +16413,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMCEILINGVF8.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVF8",
@@ -15958,7 +16543,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVF8.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVF5",
@@ -16073,7 +16673,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVF5.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5006",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVFE34",
@@ -16188,7 +16803,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVFE34.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5005",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMCEILINGVF9",
@@ -16265,7 +16895,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMCEILINGVF9.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMLUXSA",
@@ -16378,7 +17023,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMLUXSA.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "6001",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMLUXA",
@@ -16491,7 +17145,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMLUXA.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "6001",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMVF9",
@@ -16606,7 +17269,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMVF9.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "INSULATIONFILMFADIL",
@@ -16719,7 +17397,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/INSULATIONFILMFADIL.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "6001",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "THERMOSCUP470ML",
@@ -16850,7 +17537,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/THERMOSCUP470ML.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000008",
@@ -16901,7 +17597,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000008.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5006",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000005",
@@ -16956,7 +17667,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000005.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5006",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "HEADLEATHERPILLOW",
@@ -17080,7 +17806,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/HEADLEATHERPILLOW.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000009",
@@ -17127,7 +17862,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000009.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5005",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS20000012",
@@ -17181,7 +17931,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS20000012.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000006",
@@ -17238,7 +17997,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000006.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5005",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000002",
@@ -17302,7 +18076,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000002.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5005",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000013",
@@ -17364,7 +18153,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000013.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5005",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "MALEPOLOSHIRT",
@@ -17743,7 +18547,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/MALEPOLOSHIRT.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000014",
@@ -17805,7 +18618,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000014.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS20000013",
@@ -17860,7 +18688,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS20000013.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "FEMALEPOLOSHIRT",
@@ -18125,7 +18962,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/FEMALEPOLOSHIRT.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "UNECKPILLOW",
@@ -18197,7 +19043,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/UNECKPILLOW.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS30000028",
@@ -18244,7 +19099,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS30000028.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000018",
@@ -18310,7 +19174,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000018.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "REGISTRATIONLEATHERCASE",
@@ -18424,7 +19303,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/REGISTRATIONLEATHERCASE.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000011",
@@ -18473,7 +19361,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000011.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000007",
@@ -18528,7 +19431,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000007.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000010",
@@ -18575,7 +19493,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000010.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5001",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "UltraLightSafetyHelmet",
@@ -18864,7 +19797,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/UltraLightSafetyHelmet.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-eScooter",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000012",
@@ -18926,7 +19868,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000012.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5006",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "CLASSICBOTTLE750ML",
@@ -19228,7 +20185,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/CLASSICBOTTLE750ML.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5003",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000178",
@@ -19292,7 +20258,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000178.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5010",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000038",
@@ -19357,7 +20338,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000038.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5002",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000142",
@@ -19423,7 +20419,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000142.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000144",
@@ -19488,7 +20499,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000144.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5010",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS10000145",
@@ -19551,7 +20577,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000145.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS40000014",
@@ -19613,7 +20654,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS40000014.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-eScooter",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000179",
@@ -19677,7 +20727,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000179.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5007",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     },
     {
       "pid": "ACS40000013",
@@ -19739,7 +20804,16 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS40000013.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-eScooter",
+          "kind": "CATEGORY",
+          "is_primary": true
+        }
+      ]
     },
     {
       "pid": "ACS10000177",
@@ -19803,7 +20877,22 @@
         "catalog": "https://shop.vinfastauto.com/vn_vi/Parts",
         "detail": "https://shop.vinfastauto.com/vn_vi/ACS10000177.html",
         "crawled_at": "2026-07-24T04:23:16.810Z"
-      }
+      },
+      "schema_version": 2,
+      "collection_memberships": [
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "Parts-Car",
+          "kind": "CATEGORY",
+          "is_primary": true
+        },
+        {
+          "source_system": "VINFAST_DEMANDWARE",
+          "source_key": "5010",
+          "kind": "MODEL",
+          "is_primary": false
+        }
+      ]
     }
   ]
 }
