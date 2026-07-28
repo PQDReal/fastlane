@@ -81,6 +81,16 @@ ProductImagePatchRequest:
   $ref: './product.yaml#/ProductImagePatchRequest'
 ProductImageResponse:
   $ref: './product.yaml#/ProductImageResponse'
+CatalogCollectionKind:
+  $ref: './product.yaml#/CatalogCollectionKind'
+CatalogVehicleFilterMode:
+  $ref: './product.yaml#/CatalogVehicleFilterMode'
+CatalogVehicleModel:
+  $ref: './product.yaml#/CatalogVehicleModel'
+CatalogCollection:
+  $ref: './product.yaml#/CatalogCollection'
+CatalogCollectionMembership:
+  $ref: './product.yaml#/CatalogCollectionMembership'
 ProductSummary:
   $ref: './product.yaml#/ProductSummary'
 ProductDetail:

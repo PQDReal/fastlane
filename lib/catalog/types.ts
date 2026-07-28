@@ -2,6 +2,13 @@ export const CATALOG_PLACEHOLDER_IMAGE = '/images/vf8.png'
 
 export type CatalogProductType = 'ACCESSORY' | 'VEHICLE'
 
+export type CatalogCollectionKind = 'CATEGORY' | 'MODEL' | 'CAMPAIGN'
+
+export type CatalogVehicleFilterMode =
+  | 'NONE'
+  | 'COLLECTION_MEMBERSHIP'
+  | 'VERIFIED_FITMENT'
+
 export type CatalogOptionDisplayType = 'BUTTON' | 'SWATCH' | 'SELECT'
 
 export type CatalogMediaRole =
@@ -22,6 +29,39 @@ export type CatalogCategory = {
   id: string
   name: string
   slug: string
+}
+
+export type CatalogVehicleModel = {
+  id: string
+  code: string
+  slug: string
+  name: string
+  vehicleKind: 'CAR' | 'MOTORBIKE' | 'OTHER'
+  metadata: Record<string, unknown>
+}
+
+export type CatalogCollection = {
+  id: string
+  parentId: string | null
+  kind: CatalogCollectionKind
+  sourceSystem: string
+  sourceKey: string
+  slug: string
+  name: string
+  vehicleFilterMode: CatalogVehicleFilterMode
+  displayOrder: number
+  metadata: Record<string, unknown>
+  vehicleModel: CatalogVehicleModel | null
+}
+
+export type CatalogCollectionMembership = {
+  id: string
+  sourceSystem: string
+  isPrimary: boolean
+  firstSeenAt: string
+  lastSeenAt: string
+  metadata: Record<string, unknown>
+  collection: CatalogCollection
 }
 
 export type CatalogMedia = {
@@ -112,6 +152,7 @@ export type CatalogProduct = {
   productType: CatalogProductType
   displayedPrice: number | null
   content: CatalogProductContent
+  collectionMemberships: CatalogCollectionMembership[]
   legacyImageUrls: string[]
   optionGroups: CatalogOptionGroup[]
   variants: CatalogVariant[]
