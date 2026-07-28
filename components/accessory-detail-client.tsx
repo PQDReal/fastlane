@@ -360,9 +360,9 @@ export function AccessoryDetailClient({
           <span className="max-w-[60vw] truncate text-slate-800">{product.name}</span>
         </nav>
 
-        <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] xl:gap-12">
+        <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,680px)_minmax(420px,1fr)] xl:gap-12">
           <section aria-label="Hình ảnh sản phẩm" className="min-w-0">
-            <div className="relative mx-auto flex aspect-square w-full max-w-[760px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-6 sm:p-10">
+            <div className="relative flex aspect-square w-full max-w-[620px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-6 sm:p-10">
               <div className="absolute left-4 top-4 z-10 rounded-md border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
                 Media {String(selectedMediaIndex + 1).padStart(2, '0')} / {String(selectedMedia.length).padStart(2, '0')}
               </div>
@@ -390,7 +390,7 @@ export function AccessoryDetailClient({
             </div>
 
             {selectedMedia.length > 1 && (
-              <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+              <div className="mt-4 flex max-w-[620px] gap-3 overflow-x-auto pb-2">
                 {selectedMedia.map((media, index) => (
                   <button
                     key={`${media.url}-${index}`}
