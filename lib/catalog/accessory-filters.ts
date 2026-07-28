@@ -115,6 +115,18 @@ function categoryFacetValues(product: CatalogProduct): FacetValue[] {
   )))
 }
 
+function vehicleAwareCategoryFacetValues(product: CatalogProduct): FacetValue[] {
+  return uniqueFacetValues(product.collectionMemberships.flatMap(({ collection }) => (
+    collection.kind === 'CATEGORY' && collection.vehicleFilterMode !== 'NONE'
+      ? [{
+          value: collection.name,
+          label: collection.name,
+          order: collection.displayOrder,
+        }]
+      : []
+  )))
+}
+
 function vehicleFacetValues(product: CatalogProduct): FacetValue[] {
   return uniqueFacetValues(product.collectionMemberships.flatMap(({ collection }) => {
     if (collection.kind !== 'MODEL' || !collection.vehicleModel) return []
@@ -199,8 +211,9 @@ export function filterAccessoryProducts(
   filters: AccessoryCatalogFilters,
 ): CatalogProduct[] {
   const vehicleFilterApplicable = !filters.category || products.some((product) => (
-    matchesCategory(product, filters.category!)
-    && vehicleFacetValues(product).length > 0
+    vehicleAwareCategoryFacetValues(product).some((category) => (
+      matchesFacetValue(filters.category!, category)
+    ))
   ))
   const filtered = products.filter((product) => {
     if (!matchesQuery(product, filters.query)) return false
@@ -271,13 +284,29 @@ export function buildAccessoryFacets(
     return value === null ? [] : [value]
   })
 
+  const vehicleRelevantCategories = countFacetValues(
+    products.flatMap(vehicleAwareCategoryFacetValues),
+  )
+  const vehiclesByCategory = Object.fromEntries(
+    vehicleRelevantCategories.map((category) => [
+      category.value,
+      countFacetValues(products.flatMap((product) => (
+        vehicleAwareCategoryFacetValues(product).some(
+          (candidate) => same(candidate.value, category.value),
+        )
+          ? vehicleFacetValues(product)
+          : []
+      ))),
+    ]),
+  )
+
   return {
     categories: countFacetValues(products.flatMap(categoryFacetValues)),
     vehicles: countFacetValues(products.flatMap(vehicleFacetValues)),
-    vehicleRelevantCategories: [...new Set(products
-      .filter((product) => vehicleFacetValues(product).length > 0)
-      .flatMap(categoryFacetValues)
-      .map((category) => category.value))],
+    vehicleRelevantCategories: vehicleRelevantCategories.map(
+      (category) => category.value,
+    ),
+    vehiclesByCategory,
     services: countFacetValues(products.flatMap((product) => (
       [...new Set(product.content.serviceLabels)].map((value) => ({
         value,

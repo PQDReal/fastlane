@@ -8,8 +8,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-import { AccessoryCategoryVehicleFields } from '@/components/accessory-category-vehicle-fields'
+import { AccessoryCategoryNavigation } from '@/components/accessory-category-navigation'
 import { AccessoryCard } from '@/components/accessory-card'
+import { AccessorySortSelect } from '@/components/accessory-sort-select'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { Pagination } from '@/components/pagination'
@@ -202,9 +203,23 @@ export default async function AccessoriesPage({
       </header>
 
       <div className="mx-auto w-full max-w-[1440px] flex-1 px-6 py-8 lg:px-12 lg:py-10">
-        <section aria-labelledby="results-heading" className="min-w-0">
+        <div className="grid gap-6 lg:grid-cols-[270px_minmax(0,1fr)] lg:gap-8">
+          <AccessoryCategoryNavigation
+            filters={filters}
+            facets={catalogPage.facets}
+          />
+
+          <section aria-labelledby="results-heading" className="min-w-0">
           <form action="/accessories" method="get" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1.4fr)_200px_200px_180px_auto]">
+            {filters.category && (
+              <input type="hidden" name="category" value={filters.category} />
+            )}
+            {filters.vehicle && (
+              <input type="hidden" name="vehicle" value={filters.vehicle} />
+            )}
+            <input type="hidden" name="sort" value={filters.sort} />
+
+            <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_220px_auto]">
               <label className="relative block">
                 <span className="sr-only">Tìm phụ kiện</span>
                 <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
@@ -217,29 +232,10 @@ export default async function AccessoriesPage({
                 />
               </label>
 
-              <AccessoryCategoryVehicleFields
-                categories={catalogPage.facets.categories}
-                vehicles={catalogPage.facets.vehicles}
-                vehicleRelevantCategories={catalogPage.facets.vehicleRelevantCategories}
-                initialCategory={filters.category}
-                initialVehicle={filters.vehicle}
-              />
+              <AccessorySortSelect filters={filters} />
 
-              <label>
-                <span className="sr-only">Sắp xếp</span>
-                <select
-                  name="sort"
-                  defaultValue={filters.sort}
-                  className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="name-asc">Tên A–Z</option>
-                  <option value="price-asc">Giá thấp đến cao</option>
-                  <option value="price-desc">Giá cao đến thấp</option>
-                </select>
-              </label>
-
-              <button type="submit" className="h-12 rounded-lg bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-brand-700 md:col-span-2 xl:col-span-1">
-                Áp dụng
+              <button type="submit" className="h-12 rounded-lg bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-brand-700">
+                Tìm kiếm
               </button>
             </div>
 
@@ -311,7 +307,8 @@ export default async function AccessoriesPage({
             baseUrl="/accessories"
             query={accessorySearchParams(filters)}
           />
-        </section>
+          </section>
+        </div>
 
       </div>
 

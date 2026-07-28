@@ -20,12 +20,14 @@ function membership({
   name,
   slug,
   displayOrder,
+  vehicleFilterMode,
 }: {
   id: string
   kind: 'CATEGORY' | 'MODEL'
   name: string
   slug: string
   displayOrder: number
+  vehicleFilterMode?: 'NONE' | 'COLLECTION_MEMBERSHIP'
 }): CatalogCollectionMembership {
   return {
     id: `membership-${id}`,
@@ -42,7 +44,8 @@ function membership({
       sourceKey: id,
       slug,
       name,
-      vehicleFilterMode: kind === 'MODEL' ? 'COLLECTION_MEMBERSHIP' : 'NONE',
+      vehicleFilterMode: vehicleFilterMode
+        ?? (kind === 'MODEL' ? 'COLLECTION_MEMBERSHIP' : 'NONE'),
       displayOrder,
       metadata: {},
       vehicleModel: kind === 'MODEL' ? {
@@ -60,6 +63,7 @@ function membership({
 const carCategory = membership({
   id: 'category-car', kind: 'CATEGORY', name: 'Phụ kiện ô tô điện',
   slug: 'phu-kien-o-to-dien', displayOrder: 20,
+  vehicleFilterMode: 'COLLECTION_MEMBERSHIP',
 })
 
 const vf7Model = membership({
@@ -166,6 +170,9 @@ describe('accessory filters', () => {
     }])
     expect(buildAccessoryFacets([base]).vehicleRelevantCategories)
       .toEqual(['Phụ kiện ô tô điện'])
+    expect(buildAccessoryFacets([base]).vehiclesByCategory).toEqual({
+      'Phụ kiện ô tô điện': [{ value: 'VF 7', label: 'VF 7', count: 1 }],
+    })
     expect(accessoryFitmentStatus(base, 'VF 7')).toBe('compatible')
     expect(accessoryFitmentStatus(base, 'VF 8')).toBe('incompatible')
     expect(accessoryFitmentStatus(product({

@@ -172,6 +172,7 @@ export type AccessoryCatalogFacets = {
   categories: AccessoryCatalogFacetOption[]
   vehicles: AccessoryCatalogFacetOption[]
   vehicleRelevantCategories: string[]
+  vehiclesByCategory: Record<string, AccessoryCatalogFacetOption[]>
   services: AccessoryCatalogFacetOption[]
   minimumPrice: number | null
   maximumPrice: number | null
