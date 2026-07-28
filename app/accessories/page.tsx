@@ -2,13 +2,14 @@ import {
   ArrowRight,
   ChevronRight,
   PackageSearch,
-  Search,
   SlidersHorizontal,
 } from 'lucide-react'
 import Link from 'next/link'
 
 import { AccessoryCategoryNavigation } from '@/components/accessory-category-navigation'
 import { AccessoryCard } from '@/components/accessory-card'
+import { AccessorySearchInput } from '@/components/accessory-search-input'
+import { AccessoryServiceStockFilters } from '@/components/accessory-service-stock-filters'
 import { AccessorySortSelect } from '@/components/accessory-sort-select'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
@@ -20,79 +21,8 @@ import {
   type AccessorySearchParams,
 } from '@/lib/catalog/accessory-filters'
 import { listAccessoryCatalog } from '@/lib/catalog/server'
-import type {
-  AccessoryCatalogFacets,
-  AccessoryCatalogFilters,
-} from '@/lib/catalog/types'
 
 export const dynamic = 'force-dynamic'
-
-function AdvancedFilterFields({
-  filters,
-  facets,
-}: {
-  filters: AccessoryCatalogFilters
-  facets: AccessoryCatalogFacets
-}) {
-  return (
-    <div className="grid gap-3 border-t border-slate-200 pt-4 sm:grid-cols-2 xl:grid-cols-4">
-      {facets.services.length > 0 && (
-        <fieldset>
-          <legend className="text-xs font-bold text-slate-600">Dịch vụ</legend>
-          <div className="mt-2 flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-            {facets.services.map((service) => (
-              <label key={service.value} className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  name="service"
-                  value={service.value}
-                  defaultChecked={filters.services.includes(service.value)}
-                  className="h-4 w-4 rounded border-slate-300 accent-brand-600"
-                />
-                <span>{service.label} <span className="text-slate-400">({service.count})</span></span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
-      <label className="text-xs font-bold text-slate-600">
-        Tình trạng kho
-        <select
-          name="stock"
-          defaultValue={filters.stock}
-          className="mt-2 h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-        >
-          <option value="all">Tất cả tình trạng</option>
-          <option value="in-stock">Đang có hàng</option>
-        </select>
-      </label>
-      <label className="text-xs font-bold text-slate-600">
-        Giá từ
-        <input
-          type="number"
-          name="minPrice"
-          min="0"
-          step="1000"
-          defaultValue={filters.minimumPrice ?? ''}
-          placeholder={facets.minimumPrice === null ? '0' : String(facets.minimumPrice)}
-          className="mt-2 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-        />
-      </label>
-      <label className="text-xs font-bold text-slate-600">
-        Giá đến
-        <input
-          type="number"
-          name="maxPrice"
-          min="0"
-          step="1000"
-          defaultValue={filters.maximumPrice ?? ''}
-          placeholder={facets.maximumPrice === null ? '0' : String(facets.maximumPrice)}
-          className="mt-2 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-        />
-      </label>
-    </div>
-  )
-}
 
 export default async function AccessoriesPage({
   searchParams,
@@ -119,8 +49,6 @@ export default async function AccessoriesPage({
   )
   const advancedFilterCount = filters.services.length
     + Number(filters.stock !== 'all')
-    + Number(filters.minimumPrice !== null)
-    + Number(filters.maximumPrice !== null)
 
   return (
     <main className="flex min-h-screen flex-col bg-[#f6f7f9] pt-[74px]">
@@ -154,33 +82,10 @@ export default async function AccessoriesPage({
           />
 
           <section aria-labelledby="results-heading" className="min-w-0">
-          <form action="/accessories" method="get" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            {filters.category && (
-              <input type="hidden" name="category" value={filters.category} />
-            )}
-            {filters.vehicle && (
-              <input type="hidden" name="vehicle" value={filters.vehicle} />
-            )}
-            <input type="hidden" name="sort" value={filters.sort} />
-
-            <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_220px_auto]">
-              <label className="relative block">
-                <span className="sr-only">Tìm phụ kiện</span>
-                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                <input
-                  type="search"
-                  name="q"
-                  defaultValue={filters.query}
-                  placeholder="Tìm theo tên hoặc SKU..."
-                  className="h-12 w-full rounded-lg border border-slate-200 pl-11 pr-4 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                />
-              </label>
-
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_220px]">
+              <AccessorySearchInput filters={filters} />
               <AccessorySortSelect filters={filters} />
-
-              <button type="submit" className="h-12 rounded-lg bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-brand-700">
-                Tìm kiếm
-              </button>
             </div>
 
             <details open={advancedFilterCount > 0 || undefined} className="mt-3">
@@ -189,12 +94,15 @@ export default async function AccessoriesPage({
                   <SlidersHorizontal size={16} /> Bộ lọc nâng cao
                 </span>
                 <span className="text-xs font-medium text-slate-400">
-                  {advancedFilterCount > 0 ? `${advancedFilterCount} đang dùng` : 'Dịch vụ, tồn kho, khoảng giá'}
+                  {advancedFilterCount > 0 ? `${advancedFilterCount} đang dùng` : 'Dịch vụ, tồn kho'}
                 </span>
               </summary>
-              <AdvancedFilterFields filters={filters} facets={catalogPage.facets} />
+              <AccessoryServiceStockFilters
+                filters={filters}
+                facets={catalogPage.facets}
+              />
             </details>
-          </form>
+          </div>
 
           <div className="mt-6 flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
             <h2 id="results-heading" className="text-2xl font-bold tracking-tight text-slate-950">

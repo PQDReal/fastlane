@@ -157,8 +157,6 @@ export type AccessoryCatalogFilters = {
   vehicle: string | null
   services: string[]
   stock: AccessoryStockFilter
-  minimumPrice: number | null
-  maximumPrice: number | null
   sort: AccessoryCatalogSort
 }
 
@@ -174,8 +172,6 @@ export type AccessoryCatalogFacets = {
   vehicleRelevantCategories: string[]
   vehiclesByCategory: Record<string, AccessoryCatalogFacetOption[]>
   services: AccessoryCatalogFacetOption[]
-  minimumPrice: number | null
-  maximumPrice: number | null
   total: number
 }
 

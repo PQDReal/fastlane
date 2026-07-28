@@ -106,19 +106,19 @@ function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
 }
 
 describe('accessory filters', () => {
-  it('parses bounded URL values and keeps canonical query names', () => {
+  it('parses supported URL values and drops retired price filters', () => {
     const filters = parseAccessoryFilters({
       q: '  thảm  ', vehicle: 'VF 7', stock: 'out-of-stock', sort: 'price-desc',
       minPrice: '1000000', maxPrice: '500000',
     })
     expect(filters).toMatchObject({
       query: 'thảm', vehicle: 'VF 7', stock: 'all', sort: 'price-desc',
-      minimumPrice: 1_000_000, maximumPrice: 1_000_000,
     })
     expect(accessoryCatalogHref(filters)).toContain('vehicle=VF+7')
+    expect(accessoryCatalogHref(filters)).not.toContain('Price')
   })
 
-  it('filters Vietnamese text, fitment, service, stock and price then sorts', () => {
+  it('filters Vietnamese product names, fitment, service and stock then sorts', () => {
     const other = product({
       id: 'product-2', name: 'Cáp sạc VF 8', slug: 'cap-sac-vf-8',
       displayedPrice: 2_000_000,
@@ -134,10 +134,21 @@ describe('accessory filters', () => {
     })
     const filters = parseAccessoryFilters({
       q: 'tham', vehicle: 'VF 7', service: 'Có lắp đặt',
-      stock: 'in-stock', maxPrice: '1000000', sort: 'price-desc',
+      stock: 'in-stock', sort: 'price-desc',
     })
     expect(filterAccessoryProducts([other, product()], filters).map((item) => item.id))
       .toEqual(['product-1'])
+  })
+
+  it('searches product names only, not SKU or descriptions', () => {
+    expect(filterAccessoryProducts(
+      [product()],
+      parseAccessoryFilters({ q: 'FLOOR-VF7' }),
+    )).toEqual([])
+    expect(filterAccessoryProducts(
+      [product()],
+      parseAccessoryFilters({ q: 'Bảo vệ nội thất' }),
+    )).toEqual([])
   })
 
   it('supports repeated service filters with OR semantics', () => {

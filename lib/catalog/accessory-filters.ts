@@ -36,20 +36,11 @@ function selectedValues(value: string | string[] | undefined): string[] {
   return [...new Set(values.map((item) => item.trim()).filter(Boolean))].slice(0, 20)
 }
 
-function price(value: string | string[] | undefined): number | null {
-  const raw = first(value)
-  if (!raw) return null
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
-}
-
 export function parseAccessoryFilters(
   searchParams: AccessorySearchParams | undefined,
 ): AccessoryCatalogFilters {
   const sort = first(searchParams?.sort) as AccessoryCatalogSort
   const stock = first(searchParams?.stock) as AccessoryStockFilter
-  const minimumPrice = price(searchParams?.minPrice)
-  const maximumPrice = price(searchParams?.maxPrice)
 
   return {
     query: first(searchParams?.q).slice(0, 120),
@@ -57,12 +48,6 @@ export function parseAccessoryFilters(
     vehicle: nullable(searchParams?.vehicle),
     services: selectedValues(searchParams?.service),
     stock: STOCK_VALUES.has(stock) ? stock : 'all',
-    minimumPrice,
-    maximumPrice: maximumPrice !== null
-      && minimumPrice !== null
-      && maximumPrice < minimumPrice
-      ? minimumPrice
-      : maximumPrice,
     sort: SORT_VALUES.has(sort) ? sort : 'name-asc',
   }
 }
@@ -165,22 +150,7 @@ function matchesFacetValue(
 
 function matchesQuery(product: CatalogProduct, query: string): boolean {
   if (!query) return true
-  const collectionTerms = product.collectionMemberships.flatMap(({ collection }) => [
-    collection.name,
-    collection.slug,
-    collection.sourceKey,
-    collection.vehicleModel?.name ?? '',
-    collection.vehicleModel?.code ?? '',
-    collection.vehicleModel?.slug ?? '',
-  ])
-  const haystack = [
-    product.name,
-    product.description ?? '',
-    ...collectionTerms,
-    ...product.content.serviceLabels,
-    ...product.variants.map((variant) => variant.sku),
-  ].join(' ')
-  return normalized(haystack).includes(normalized(query))
+  return normalized(product.name).includes(normalized(query))
 }
 
 function matchesCategory(product: CatalogProduct, category: string): boolean {
@@ -233,11 +203,6 @@ export function filterAccessoryProducts(
 
     if (filters.stock === 'in-stock' && product.availableQuantity <= 0) return false
 
-    const currentPrice = productPrice(product)
-    if (filters.minimumPrice !== null
-      && (currentPrice === null || currentPrice < filters.minimumPrice)) return false
-    if (filters.maximumPrice !== null
-      && (currentPrice === null || currentPrice > filters.maximumPrice)) return false
     return true
   })
 
@@ -279,11 +244,6 @@ function countFacetValues(values: FacetValue[]): AccessoryCatalogFacetOption[] {
 export function buildAccessoryFacets(
   products: CatalogProduct[],
 ): AccessoryCatalogFacets {
-  const prices = products.flatMap((product) => {
-    const value = productPrice(product)
-    return value === null ? [] : [value]
-  })
-
   const vehicleRelevantCategories = countFacetValues(
     products.flatMap(vehicleAwareCategoryFacetValues),
   )
@@ -314,8 +274,6 @@ export function buildAccessoryFacets(
         order: Number.MAX_SAFE_INTEGER,
       }))
     ))),
-    minimumPrice: prices.length > 0 ? Math.min(...prices) : null,
-    maximumPrice: prices.length > 0 ? Math.max(...prices) : null,
     total: products.length,
   }
 }
@@ -346,8 +304,6 @@ export function accessorySearchParams(
   if (filters.vehicle) params.set('vehicle', filters.vehicle)
   for (const service of filters.services) params.append('service', service)
   if (filters.stock !== 'all') params.set('stock', filters.stock)
-  if (filters.minimumPrice !== null) params.set('minPrice', String(filters.minimumPrice))
-  if (filters.maximumPrice !== null) params.set('maxPrice', String(filters.maximumPrice))
   if (filters.sort !== 'name-asc') params.set('sort', filters.sort)
   return params
 }
