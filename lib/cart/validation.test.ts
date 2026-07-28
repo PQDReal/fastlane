@@ -87,10 +87,20 @@ describe('checkout request validation', () => {
   }
 
   it('normalizes a valid checkout request', () => {
-    const result = parseCheckoutRequest(validRequest)
+    const result = parseCheckoutRequest({
+      ...validRequest,
+      promotionCode: ' welcome-10 ',
+    })
     expect(result.shippingAddress.recipientName).toBe('Nguyễn Văn A')
     expect(result.shippingAddress.phoneNumber).toBe('0901234567')
     expect(result.acceptedGrandTotal).toBe('2074000')
+    expect(result.promotionCode).toBe('WELCOME-10')
+  })
+
+  it('rejects an invalid promotion code', () => {
+    expect(() =>
+      parseCheckoutRequest({ ...validRequest, promotionCode: 'bad code!' }),
+    ).toThrowError(ApiRouteError)
   })
 
   it('rejects decimal or numeric money values', () => {

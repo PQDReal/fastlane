@@ -3192,6 +3192,126 @@ components:
           type: string
           enum:
             - VND
+    CatalogCollectionKind:
+      type: string
+      enum:
+        - CATEGORY
+        - MODEL
+        - CAMPAIGN
+    CatalogVehicleFilterMode:
+      type: string
+      enum:
+        - NONE
+        - COLLECTION_MEMBERSHIP
+        - VERIFIED_FITMENT
+      description: COLLECTION_MEMBERSHIP is source taxonomy membership and is not a verified installation-fitment claim.
+    CatalogVehicleModel:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - slug
+        - name
+        - vehicleKind
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 160
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        vehicleKind:
+          type: string
+          enum:
+            - CAR
+            - MOTORBIKE
+            - OTHER
+    CatalogCollection:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - parentId
+        - kind
+        - sourceSystem
+        - sourceKey
+        - slug
+        - name
+        - vehicleFilterMode
+        - displayOrder
+        - vehicleModel
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        parentId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        kind:
+          $ref: '#/components/schemas/CatalogCollectionKind'
+        sourceSystem:
+          type: string
+          minLength: 1
+          maxLength: 80
+        sourceKey:
+          type: string
+          minLength: 1
+          maxLength: 160
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 160
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        vehicleFilterMode:
+          $ref: '#/components/schemas/CatalogVehicleFilterMode'
+        displayOrder:
+          type: integer
+          minimum: 0
+        vehicleModel:
+          oneOf:
+            - $ref: '#/components/schemas/CatalogVehicleModel'
+            - type: 'null'
+    CatalogCollectionMembership:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sourceSystem
+        - isPrimary
+        - firstSeenAt
+        - lastSeenAt
+        - collection
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        sourceSystem:
+          type: string
+          minLength: 1
+          maxLength: 80
+        isPrimary:
+          type: boolean
+        firstSeenAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        collection:
+          $ref: '#/components/schemas/CatalogCollection'
     ProductSummary:
       type: object
       additionalProperties: false
@@ -3232,6 +3352,11 @@ components:
           $ref: '#/components/schemas/PriceRange'
         isActive:
           type: boolean
+        collectionMemberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCollectionMembership'
+          description: Optional normalized taxonomy projection during the v1 compatibility rollout.
     PageMeta:
       type: object
       additionalProperties: false
@@ -3550,6 +3675,11 @@ components:
           items:
             $ref: '#/components/schemas/ProductOptionGroup'
           description: Non-inventory configuration modifiers. Choices that alter SKU or inventory remain variant attributes. Public detail exposes active groups and active values only; admin detail may include inactive entries.
+        collectionMemberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCollectionMembership'
+          description: Optional normalized taxonomy projection; MODEL membership does not imply verified technical fitment.
         createdAt:
           type: string
           format: date-time
@@ -6072,6 +6202,7 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+          description: Required when action is DECLINE.
         newSlotId:
           $ref: '#/components/schemas/Uuid'
           description: Required only for RESCHEDULE. A reschedule returns the request to REQUESTED for a new confirmation.

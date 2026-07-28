@@ -19,6 +19,37 @@ const CATALOG_PRODUCT_SELECT = `
   image_urls,
   specifications,
   category:categories!inner(id,name,slug),
+  collection_memberships:product_collection_memberships(
+    id,
+    source_system,
+    is_primary,
+    first_seen_at,
+    last_seen_at,
+    is_active,
+    metadata,
+    collection:catalog_collections!inner(
+      id,
+      parent_id,
+      kind,
+      source_system,
+      source_key,
+      slug,
+      name,
+      vehicle_filter_mode,
+      display_order,
+      is_active,
+      metadata,
+      vehicle_model:vehicle_models(
+        id,
+        code,
+        slug,
+        name,
+        vehicle_kind,
+        is_active,
+        metadata
+      )
+    )
+  ),
   option_groups:product_option_groups(
     id,
     code,

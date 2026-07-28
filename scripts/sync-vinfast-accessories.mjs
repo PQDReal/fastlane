@@ -68,8 +68,6 @@ function loadSources() {
       return {
         sku,
         name: String(variant.name || 'Mặc định').trim() || 'Mặc định',
-        color: typeof variant.attributes?.color === 'string' ? variant.attributes.color : null,
-        battery_option: null,
         original_price: positiveMoney(variant.price ?? accessory.price, `${key}/${sku}`),
         sale_price: null,
         is_active: true,
@@ -296,7 +294,7 @@ async function main() {
     }
 
     const activeVariants = await checked(
-      supabase.from('product_variants').select('id,sku,name,color,battery_option,original_price,sale_price').eq('product_id', actual.id).eq('is_active', true),
+      supabase.from('product_variants').select('id,sku,name,original_price,sale_price').eq('product_id', actual.id).eq('is_active', true),
       `Verify variants ${source.key}`,
     )
     if (activeVariants.length !== source.variants.length) {
@@ -307,8 +305,6 @@ async function main() {
       const variant = actualBySku.get(expected.sku)
       if (!variant
         || variant.name !== expected.name
-        || variant.color !== expected.color
-        || variant.battery_option !== null
         || Number(variant.original_price) !== expected.original_price
         || variant.sale_price !== null) {
         throw new Error(`Verification failed: variant differs for ${expected.sku}`)

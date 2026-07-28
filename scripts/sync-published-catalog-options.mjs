@@ -10,6 +10,7 @@ import {
   buildVerificationReport,
   sourceSelection,
 } from './published-catalog-verifier.mjs'
+import { loadPublishedTaxonomy } from './sync-catalog-taxonomy.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const REPLACE = process.argv.includes('--replace')
@@ -242,8 +243,11 @@ function publishedColors(source) {
 
 function loadPublishedSources() {
   const sources = []
+  const taxonomyPublication = loadPublishedTaxonomy()
   for (const definition of SOURCE_DEFINITIONS) {
-    const rows = JSON.parse(fs.readFileSync(path.join(DATA_DIRECTORY, definition.file), 'utf8'))
+    const rows = definition.kind === 'accessory'
+      ? taxonomyPublication.products
+      : JSON.parse(fs.readFileSync(path.join(DATA_DIRECTORY, definition.file), 'utf8'))
     if (!Array.isArray(rows)) throw new Error(`${definition.file}: expected an array`)
     for (const data of rows) {
       const variants = definition.kind === 'accessory'
@@ -409,8 +413,6 @@ function variantPayload(source, variant) {
   return {
     sku: variant.sku,
     name: variant.name,
-    color: null,
-    battery_option: null,
     original_price: variant.original_price,
     sale_price: variant.sale_price,
     deposit_amount: firstMoney(source.data.deposit),

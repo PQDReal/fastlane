@@ -1,6 +1,11 @@
 import Link from 'next/link'
 
 export function VehicleCard({ name, desc, price, image, href = '#' }: any) {
+  const slug = href.split('/').filter(Boolean).pop()
+  const estimateHref = slug
+    ? `/cost-estimator?vehicle=${encodeURIComponent(slug)}`
+    : '/cost-estimator'
+
   return (
     <article className="group h-full flex flex-col items-center text-center cursor-pointer pb-8">
       <Link href={href} className="relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden rounded-2xl bg-gray-50/50 p-4">
@@ -22,7 +27,7 @@ export function VehicleCard({ name, desc, price, image, href = '#' }: any) {
         <div className="mt-6 flex items-center justify-center gap-5 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
           <Link href={href} className="hover:text-brand-600 transition-colors">Chi tiết</Link>
           <span className="w-px h-3 bg-muted-foreground/40"></span>
-          <Link href={`#`} className="hover:text-brand-600 transition-colors">Dự toán</Link>
+          <Link href={estimateHref} className="hover:text-brand-600 transition-colors">Dự toán</Link>
         </div>
       </div>
     </article>

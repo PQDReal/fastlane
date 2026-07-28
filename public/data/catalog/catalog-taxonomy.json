@@ -1,0 +1,213 @@
+{
+  "schema_version": 2,
+  "source_system": "VINFAST_DEMANDWARE",
+  "root_category_slug": "phu-kien",
+  "publication": {
+    "status": "COMPLETE",
+    "crawled_at": "2026-07-24T04:23:16.810Z",
+    "expected_products": 83
+  },
+  "vehicle_models": [
+    {
+      "code": "VF_9",
+      "slug": "vf-9",
+      "name": "VF 9",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "VF_8",
+      "slug": "vf-8",
+      "name": "VF 8",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "VF_7",
+      "slug": "vf-7",
+      "name": "VF 7",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "VF_6",
+      "slug": "vf-6",
+      "name": "VF 6",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "NERIO_GREEN",
+      "slug": "nerio-green",
+      "name": "Nerio Green",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "LIMO_GREEN",
+      "slug": "limo-green",
+      "name": "Limo Green",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "VF_5",
+      "slug": "vf-5",
+      "name": "VF 5",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    },
+    {
+      "code": "VF_3",
+      "slug": "vf-3",
+      "name": "VF 3",
+      "vehicle_kind": "CAR",
+      "is_active": true
+    }
+  ],
+  "collections": [
+    {
+      "source_key": "5003",
+      "slug": "phong-cach-song",
+      "name": "Phong cách sống",
+      "kind": "CATEGORY",
+      "parent_source_key": null,
+      "vehicle_model_code": null,
+      "vehicle_filter_mode": "NONE",
+      "display_order": 10,
+      "is_active": true
+    },
+    {
+      "source_key": "Parts-Car",
+      "slug": "phu-kien-o-to-dien",
+      "name": "Phụ kiện ô tô điện",
+      "kind": "CATEGORY",
+      "parent_source_key": null,
+      "vehicle_model_code": null,
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 20,
+      "is_active": true
+    },
+    {
+      "source_key": "5004",
+      "slug": "sac-o-to-dien",
+      "name": "Sạc ô tô điện",
+      "kind": "CATEGORY",
+      "parent_source_key": null,
+      "vehicle_model_code": null,
+      "vehicle_filter_mode": "NONE",
+      "display_order": 30,
+      "is_active": true
+    },
+    {
+      "source_key": "Parts-eScooter",
+      "slug": "phu-kien-xe-may-dien",
+      "name": "Phụ kiện xe máy điện",
+      "kind": "CATEGORY",
+      "parent_source_key": null,
+      "vehicle_model_code": null,
+      "vehicle_filter_mode": "NONE",
+      "display_order": 40,
+      "is_active": true
+    },
+    {
+      "source_key": "6001",
+      "slug": "phu-kien-o-to-xang",
+      "name": "Phụ kiện ô tô xăng",
+      "kind": "CATEGORY",
+      "parent_source_key": null,
+      "vehicle_model_code": null,
+      "vehicle_filter_mode": "NONE",
+      "display_order": 50,
+      "is_active": true
+    },
+    {
+      "source_key": "5002",
+      "slug": "vf-9",
+      "name": "VF 9",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "VF_9",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 10,
+      "is_active": true
+    },
+    {
+      "source_key": "5001",
+      "slug": "vf-8",
+      "name": "VF 8",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "VF_8",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 20,
+      "is_active": true
+    },
+    {
+      "source_key": "5009",
+      "slug": "vf-7",
+      "name": "VF 7",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "VF_7",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 30,
+      "is_active": true
+    },
+    {
+      "source_key": "5008",
+      "slug": "vf-6",
+      "name": "VF 6",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "VF_6",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 40,
+      "is_active": true
+    },
+    {
+      "source_key": "5005",
+      "slug": "nerio-green",
+      "name": "Nerio Green",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "NERIO_GREEN",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 50,
+      "is_active": true
+    },
+    {
+      "source_key": "5010",
+      "slug": "limo-green",
+      "name": "Limo Green",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "LIMO_GREEN",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 60,
+      "is_active": true
+    },
+    {
+      "source_key": "5006",
+      "slug": "vf-5",
+      "name": "VF 5",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "VF_5",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 70,
+      "is_active": true
+    },
+    {
+      "source_key": "5007",
+      "slug": "vf-3",
+      "name": "VF 3",
+      "kind": "MODEL",
+      "parent_source_key": "Parts-Car",
+      "vehicle_model_code": "VF_3",
+      "vehicle_filter_mode": "COLLECTION_MEMBERSHIP",
+      "display_order": 80,
+      "is_active": true
+    }
+  ]
+}

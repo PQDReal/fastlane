@@ -87,7 +87,9 @@ export default async function Home() {
           <div className="mt-7 sm:mt-9 lg:mt-10">
             <p className="mx-auto max-w-[920px] text-lg font-medium leading-snug text-white/90 sm:text-2xl lg:text-[32px] lg:leading-[1.3]">Trải nghiệm giải pháp ô tô điện thông minh, đẳng cấp<br className="hidden sm:block" /> toàn cầu.</p>
             <div className="mt-8 flex justify-center sm:mt-10">
-              <Button variant="outline" className="h-14 rounded-full border-0 bg-white px-10 text-[13px] font-bold uppercase tracking-[0.14em] text-slate-950 shadow-none hover:bg-white/90 sm:h-[72px] sm:px-16 sm:text-base">Khám phá ngay</Button>
+              <Button asChild variant="outline" className="h-14 rounded-full border-0 bg-white px-10 text-[13px] font-bold uppercase tracking-[0.14em] text-slate-950 shadow-none hover:bg-white/90 sm:h-[72px] sm:px-16 sm:text-base">
+                <a href="#featured-vehicle">Khám phá ngay</a>
+              </Button>
             </div>
           </div>
         </div>

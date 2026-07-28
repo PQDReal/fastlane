@@ -19,9 +19,23 @@ function checkoutError(message: string) {
     'PRICE_CHANGED',
     'OUT_OF_STOCK',
     'IDEMPOTENCY_KEY_REUSED',
+    'PROMOTION_NOT_FOUND',
+    'PROMOTION_INACTIVE',
+    'PROMOTION_NOT_STARTED',
+    'PROMOTION_EXPIRED',
+    'PROMOTION_USAGE_LIMIT',
+    'PROMOTION_MINIMUM_NOT_MET',
+    'PROMOTION_NOT_APPLICABLE',
   ].find((candidate) => message.includes(candidate))
 
   if (code) {
+    if (code.startsWith('PROMOTION_')) {
+      return new ApiRouteError(
+        422,
+        'PROMOTION_NOT_APPLICABLE',
+        'Mã giảm giá không còn hợp lệ. Vui lòng kiểm tra và áp dụng lại.',
+      )
+    }
     return new ApiRouteError(
       409,
       code,
@@ -71,6 +85,7 @@ export async function checkoutCustomerCart(
       p_accepted_total: request.acceptedGrandTotal,
       p_shipping_address: shippingAddress,
       p_cart_item_ids: request.cartItemIds,
+      p_promotion_code: request.promotionCode ?? null,
     },
   )
 

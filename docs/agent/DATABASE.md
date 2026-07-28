@@ -1,6 +1,6 @@
 # Kiến trúc Database FASTLANE
 
-> Tài liệu phản ánh schema `public` được Supabase Data API công bố ngày 21/07/2026. Khảo sát chỉ đọc metadata; không thay đổi database, không tạo migration và không sửa Prisma.
+> Phần schema nền phản ánh Supabase Data API ngày 21/07/2026. Các thay đổi catalog mới hơn được định nghĩa tuần tự trong `migrations/003`–`011`; migration `010` xóa hai cột variant legacy và `011` bổ sung taxonomy normalized.
 
 ## 1. Tổng quan
 
@@ -114,10 +114,11 @@ erDiagram
 | product_id | uuid | Không | — | FK → products.id |
 | sku | text | Không | — | — |
 | name | text | Không | — | — |
-| color | text | Có | — | — |
-| battery_option | text | Có | — | — |
 | original_price | numeric | Không | — | — |
 | sale_price | numeric | Có | — | — |
+| option_signature | text | Có | — | Unique theo product trên active row khi khác null |
+| deposit_amount | numeric | Có | — | Không âm |
+| metadata | jsonb | Không | `{}` | Canonical published attributes/provenance |
 | is_active | boolean | Không | true | Trạng thái kích hoạt |
 | created_at | timestamptz | Không | clock_timestamp() | — |
 | updated_at | timestamptz | Không | clock_timestamp() | — |
@@ -126,6 +127,17 @@ erDiagram
 - FK: `product_id → products.id`.
 - Unique/index phụ: chưa xác nhận `sku` unique.
 - Quan hệ: thuộc product; được inventory, cart items và order items tham chiếu.
+- `color` và `battery_option` là cột tương thích đã trống trên toàn bộ live data và được xóa bởi migration `010`; lựa chọn hiện nằm trong `product_option_*`.
+
+### Catalog options, media và taxonomy normalized
+
+- `product_option_groups`, `product_option_values` và `product_variant_option_values` là nguồn chuẩn cho lựa chọn variant; các composite FK bảo đảm variant/group/value cùng product.
+- `product_media` lưu media theo product, variant hoặc option value; `products.image_urls` vẫn là cache tương thích trong rollout hiện tại.
+- `vehicle_models` giữ định danh model xe độc lập product đang bán.
+- `catalog_collections` giữ hierarchy taxonomy theo identity ổn định `(source_system, source_key)`, có `CATEGORY | MODEL | CAMPAIGN` và semantics `NONE | COLLECTION_MEMBERSHIP | VERIFIED_FITMENT`.
+- `product_collection_memberships` nối nhiều-nhiều product/collection với provenance, primary flag, active state và `first_seen_at`/`last_seen_at`.
+- Ba root row trong `categories` và `products.category_id` không đổi. Membership model từ Demandware không phải cam kết fitment kỹ thuật.
+- Các bảng catalog normalized bật RLS; `anon`/`authenticated` chỉ SELECT active rows, mutation dành cho `service_role`.
 
 ### inventory_items
 

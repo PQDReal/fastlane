@@ -3,6 +3,9 @@ services:
     build:
       context: .
       target: runner
+      args:
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+        NEXT_PUBLIC_SUPABASE_URL: "${NEXT_PUBLIC_SUPABASE_URL}"
     image: fastlane-web:local
     init: true
     restart: unless-stopped
