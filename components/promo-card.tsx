@@ -1,8 +1,4 @@
-'use client'
-
-import { Check, Clock, Copy, Tag } from 'lucide-react'
-import { useState } from 'react'
-import { Button } from './ui/button'
+import { Clock, Tag } from 'lucide-react'
 
 type Props = {
   title: string
@@ -15,24 +11,6 @@ type Props = {
 }
 
 export function PromoCard({ title, desc, type, expires, image, code, discount }: Props) {
-  const [copied, setCopied] = useState(false)
-
-  async function copyCode() {
-    try {
-      await navigator.clipboard.writeText(code)
-    } catch {
-      const input = document.createElement('textarea')
-      input.value = code
-      input.style.position = 'fixed'
-      input.style.opacity = '0'
-      document.body.appendChild(input)
-      input.select()
-      document.execCommand('copy')
-      input.remove()
-    }
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
-  }
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-3xl border border-black/5 bg-background shadow-sm transition-all duration-700 hover:shadow-glass-hover sm:flex-row">
@@ -52,15 +30,11 @@ export function PromoCard({ title, desc, type, expires, image, code, discount }:
         <span className="mb-1 font-mono text-xs font-bold tracking-wider text-brand-600">{code}</span>
         <h2 className="text-2xl font-bold tracking-tight text-foreground">{title}</h2>
         <p className="mt-2 line-clamp-3 flex-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{desc}</p>
-        <div className="mt-4 flex flex-col gap-3 border-t border-muted pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 border-t border-muted pt-4">
           <div className="flex items-center gap-2 rounded-lg bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-600">
             <Clock size={16} />
             Hết hạn: {expires}
           </div>
-          <Button type="button" onClick={() => void copyCode()} aria-label={`Sao chép mã khuyến mãi ${code}`} className={`h-11 min-w-40 rounded-full px-6 font-bold transition-colors ${copied ? 'bg-emerald-600 text-white hover:bg-emerald-600' : 'bg-foreground text-background hover:bg-foreground/90'}`}>
-            {copied ? <Check size={16} className="mr-2" /> : <Copy size={16} className="mr-2" />}
-            {copied ? 'Đã sao chép' : code}
-          </Button>
         </div>
       </div>
     </article>

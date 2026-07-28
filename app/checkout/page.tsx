@@ -409,7 +409,7 @@ export default function CheckoutPage() {
 
               <button type="submit" disabled={submitting || cartLoading} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#836100] px-6 py-4 font-bold text-white transition-colors hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:opacity-60">
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <LockKeyhole className="h-5 w-5" />}
-                {submitting ? 'Đang tạo đơn...' : 'Thanh toán'}
+                {submitting ? 'Đang tạo đơn...' : 'Xác nhận thanh toán'}
               </button>
             </aside>
           </form>
