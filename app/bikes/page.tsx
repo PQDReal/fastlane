@@ -63,7 +63,11 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
       bike.slug,
       bike.image_urls,
       colorDetailImage ??
-        getProductImage(bike.name, '/images/vento.png'),
+        getProductImage(
+          bike.name,
+          null,
+          '/images/vento.png',
+        ),
     )
 
     return {
