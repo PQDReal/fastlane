@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 import { Pagination } from '../../components/pagination'
 import { listAccessoryCatalog } from '../../lib/catalog/server'
+import { AccessoryFilters } from './accessory-filters'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,29 +46,8 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
 
       <div className="mx-auto max-w-[1440px] px-6 lg:px-12 py-12 w-full flex flex-col md:flex-row gap-12">
         {/* Sidebar Filters */}
-        <aside className="w-full md:w-64 shrink-0">
-          <div className="sticky top-[100px]">
-            <h3 className="text-lg font-bold text-foreground mb-6 tracking-tight">Danh mục</h3>
-            <ul className="space-y-3">
-              {categories.map((cat, i) => (
-                <li key={i}>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input type="checkbox" className="w-4 h-4 rounded border-muted-foreground/30 text-brand-600 focus:ring-brand-500 accent-foreground cursor-pointer" defaultChecked={i === 0} />
-                    <span className={`text-sm font-medium transition-colors group-hover:text-foreground ${i === 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{cat}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-
-            <h3 className="text-lg font-bold text-foreground mt-10 mb-6 tracking-tight">Khoảng giá</h3>
-            <div className="space-y-4">
-              <input type="range" min="0" max="20000000" className="w-full accent-foreground" />
-              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                <span>0 ₫</span>
-                <span>20.000.000 ₫</span>
-              </div>
-            </div>
-          </div>
+        <aside className="w-full shrink-0 md:w-72">
+          <AccessoryFilters categories={categories} />
         </aside>
 
         {/* Product Grid */}

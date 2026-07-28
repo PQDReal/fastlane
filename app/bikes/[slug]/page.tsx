@@ -1,329 +1,746 @@
 import { notFound } from 'next/navigation'
 import { Header } from '../../../components/header'
 import { Footer } from '../../../components/footer'
-import { CarColorSelector } from '../../../components/car-color-selector'
+import Link from 'next/link'
+import { BikeColorSelector } from '../../../components/bike-color-selector'
 import { getSupabaseAdmin } from '../../../lib/supabase-admin'
 import { Button } from '../../../components/ui/button'
 import { Check } from 'lucide-react'
+import {
+  getBikeColorFallbacks,
+  getBikeColorImage,
+  getBikeDetailImages,
+  getBikeHeroImage,
+  getBikeListingImage,
+  isBikeSwatchImage,
+  isRenderableBikeImage,
+} from '../../../lib/bike-images'
 
 export const dynamic = 'force-dynamic'
 
-type TypedProductImage = {
-  type: 'listing' | 'representative' | 'detail' | 'color'
-  url: string
-  position?: number
-  name?: string
-  swatch?: string
-}
+type JsonObject = Record<string, unknown>
+type SpecEntry = [string, string]
 
-const isDisplayImage = (image: string) => {
-  const normalized = image.toLowerCase()
+function isObject(
+  value: unknown,
+): value is JsonObject {
   return (
-    !normalized.endsWith('.mp4') &&
-    !normalized.endsWith('.svg') &&
-    !normalized.includes('logo') &&
-    !normalized.includes('icon')
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
   )
 }
 
-const findSpec = (specs: Record<string, string>, keys: string[]) => {
-  const entry = Object.entries(specs).find(
-    ([key, value]) =>
-      value.trim() !== '' &&
-      keys.some((candidate) => key.toLowerCase().includes(candidate.toLowerCase())),
-  )
-
-  return entry?.[1] || 'N/A'
+function asObject(value: unknown): JsonObject {
+  return isObject(value) ? value : {}
 }
 
-export default async function BikeDetailPage(props: { params: Promise<{ slug: string }> }) {
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function asString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+
+  if (typeof value === 'number') {
+    return String(value)
+  }
+
+  return ''
+}
+
+function getStringArray(
+  value: unknown,
+): string[] {
+  return asArray(value)
+    .map(asString)
+    .filter(Boolean)
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function getSpecEntries(
+  specifications: JsonObject,
+): SpecEntry[] {
+  return Object.entries(specifications)
+    .map(
+      ([key, value]) =>
+        [key, asString(value)] as SpecEntry,
+    )
+    .filter(([, value]) => value !== '')
+}
+
+function findSpecValue(
+  entries: SpecEntry[],
+  aliases: string[],
+): string {
+  const normalizedAliases =
+    aliases.map(normalizeText)
+
+  const exact = entries.find(([key]) =>
+    normalizedAliases.includes(
+      normalizeText(key),
+    ),
+  )
+
+  if (exact) {
+    return exact[1]
+  }
+
+  const partial = entries.find(([key]) => {
+    const normalizedKey = normalizeText(key)
+
+    return normalizedAliases.some(
+      (alias) =>
+        normalizedKey.includes(alias) ||
+        alias.includes(normalizedKey),
+    )
+  })
+
+  return partial?.[1] ?? ''
+}
+
+function getHeadlineValue(value: string): string {
+  if (!value) {
+    return 'N/A'
+  }
+
+  const match = value.match(
+    /\d+(?:[.,]\d+)?\s*(?:km\/h|km|kwh|kw|w|giờ|gio|h|phút|phut|kg|l)?/i,
+  )
+
+  return match?.[0]?.trim() || value
+}
+
+function formatPrice(price: unknown): string {
+  if (
+    price === null ||
+    price === undefined ||
+    (typeof price === 'string' && price.trim() === '')
+  ) {
+    return 'Liên hệ'
+  }
+
+  const numericPrice = Number(price)
+
+  if (!Number.isFinite(numericPrice)) {
+    return 'Liên hệ'
+  }
+
+  return `${new Intl.NumberFormat(
+    'vi-VN',
+  ).format(numericPrice)} ₫`
+}
+
+export default async function BikeDetailPage(
+  props: {
+    params: Promise<{ slug: string }>
+  },
+) {
   const params = await props.params
   const supabase = getSupabaseAdmin()
 
   const { data: product } = await supabase
     .from('products')
-    .select('*')
+    .select('*, category:categories!inner(name)')
     .eq('slug', params.slug)
     .eq('is_active', true)
+    .eq('categories.name', 'Xe máy điện')
     .single()
 
   if (!product) {
     notFound()
   }
 
-  const specs: Record<string, string> =
-    product.specifications &&
-    typeof product.specifications === 'object' &&
-    !Array.isArray(product.specifications)
-      ? product.specifications
-      : {}
+  const rawSpecifications =
+    asObject(product.specifications)
 
-  const typedImages: TypedProductImage[] = Array.isArray(product.image_urls)
-    ? product.image_urls.filter(
-        (item: unknown): item is TypedProductImage =>
-          Boolean(
-            item &&
-              typeof item === 'object' &&
-              'type' in item &&
-              'url' in item &&
-              typeof item.type === 'string' &&
-              typeof item.url === 'string',
-          ),
-      )
-    : []
-  const bannerImg =
-    typedImages.find((image) => image.type === 'representative')?.url || ''
-  const detailImages = typedImages
-    .filter((image) => image.type === 'detail')
-    .sort((a, b) => (a.position || 0) - (b.position || 0))
-    .map((image) => image.url)
-    .slice(0, 3)
-  while (detailImages.length < 3) detailImages.push('')
-  const colorDetails = typedImages.filter(
-    (image) => image.type === 'color' && image.name,
+  const specifications = isObject(
+    rawSpecifications.specs,
   )
-  const bikeColors = colorDetails.map((color) => ({
-    name: color.name || '',
-    swatch: color.swatch || undefined,
-  }))
-  const colorImages = colorDetails.map((color) => color.url)
-  const formatPrice = (price: number | null) =>
-    typeof price === 'number' ? `${new Intl.NumberFormat('vi-VN').format(price)} ₫` : 'Liên hệ'
+    ? asObject(rawSpecifications.specs)
+    : rawSpecifications
 
-  const performanceSpecs = [
-    {
-      value: findSpec(specs, ['quãng đường']),
-      label: 'Quãng đường',
-    },
-    {
-      value: findSpec(specs, ['công suất tối đa', 'công suất lớn nhất']),
-      label: 'Công suất tối đa',
-    },
-    {
-      value: findSpec(specs, ['tốc độ tối đa']),
-      label: 'Tốc độ tối đa',
-    },
-    {
-      value: findSpec(specs, ['thời gian sạc']),
-      label: 'Thời gian sạc',
-    },
+  const gallery = asObject(
+    rawSpecifications.gallery,
+  )
+
+  /*
+   * Existing JSONB format only.
+   *
+   * Placement contract:
+   * banner_images[0]  -> hero
+   * color_details[0] -> first color
+   * color_details[1] -> second color
+   * exterior_images[0] -> large design image
+   * exterior_images[1] -> lower-left image
+   * interior_images[0] -> lower-right image
+   *
+   * When a dedicated gallery array is empty,
+   * all_images is read in its existing order.
+   */
+  const bannerImages = getStringArray(
+    gallery.banner_images,
+  )
+
+  const exteriorImages = getStringArray(
+    gallery.exterior_images,
+  )
+
+  const interiorImages = getStringArray(
+    gallery.interior_images,
+  )
+
+  const allImages = getStringArray(
+    gallery.all_images,
+  )
+
+  const productImages = getStringArray(
+    product.image_urls,
+  )
+
+  const listingImage = getBikeListingImage(
+    product.slug,
+    product.image_urls,
+    '/images/vento.png',
+  )
+
+  const heroImage = getBikeHeroImage(
+    product.slug,
+    bannerImages,
+    listingImage,
+  )
+
+  const rawColorDetails = asArray(
+    rawSpecifications.color_details,
+  )
+
+  const fallbackColorDetails = getBikeColorFallbacks(
+    product.slug,
+  )
+  const colorDetails =
+    fallbackColorDetails.length > rawColorDetails.length
+      ? fallbackColorDetails
+      : rawColorDetails
+          .map(asObject)
+          .map((item, index) => {
+            const colorName =
+              asString(item.color_name) || asString(item.name)
+            const candidate =
+              asString(item.image) || asString(item.image_url)
+            const explicitSwatch = asString(item.swatch)
+            const swatchUrl =
+              explicitSwatch ||
+              (isBikeSwatchImage(candidate) ? candidate : '')
+            const exteriorImage =
+              exteriorImages.length ===
+                rawColorDetails.length &&
+              isRenderableBikeImage(exteriorImages[index])
+                ? exteriorImages[index]
+                : ''
+
+            return {
+              colorName,
+              imageUrl:
+                exteriorImage ||
+                getBikeColorImage(
+                  product.slug,
+                  colorName,
+                  candidate,
+                ),
+              swatchUrl,
+            }
+          })
+
+  const orderedColorDetails = colorDetails
+    .filter(
+      (item): item is {
+        colorName: string
+        imageUrl: string
+        swatchUrl: string
+      } => item.colorName !== '' && item.imageUrl !== null,
+    )
+
+  const bikeColors = orderedColorDetails.map((item) => ({
+    name: item.colorName,
+    swatch: item.swatchUrl || undefined,
+  }))
+
+  /*
+   * Existing JSONB structure:
+   *
+   * color_details[i].image_url
+   *   -> small color swatch
+   *
+   * gallery.exterior_images[i]
+   *   -> full-bike image for the same color
+   *
+   * Their array indexes are paired directly. No filename
+   * matching or image scoring is performed.
+   */
+  const colorImages = orderedColorDetails.map(
+    (item) => item.imageUrl,
+  )
+
+  /*
+   * Design placement comes from all_images order.
+   * exterior_images is reserved for ordered color renders
+   * when it has a one-to-one color mapping.
+   */
+  const detailImages = getBikeDetailImages(
+    product.slug,
+    [
+      ...interiorImages,
+      ...allImages,
+      ...productImages,
+    ],
+  )
+
+  const displayImgs = detailImages.slice(0, 2)
+  const displayIntImgs = detailImages.slice(2, 3)
+
+  const specEntries =
+    getSpecEntries(specifications)
+
+  const range = findSpecValue(specEntries, [
+    'Quãng đường đi được mỗi lần sạc',
+    'Quãng đường đi được 1 lần sạc',
+    'Quãng đường',
+    'Phạm vi hoạt động',
+  ])
+
+  const maxPower = findSpecValue(specEntries, [
+    'Công suất tối đa',
+    'Công suất lớn nhất',
+  ])
+
+  const maxSpeed = findSpecValue(specEntries, [
+    'Tốc độ tối đa',
+    'Tốc độ tối đa - SPORT',
+  ])
+
+  const chargingTime = findSpecValue(
+    specEntries,
+    [
+      'Thời gian sạc tiêu chuẩn',
+      'Thời gian sạc',
+    ],
+  )
+
+  const dimensionAliases = [
+    'dai x rong x cao',
+    'chieu cao yen',
+    'khoang sang gam',
+    'trong luong',
+    'tai trong',
+    'the tich cop',
+    'kich thuoc lop',
+    'khoang cach truc banh',
   ]
 
+  const dimensionEntries =
+    specEntries.filter(([key]) => {
+      const normalizedKey =
+        normalizeText(key)
+
+      return dimensionAliases.some(
+        (alias) =>
+          normalizedKey.includes(alias),
+      )
+    })
+
+  const performanceEntries =
+    specEntries.filter(([key]) => {
+      const normalizedKey =
+        normalizeText(key)
+
+      return !dimensionAliases.some(
+        (alias) =>
+          normalizedKey.includes(alias),
+      )
+    })
+
   const technologyFeatures = [
-    findSpec(specs, ['loại động cơ']),
-    findSpec(specs, ['loại pin', 'loại ắc quy']),
-    findSpec(specs, ['dung lượng pin', 'dung lượng ắc quy']),
-    findSpec(specs, ['khóa xe']),
-  ].filter((value) => value !== 'N/A')
+    findSpecValue(specEntries, ['Khóa xe']),
+    findSpecValue(specEntries, [
+      'Loại pin',
+      'Loại pin/ắc quy',
+      'Loại ắc quy',
+    ]),
+    findSpecValue(specEntries, [
+      'Đèn pha trước',
+    ]),
+    findSpecValue(specEntries, ['Loại sạc']),
+  ].filter(Boolean)
 
   const safetyFeatures = [
-    findSpec(specs, ['phanh trước và sau']),
-    findSpec(specs, ['giảm xóc']),
-    findSpec(specs, ['chống nước']),
-    'Khung xe chắc chắn, tối ưu cho vận hành đô thị',
-  ].filter((value) => value !== 'N/A')
+    findSpecValue(specEntries, [
+      'Phanh trước và sau',
+    ]),
+    findSpecValue(specEntries, [
+      'Giảm xóc trước và sau',
+      'Giảm xóc',
+    ]),
+    findSpecValue(specEntries, [
+      'Tiêu chuẩn chống nước động cơ',
+    ]),
+    findSpecValue(specEntries, [
+      'Kích thước lốp Trước - Sau',
+    ]),
+  ].filter(Boolean)
 
-  const specEntries = Object.entries(specs).filter(
-    ([, value]) => typeof value === 'string',
-  )
-  const midpoint = Math.ceil(specEntries.length / 2)
-  const firstSpecColumn = specEntries.slice(0, midpoint)
-  const secondSpecColumn = specEntries.slice(midpoint)
+  const description =
+    asString(product.description) ||
+    `Xe máy điện VinFast ${product.name}.`
 
   return (
     <main className="flex min-h-screen flex-col bg-background selection:bg-brand-500 selection:text-white">
       <Header />
 
       {/* HERO SECTION */}
-      <section className="relative h-screen min-h-[700px] w-full flex flex-col justify-between overflow-hidden bg-black">
-        {bannerImg && (
-          <img
-            src={bannerImg}
-            alt={product.name}
-            className="absolute inset-0 w-full h-full object-cover object-center"
-          />
-        )}
+      <section className="relative flex h-screen min-h-[700px] w-full flex-col justify-between overflow-hidden bg-black">
+        <img
+          src={heroImage.src}
+          alt={product.name}
+className={`absolute inset-0 h-full w-full object-center ${
+            heroImage.contain
+              ? 'object-contain p-8 sm:p-16'
+              : 'object-cover'
+          }`}
+        />
+
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/80" />
 
-        <div className="relative z-10 flex flex-col items-center mt-32 sm:mt-40 text-center px-6 animate-fade-in-up" />
+        <div className="relative z-10 mt-32 flex flex-col items-center px-6 text-center sm:mt-40">
+          {/* Same unobstructed hero treatment as the car page. */}
+        </div>
 
-        <div
-          className="relative z-10 flex flex-col items-center pb-12 w-full animate-fade-in-up"
-          style={{ animationDelay: '0.3s' }}
-        >
-          <div className="flex gap-4 mb-12">
-            <button className="h-12 sm:h-14 px-8 sm:px-12 rounded-full bg-white text-black font-bold uppercase tracking-widest text-sm sm:text-base hover:bg-white/90 transition-all hover:scale-105 active:scale-95 shadow-xl">
+        <div className="relative z-10 flex w-full flex-col items-center pb-12">
+          <div className="mb-12 flex gap-4">
+            <button className="h-12 rounded-full bg-white px-8 text-sm font-bold uppercase tracking-widest text-black shadow-xl transition-all hover:scale-105 hover:bg-white/90 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
               Trải nghiệm
             </button>
-            <button className="h-12 sm:h-14 px-8 sm:px-12 rounded-full bg-transparent border-2 border-white text-white font-bold uppercase tracking-widest text-sm sm:text-base hover:bg-white/10 transition-all hover:scale-105 active:scale-95 shadow-xl backdrop-blur-sm">
+
+            <button className="h-12 rounded-full border-2 border-white bg-transparent px-8 text-sm font-bold uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/10 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
               Đặt cọc ngay
             </button>
-          </div>
-
-          <div className="flex flex-col items-center text-white/60 text-xs uppercase tracking-[0.2em] animate-bounce">
-            <span className="mb-4">Khám phá</span>
-            <div className="w-px h-12 bg-gradient-to-b from-white/60 to-transparent" />
           </div>
         </div>
       </section>
 
       {/* STICKY NAV CTA */}
-      <div className="sticky top-[74px] z-40 bg-background/80 backdrop-blur-md border-b border-white/10 shadow-sm">
-        <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center">
-            <h2 className="font-bold text-lg hidden sm:block">{product.name}</h2>
-          </div>
+      <div className="sticky top-[74px] z-40 border-b border-white/10 bg-background/80 shadow-sm backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6">
+          <h2 className="hidden text-lg font-bold sm:block">
+            {product.name}
+          </h2>
+
           <div className="flex gap-6 text-sm font-semibold text-muted-foreground">
-            <a href="#design" className="hover:text-foreground transition-colors">Thiết kế</a>
-            <a href="#performance" className="hover:text-foreground transition-colors">Vận hành</a>
-            <a href="#specs" className="hover:text-foreground transition-colors">Thông số</a>
+            <a
+              href="#design"
+              className="transition-colors hover:text-foreground"
+            >
+              Thiết kế
+            </a>
+
+            <a
+              href="#performance"
+              className="transition-colors hover:text-foreground"
+            >
+              Vận hành
+            </a>
+
+            <a
+              href="#specs"
+              className="transition-colors hover:text-foreground"
+            >
+              Thông số
+            </a>
           </div>
+
           <div className="flex items-center gap-3">
-            <span className="font-bold hidden md:block mr-2">{formatPrice(product.displayed_price)}</span>
-            <Button size="sm" variant="outline" className="rounded-full font-bold border-brand-600 text-brand-600 hover:bg-brand-50 hidden sm:inline-flex">
-              Dự toán
+            <span className="mr-2 hidden font-bold md:block">
+              {formatPrice(
+                product.displayed_price,
+              )}
+            </span>
+
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="hidden rounded-full border-brand-600 font-bold text-brand-600 hover:bg-brand-50 sm:inline-flex"
+            >
+              <Link
+                href={`/cost-estimator?vehicle=${encodeURIComponent(
+                  product.slug,
+                )}`}
+              >
+                Dự toán
+              </Link>
             </Button>
-            <Button size="sm" className="rounded-full bg-brand-600 hover:bg-brand-700 text-white font-bold">
+
+            <Button
+              size="sm"
+              className="rounded-full bg-brand-600 font-bold text-white hover:bg-brand-700"
+            >
               Đặt cọc
             </Button>
           </div>
         </div>
       </div>
 
-      {/* HIGHLIGHTS SECTION */}
-      <section id="performance" className="py-24 bg-muted">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 text-center divide-x divide-black/5">
-            {performanceSpecs.map((item) => (
-              <div key={item.label} className="flex flex-col items-center px-3">
-                <p className="text-xl md:text-2xl font-bold tracking-tight mb-2">{item.value}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</p>
+      {/* HIGHLIGHTS */}
+      <section
+        id="performance"
+        className="bg-muted py-24"
+      >
+        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
+          <div className="grid grid-cols-2 gap-8 text-center md:grid-cols-4 md:gap-12">
+            {[
+              [
+                getHeadlineValue(range),
+                'Quãng đường',
+              ],
+              [
+                getHeadlineValue(maxPower),
+                'Công suất tối đa',
+              ],
+              [
+                getHeadlineValue(maxSpeed),
+                'Tốc độ tối đa',
+              ],
+              [
+                getHeadlineValue(chargingTime),
+                'Thời gian sạc',
+              ],
+            ].map(([value, label]) => (
+              <div
+                key={label}
+                className="flex flex-col items-center px-3"
+              >
+                <p className="mb-2 text-3xl font-bold tracking-tighter md:text-5xl">
+                  {value}
+                </p>
+
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {label}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* COLOR SELECTOR */}
-      <CarColorSelector colors={bikeColors} images={colorImages} />
+      {orderedColorDetails.length > 0 && (
+        <BikeColorSelector
+          colors={bikeColors}
+          images={colorImages}
+        />
+      )}
 
       {/* DESIGN SECTION */}
-      <section id="design" className="py-32 bg-background">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
+      <section
+        id="design"
+        className="bg-background py-32"
+      >
+        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
           <div className="mb-16">
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">Thiết kế hiện đại</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl">
-              {product.description || `${product.name} mang thiết kế trẻ trung, linh hoạt và phù hợp với nhịp sống đô thị.`}
+            <h2 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
+              Thiết kế dành cho nhịp sống hiện đại
+            </h2>
+
+            <p className="max-w-2xl text-xl text-muted-foreground">
+              {description}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
-            {detailImages[0] && (
-              <div className="md:col-span-2 overflow-hidden rounded-[2rem]">
-                <img src={detailImages[0]} alt={`Thiết kế ${product.name}`} className="w-full h-auto object-cover hover:scale-105 transition-transform duration-1000" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+            {displayImgs[0] && (
+              <div className="overflow-hidden rounded-[2rem] md:col-span-2">
+                <img
+                  src={displayImgs[0]}
+                  alt={`Thiết kế ${product.name}`}
+                  className="h-auto w-full object-cover"
+                />
               </div>
             )}
-            {detailImages[1] && (
-              <div className="overflow-hidden rounded-[2rem] aspect-square">
-                <img src={detailImages[1]} alt={`Chi tiết ${product.name}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
+
+            {displayImgs[1] && (
+              <div className="aspect-square overflow-hidden rounded-[2rem]">
+                <img
+                  src={displayImgs[1]}
+                  alt={`Ngoại hình ${product.name}`}
+                  className="h-full w-full object-cover"
+                />
               </div>
             )}
-            {detailImages[2] && (
-              <div className="overflow-hidden rounded-[2rem] aspect-square relative group">
-                <img src={detailImages[2]} alt={`Phong cách ${product.name}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8 text-white">
-                  <h3 className="text-2xl font-bold mb-2">Phong cách khác biệt</h3>
-                  <p className="text-white/80">Từng đường nét được tối ưu cho trải nghiệm di chuyển hằng ngày.</p>
-                </div>
+
+            {displayIntImgs[0] && (
+              <div className="relative aspect-square overflow-hidden rounded-[2rem]">
+                <img
+                  src={displayIntImgs[0]}
+                  alt={`Chi tiết ${product.name}`}
+                  className="h-full w-full object-cover"
+                />
               </div>
             )}
           </div>
         </div>
       </section>
 
-      {/* TECHNOLOGY & SAFETY SECTION */}
-      <section className="py-32 bg-muted">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16">
+      {/* TECHNOLOGY & SAFETY */}
+      <section className="bg-muted py-32">
+        <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-16 px-6 lg:grid-cols-2 lg:px-12">
           <div>
-            <h2 className="text-4xl font-bold tracking-tight mb-6">Công nghệ thông minh</h2>
-            <p className="text-lg text-muted-foreground mb-12">
-              Hệ truyền động điện hiệu quả, vận hành êm ái và thuận tiện cho nhu cầu di chuyển đô thị.
-            </p>
-            <div className="grid grid-cols-2 gap-6">
-              {technologyFeatures.map((feature) => (
-                <div key={feature} className="bg-white p-6 rounded-2xl shadow-sm border border-black/5 hover:shadow-md transition-shadow">
-                  <Check className="text-brand-500 mb-4" size={24} />
-                  <h4 className="font-bold text-slate-900">{feature}</h4>
-                </div>
-              ))}
+            <h2 className="mb-6 text-4xl font-bold tracking-tight">
+              Công nghệ thông minh
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {technologyFeatures.map(
+                (feature) => (
+                  <div
+                    key={feature}
+                    className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
+                  >
+                    <Check
+                      className="mb-4 text-brand-500"
+                      size={24}
+                    />
+
+                    <h4 className="font-bold text-slate-900">
+                      {feature}
+                    </h4>
+                  </div>
+                ),
+              )}
             </div>
           </div>
+
           <div>
-            <h2 className="text-4xl font-bold tracking-tight mb-6">An toàn trên mọi hành trình</h2>
-            <p className="text-lg text-muted-foreground mb-12">
-              Các trang bị vận hành và bảo vệ được thiết kế để mang lại sự tự tin trên từng cung đường.
-            </p>
-            <div className="grid grid-cols-2 gap-6">
-              {safetyFeatures.map((feature) => (
-                <div key={feature} className="bg-black text-white p-6 rounded-2xl shadow-sm hover:bg-black/90 transition-colors">
-                  <Check className="text-white mb-4" size={24} />
-                  <h4 className="font-bold">{feature}</h4>
-                </div>
-              ))}
+            <h2 className="mb-6 text-4xl font-bold tracking-tight">
+              Vận hành và an toàn
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {safetyFeatures.map(
+                (feature) => (
+                  <div
+                    key={feature}
+                    className="rounded-2xl bg-black p-6 text-white shadow-sm"
+                  >
+                    <Check
+                      className="mb-4 text-white"
+                      size={24}
+                    />
+
+                    <h4 className="font-bold">
+                      {feature}
+                    </h4>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* FULL SPECS SECTION */}
-      <section id="specs" className="py-32 bg-white text-foreground">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
-          <h2 className="text-4xl font-bold tracking-tight mb-16">Thông số kỹ thuật {product.name}</h2>
+      {/* FULL SPECS */}
+      <section
+        id="specs"
+        className="bg-white py-32 text-foreground"
+      >
+        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
+          <h2 className="mb-16 text-4xl font-bold tracking-tight">
+            Thông số kỹ thuật {product.name}
+          </h2>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+          <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
             <div>
-              <h3 className="text-2xl font-bold border-b border-black/10 pb-4 mb-6">Động cơ &amp; Vận hành</h3>
+              <h3 className="mb-6 border-b border-black/10 pb-4 text-2xl font-bold">
+                Động cơ & Vận hành
+              </h3>
+
               <ul className="space-y-4">
-                {firstSpecColumn.map(([key, value]) => (
-                  <li key={key} className="flex justify-between gap-6 py-2 border-b border-black/5 text-sm">
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="font-semibold text-right max-w-[50%]">{value}</span>
-                  </li>
-                ))}
+                {performanceEntries
+                  .slice(0, 14)
+                  .map(([key, value]) => (
+                    <li
+                      key={key}
+                      className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {key}
+                      </span>
+
+                      <span className="max-w-[55%] text-right font-semibold">
+                        {value}
+                      </span>
+                    </li>
+                  ))}
               </ul>
             </div>
 
             <div>
-              <h3 className="text-2xl font-bold border-b border-black/10 pb-4 mb-6">Kích thước &amp; Trang bị</h3>
+              <h3 className="mb-6 border-b border-black/10 pb-4 text-2xl font-bold">
+                Kích thước & Tiện ích
+              </h3>
+
               <ul className="space-y-4">
-                {secondSpecColumn.map(([key, value]) => (
-                  <li key={key} className="flex justify-between gap-6 py-2 border-b border-black/5 text-sm">
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="font-semibold text-right max-w-[50%]">{value}</span>
-                  </li>
-                ))}
+                {dimensionEntries.map(
+                  ([key, value]) => (
+                    <li
+                      key={key}
+                      className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {key}
+                      </span>
+
+                      <span className="max-w-[55%] text-right font-semibold">
+                        {value}
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
             </div>
-          </div>
-
-          <div className="mt-16 flex justify-center">
-            <Button variant="outline" className="rounded-full px-8 border-black text-black hover:bg-black/5 font-bold">
-              Xem thông số chi tiết
-            </Button>
           </div>
         </div>
       </section>
 
       {/* FINAL CTA */}
-      <section className="py-32 bg-[#171411] text-white text-center">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-4xl sm:text-6xl font-bold tracking-tight mb-8">Sẵn sàng trải nghiệm?</h2>
-          <p className="text-xl text-white/70 mb-12">Gia nhập cộng đồng người dùng xe điện toàn cầu cùng VinFast.</p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button variant="default" className="bg-white text-black hover:bg-white/90 h-14 px-10 rounded-full font-bold uppercase tracking-wider text-sm transition-transform hover:scale-105">
+      <section className="bg-[#171411] py-32 text-center text-white">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="mb-8 text-4xl font-bold tracking-tight sm:text-6xl">
+            Sẵn sàng trải nghiệm?
+          </h2>
+
+          <p className="mb-12 text-xl text-white/70">
+            Trải nghiệm phương tiện di chuyển xanh
+            cùng VinFast.
+          </p>
+
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
+            <Button className="h-14 rounded-full bg-white px-10 text-sm font-bold uppercase tracking-wider text-black hover:bg-white/90">
               Đặt cọc ngay
             </Button>
-            <Button variant="outline" className="h-14 px-10 rounded-full border-white/20 text-white hover:bg-white/10 font-bold uppercase tracking-wider text-sm">
+
+            <Button
+              variant="outline"
+              className="h-14 rounded-full border-white/20 px-10 text-sm font-bold uppercase tracking-wider text-white hover:bg-white/10"
+            >
               Đăng ký lái thử
             </Button>
           </div>
@@ -334,3 +751,5 @@ export default async function BikeDetailPage(props: { params: Promise<{ slug: st
     </main>
   )
 }
+
+
