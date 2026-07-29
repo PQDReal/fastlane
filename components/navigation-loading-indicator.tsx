@@ -76,17 +76,16 @@ export function NavigationLoadingIndicator() {
         return
       }
 
-      queueMicrotask(() => {
-        if (!event.defaultPrevented) startNavigation()
-      })
+      startNavigation()
     }
 
     const handleProgrammaticNavigation = () => startNavigation()
 
+    // Bubble phase is intentional: page-level capture guards (for example the
+    // cart leave confirmation) must be able to prevent the click first.
     document.addEventListener(
       'click',
       handleClick,
-      true,
     )
     window.addEventListener(
       'fastlane:navigation-start',
@@ -96,7 +95,6 @@ export function NavigationLoadingIndicator() {
       document.removeEventListener(
         'click',
         handleClick,
-        true,
       )
       window.removeEventListener(
         'fastlane:navigation-start',
