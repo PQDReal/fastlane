@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
+import { authorizeAdminPromotionRequest } from '@/lib/auth/admin-promotions'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import {
   legacyProductType,
@@ -71,7 +71,7 @@ function parseBody(body: any) {
 }
 
 export async function GET(request: Request) {
-  try { await authorizeAdminCatalogRequest(request) } catch (error) { return authError(error) }
+  try { await authorizeAdminPromotionRequest(request) } catch (error) { return authError(error) }
   const supabase = getSupabaseAdmin()
   const result = await supabase.from('promotions').select(SELECT).order('created_at', { ascending: false })
   if (!result.error) return NextResponse.json(result.data ?? [])
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  try { await authorizeAdminCatalogRequest(request) } catch (error) { return authError(error) }
+  try { await authorizeAdminPromotionRequest(request) } catch (error) { return authError(error) }
   try {
     const values = parseBody(await request.json())
     const { data, error } = await getSupabaseAdmin().from('promotions').insert(values).select(SELECT).single()
