@@ -13,6 +13,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { AccessoryCard } from '@/components/accessory-card'
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
@@ -245,6 +246,7 @@ export function AccessoryDetailClient({
   selectedVehicle?: string
   relatedProducts?: CatalogProduct[]
 }) {
+  const router = useRouter()
   const { addToCart } = useAppStore()
   const defaultVariant = initialVariant(product, initialVariantId)
   const [selection, setSelection] = useState<CatalogSelection>(
@@ -252,8 +254,9 @@ export function AccessoryDetailClient({
   )
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
-  const [submitting, setSubmitting] = useState(false)
+  const [submittingAction, setSubmittingAction] = useState<'cart' | 'checkout' | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const submitting = submittingAction !== null
 
   const selectedVariant = useMemo(
     () => resolveExactVariant(product, selection),
@@ -285,15 +288,15 @@ export function AccessoryDetailClient({
     setFeedback(null)
   }
 
-  const handleAdd = async () => {
+  const handlePurchase = async (destination: 'cart' | 'checkout') => {
     if (!selectedVariant || !inStock || submitting) return
-    setSubmitting(true)
+    setSubmittingAction(destination)
     setFeedback(null)
     const result = await addToCart(
       cartItem(product, selectedVariant, selectedMedia),
       quantity,
     )
-    setSubmitting(false)
+    setSubmittingAction(null)
 
     if (!result.ok) {
       if (result.code === 'AUTHENTICATION_REQUIRED') {
@@ -310,8 +313,23 @@ export function AccessoryDetailClient({
       return
     }
 
+    if (destination === 'checkout') {
+      const checkoutItem = useAppStore.getState().cartItems.find(
+        (item) => item.variantId === selectedVariant.id,
+      )
+      if (!checkoutItem) {
+        setFeedback({ type: 'error', message: 'Không thể mở trang thanh toán. Vui lòng thử lại.' })
+        return
+      }
+      router.push(`/checkout?item=${encodeURIComponent(checkoutItem.id)}`)
+      return
+    }
+
     setFeedback({ type: 'success', message: 'Đã thêm sản phẩm vào giỏ hàng.' })
   }
+
+  const handleAdd = () => handlePurchase('cart')
+  const handleBuyNow = () => handlePurchase('checkout')
 
   const showPreviousMedia = () => setSelectedMediaIndex((current) => (
     current === 0 ? selectedMedia.length - 1 : current - 1
@@ -490,27 +508,37 @@ export function AccessoryDetailClient({
                         ? `Còn ${selectedVariant.availableQuantity} sản phẩm`
                         : 'Tạm hết hàng'}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">Tối đa 99 / đơn</p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={!selectedVariant || !inStock || !canPurchase || submitting}
-                className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
-                {submitting
-                  ? 'Đang thêm...'
-                  : !canPurchase
-                    ? 'Đổi xe hoặc xác nhận với showroom'
-                    : !selectedVariant
-                      ? 'Chọn đầy đủ cấu hình'
-                      : inStock
-                        ? 'Thêm vào giỏ hàng'
-                        : 'Tạm hết hàng'}
-              </button>
+              <div className="mt-4 grid gap-3">
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+                  className="flex min-h-12 w-full items-center justify-center rounded-lg bg-brand-600 px-5 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {submittingAction === 'checkout' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                  {submittingAction === 'checkout' ? 'Đang xử lý...' : 'Mua ngay'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:border-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  {submittingAction === 'cart' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
+                  {submittingAction === 'cart'
+                    ? 'Đang thêm...'
+                    : !canPurchase
+                      ? 'Đổi xe hoặc xác nhận với showroom'
+                      : !selectedVariant
+                        ? 'Chọn đầy đủ cấu hình'
+                        : inStock
+                          ? 'Thêm vào giỏ hàng'
+                          : 'Tạm hết hàng'}
+                </button>
+              </div>
 
             {feedback && (
               <div role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
@@ -585,19 +613,29 @@ export function AccessoryDetailClient({
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden">
-        <div className="mx-auto flex max-w-lg items-center gap-3">
+        <div className="mx-auto flex max-w-lg items-center gap-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11px] font-semibold text-slate-400">{selectedVariant?.sku ?? 'Chọn cấu hình'}</p>
             <p className="truncate text-base font-bold text-brand-700">{price === undefined ? 'Liên hệ' : formatPrice(price)}</p>
           </div>
           <button
             type="button"
+            onClick={handleBuyNow}
+            disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+            className="inline-flex h-12 items-center justify-center rounded-lg bg-brand-600 px-4 text-xs font-bold uppercase tracking-wide text-white disabled:bg-slate-300"
+          >
+            {submittingAction === 'checkout' ? <Loader2 size={17} className="mr-2 animate-spin" /> : null}
+            Mua ngay
+          </button>
+          <button
+            type="button"
             onClick={handleAdd}
             disabled={!selectedVariant || !inStock || !canPurchase || submitting}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-bold text-white disabled:bg-slate-300"
+            aria-label="Thêm vào giỏ hàng"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            {submitting ? <Loader2 size={17} className="animate-spin" /> : <ShoppingCart size={17} />}
-            Thêm vào giỏ
+            {submittingAction === 'cart' ? <Loader2 size={17} className="animate-spin" /> : <ShoppingCart size={17} />}
+            <span className="hidden sm:inline">Thêm vào giỏ</span>
           </button>
         </div>
       </div>
