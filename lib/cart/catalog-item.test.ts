@@ -10,6 +10,7 @@ describe('mapCatalogCartItem', () => {
       name: 'Áo VF 7',
       slug: 'ao-vf-7',
       product_type: 'ACCESSORY',
+      specifications: { schema: 'accessory_content_v1', sections: [] },
       option_groups: [{
         id: '323e4567-e89b-12d3-a456-426614174002',
         code: 'color',

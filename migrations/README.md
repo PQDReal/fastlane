@@ -56,6 +56,19 @@ The dynamic options sequence is:
 - `012_catalog_collection_fk_indexes.sql` adds full covering indexes for the
   two composite membership foreign keys. The active-row lookup indexes from
   `011` remain separate because partial indexes cannot cover FK maintenance.
+- `013_accessory_service_labels.sql` normalizes the two reviewed accessory
+  service labels and their 32 assignments. Public roles receive active-row
+  reads only; atomic assignment replacement is service-role-only.
+- `014_accessory_content_v1.sql` replaces only the 83 audited ACCESSORY
+  `specifications` documents with the strict `accessory_content_v1` payload.
+  Capture and checksum an exact legacy backup before applying it; its
+  preflight requires the 110/83 catalog and the `013` assignment totals.
+- `015_products_search_name_only.sql` rebuilds product search vectors from
+  the unaccented product name only and narrows the write trigger to name
+  changes while retaining the existing GIN index.
+
+Apply `013`, `014`, and `015` in that order. Do not run `014` without the
+pre-deployment backup described at the bottom of that migration.
 
 The taxonomy v2 rollout is intentionally staged:
 

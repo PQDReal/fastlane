@@ -139,9 +139,37 @@ export type CatalogPriceRange = {
   maximum: number
 }
 
+export type CatalogAccessoryContentSectionType =
+  | 'TECHNICAL_SPECS'
+  | 'FEATURES'
+  | 'USAGE_GUIDE'
+  | 'CARE_GUIDE'
+  | 'INSTALLATION_GUIDE'
+  | 'PACKAGE_CONTENTS'
+  | 'WARRANTY'
+  | 'SHIPPING_NOTE'
+  | 'SAFETY_NOTE'
+  | 'PURCHASE_NOTE'
+  | 'OTHER'
+
+export type CatalogAccessoryContentAttribute = {
+  label: string
+  value: string
+}
+
+export type CatalogAccessoryContentSection = {
+  key: string
+  type: CatalogAccessoryContentSectionType
+  title: string
+  displayOrder: number
+  body: string | null
+  items: string[]
+  attributes: CatalogAccessoryContentAttribute[]
+}
+
 export type CatalogProductContent = {
-  specificationText: string | null
-  specifications: Record<string, unknown>
+  schema: 'accessory_content_v1'
+  sections: CatalogAccessoryContentSection[]
 }
 
 export type CatalogProduct = {

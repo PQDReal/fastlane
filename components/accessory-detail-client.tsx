@@ -29,15 +29,6 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 0,
   }).format(price)
 
-function specificationValue(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-  if (Array.isArray(value)) return value.map(specificationValue).join(', ')
-  return JSON.stringify(value)
-}
-
 function initialVariant(product: CatalogProduct, initialVariantId?: string): CatalogVariant | null {
   return product.variants.find((variant) => variant.id === initialVariantId)
     ?? product.variants.find((variant) => variant.availableQuantity > 0)
@@ -249,7 +240,7 @@ export function AccessoryDetailClient({
   )
   const activeMedia = selectedMedia[selectedMediaIndex] ?? selectedMedia[0]
   const inStock = Boolean(selectedVariant && selectedVariant.availableQuantity > 0)
-  const description = product.content.specificationText || product.description
+  const description = product.description
 
   const changeOption = (groupCode: string, valueCode: string) => {
     setSelection((current) => changeOptionSelection(
@@ -437,17 +428,32 @@ export function AccessoryDetailClient({
         </section>
       </div>
 
-      {Object.keys(product.content.specifications).length > 0 && (
+      {product.content.sections.length > 0 && (
         <section className="mt-16 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-9">
           <h2 className="text-2xl font-bold text-slate-900">Thông tin chi tiết</h2>
-          <dl className="mt-6 grid gap-x-10 sm:grid-cols-2">
-            {Object.entries(product.content.specifications).map(([key, value]) => (
-              <div key={key} className="grid grid-cols-[minmax(120px,0.8fr)_1.2fr] gap-4 border-b border-slate-100 py-4 text-sm">
-                <dt className="font-semibold text-slate-500">{key}</dt>
-                <dd className="text-slate-900">{specificationValue(value)}</dd>
-              </div>
+          <div className="mt-7 grid gap-5 lg:grid-cols-2">
+            {product.content.sections.map((section) => (
+              <article key={section.key} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+                <h3 className="text-base font-bold text-slate-900">{section.title}</h3>
+                {section.body && <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{section.body}</p>}
+                {section.items.length > 0 && (
+                  <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
+                    {section.items.map((item, index) => <li key={`${section.key}-item-${index}`}>{item}</li>)}
+                  </ul>
+                )}
+                {section.attributes.length > 0 && (
+                  <dl className="mt-3 divide-y divide-slate-200">
+                    {section.attributes.map((attribute, index) => (
+                      <div key={`${section.key}-attribute-${index}`} className="grid grid-cols-[minmax(110px,0.8fr)_1.2fr] gap-4 py-2.5 text-sm">
+                        <dt className="font-semibold text-slate-500">{attribute.label}</dt>
+                        <dd className="text-slate-900">{attribute.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </article>
             ))}
-          </dl>
+          </div>
         </section>
       )}
     </div>

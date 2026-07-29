@@ -177,6 +177,47 @@ ProductSpecification:
     group:
       oneOf: [{ type: string, minLength: 1, maxLength: 120, example: Động cơ }, { type: 'null' }]
     sortOrder: { type: integer, minimum: 0 }
+AccessoryContentSectionType:
+  type: string
+  enum: [TECHNICAL_SPECS, FEATURES, USAGE_GUIDE, CARE_GUIDE, INSTALLATION_GUIDE, PACKAGE_CONTENTS, WARRANTY, SHIPPING_NOTE, SAFETY_NOTE, PURCHASE_NOTE, OTHER]
+AccessoryContentAttribute:
+  type: object
+  additionalProperties: false
+  required: [label, value]
+  properties:
+    label: { type: string, minLength: 1 }
+    value: { type: string, minLength: 1 }
+AccessoryContentSection:
+  type: object
+  additionalProperties: false
+  required: [key, type, title, display_order, body, items, attributes]
+  anyOf:
+    - properties: { body: { type: string, minLength: 1 } }
+    - properties: { items: { type: array, minItems: 1 } }
+    - properties: { attributes: { type: array, minItems: 1 } }
+  properties:
+    key: { type: string, minLength: 1, pattern: '^[a-z0-9_]+$' }
+    type: { $ref: '../../openapi.yaml#/components/schemas/AccessoryContentSectionType' }
+    title: { type: string, minLength: 1 }
+    display_order: { type: integer, minimum: 10, multipleOf: 10 }
+    body:
+      oneOf: [{ type: string, minLength: 1 }, { type: 'null' }]
+    items:
+      type: array
+      items: { type: string, minLength: 1 }
+    attributes:
+      type: array
+      items: { $ref: '../../openapi.yaml#/components/schemas/AccessoryContentAttribute' }
+  description: Sections are ordered and keyed uniquely; display_order must be 10, 20, 30, ... in array order. At least one of body, items, or attributes must contain content.
+AccessoryContentV1:
+  type: object
+  additionalProperties: false
+  required: [schema, sections]
+  properties:
+    schema: { type: string, const: accessory_content_v1 }
+    sections:
+      type: array
+      items: { $ref: '../../openapi.yaml#/components/schemas/AccessoryContentSection' }
 ProductImage:
   type: object
   additionalProperties: false
@@ -289,7 +330,12 @@ ProductDetail:
     isActive: { type: boolean }
     description: { type: string, minLength: 1, maxLength: 10000 }
     images: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductImage' } }
-    specifications: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' } }
+    specifications:
+      oneOf:
+        - type: array
+          items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' }
+        - { $ref: '../../openapi.yaml#/components/schemas/AccessoryContentV1' }
+      description: Accessories use AccessoryContentV1; vehicle products retain the legacy specification array.
     variants: { type: array, minItems: 1, items: { $ref: '../../openapi.yaml#/components/schemas/Variant' }, description: Public detail contains active variants only; admin detail may also contain inactive variants. }
     optionGroups:
       type: array
@@ -408,7 +454,12 @@ ProductCreateRequest:
     productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
     purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     description: { type: string, minLength: 1, maxLength: 10000 }
-    specifications: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' } }
+    specifications:
+      oneOf:
+        - type: array
+          items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' }
+        - { $ref: '../../openapi.yaml#/components/schemas/AccessoryContentV1' }
+      description: Required to be AccessoryContentV1 when productKind is accessory; vehicle products use the specification array.
     optionGroups:
       type: array
       maxItems: 20
@@ -440,9 +491,11 @@ ProductPatchRequest:
     purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
     description: { type: string, minLength: 1, maxLength: 10000 }
     specifications:
-      type: array
-      items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' }
-      description: When supplied, replaces the full product specification list.
+      oneOf:
+        - type: array
+          items: { $ref: '../../openapi.yaml#/components/schemas/ProductSpecification' }
+        - { $ref: '../../openapi.yaml#/components/schemas/AccessoryContentV1' }
+      description: When supplied, replaces the full specification document. Accessories require AccessoryContentV1; vehicle products use the specification array.
     optionGroups:
       type: array
       maxItems: 20

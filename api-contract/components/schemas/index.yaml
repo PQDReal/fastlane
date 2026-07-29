@@ -73,6 +73,14 @@ ProductOptionGroupInput:
   $ref: './product.yaml#/ProductOptionGroupInput'
 ProductSpecification:
   $ref: './product.yaml#/ProductSpecification'
+AccessoryContentSectionType:
+  $ref: './product.yaml#/AccessoryContentSectionType'
+AccessoryContentAttribute:
+  $ref: './product.yaml#/AccessoryContentAttribute'
+AccessoryContentSection:
+  $ref: './product.yaml#/AccessoryContentSection'
+AccessoryContentV1:
+  $ref: './product.yaml#/AccessoryContentV1'
 ProductImage:
   $ref: './product.yaml#/ProductImage'
 ProductImageCreateRequest:

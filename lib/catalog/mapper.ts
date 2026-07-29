@@ -12,6 +12,7 @@ import type {
   CatalogOptionValue,
   CatalogProduct,
   CatalogProductContent,
+  CatalogAccessoryContentSectionType,
   CatalogProductType,
   CatalogSelectedOption,
   CatalogVariant,
@@ -154,13 +155,89 @@ function mapCollectionMemberships(value: unknown): CatalogCollectionMembership[]
     ))
 }
 
+const ACCESSORY_SECTION_TYPES = new Set<CatalogAccessoryContentSectionType>([
+  'TECHNICAL_SPECS', 'FEATURES', 'USAGE_GUIDE', 'CARE_GUIDE',
+  'INSTALLATION_GUIDE', 'PACKAGE_CONTENTS', 'WARRANTY',
+  'SHIPPING_NOTE', 'SAFETY_NOTE', 'PURCHASE_NOTE', 'OTHER',
+])
+
+function exactKeys(value: UnknownRecord, expected: string[]): boolean {
+  const keys = Object.keys(value).sort()
+  const expectedKeys = [...expected].sort()
+  return keys.length === expectedKeys.length
+    && keys.every((key, index) => key === expectedKeys[index])
+}
+
 function mapProductContent(value: unknown): CatalogProductContent {
-  const source = object(value)
-  const specificationText = nullableString(source.specification_text)
-  return {
-    specificationText,
-    specifications: object(source.specifications),
+  const source = record(value)
+  if (!source
+      || !exactKeys(source, ['schema', 'sections'])
+      || source.schema !== 'accessory_content_v1'
+      || !Array.isArray(source.sections)) {
+    throw new Error('Invalid accessory_content_v1 document.')
   }
+
+  const seenKeys = new Set<string>()
+  const sections = source.sections.map((value, index) => {
+    const section = record(value)
+    const key = section && typeof section.key === 'string' ? section.key : ''
+    const type = section?.type
+    const title = section && typeof section.title === 'string' ? section.title : ''
+    const displayOrder = section ? number(section.display_order, Number.NaN) : Number.NaN
+    const body = section?.body === null ? null : nullableString(section?.body)
+    const rawItems = section && Array.isArray(section.items) ? section.items : null
+    const items = rawItems
+      ? rawItems.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : null
+    const rawAttributes = section && Array.isArray(section.attributes) ? section.attributes : null
+    const attributes = rawAttributes
+      ? rawAttributes.map(record)
+      : null
+
+    if (!section
+        || !exactKeys(section, ['key', 'type', 'title', 'display_order', 'body', 'items', 'attributes'])
+        || !/^[a-z0-9_]+$/.test(key)
+        || seenKeys.has(key)
+        || !ACCESSORY_SECTION_TYPES.has(type as CatalogAccessoryContentSectionType)
+        || !title.trim()
+        || !Number.isInteger(displayOrder)
+        || displayOrder !== (index + 1) * 10
+        || (section.body !== null && body === null)
+        || !items
+        || items.length !== rawItems?.length
+        || !attributes
+        || attributes.length !== rawAttributes?.length) {
+      throw new Error(`Invalid accessory_content_v1 section at index ${index}.`)
+    }
+
+    const mappedAttributes = attributes.map((attribute) => {
+      if (!attribute
+          || !exactKeys(attribute, ['label', 'value'])
+          || typeof attribute.label !== 'string'
+          || !attribute.label.trim()
+          || typeof attribute.value !== 'string'
+          || !attribute.value.trim()) {
+        throw new Error(`Invalid accessory_content_v1 attribute in section ${key}.`)
+      }
+      return { label: attribute.label, value: attribute.value }
+    })
+
+    if (body === null && items.length === 0 && mappedAttributes.length === 0) {
+      throw new Error(`Empty accessory_content_v1 section ${key}.`)
+    }
+    seenKeys.add(key)
+    return {
+      key,
+      type: type as CatalogAccessoryContentSectionType,
+      title,
+      displayOrder,
+      body,
+      items,
+      attributes: mappedAttributes,
+    }
+  })
+
+  return { schema: 'accessory_content_v1', sections }
 }
 
 function mapServiceLabelAssignments(value: unknown): CatalogServiceLabel[] {
