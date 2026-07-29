@@ -279,6 +279,127 @@
       '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/service-labels:
+  get:
+    tags: [Admin Catalog]
+    operationId: listServiceLabels
+    x-prd-references: [US-A02, FR-ADMN-02]
+    summary: List service labels with accessory assignment counts
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    responses:
+      '200':
+        description: Service labels ordered for administration
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ServiceLabelListResponse' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Catalog]
+    operationId: createServiceLabel
+    x-prd-references: [US-A02, FR-ADMN-02]
+    summary: Create a service label
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ServiceLabelCreateRequest' }
+    responses:
+      '201':
+        description: Service label created
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ServiceLabel' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/service-labels/{labelId}:
+  patch:
+    tags: [Admin Catalog]
+    operationId: updateServiceLabel
+    x-prd-references: [US-A02, FR-ADMN-03]
+    summary: Update a service label
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ServiceLabelId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ServiceLabelPatchRequest' }
+    responses:
+      '200':
+        description: Service label updated
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ServiceLabel' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Catalog]
+    operationId: deleteServiceLabel
+    x-prd-references: [US-A02, FR-ADMN-03]
+    summary: Delete an unused service label
+    description: Labels assigned to any accessory must be deactivated instead and return 409.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ServiceLabelId' }
+    responses:
+      '204': { description: Unused service label deleted }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/products/{productId}/service-labels:
+  put:
+    tags: [Admin Catalog]
+    operationId: replaceProductServiceLabels
+    x-prd-references: [US-A02, FR-ADMN-03]
+    summary: Atomically replace all service labels assigned to an accessory
+    description: The product must be an accessory and every requested label must be active.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ReplaceProductServiceLabelsRequest' }
+    responses:
+      '200':
+        description: Current complete service-label assignment
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ReplaceProductServiceLabelsResponse' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
 /admin/products/{productId}/images:
   post:
     tags: [Admin Catalog]

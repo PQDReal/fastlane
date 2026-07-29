@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { toNamePrefixTsQuery } from '@/lib/catalog/search'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -30,6 +31,9 @@ export async function GET(request: Request) {
       *,
       categories (
         name
+      ),
+      service_label_assignments:product_service_label_assignments (
+        service_label_id
       )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
@@ -39,15 +43,8 @@ export async function GET(request: Request) {
     dbQuery = dbQuery.eq('category_id', categoryId)
   }
 
-  if (query) {
-    const sanitizedQuery = query.replace(/['&|!():*]/g, '').trim()
-
-    if (sanitizedQuery) {
-      const words = sanitizedQuery.split(/\s+/)
-      const tsQuery = words.map((word) => `'${word}':*`).join(' & ')
-      dbQuery = dbQuery.textSearch('search_vector', tsQuery)
-    }
-  }
+  const tsQuery = toNamePrefixTsQuery(query)
+  if (tsQuery) dbQuery = dbQuery.textSearch('search_vector', tsQuery, { config: 'simple' })
 
   const { data, error, count } = await dbQuery
 

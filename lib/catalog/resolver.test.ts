@@ -53,7 +53,8 @@ function product(): CatalogProduct {
     description: null,
     productType: 'ACCESSORY',
     displayedPrice: null,
-    content: { specificationText: null, specifications: {} },
+    content: { schema: 'accessory_content_v1', sections: [] },
+    serviceLabels: [],
     collectionMemberships: [],
     legacyImageUrls: ['legacy.jpg'],
     optionGroups: [

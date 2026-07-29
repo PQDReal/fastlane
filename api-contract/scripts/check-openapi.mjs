@@ -882,6 +882,18 @@ function checkSchemas(specPath) {
       isActive: true,
     }],
   };
+  const accessoryContent = {
+    schema: "accessory_content_v1",
+    sections: [{
+      key: "technical_specs",
+      type: "TECHNICAL_SPECS",
+      title: "Thông tin kỹ thuật",
+      display_order: 10,
+      body: null,
+      items: [],
+      attributes: [{ label: "Chất liệu", value: "Nhựa TPE" }],
+    }],
+  };
   const testDriveLocation = {
     name: "FASTLANE Central",
     addressLine: "720A Điện Biên Phủ",
@@ -915,6 +927,7 @@ function checkSchemas(specPath) {
     ["HealthResponse", { data: { status: "ok" } }],
     ["ProductDetail", product],
     ["ProductCreateRequest", productCreate],
+    ["AccessoryContentV1", accessoryContent],
     ["AddCartItemRequest", { variantId: u3, quantity: 1 }],
     ["Cart", { id: u1, version: 3, pricedAt: timestamp, items: [cartItem], promotion: applied, pricing }],
     ["CheckoutRequest", {
@@ -1138,6 +1151,22 @@ function checkSchemas(specPath) {
   const productWithExtraField = structuredClone(product);
   productWithExtraField.internalCost = "1";
   negative("ProductDetail", productWithExtraField);
+  negative("AccessoryContentV1", {
+    ...accessoryContent,
+    specification_text: "legacy",
+  });
+  negative("AccessoryContentV1", {
+    schema: "accessory_content_v1",
+    sections: [{
+      key: "empty",
+      type: "OTHER",
+      title: "Mục rỗng",
+      display_order: 10,
+      body: null,
+      items: [],
+      attributes: [],
+    }],
+  });
   negative("CreateTestDriveRequest", { ...testDriveCreate, showroomId: u5 });
   negative("CreateTestDriveRequest", {
     ...testDriveCreate,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { toNamePrefixTsQuery } from '@/lib/catalog/search'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -18,15 +19,8 @@ export async function GET(request: Request) {
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
-  if (query) {
-    const sanitizedQuery = query.replace(/['&|!():*]/g, '').trim()
-
-    if (sanitizedQuery) {
-      const words = sanitizedQuery.split(/\s+/)
-      const tsQuery = words.map((word) => `'${word}':*`).join(' & ')
-      dbQuery = dbQuery.textSearch('search_vector', tsQuery)
-    }
-  }
+  const tsQuery = toNamePrefixTsQuery(query)
+  if (tsQuery) dbQuery = dbQuery.textSearch('search_vector', tsQuery, { config: 'simple' })
 
   const { data, error } = await dbQuery
 
