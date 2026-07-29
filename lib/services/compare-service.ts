@@ -173,7 +173,7 @@ export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
     .from('products')
     .select(`id,name,slug,image_urls,displayed_price,specifications,categories(name),product_variants(id,name,sku,original_price,sale_price)`)
     .eq('is_active', true)
-    .eq('product_type', 'VEHICLE')
+    .in('product_type', ['CAR', 'BIKE'])
     .eq('product_variants.is_active', true)
     .order('name')
 
