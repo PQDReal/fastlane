@@ -5,10 +5,17 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   baseUrl: string;
+  query?: URLSearchParams;
 }
 
-export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps) {
+export function Pagination({ currentPage, totalPages, baseUrl, query }: PaginationProps) {
   if (totalPages <= 1) return null;
+
+  const pageHref = (page: number) => {
+    const params = new URLSearchParams(query)
+    params.set('page', String(page))
+    return `${baseUrl}?${params.toString()}`
+  }
 
   const getPages = () => {
     const pages = [];
@@ -31,7 +38,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
   return (
     <div className="flex items-center justify-center gap-2 mt-12">
       <Link 
-        href={currentPage > 1 ? `${baseUrl}?page=${currentPage - 1}` : '#'} 
+        href={currentPage > 1 ? pageHref(currentPage - 1) : '#'}
         className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${currentPage > 1 ? 'border-muted hover:bg-muted text-foreground' : 'border-black/5 text-muted-foreground pointer-events-none'}`}
       >
         <ChevronLeft size={16} />
@@ -50,7 +57,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
         return (
           <Link 
             key={p}
-            href={`${baseUrl}?page=${p}`}
+            href={pageHref(Number(p))}
             className={`w-10 h-10 flex items-center justify-center rounded-full font-medium text-sm transition-colors ${isActive ? 'bg-foreground text-background shadow-sm' : 'hover:bg-muted text-muted-foreground'}`}
           >
             {p}
@@ -59,7 +66,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       })}
       
       <Link 
-        href={currentPage < totalPages ? `${baseUrl}?page=${currentPage + 1}` : '#'} 
+        href={currentPage < totalPages ? pageHref(currentPage + 1) : '#'}
         className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${currentPage < totalPages ? 'border-muted hover:bg-muted text-foreground' : 'border-black/5 text-muted-foreground pointer-events-none'}`}
       >
         <ChevronRight size={16} />

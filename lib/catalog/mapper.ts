@@ -18,6 +18,7 @@ import type {
   CatalogVehicleFilterMode,
   CatalogVehicleModel,
 } from '@/lib/catalog/types'
+import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -160,6 +161,32 @@ function mapProductContent(value: unknown): CatalogProductContent {
     specificationText,
     specifications: object(source.specifications),
   }
+}
+
+function mapServiceLabelAssignments(value: unknown): CatalogServiceLabel[] {
+  const labels = records(value).flatMap((assignment) => {
+    const row = firstRecord(
+      assignment.service_label
+      ?? assignment.catalog_service_labels
+      ?? assignment.label,
+    )
+    if (!row || !isActive(row)) return []
+    return [{
+      id: string(row.id),
+      code: string(row.code),
+      name: string(row.name),
+      description: nullableString(row.description),
+      displayOrder: integer(row.display_order),
+      isActive: true,
+      assignmentCount: 0,
+    }]
+  })
+
+  return [...new Map(labels.map((label) => [label.id, label])).values()]
+    .sort((left, right) => (
+      left.displayOrder - right.displayOrder
+      || left.name.localeCompare(right.name, 'vi-VN')
+    ))
 }
 
 function optionDisplayType(value: unknown): CatalogOptionDisplayType {
@@ -355,6 +382,9 @@ export function mapCatalogProduct(value: unknown): CatalogProduct {
     productType: productType(row.product_type),
     displayedPrice: nullableNumber(row.displayed_price),
     content: mapProductContent(row.specifications),
+    serviceLabels: mapServiceLabelAssignments(
+      row.service_label_assignments ?? row.product_service_label_assignments,
+    ),
     collectionMemberships: mapCollectionMemberships(
       row.collection_memberships ?? row.product_collection_memberships,
     ),

@@ -18,6 +18,13 @@ describe('mapCatalogProduct', () => {
         specifications: { material: 'Cotton' },
         variants: [{ sku: 'must-not-be-read' }],
       },
+      service_label_assignments: [{
+        service_label_id: 'label-1',
+        service_label: {
+          id: 'label-1', code: 'installation', name: 'Có lắp đặt',
+          description: null, display_order: 10, is_active: true,
+        },
+      }],
       category: { id: 'category-1', name: 'Phụ kiện', slug: 'accessories' },
       collection_memberships: [{
         id: 'membership-1', source_system: 'VINFAST_DEMANDWARE', is_primary: true,
@@ -111,6 +118,9 @@ describe('mapCatalogProduct', () => {
       specificationText: 'Chất liệu cotton',
       specifications: { material: 'Cotton' },
     })
+    expect(product.serviceLabels).toEqual([expect.objectContaining({
+      id: 'label-1', code: 'installation', name: 'Có lắp đặt', displayOrder: 10,
+    })])
   })
 
   it('handles products with zero option groups and missing inventory', () => {
@@ -123,6 +133,7 @@ describe('mapCatalogProduct', () => {
     })
     expect(product.optionGroups).toEqual([])
     expect(product.collectionMemberships).toEqual([])
+    expect(product.serviceLabels).toEqual([])
     expect(product.variants[0].selectedOptions).toEqual({})
     expect(product.variants[0].availableQuantity).toBe(0)
   })

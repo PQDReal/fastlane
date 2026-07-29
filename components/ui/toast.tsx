@@ -20,10 +20,12 @@ const styles: Record<ToastKind, { box: string; Icon: typeof CheckCircle2; iconCo
   warning: { box: 'border-amber-400 bg-white shadow-amber-900/10', Icon: AlertTriangle, iconColor: 'text-amber-500', titleColor: 'text-slate-900', msgColor: 'text-slate-600', closeColor: 'text-slate-400', closeHover: 'hover:bg-slate-100 hover:text-slate-900' },
 }
 
-function ActionButton({ action }: { action: ToastAction }) {
+function ActionButton({ action, kind }: { action: ToastAction; kind: ToastKind }) {
   const style = action.variant === 'danger'
     ? 'bg-white text-red-700 hover:bg-red-50'
-    : 'border border-white/40 bg-white/10 text-white hover:bg-white/20'
+    : kind === 'warning'
+      ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+      : 'border border-white/40 bg-white/10 text-white hover:bg-white/20'
 
   return <button type="button" onClick={action.onClick} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${style}`}>{action.label}</button>
 }
@@ -51,8 +53,8 @@ export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onC
                 {toast.message && <p className={`mt-1 text-sm leading-5 ${msgColor}`}>{toast.message}</p>}
                 {(toast.action || toast.secondaryAction) && (
                   <div className="mt-3 flex justify-end gap-2">
-                    {toast.secondaryAction && <ActionButton action={toast.secondaryAction} />}
-                    {toast.action && <ActionButton action={toast.action} />}
+                    {toast.secondaryAction && <ActionButton action={toast.secondaryAction} kind={toast.kind} />}
+                    {toast.action && <ActionButton action={toast.action} kind={toast.kind} />}
                   </div>
                 )}
               </div>

@@ -18,13 +18,22 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
   const parsedPage = typeof pageParam === 'string' ? Number.parseInt(pageParam, 10) : 1
   const requestedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1
   const pageSize = 12
+  const serviceParam = searchParams?.service
+  const selectedServiceCodes = [...new Set(
+    (Array.isArray(serviceParam) ? serviceParam : serviceParam ? [serviceParam] : [])
+      .map((value) => value.trim())
+      .filter(Boolean),
+  )].slice(0, 20)
   const catalogPage = await listAccessoryCatalog({
     page: requestedPage,
     pageSize,
+    serviceCodes: selectedServiceCodes,
   })
   const accessories = catalogPage.products
   const currentPage = catalogPage.page
   const totalPages = catalogPage.totalPages
+  const paginationQuery = new URLSearchParams()
+  for (const code of selectedServiceCodes) paginationQuery.append('service', code)
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -47,7 +56,11 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
       <div className="mx-auto max-w-[1440px] px-6 lg:px-12 py-12 w-full flex flex-col md:flex-row gap-12">
         {/* Sidebar Filters */}
         <aside className="w-full shrink-0 md:w-72">
-          <AccessoryFilters categories={categories} />
+          <AccessoryFilters
+            categories={categories}
+            serviceLabels={catalogPage.serviceLabels}
+            selectedServiceCodes={selectedServiceCodes}
+          />
         </aside>
 
         {/* Product Grid */}
@@ -75,7 +88,7 @@ export default async function AccessoriesPage(props: { searchParams?: Promise<{ 
               ))}
             </div>
             
-            <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/accessories" />
+            <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/accessories" query={paginationQuery} />
           </div>
       </div>
 

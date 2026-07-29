@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, ChevronLeft, Loader2, Minus, Plus, ShoppingCart } from 'lucide-react'
+import { Check, ChevronLeft, Loader2, Minus, Plus, ShoppingCart, Wrench } from 'lucide-react'
 import Link from 'next/link'
 
 import {
@@ -330,6 +330,15 @@ export function AccessoryDetailClient({
           <p className="mt-3 text-sm text-slate-500">
             Mã sản phẩm: {selectedVariant?.sku ?? 'Chọn đầy đủ tùy chọn'}
           </p>
+          {product.serviceLabels.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {product.serviceLabels.map((label) => (
+                <span key={label.id} className="inline-flex min-h-8 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">
+                  <Wrench size={13} className="text-brand-600" /> {label.name}
+                </span>
+              ))}
+            </div>
+          )}
 
           {price !== undefined && (
             <div className="mt-7 flex items-end gap-3">

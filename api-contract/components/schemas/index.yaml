@@ -109,6 +109,18 @@ ProductCreateRequest:
   $ref: './product.yaml#/ProductCreateRequest'
 ProductPatchRequest:
   $ref: './product.yaml#/ProductPatchRequest'
+ServiceLabel:
+  $ref: './product.yaml#/ServiceLabel'
+ServiceLabelListResponse:
+  $ref: './product.yaml#/ServiceLabelListResponse'
+ServiceLabelCreateRequest:
+  $ref: './product.yaml#/ServiceLabelCreateRequest'
+ServiceLabelPatchRequest:
+  $ref: './product.yaml#/ServiceLabelPatchRequest'
+ReplaceProductServiceLabelsRequest:
+  $ref: './product.yaml#/ReplaceProductServiceLabelsRequest'
+ReplaceProductServiceLabelsResponse:
+  $ref: './product.yaml#/ReplaceProductServiceLabelsResponse'
 
 AddCartItemRequest:
   $ref: './cart.yaml#/AddCartItemRequest'

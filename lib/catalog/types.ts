@@ -1,3 +1,5 @@
+import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
+
 export const CATALOG_PLACEHOLDER_IMAGE = '/images/vf8.png'
 
 export type CatalogProductType = 'ACCESSORY' | 'VEHICLE'
@@ -152,6 +154,7 @@ export type CatalogProduct = {
   productType: CatalogProductType
   displayedPrice: number | null
   content: CatalogProductContent
+  serviceLabels: CatalogServiceLabel[]
   collectionMemberships: CatalogCollectionMembership[]
   legacyImageUrls: string[]
   optionGroups: CatalogOptionGroup[]
@@ -180,6 +183,7 @@ export type CatalogResolvedMedia = {
 
 export type AccessoryCatalogPage = {
   products: CatalogProduct[]
+  serviceLabels: CatalogServiceLabel[]
   page: number
   pageSize: number
   total: number
