@@ -18,7 +18,8 @@ describe('products name-only search migration', () => {
 
   it('indexes only the unaccented product name using simple config', () => {
     const activeSql = migration.split('-- Rollback procedure')[0]
-    expect(activeSql).toContain("to_tsvector(\n    'simple',\n    unaccent(coalesce(new.name, ''))")
+    expect(activeSql).toContain("to_tsvector(\n    'simple',\n    extensions.unaccent(coalesce(new.name, ''))")
+    expect(activeSql.match(/extensions\.unaccent/g)).toHaveLength(3)
     expect(activeSql).not.toContain('new.description')
     expect(activeSql).not.toContain('new.specifications')
     expect(activeSql).not.toContain('sku')

@@ -44,7 +44,7 @@ as $$
 begin
   new.search_vector := to_tsvector(
     'simple',
-    unaccent(coalesce(new.name, ''))
+    extensions.unaccent(coalesce(new.name, ''))
   );
   return new;
 end;
@@ -60,7 +60,7 @@ for each row execute function app_private.products_search_vector();
 update public.products product
    set search_vector = to_tsvector(
      'simple',
-     unaccent(coalesce(product.name, ''))
+     extensions.unaccent(coalesce(product.name, ''))
    );
 
 do $$
@@ -74,7 +74,7 @@ begin
     from public.products product
    where product.search_vector is distinct from to_tsvector(
      'simple',
-     unaccent(coalesce(product.name, ''))
+     extensions.unaccent(coalesce(product.name, ''))
    );
 
   select count(*)
@@ -118,7 +118,7 @@ commit;
 -- begin
 --   new.search_vector := to_tsvector(
 --     'simple',
---     unaccent(
+--     extensions.unaccent(
 --       coalesce(new.name, '') || ' ' ||
 --       coalesce(new.description, '') || ' ' ||
 --       new.specifications::text
@@ -135,7 +135,7 @@ commit;
 -- update public.products product
 -- set search_vector = to_tsvector(
 --   'simple',
---   unaccent(
+--   extensions.unaccent(
 --     coalesce(product.name, '') || ' ' ||
 --     coalesce(product.description, '') || ' ' ||
 --     product.specifications::text
