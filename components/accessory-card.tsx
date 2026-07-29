@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import {
   filterCompatibleVariants,
@@ -195,7 +195,10 @@ function VisualOptionSelector({
                 aria-label={`Chọn ${group.name.toLocaleLowerCase('vi-VN')} ${value.name}${inStock ? '' : ', hết hàng'}`}
                 aria-pressed={selected}
                 disabled={!selectable}
-                onClick={() => onSelect(value.code)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelect(value.code)
+                }}
                 className={`relative h-10 w-10 shrink-0 rounded-lg border-2 bg-white p-[3px] transition disabled:cursor-not-allowed disabled:opacity-30 ${
                   selected
                     ? 'border-brand-600'
@@ -219,7 +222,6 @@ function AccessoryImageCarousel({
   product,
   images,
   productName,
-  detailHref,
   visualOptionGroup,
   selectedVisualValueCode,
   onSelectVisualValue,
@@ -227,7 +229,6 @@ function AccessoryImageCarousel({
   product: CatalogProduct
   images: CatalogResolvedMedia[]
   productName: string
-  detailHref: string
   visualOptionGroup: CatalogOptionGroup | null
   selectedVisualValueCode: string | null
   onSelectVisualValue: (valueCode: string) => void
@@ -304,8 +305,12 @@ function AccessoryImageCarousel({
     }
     dragStart.current = null
     setDragOffset(0)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // fallback
+      }
     }
     window.setTimeout(() => {
       suppressClick.current = false
@@ -325,7 +330,11 @@ function AccessoryImageCarousel({
       onPointerDown={(event) => {
         if (!multiple || event.button !== 0 || (event.target as Element).closest('button')) return
         dragStart.current = event.clientX
-        event.currentTarget.setPointerCapture(event.pointerId)
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // fallback
+        }
       }}
       onPointerMove={(event) => {
         if (dragStart.current === null) return
@@ -335,57 +344,51 @@ function AccessoryImageCarousel({
         setDragOffset(clampedDistance)
       }}
       onPointerUp={finishDrag}
+      onClickCapture={(event) => {
+        if (!suppressClick.current) return
+        event.preventDefault()
+        event.stopPropagation()
+        suppressClick.current = false
+      }}
       onPointerCancel={() => {
         dragStart.current = null
         setDragOffset(0)
         isAnimating.current = false
       }}
     >
-      <Link
-        href={detailHref}
-        aria-label={`Xem ${productName}`}
-        draggable={false}
-        onClickCapture={(event) => {
-          if (!suppressClick.current) return
-          event.preventDefault()
-          suppressClick.current = false
+      <div
+        onTransitionEnd={handleTransitionEnd}
+        className={`flex h-full ${
+          dragStart.current === null && isTransitioning
+            ? 'transition-transform duration-300 ease-out motion-reduce:transition-none'
+            : ''
+        }`}
+        style={{
+          transform: `translate3d(calc(${-activeIndex * 100}% + ${dragOffset}px), 0, 0)`,
         }}
-        className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
       >
-        <div
-          onTransitionEnd={handleTransitionEnd}
-          className={`flex h-full ${
-            dragStart.current === null && isTransitioning
-              ? 'transition-transform duration-300 ease-out motion-reduce:transition-none'
-              : ''
-          }`}
-          style={{
-            transform: `translate3d(calc(${-activeIndex * 100}% + ${dragOffset}px), 0, 0)`,
-          }}
-        >
-          {displayImages.map((image, index) => (
-            <figure
-              key={`${image.url}-${index}`}
-              className={`flex h-full w-full shrink-0 items-center justify-center p-5 sm:p-7 ${visualOptionGroup ? 'pb-20 sm:pb-24' : ''}`}
-              aria-hidden={currentDisplayIndex !== (multiple ? (index === 0 ? images.length : index === displayImages.length - 1 ? 1 : index) : 1)}
-            >
-              <img
-                src={image.url}
-                alt={image.altText ?? `${productName} - ảnh ${index}`}
-                width={720}
-                height={720}
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-                onError={(event) => {
-                  event.currentTarget.src = '/images/vf8.png'
-                }}
-                className="h-full w-full select-none object-contain"
-              />
-            </figure>
-          ))}
-        </div>
-      </Link>
+        {displayImages.map((image, index) => (
+          <figure
+            key={`${image.url}-${index}`}
+            className={`flex h-full w-full shrink-0 items-center justify-center p-5 sm:p-7 ${visualOptionGroup ? 'pb-20 sm:pb-24' : ''}`}
+            aria-hidden={currentDisplayIndex !== (multiple ? (index === 0 ? images.length : index === displayImages.length - 1 ? 1 : index) : 1)}
+          >
+            <img
+              src={image.url}
+              alt={image.altText ?? `${productName} - ảnh ${index}`}
+              width={720}
+              height={720}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onError={(event) => {
+                event.currentTarget.src = '/images/vf8.png'
+              }}
+              className="h-full w-full select-none object-contain"
+            />
+          </figure>
+        ))}
+      </div>
 
       {multiple && (
         <>
@@ -435,6 +438,7 @@ export function AccessoryCard({
   product: CatalogProduct
   selectedVehicle?: string
 }) {
+  const router = useRouter()
   const visualOptionGroup = primaryMediaOptionGroup(product)
   const [selectedVisualValueCode, setSelectedVisualValueCode] = useState(() => (
     initialMediaOptionValue(product, visualOptionGroup)
@@ -458,24 +462,45 @@ export function AccessoryCard({
   const discounted = variant?.salePrice !== null
     && variant?.salePrice !== undefined
     && variant.salePrice < variant.originalPrice
+  const openDetail = () => router.push(detailHref)
 
   return (
-    <article className="overflow-hidden rounded-xl bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.55)] ring-1 ring-slate-200/80 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-28px_rgba(15,23,42,0.5)]">
+    <article
+      role="link"
+      tabIndex={0}
+      aria-label={`Xem ${product.name}`}
+      onClick={(event) => {
+        if ((event.target as Element).closest('button, input, select, textarea, a')) return
+        if (event.metaKey || event.ctrlKey) {
+          window.open(detailHref, '_blank')
+          return
+        }
+        openDetail()
+      }}
+      onAuxClick={(event) => {
+        if (event.button === 1) {
+          if ((event.target as Element).closest('button, input, select, textarea, a')) return
+          window.open(detailHref, '_blank')
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget || event.key !== 'Enter') return
+        event.preventDefault()
+        openDetail()
+      }}
+      className="group cursor-pointer overflow-hidden rounded-xl bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.55)] ring-1 ring-slate-200/80 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-28px_rgba(15,23,42,0.5)] active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+    >
       <AccessoryImageCarousel
         product={product}
         images={images}
         productName={product.name}
-        detailHref={detailHref}
         visualOptionGroup={visualOptionGroup}
         selectedVisualValueCode={selectedVisualValueCode}
         onSelectVisualValue={setSelectedVisualValueCode}
       />
 
-      <Link
-        href={detailHref}
-        className="block p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 sm:p-6"
-      >
-        <h2 className="line-clamp-2 min-h-12 text-xl font-medium leading-6 text-brand-600 transition-colors hover:text-brand-800">
+      <div className="p-5 sm:p-6">
+        <h2 className="line-clamp-2 min-h-12 text-xl font-medium leading-6 text-brand-600 transition-colors group-hover:text-brand-700">
           {product.name}
         </h2>
         <div className="mt-5 flex flex-wrap items-end gap-x-3 gap-y-1">
@@ -488,7 +513,7 @@ export function AccessoryCard({
             </p>
           )}
         </div>
-      </Link>
+      </div>
     </article>
   )
 }
