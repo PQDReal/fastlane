@@ -34,7 +34,10 @@ interface AppState {
   cartLoading: boolean
   cartLoaded: boolean
   cartError: string | null
-  loadCart: () => Promise<CartActionResult>
+  cartOwnerSubject: string | null
+  cartCacheGeneration: number
+  syncCartOwner: (subject: string | null) => boolean
+  loadCart: (ownerSubject?: string) => Promise<CartActionResult>
   addToCart: (
     item: AccessoryCatalogItem,
     quantity?: number,
@@ -105,10 +108,46 @@ export const useAppStore = create<AppState>()((set, get) => ({
   cartLoading: false,
   cartLoaded: false,
   cartError: null,
+  cartOwnerSubject: null,
+  cartCacheGeneration: 0,
 
-  loadCart: async () => {
+  syncCartOwner: (subject) => {
+    const normalizedSubject = subject?.trim() || null
+    if (get().cartOwnerSubject === normalizedSubject) return false
+
+    set((state) => ({
+      cartItems: [],
+      cartId: null,
+      cartVersion: 0,
+      cartLoading: false,
+      cartLoaded: false,
+      cartError: null,
+      cartOwnerSubject: normalizedSubject,
+      cartCacheGeneration: state.cartCacheGeneration + 1,
+    }))
+    return true
+  },
+
+  loadCart: async (ownerSubject) => {
+    const expectedOwner = ownerSubject ?? get().cartOwnerSubject
+    const expectedGeneration = get().cartCacheGeneration
+
+    if (!expectedOwner || get().cartOwnerSubject !== expectedOwner) {
+      return {
+        ok: false,
+        code: 'CART_OWNER_MISMATCH',
+        message: 'Không thể tải giỏ hàng cho phiên tài khoản hiện tại.',
+      }
+    }
+
     set({ cartLoading: true, cartError: null })
     const result = await requestCart('/api/v1/cart')
+    if (
+      get().cartOwnerSubject !== expectedOwner ||
+      get().cartCacheGeneration !== expectedGeneration
+    ) {
+      return { ok: true }
+    }
     if (!result.ok) {
       set({ cartLoading: false, cartLoaded: true, cartError: result.message })
       return result
@@ -118,6 +157,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   addToCart: async (item, quantity = 1) => {
+    const expectedOwner = get().cartOwnerSubject
+    const expectedGeneration = get().cartCacheGeneration
     const previousItems = get().cartItems
     const existing = previousItems.find(
       (cartItem) => cartItem.variantId === item.variantId,
@@ -152,6 +193,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
         quantity,
       }),
     })
+    if (
+      get().cartOwnerSubject !== expectedOwner ||
+      get().cartCacheGeneration !== expectedGeneration
+    ) {
+      return result.ok ? { ok: true } : result
+    }
     if (!result.ok) {
       set({
         cartItems: previousItems,
@@ -165,6 +212,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   removeFromCart: async (id) => {
+    const expectedOwner = get().cartOwnerSubject
+    const expectedGeneration = get().cartCacheGeneration
     const previousItems = get().cartItems
     set({
       cartItems: previousItems.filter((item) => item.id !== id),
@@ -174,6 +223,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const result = await requestCart(`/api/v1/cart/items/${id}`, {
       method: 'DELETE',
     })
+    if (
+      get().cartOwnerSubject !== expectedOwner ||
+      get().cartCacheGeneration !== expectedGeneration
+    ) {
+      return result.ok ? { ok: true } : result
+    }
     if (!result.ok) {
       set({
         cartItems: previousItems,
@@ -196,6 +251,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
     }
 
+    const expectedOwner = get().cartOwnerSubject
+    const expectedGeneration = get().cartCacheGeneration
     const previousItems = get().cartItems
     set({
       cartItems: previousItems.map((cartItem) =>
@@ -208,6 +265,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
       method: 'PATCH',
       body: JSON.stringify({ quantity }),
     })
+    if (
+      get().cartOwnerSubject !== expectedOwner ||
+      get().cartCacheGeneration !== expectedGeneration
+    ) {
+      return result.ok ? { ok: true } : result
+    }
     if (!result.ok) {
       set({
         cartItems: previousItems,
@@ -221,13 +284,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   clearCartCache: () =>
-    set({
+    set((state) => ({
       cartItems: [],
       cartId: null,
       cartVersion: 0,
+      cartLoading: false,
       cartLoaded: false,
       cartError: null,
-    }),
+      cartCacheGeneration: state.cartCacheGeneration + 1,
+    })),
   getCartTotal: () =>
     get().cartItems.reduce(
       (total, item) => total + item.price * item.quantity,

@@ -82,6 +82,8 @@ describe('useAppStore cart cache', () => {
       cartLoading: false,
       cartLoaded: false,
       cartError: null,
+      cartOwnerSubject: null,
+      cartCacheGeneration: 0,
     })
     vi.restoreAllMocks()
   })
@@ -167,5 +169,66 @@ describe('useAppStore cart cache', () => {
 
     expect(result).toMatchObject({ ok: false, code: 'VALIDATION_ERROR' })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('clears the visible cart when the authenticated account changes', () => {
+    useAppStore.setState({
+      cartItems: [
+        {
+          id: catalogItem.variantId,
+          variantId: catalogItem.variantId,
+          productId: catalogItem.productId,
+          productSlug: catalogItem.productSlug,
+          name: catalogItem.name,
+          price: catalogItem.priceAmount,
+          image: catalogItem.image,
+          quantity: 2,
+          sku: catalogItem.sku,
+          availableQuantity: 5,
+        },
+      ],
+      cartLoaded: true,
+      cartOwnerSubject: 'auth0|customer',
+    })
+
+    const changed = useAppStore
+      .getState()
+      .syncCartOwner('auth0|admin')
+
+    expect(changed).toBe(true)
+    expect(useAppStore.getState()).toMatchObject({
+      cartItems: [],
+      cartLoaded: false,
+      cartOwnerSubject: 'auth0|admin',
+      cartCacheGeneration: 1,
+    })
+  })
+
+  it('ignores a cart response from the previous account', async () => {
+    let resolveRequest: ((response: Response) => void) | undefined
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveRequest = resolve
+    })
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(pendingResponse))
+
+    useAppStore.getState().syncCartOwner('auth0|customer')
+    const customerRequest = useAppStore
+      .getState()
+      .loadCart('auth0|customer')
+
+    useAppStore.getState().syncCartOwner('auth0|admin')
+    resolveRequest?.(
+      new Response(JSON.stringify({ data: apiCart(2) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await customerRequest
+
+    expect(useAppStore.getState()).toMatchObject({
+      cartItems: [],
+      cartLoaded: false,
+      cartOwnerSubject: 'auth0|admin',
+    })
   })
 })
