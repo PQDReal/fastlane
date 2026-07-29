@@ -18,19 +18,26 @@ export default async function AccessoriesPage() {
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
 
-      <div className="bg-muted py-20 border-b border-black/5">
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
-          <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6">
-            <Link href="/" className="hover:text-brand-600 transition-colors">Trang chủ</Link>
-            <ChevronRight size={14} />
-            <span className="text-foreground">Phụ kiện chính hãng</span>
+      <header className="border-b border-slate-200/80 bg-white shadow-xs">
+        <div className="mx-auto max-w-[1440px] px-6 py-6 lg:px-12 lg:py-7">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <Link href="/" className="transition hover:text-brand-600">Trang chủ</Link>
+            <ChevronRight size={13} />
+            <span className="font-semibold text-slate-700">Phụ kiện</span>
+          </nav>
+
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl lg:text-4xl">
+                Phụ kiện Chính Hãng VinFast
+              </h1>
+            </div>
+            <p className="max-w-md text-xs leading-5 text-slate-500 sm:text-right sm:text-sm">
+              Tìm theo tên sản phẩm hoặc thu hẹp kết quả theo danh mục và dòng xe phù hợp.
+            </p>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">Phụ kiện chính hãng</h1>
-          <p className="mt-4 text-base text-muted-foreground max-w-2xl mx-auto">
-            Cá nhân hóa chiếc xe của bạn với bộ sưu tập phụ kiện cao cấp, được thiết kế độc quyền cho các dòng xe Fastlane.
-          </p>
         </div>
-      </div>
+      </header>
 
       <AccessoryCatalogBrowser products={catalogPage.products} />
 
