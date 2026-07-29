@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowLeft,
   Check,
@@ -253,10 +254,12 @@ export function AccessoryDetailClient({
     () => defaultVariant?.selectedOptions ?? {},
   )
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
+  const [mediaDirection, setMediaDirection] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [submittingAction, setSubmittingAction] = useState<'cart' | 'checkout' | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const submitting = submittingAction !== null
+  const reduceMotion = useReducedMotion()
 
   const selectedVariant = useMemo(
     () => resolveExactVariant(product, selection),
@@ -284,6 +287,7 @@ export function AccessoryDetailClient({
       valueCode,
     ))
     setSelectedMediaIndex(0)
+    setMediaDirection(0)
     setQuantity(1)
     setFeedback(null)
   }
@@ -331,12 +335,23 @@ export function AccessoryDetailClient({
   const handleAdd = () => handlePurchase('cart')
   const handleBuyNow = () => handlePurchase('checkout')
 
-  const showPreviousMedia = () => setSelectedMediaIndex((current) => (
-    current === 0 ? selectedMedia.length - 1 : current - 1
-  ))
-  const showNextMedia = () => setSelectedMediaIndex((current) => (
-    current >= selectedMedia.length - 1 ? 0 : current + 1
-  ))
+  const showPreviousMedia = () => {
+    setMediaDirection(-1)
+    setSelectedMediaIndex((current) => (
+      current === 0 ? selectedMedia.length - 1 : current - 1
+    ))
+  }
+  const showNextMedia = () => {
+    setMediaDirection(1)
+    setSelectedMediaIndex((current) => (
+      current >= selectedMedia.length - 1 ? 0 : current + 1
+    ))
+  }
+  const selectMedia = (index: number) => {
+    if (index === selectedMediaIndex) return
+    setMediaDirection(index > selectedMediaIndex ? 1 : -1)
+    setSelectedMediaIndex(index)
+  }
   const price = selectedVariant?.effectivePrice ?? product.priceRange?.minimum
   const maximumPrice = selectedVariant ? null : product.priceRange?.maximum
   const hasDiscount = Boolean(
@@ -372,18 +387,48 @@ export function AccessoryDetailClient({
 
         <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-10">
           <section aria-label="Hình ảnh sản phẩm" className="min-w-0">
-            <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center overflow-hidden border border-slate-200 bg-white p-6 sm:p-8">
+            <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center overflow-hidden border border-slate-200 bg-white">
               <div className="absolute left-4 top-4 z-10 rounded-sm border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
                 Media {String(selectedMediaIndex + 1).padStart(2, '0')} / {String(selectedMedia.length).padStart(2, '0')}
               </div>
-              {activeMedia && <MediaPreview media={activeMedia} productName={product.name} />}
+              <AnimatePresence initial={false} custom={mediaDirection}>
+                {activeMedia && (
+                  <motion.div
+                    key={`${activeMedia.url}-${selectedMediaIndex}`}
+                    custom={mediaDirection}
+                    variants={{
+                      enter: (direction: number) => ({
+                        opacity: 0,
+                        x: reduceMotion || direction === 0 ? 0 : direction > 0 ? 56 : -56,
+                        scale: reduceMotion ? 1 : 0.985,
+                      }),
+                      center: { opacity: 1, x: 0, scale: 1 },
+                      exit: (direction: number) => ({
+                        opacity: 0,
+                        x: reduceMotion || direction === 0 ? 0 : direction > 0 ? -56 : 56,
+                        scale: reduceMotion ? 1 : 0.985,
+                      }),
+                    }}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{
+                      duration: reduceMotion ? 0.12 : 0.3,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="absolute inset-0 flex items-center justify-center p-6 sm:p-8"
+                  >
+                    <MediaPreview media={activeMedia} productName={product.name} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {selectedMedia.length > 1 && (
                 <>
                   <button
                     type="button"
                     aria-label="Ảnh trước"
                     onClick={showPreviousMedia}
-                    className="absolute left-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm backdrop-blur transition hover:border-slate-400"
+                    className="absolute left-4 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm backdrop-blur transition hover:border-slate-400 active:scale-95"
                   >
                     <ChevronLeft size={20} />
                   </button>
@@ -391,7 +436,7 @@ export function AccessoryDetailClient({
                     type="button"
                     aria-label="Ảnh sau"
                     onClick={showNextMedia}
-                    className="absolute right-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm backdrop-blur transition hover:border-slate-400"
+                    className="absolute right-4 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm backdrop-blur transition hover:border-slate-400 active:scale-95"
                   >
                     <ChevronRight size={20} />
                   </button>
@@ -407,8 +452,8 @@ export function AccessoryDetailClient({
                     type="button"
                     aria-label={`Xem media ${index + 1}`}
                     aria-current={selectedMediaIndex === index ? 'true' : undefined}
-                    onClick={() => setSelectedMediaIndex(index)}
-                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-sm border bg-white p-2 transition ${selectedMediaIndex === index ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-400'}`}
+                    onClick={() => selectMedia(index)}
+                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-sm border bg-white p-2 transition active:scale-[0.97] ${selectedMediaIndex === index ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-400'}`}
                   >
                     <MediaPreview media={media} productName={product.name} thumbnail />
                   </button>
