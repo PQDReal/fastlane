@@ -8,11 +8,8 @@ import {
   ChevronRight,
   Loader2,
   Minus,
-  PackageCheck,
   Plus,
-  ShieldCheck,
   ShoppingCart,
-  Store,
   Wrench,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -394,19 +391,6 @@ export function AccessoryDetailClient({
               </div>
             )}
 
-            <div className="mt-7 grid max-w-[520px] grid-cols-3 border-y border-slate-200 bg-white">
-              {[
-                { icon: ShieldCheck, title: 'Chính hãng', detail: 'Nguồn VinFast' },
-                { icon: PackageCheck, title: 'Theo tồn kho', detail: 'Cập nhật theo SKU' },
-                { icon: Store, title: 'Showroom', detail: 'Theo nhãn dịch vụ' },
-              ].map((item, index) => (
-                <div key={item.title} className={`p-4 ${index > 0 ? 'border-l border-slate-200' : ''}`}>
-                  <item.icon size={19} className="text-brand-600" />
-                  <p className="mt-2 text-sm font-bold text-slate-900">{item.title}</p>
-                  <p className="mt-1 text-[11px] text-slate-400">{item.detail}</p>
-                </div>
-              ))}
-            </div>
           </section>
 
           <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(280px,1fr)_minmax(320px,390px)] xl:gap-10">
