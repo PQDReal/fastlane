@@ -172,6 +172,34 @@ export type CatalogProductContent = {
   sections: CatalogAccessoryContentSection[]
 }
 
+export type AccessoryCatalogSort = 'name-asc' | 'price-asc' | 'price-desc'
+
+export type AccessoryStockFilter = 'all' | 'in-stock'
+
+export type AccessoryCatalogFilters = {
+  query: string
+  category: string | null
+  vehicle: string | null
+  services: string[]
+  stock: AccessoryStockFilter
+  sort: AccessoryCatalogSort
+}
+
+export type AccessoryCatalogFacetOption = {
+  value: string
+  label: string
+  count: number
+}
+
+export type AccessoryCatalogFacets = {
+  categories: AccessoryCatalogFacetOption[]
+  vehicles: AccessoryCatalogFacetOption[]
+  vehicleRelevantCategories: string[]
+  vehiclesByCategory: Record<string, AccessoryCatalogFacetOption[]>
+  services: AccessoryCatalogFacetOption[]
+  total: number
+}
+
 export type CatalogProduct = {
   id: string
   categoryId: string | null
@@ -216,6 +244,7 @@ export type AccessoryCatalogPage = {
   pageSize: number
   total: number
   totalPages: number
+  facets: AccessoryCatalogFacets
 }
 
 export type CatalogVariantContext = {

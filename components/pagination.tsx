@@ -5,14 +5,22 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   baseUrl: string;
-  query?: URLSearchParams;
+  query?: URLSearchParams | Record<string, string | string[] | undefined>;
 }
 
 export function Pagination({ currentPage, totalPages, baseUrl, query }: PaginationProps) {
   if (totalPages <= 1) return null;
 
-  const pageHref = (page: number) => {
-    const params = new URLSearchParams(query)
+  const href = (page: number) => {
+    const params = query instanceof URLSearchParams
+      ? new URLSearchParams(query)
+      : new URLSearchParams()
+    if (query && !(query instanceof URLSearchParams)) {
+      for (const [key, value] of Object.entries(query)) {
+        if (Array.isArray(value)) value.forEach((item) => params.append(key, item))
+        else if (value) params.set(key, value)
+      }
+    }
     params.set('page', String(page))
     return `${baseUrl}?${params.toString()}`
   }
@@ -36,10 +44,12 @@ export function Pagination({ currentPage, totalPages, baseUrl, query }: Paginati
   };
 
   return (
-    <div className="flex items-center justify-center gap-2 mt-12">
+    <nav aria-label="Phân trang" className="mt-12 flex items-center justify-center gap-2">
       <Link 
-        href={currentPage > 1 ? pageHref(currentPage - 1) : '#'}
-        className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${currentPage > 1 ? 'border-muted hover:bg-muted text-foreground' : 'border-black/5 text-muted-foreground pointer-events-none'}`}
+        href={currentPage > 1 ? href(currentPage - 1) : '#'}
+        aria-label="Trang trước"
+        aria-disabled={currentPage <= 1}
+        className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors ${currentPage > 1 ? 'border-muted hover:bg-muted text-foreground' : 'border-black/5 text-muted-foreground pointer-events-none'}`}
       >
         <ChevronLeft size={16} />
       </Link>
@@ -47,7 +57,7 @@ export function Pagination({ currentPage, totalPages, baseUrl, query }: Paginati
       {getPages().map((p, i) => {
         if (p === '...') {
           return (
-            <div key={`ellipsis-${i}`} className="w-10 h-10 flex items-center justify-center text-muted-foreground">
+            <div key={`ellipsis-${i}`} className="flex h-11 w-11 items-center justify-center text-muted-foreground">
               <MoreHorizontal size={16} />
             </div>
           );
@@ -57,8 +67,10 @@ export function Pagination({ currentPage, totalPages, baseUrl, query }: Paginati
         return (
           <Link 
             key={p}
-            href={pageHref(Number(p))}
-            className={`w-10 h-10 flex items-center justify-center rounded-full font-medium text-sm transition-colors ${isActive ? 'bg-foreground text-background shadow-sm' : 'hover:bg-muted text-muted-foreground'}`}
+            href={href(Number(p))}
+            aria-current={isActive ? 'page' : undefined}
+            aria-label={`Trang ${p}`}
+            className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium transition-colors ${isActive ? 'bg-foreground text-background shadow-sm' : 'hover:bg-muted text-muted-foreground'}`}
           >
             {p}
           </Link>
@@ -66,11 +78,13 @@ export function Pagination({ currentPage, totalPages, baseUrl, query }: Paginati
       })}
       
       <Link 
-        href={currentPage < totalPages ? pageHref(currentPage + 1) : '#'}
-        className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${currentPage < totalPages ? 'border-muted hover:bg-muted text-foreground' : 'border-black/5 text-muted-foreground pointer-events-none'}`}
+        href={currentPage < totalPages ? href(currentPage + 1) : '#'}
+        aria-label="Trang sau"
+        aria-disabled={currentPage >= totalPages}
+        className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors ${currentPage < totalPages ? 'border-muted hover:bg-muted text-foreground' : 'border-black/5 text-muted-foreground pointer-events-none'}`}
       >
         <ChevronRight size={16} />
       </Link>
-    </div>
+    </nav>
   )
 }
