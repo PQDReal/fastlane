@@ -233,112 +233,183 @@ function AccessoryImageCarousel({
   selectedVisualValueCode: string | null
   onSelectVisualValue: (valueCode: string) => void
 }) {
+  const fullSlideDuration = 300
+  const minimumSettleDuration = 60
+  const maximumDragRatio = 0.92
   const multiple = images.length > 1
+
+  const [activeIndex, setActiveIndex] = useState(1)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [transitionDuration, setTransitionDuration] = useState(fullSlideDuration)
+
+  const dragStart = useRef<number | null>(null)
+  const dragPointerId = useRef<number | null>(null)
+  const suppressClick = useRef(false)
+  const fallbackTimer = useRef<number | null>(null)
+
   const displayImages = useMemo(() => {
     if (!multiple) return images
     return [images[images.length - 1], ...images, images[0]]
   }, [images, multiple])
 
-  const [activeIndex, setActiveIndex] = useState(multiple ? 1 : 0)
-  const [dragOffset, setDragOffset] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(true)
-  const isAnimating = useRef(false)
-  const dragStart = useRef<number | null>(null)
-  const suppressClick = useRef(false)
-  const signature = images.map((image) => image.url).join('|')
+  const signature = images.map((img) => img.url).join('|')
 
   useLayoutEffect(() => {
-    setIsTransitioning(false)
+    if (fallbackTimer.current !== null) {
+      window.clearTimeout(fallbackTimer.current)
+      fallbackTimer.current = null
+    }
+    dragStart.current = null
+    dragPointerId.current = null
     setActiveIndex(multiple ? 1 : 0)
     setDragOffset(0)
-    isAnimating.current = false
-    const frame = window.requestAnimationFrame(() => {
-      setIsTransitioning(true)
-    })
-    return () => window.cancelAnimationFrame(frame)
+    setIsDragging(false)
+    setIsTransitioning(false)
+    setTransitionDuration(fullSlideDuration)
   }, [signature, multiple])
 
-  const unlockAnimation = () => {
-    window.setTimeout(() => {
-      isAnimating.current = false
-    }, 50)
-  }
+  useEffect(() => () => {
+    if (fallbackTimer.current !== null) {
+      window.clearTimeout(fallbackTimer.current)
+    }
+  }, [])
 
-  const previous = () => {
-    if (!multiple || isAnimating.current) return
-    isAnimating.current = true
-    setIsTransitioning(true)
-    setActiveIndex((current) => current - 1)
-  }
+  const finalizeTransition = (targetIndex: number) => {
+    if (fallbackTimer.current !== null) {
+      window.clearTimeout(fallbackTimer.current)
+      fallbackTimer.current = null
+    }
 
-  const next = () => {
-    if (!multiple || isAnimating.current) return
-    isAnimating.current = true
-    setIsTransitioning(true)
-    setActiveIndex((current) => current + 1)
-  }
+    if (!multiple) {
+      setIsTransitioning(false)
+      setDragOffset(0)
+      return
+    }
 
-  const handleTransitionEnd = () => {
-    if (!multiple) return
-    if (activeIndex === 0) {
+    if (targetIndex === 0) {
       setIsTransitioning(false)
       setActiveIndex(images.length)
-    } else if (activeIndex === displayImages.length - 1) {
+    } else if (targetIndex === images.length + 1) {
       setIsTransitioning(false)
       setActiveIndex(1)
+    } else {
+      setIsTransitioning(false)
     }
-    unlockAnimation()
+    setDragOffset(0)
+  }
+
+  const move = (direction: -1 | 1, duration = fullSlideDuration) => {
+    if (!multiple || isTransitioning) return
+
+    const nextIndex = activeIndex + direction
+    setIsTransitioning(true)
+    setTransitionDuration(duration)
+    setDragOffset(0)
+    setActiveIndex(nextIndex)
+
+    if (fallbackTimer.current !== null) {
+      window.clearTimeout(fallbackTimer.current)
+    }
+    fallbackTimer.current = window.setTimeout(() => {
+      finalizeTransition(nextIndex)
+    }, duration + 50)
+  }
+
+  const snapBack = (duration: number) => {
+    setIsTransitioning(true)
+    setTransitionDuration(duration)
+    setDragOffset(0)
+
+    if (fallbackTimer.current !== null) {
+      window.clearTimeout(fallbackTimer.current)
+    }
+    fallbackTimer.current = window.setTimeout(() => {
+      finalizeTransition(activeIndex)
+    }, duration + 50)
   }
 
   const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragStart.current === null) return
+    if (dragStart.current === null || dragPointerId.current !== event.pointerId) return
+
     const rawDistance = event.clientX - dragStart.current
-    suppressClick.current = Math.abs(rawDistance) > 6
-    if (Math.abs(rawDistance) >= 44 && !isAnimating.current) {
-      isAnimating.current = true
-      setIsTransitioning(true)
-      if (rawDistance <= -44) setActiveIndex((current) => current + 1)
-      else if (rawDistance >= 44) setActiveIndex((current) => current - 1)
-    } else {
-      setIsTransitioning(true)
-      unlockAnimation()
-    }
     dragStart.current = null
-    setDragOffset(0)
+    dragPointerId.current = null
+
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       try {
         event.currentTarget.releasePointerCapture(event.pointerId)
       } catch {
-        // fallback
+        // ignore fallback
       }
     }
+
+    setIsDragging(false)
+
+    const width = Math.max(event.currentTarget.clientWidth, 1)
+    const dragProgress = Math.min(Math.abs(rawDistance) / width, maximumDragRatio)
+    suppressClick.current = Math.abs(rawDistance) > 6
+
+    if (rawDistance <= -44) {
+      const remainingDuration = Math.max(
+        minimumSettleDuration,
+        Math.round(fullSlideDuration * (1 - dragProgress)),
+      )
+      move(1, remainingDuration)
+    } else if (rawDistance >= 44) {
+      const remainingDuration = Math.max(
+        minimumSettleDuration,
+        Math.round(fullSlideDuration * (1 - dragProgress)),
+      )
+      move(-1, remainingDuration)
+    } else {
+      const returnDuration = Math.max(
+        minimumSettleDuration,
+        Math.round(fullSlideDuration * dragProgress),
+      )
+      snapBack(returnDuration)
+    }
+
     window.setTimeout(() => {
       suppressClick.current = false
     }, 0)
   }
 
-  const currentDisplayIndex = multiple
-    ? (((activeIndex - 1) % images.length + images.length) % images.length) + 1
-    : 1
+  const activeLogicalIndex = multiple
+    ? (activeIndex === 0 ? images.length - 1 : activeIndex === images.length + 1 ? 0 : activeIndex - 1)
+    : 0
 
   return (
     <div
       role="region"
       aria-label={`Ảnh ${productName}`}
-      className={`group/gallery relative aspect-square select-none overflow-hidden bg-[#f3f5f6] ${multiple ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`group/gallery relative aspect-square select-none overflow-hidden bg-[#f3f5f6] ${
+        multiple ? 'cursor-grab active:cursor-grabbing' : ''
+      }`}
       style={{ touchAction: multiple ? 'pan-y' : 'auto' }}
       onPointerDown={(event) => {
-        if (!multiple || event.button !== 0 || (event.target as Element).closest('button')) return
+        if (
+          !multiple
+          || event.button !== 0
+          || isTransitioning
+          || dragStart.current !== null
+          || (event.target as Element).closest('button')
+        ) return
+
         dragStart.current = event.clientX
+        dragPointerId.current = event.pointerId
+        setIsDragging(true)
         try {
           event.currentTarget.setPointerCapture(event.pointerId)
         } catch {
-          // fallback
+          // ignore
         }
       }}
       onPointerMove={(event) => {
-        if (dragStart.current === null) return
-        const limit = event.currentTarget.clientWidth * 0.92
+        if (dragStart.current === null || dragPointerId.current !== event.pointerId) return
+
+        const limit = event.currentTarget.clientWidth * maximumDragRatio
         const distance = event.clientX - dragStart.current
         const clampedDistance = Math.max(-limit, Math.min(limit, distance))
         setDragOffset(clampedDistance)
@@ -350,28 +421,34 @@ function AccessoryImageCarousel({
         event.stopPropagation()
         suppressClick.current = false
       }}
-      onPointerCancel={() => {
+      onPointerCancel={(event) => {
+        if (dragStart.current === null || dragPointerId.current !== event.pointerId) return
         dragStart.current = null
-        setDragOffset(0)
-        isAnimating.current = false
+        dragPointerId.current = null
+        setIsDragging(false)
+        snapBack(minimumSettleDuration)
       }}
     >
       <div
-        onTransitionEnd={handleTransitionEnd}
-        className={`flex h-full ${
-          dragStart.current === null && isTransitioning
-            ? 'transition-transform duration-300 ease-out motion-reduce:transition-none'
-            : ''
-        }`}
+        onTransitionEnd={(event) => {
+          if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
+          finalizeTransition(activeIndex)
+        }}
+        className="flex h-full"
         style={{
           transform: `translate3d(calc(${-activeIndex * 100}% + ${dragOffset}px), 0, 0)`,
+          transition: isTransitioning
+            ? `transform ${transitionDuration}ms cubic-bezier(0.16, 1, 0.3, 1)`
+            : 'none',
         }}
       >
         {displayImages.map((image, index) => (
           <figure
-            key={`${image.url}-${index}`}
-            className={`flex h-full w-full shrink-0 items-center justify-center p-5 sm:p-7 ${visualOptionGroup ? 'pb-20 sm:pb-24' : ''}`}
-            aria-hidden={currentDisplayIndex !== (multiple ? (index === 0 ? images.length : index === displayImages.length - 1 ? 1 : index) : 1)}
+            key={`${index}-${image.url}`}
+            className={`flex h-full w-full shrink-0 items-center justify-center p-5 sm:p-7 ${
+              visualOptionGroup ? 'pb-20 sm:pb-24' : ''
+            }`}
+            aria-hidden={multiple ? index !== activeIndex : false}
           >
             <img
               src={image.url}
@@ -395,24 +472,27 @@ function AccessoryImageCarousel({
           <button
             type="button"
             aria-label={`Ảnh trước của ${productName}`}
+            disabled={isTransitioning}
             onClick={(e) => {
               e.stopPropagation()
               e.currentTarget.blur()
-              previous()
+              move(-1)
             }}
-            className="absolute left-3 top-1/2 z-20 grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/80 bg-white/80 text-brand-600 shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:opacity-0 sm:group-hover/gallery:opacity-100"
+            className="absolute left-3 top-1/2 z-20 grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/80 bg-white/80 text-brand-600 shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default sm:opacity-0 sm:group-hover/gallery:opacity-100"
           >
             <ChevronLeft size={24} strokeWidth={2.5} />
           </button>
+
           <button
             type="button"
             aria-label={`Ảnh sau của ${productName}`}
+            disabled={isTransitioning}
             onClick={(e) => {
               e.stopPropagation()
               e.currentTarget.blur()
-              next()
+              move(1)
             }}
-            className="absolute right-3 top-1/2 z-20 grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/80 bg-white/80 text-brand-600 shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:opacity-0 sm:group-hover/gallery:opacity-100"
+            className="absolute right-3 top-1/2 z-20 grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/80 bg-white/80 text-brand-600 shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default sm:opacity-0 sm:group-hover/gallery:opacity-100"
           >
             <ChevronRight size={24} strokeWidth={2.5} />
           </button>
