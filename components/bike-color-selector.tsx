@@ -50,6 +50,26 @@ function colorHex(colorName: string) {
   return colorMap[colorName] || '#CCCCCC'
 }
 
+function colorBackground(colorName: string) {
+  const normalized = colorName.toLocaleLowerCase('vi')
+
+  if (
+    normalized.includes('đỏ') &&
+    normalized.includes('đen')
+  ) {
+    return 'linear-gradient(135deg, #B5122B 0 50%, #171717 50% 100%)'
+  }
+
+  if (
+    normalized.includes('trắng') &&
+    normalized.includes('cam')
+  ) {
+    return 'linear-gradient(135deg, #F4F4F2 0 50%, #E96324 50% 100%)'
+  }
+
+  return colorHex(colorName)
+}
+
 function isLightColor(colorName: string, hexCode: string) {
   const normalized = colorName.toLocaleLowerCase('vi')
   if (
@@ -128,7 +148,7 @@ export function BikeColorSelector({ colors, images }: BikeColorSelectorProps) {
                     key={colorName}
                     onClick={() => setSelectedIndex(idx)}
                     className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 overflow-hidden shadow-sm`}
-                    style={{ backgroundColor: swatchImg ? 'transparent' : hexCode }}
+                    style={{ background: swatchImg ? 'transparent' : colorBackground(colorName) }}
                     title={colorName}
                   >
                     {swatchImg && (

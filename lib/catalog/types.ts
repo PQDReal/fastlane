@@ -140,6 +140,8 @@ export type CatalogPriceRange = {
 export type CatalogProductContent = {
   specificationText: string | null
   specifications: Record<string, unknown>
+  category?: string | null
+  categories?: string[]
 }
 
 export type CatalogProduct = {
@@ -151,6 +153,7 @@ export type CatalogProduct = {
   description: string | null
   productType: CatalogProductType
   displayedPrice: number | null
+  createdAt?: string | null
   content: CatalogProductContent
   collectionMemberships: CatalogCollectionMembership[]
   legacyImageUrls: string[]

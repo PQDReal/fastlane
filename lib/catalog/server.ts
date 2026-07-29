@@ -16,6 +16,7 @@ const CATALOG_PRODUCT_SELECT = `
   description,
   product_type,
   displayed_price,
+  created_at,
   image_urls,
   specifications,
   category:categories!inner(id,name,slug),

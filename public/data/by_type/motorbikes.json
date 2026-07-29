@@ -1127,7 +1127,7 @@
         "status": "Đang kinh doanh",
         "specs": {
             "Tiền đặt cọc": "2.000.000 VNĐ",
-            "Màu sắc": "Xanh oliu, Đỏ tươi, Đen nhám, Trắng ngọc trai",
+            "Màu sắc": "Trắng ngọc trai, Đen nhám, Xanh Oliu, Đỏ tươi, Vàng cát",
             "Dài x Rộng x Cao (mm)": "1856 x 683 x 1133mm",
             "Khoảng cách trục bánh Trước-Sau": "",
             "Khoảng sáng gầm": "",
@@ -1142,8 +1142,8 @@
             "Đèn pha trước": "",
             "Loại động cơ": "Inhub",
             "Công suất danh định": "",
-            "Công suất tối đa": "2450 W (Evo) 2300 W (Evo Lite)",
-            "Tốc độ tối đa": "70 km/h (Evo) 49 km/h (Evo Lite)",
+            "Công suất tối đa": "2250 W",
+            "Tốc độ tối đa": "70 km/h",
             "Tốc độ tối đa - SPORT": "",
             "Tốc độ tối đa - ECO": "",
             "Gia tốc 0 - 50 km/h": "",
@@ -1425,7 +1425,7 @@
     {
         "name": "Evo Neo",
         "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-evo-neo.html",
-        "price": "18.000.000 VNĐ",
+        "price": "Kèm Pin: 17.800.000 VNĐ / Không kèm Pin: 12.200.000 VNĐ",
         "deposit": "2.000.000 VNĐ",
         "colors": [
             "Đen nhám",
@@ -1435,8 +1435,8 @@
             "Trắng ngọc trai"
         ],
         "variants": [
-            "Tùy chọn Kèm Pin (Mua đứt pin)",
-            "Tùy chọn Không kèm Pin (Thuê pin)"
+            "Kèm Pin: 17.800.000 VNĐ",
+            "Không kèm Pin: 12.200.000 VNĐ"
         ],
         "product_type": "motorbike",
         "status": "Đang kinh doanh",
@@ -1489,8 +1489,20 @@
         ],
         "color_details": [
             {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/BAR.png"
+            },
+            {
                 "color_name": "Đỏ tươi",
                 "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/REQ.png"
+            },
+            {
+                "color_name": "Xanh tím than",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/BUR.png"
+            },
+            {
+                "color_name": "Xanh rêu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/GNQ.png"
             },
             {
                 "color_name": "Trắng ngọc trai",
@@ -1802,9 +1814,37 @@
         "product_type": "motorbike",
         "status": "Đang kinh doanh",
         "specs": {
-            "Vận tốc lên tới": "90 km/h",
-            "Quãng đường đi được 1 lần sạc lên tới": "145 km",
-            "Công suất tối đa lên tới": "5200 W"
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen Bóng; Trắng Ngọc Trai; Xám Xi Măng; Đỏ Đen; Nâu Ánh Kim",
+            "Dài x Rộng x Cao (mm)": "2021 x 713 x 1135 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1360 mm",
+            "Khoảng sáng gầm": "160 mm",
+            "Chiều cao yên": "785 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "22L",
+            "Kích thước lốp Trước - Sau": "Trước: 90/90-14; Sau: 120/70-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khóa thông minh (Smart key)",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "3000 W",
+            "Công suất tối đa": "~5200 W",
+            "Tốc độ tối đa": "90 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "2 x 1,5 kWh (2 pin chạy song song)",
+            "Trọng lượng pin/ắc quy": "24 kg",
+            "Loại sạc": "Sạc tiêu chuẩn; hỗ trợ sạc 1000 W",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 9 giờ; khoảng 3,5 giờ nếu dùng sạc 1000 W",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 145 km",
+            "Tiêu chuẩn chống nước động cơ": ""
         },
         "quick_specs": [
             {
@@ -1943,9 +1983,37 @@
         "product_type": "motorbike",
         "status": "Đang kinh doanh",
         "specs": {
-            "Vận tốc lên tới": "70 km/h",
-            "Quãng đường đi được 1 lần sạc lên tới": "160 km",
-            "Công suất tối đa lên tới": "3000 W"
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Nâu Ánh Kim; Trắng Ngọc Trai; Xanh Oliu; Đen Bóng; Đỏ",
+            "Dài x Rộng x Cao (mm)": "1999 x 694 x 1130 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1360 mm",
+            "Khoảng sáng gầm": "160 mm",
+            "Chiều cao yên": "785 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "21L",
+            "Kích thước lốp Trước - Sau": "Trước: 90/90-14; Sau: 120/70-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khóa thông minh (Smart key)",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1800 W",
+            "Công suất tối đa": "~3000 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "1 pin LFP (Tùy chọn lắp thêm 1 pin)",
+            "Dung lượng pin/ắc quy": "1,5 kWh",
+            "Trọng lượng pin/ắc quy": "12 kg",
+            "Loại sạc": "Bộ sạc tiêu chuẩn",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 4 giờ 30 phút (từ 0% đến 100%)",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 160 km khi lắp 2 pin",
+            "Tiêu chuẩn chống nước động cơ": ""
         },
         "quick_specs": [
             {

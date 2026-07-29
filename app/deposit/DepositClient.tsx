@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
+import {
+  findDepositVehicle,
+  type DepositVehicleType,
+} from '../../lib/deposit-vehicles'
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -11,14 +15,42 @@ function stringArray(value: unknown): string[] {
     : []
 }
 
-export function DepositClient({ carsData, specsData, initialCar }: { carsData: any[], specsData: any, initialCar?: string }) {
-  const defaultCar = initialCar && carsData.some(c => c.name === initialCar) ? initialCar : 'VF 8'
-  const defaultVariant = defaultCar === 'VF 3' ? 'VF 3 Eco' : (defaultCar === 'VF 2' ? 'VF 2 Tiêu chuẩn' : `${defaultCar} Plus`)
+export function DepositClient({
+  carsData,
+  motorbikesData,
+  specsData,
+  initialCar,
+  initialVehicleType,
+}: {
+  carsData: any[]
+  motorbikesData: any[]
+  specsData: any
+  initialCar?: string
+  initialVehicleType: DepositVehicleType
+}) {
+  const initialVehicles =
+    initialVehicleType === 'motorbike' ? motorbikesData : carsData
+  const matchedInitialVehicle = findDepositVehicle(initialVehicles, initialCar)
+  const defaultCar =
+    matchedInitialVehicle?.name ||
+    (initialVehicleType === 'motorbike' ? motorbikesData[0]?.name : 'VF 8')
+  const defaultVariant =
+    initialVehicleType === 'motorbike'
+      ? `${defaultCar} ${matchedInitialVehicle?.variants?.[0] || motorbikesData[0]?.variants?.[0] || 'Bản tiêu chuẩn'}`
+      : defaultCar === 'VF 3'
+        ? 'VF 3 Eco'
+        : defaultCar === 'VF 2'
+          ? 'VF 2 Tiêu chuẩn'
+          : `${defaultCar} Plus`
 
+  const [vehicleType, setVehicleType] =
+    useState<DepositVehicleType>(initialVehicleType)
   const [selectedCarId, setSelectedCarId] = useState(defaultCar)
   const [selectedVariant, setSelectedVariant] = useState(defaultVariant)
   const [selectedColor, setSelectedColor] = useState('Infinity Blanc')
-  const [selectedInteriorColor, setSelectedInteriorColor] = useState('Granite Black')
+  const [selectedInteriorColor, setSelectedInteriorColor] = useState(
+    initialVehicleType === 'motorbike' ? '' : 'Granite Black',
+  )
   const [viewMode, setViewMode] = useState<'exterior'|'interior'>('exterior')
   const [interiorImageIndex, setInteriorImageIndex] = useState(0)
   const [selectedPackages, setSelectedPackages] = useState<string[]>([])
@@ -42,8 +74,17 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
     setInteriorImageIndex(0)
   }, [selectedInteriorColor, selectedCarId])
 
-  const availableCars = carsData.filter(c => c.name.startsWith('VF') || c.name.startsWith('MPV') || c.name.startsWith('VinFast'))
-    .sort((a, b) => {
+  const availableCars =
+    vehicleType === 'motorbike'
+      ? motorbikesData
+      : carsData
+          .filter(
+            (c) =>
+              c.name.startsWith('VF') ||
+              c.name.startsWith('MPV') ||
+              c.name.startsWith('VinFast'),
+          )
+          .sort((a, b) => {
       const getOrder = (name: string) => {
         if (name.includes('VF 2')) return 2
         if (name.includes('VF 3')) return 3
@@ -59,6 +100,22 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
       if (orderA !== orderB) return orderA - orderB
       return a.name.length - b.name.length
     })
+
+  const handleVehicleTypeChange = (nextType: DepositVehicleType) => {
+    if (nextType === vehicleType) return
+
+    const nextVehicles = nextType === 'motorbike' ? motorbikesData : carsData
+    const nextDefault =
+      nextType === 'motorbike'
+        ? nextVehicles[0]
+        : findDepositVehicle(nextVehicles, 'VF 8') || nextVehicles[0]
+
+    setVehicleType(nextType)
+    setSelectedCarId(nextDefault?.name || '')
+    setViewMode('exterior')
+    setInteriorImageIndex(0)
+    setSelectedInteriorColor(nextType === 'motorbike' ? '' : 'Granite Black')
+  }
 
   const handleExteriorColorChange = (newColor: string) => {
     setSelectedColor(newColor)
@@ -138,7 +195,8 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
       
       const order_number = 'VF' + Math.floor(Math.random() * 1000000)
 
-      const currentCarObj = carsData.find(c => c.name === selectedCarId) || carsData[0]
+      const currentCarObj =
+        availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
       const currentSpecsObj = specsData[currentCarObj.name] || {}
       
       const selectedVariantName = selectedVariant.replace(currentCarObj.name + ' ', '')
@@ -173,11 +231,16 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
           car_model: currentCarObj.name,
           car_variant: selectedVariant,
           exterior_color: selectedColor,
-          interior_color: selectedInteriorColor,
+          interior_color:
+            currentCarObj.product_type === 'motorbike'
+              ? ''
+              : selectedInteriorColor,
           optional_packages: selectedPackages,
           showroom: 'VinFast Landmark 81',
           payment_method: paymentMethod,
-          deposit_amount: 10000000,
+          deposit_amount:
+            currentCarObj.deposit_value ||
+            (currentCarObj.product_type === 'motorbike' ? 2000000 : 10000000),
           total_estimated_price: totalPrice
         })
       }).then(res => res.json()).then(res => {
@@ -195,10 +258,16 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
   }
   
   // Find current car
-  const currentCar = carsData.find(c => c.name === selectedCarId) || carsData[0]
+  const currentCar =
+    availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
+  const isMotorbike = currentCar.product_type === 'motorbike'
   const currentSpecs = specsData[currentCar.name] || {}
   
-  let variants = Object.keys(currentSpecs.variants || {}).sort((a, b) => {
+  let variants = (
+    isMotorbike
+      ? currentCar.variants || []
+      : Object.keys(currentSpecs.variants || {})
+  ).sort((a: string, b: string) => {
     if (currentCar.name === 'VF 8') {
       if (a.toLowerCase().includes('plus')) return -1
       if (b.toLowerCase().includes('plus')) return 1
@@ -209,9 +278,9 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
     return 0
   })
   
-  if (currentCar.name === 'VF 3') {
+  if (!isMotorbike && currentCar.name === 'VF 3') {
     variants = ['Eco', 'Plus']
-  } else if (currentCar.name === 'VF 2') {
+  } else if (!isMotorbike && currentCar.name === 'VF 2') {
     variants = ['Tiêu chuẩn']
   }
   const colors = currentCar.colors || []
@@ -231,10 +300,10 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
     }
   }, [selectedCarId, currentCar.name])
 
-  let baseColors = colors.slice(0, 4)
-  let advancedColors = colors.slice(4)
+  let baseColors = isMotorbike ? colors : colors.slice(0, 4)
+  let advancedColors = isMotorbike ? [] : colors.slice(4)
 
-  if (currentCar.name === 'VF 2') {
+  if (!isMotorbike && currentCar.name === 'VF 2') {
     const vf2Base = ['Infinity Blanc', 'Solar Ruby', 'Desat Silver']
     baseColors = colors.filter((c: any) => vf2Base.includes(c.name))
     advancedColors = colors.filter((c: any) => !vf2Base.includes(c.name))
@@ -378,14 +447,16 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
   const powetrain = currentSpecs.variants?.[variants[0]]?.specs?.powertrain || {}
   const dimension = currentSpecs.variants?.[variants[0]]?.specs?.dimension || {}
   
-  let availableInteriorColors = [
+  let availableInteriorColors = isMotorbike
+    ? []
+    : [
     { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' },
     { name: 'Saddle Brown', hex: '#633517', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw65203801/images/deposit/interior/CI12.webp' },
     { name: 'Cotton Beige', hex: '#d6cdb4' },
     { name: 'Navy Blue', hex: '#1c2841' }
-  ]
+    ]
 
-  if (currentCar.name === 'VF 2') {
+  if (!isMotorbike && currentCar.name === 'VF 2') {
     availableInteriorColors = [
       { name: 'Grey', hex: '#808080', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw33eb76b4/images/deposit/interior/CI1M.webp' }
     ]
@@ -460,9 +531,13 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
     }
   }, [interiorColorNames, selectedInteriorColor])
 
-  const maxPower = powetrain.maxPower || '201 hp/150 kW'
-  const distance = powetrain.distance?.split(' ')?.[0] || '480'
-  const wheelbase = dimension.wheelbase || '2.730 mm'
+  const maxPower =
+    powetrain.maxPower || (isMotorbike ? 'Chưa cập nhật' : '201 hp/150 kW')
+  const distance = isMotorbike
+    ? String(powetrain.distance || '').match(/\d+(?:[.,]\d+)?/)?.[0] || 'N/A'
+    : powetrain.distance?.split(' ')?.[0] || '480'
+  const wheelbase =
+    dimension.wheelbase || (isMotorbike ? 'Chưa cập nhật' : '2.730 mm')
 
   const activeColorHex = getColorHex(selectedColor)
 
@@ -488,20 +563,59 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
           
           {/* SLEEK TOP BAR */}
           <div className="w-full px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 z-50 relative">
-            {/* CAR SELECTOR */}
-            <div className="inline-flex bg-white/5 backdrop-blur-md p-1.5 rounded-full border border-white/10 overflow-x-auto max-w-full hide-scrollbar">
-              {availableCars.map((car, idx) => {
+            <div className="flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start">
+              {/* VEHICLE TYPE TOGGLE */}
+              <div
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1.5 shadow-sm"
+                aria-label="Chọn loại xe"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleVehicleTypeChange('car')}
+                  aria-pressed={vehicleType === 'car'}
+                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 ${
+                    vehicleType === 'car'
+                      ? 'scale-105 bg-slate-900 text-white shadow-lg'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  Ô tô điện
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVehicleTypeChange('motorbike')}
+                  aria-pressed={vehicleType === 'motorbike'}
+                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 ${
+                    vehicleType === 'motorbike'
+                      ? 'scale-105 bg-slate-900 text-white shadow-lg'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  Xe máy điện
+                </button>
+              </div>
+
+              {/* VEHICLE SELECTOR */}
+              <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar">
+                {availableCars.map((car, idx) => {
                 const allImages = [
                   ...(car.gallery?.exterior_images || []),
                   ...(car.gallery?.interior_images || []),
                   ...(car.gallery?.all_images || [])
                 ]
-                let logo = allImages.find((img: string) => img.toLowerCase().includes('logo') || img.toLowerCase().includes('icon') || img.toLowerCase().endsWith('.svg'))
-                if (car.name.includes('All-New')) {
+                let logo = isMotorbike
+                  ? undefined
+                  : allImages.find(
+                      (img: string) =>
+                        img.toLowerCase().includes('logo') ||
+                        img.toLowerCase().includes('icon') ||
+                        img.toLowerCase().endsWith('.svg'),
+                    )
+                if (!isMotorbike && car.name.includes('All-New')) {
                   logo = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VF8-THE-ALL-NEW.svg'
-                } else if (car.name.includes('MPV 7')) {
+                } else if (!isMotorbike && car.name.includes('MPV 7')) {
                   logo = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VFMPV7.svg'
-                } else if (car.name === 'VF 6') {
+                } else if (!isMotorbike && car.name === 'VF 6') {
                   logo = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VF6.svg'
                 }
                 const isSelected = selectedCarId === car.name
@@ -523,11 +637,12 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                     )}
                   </button>
                 )
-              })}
+                })}
+              </div>
             </div>
 
             {/* VIEW TOGGLE */}
-            {!currentCar.name.includes('MPV') && (
+            {!isMotorbike && !currentCar.name.includes('MPV') && (
               <div className="inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
                 <button 
                   onClick={() => setViewMode('exterior')}
@@ -554,7 +669,9 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                   key={displayImage}
                   src={displayImage} 
                   alt={currentCar.name} 
-                  className="w-full h-auto object-contain drop-shadow-2xl mix-blend-screen"
+                  className={`w-full h-auto object-contain drop-shadow-2xl ${
+                    isMotorbike ? '' : 'mix-blend-screen'
+                  }`}
                   style={{ filter: 'drop-shadow(0 30px 40px rgba(0,0,0,0.5))' }}
                 />
               </div>
@@ -649,7 +766,7 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
-                  {variants.map(v => {
+                  {variants.map((v: string) => {
                     const variantName = `${currentCar.name} ${v}`
                     const isSelected = selectedVariant === variantName
                     return (
@@ -814,7 +931,8 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
             </div>
             
             {/* INTERIOR COLOR SELECTION */}
-            <div className="mb-8">
+            {!isMotorbike && (
+              <div className="mb-8">
               <div className="flex items-baseline justify-between mb-6">
                 <h3 className="text-2xl font-bold tracking-tight">Nội thất</h3>
                 <span className="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{selectedInteriorColor}</span>
@@ -845,7 +963,8 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                   )
                 })}
               </div>
-            </div>
+              </div>
+            )}
             </>
             )}
             
@@ -978,16 +1097,18 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                         })()}
                       </span>
                     </div>
-                    <div className="text-slate-600 mb-4">Kèm pin</div>
+                    {!isMotorbike && <div className="text-slate-600 mb-4">Kèm pin</div>}
                     
                     <div className="flex justify-between items-center py-3 border-t border-slate-100">
                       <span className="text-slate-600">Ngoại thất</span>
                       <span className="font-medium text-slate-800">{selectedColor}</span>
                     </div>
-                    <div className="flex justify-between items-center py-3 border-t border-slate-100">
-                      <span className="text-slate-600">Nội thất</span>
-                      <span className="font-medium text-slate-800">{selectedInteriorColor}</span>
-                    </div>
+                    {!isMotorbike && (
+                      <div className="flex justify-between items-center py-3 border-t border-slate-100">
+                        <span className="text-slate-600">Nội thất</span>
+                        <span className="font-medium text-slate-800">{selectedInteriorColor}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-slate-200">
@@ -1072,7 +1193,15 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Số tiền cọc</span>
-                    <span className="font-bold text-blue-600">10.000.000 ₫</span>
+                    <span className="font-bold text-blue-600">
+                      {new Intl.NumberFormat('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                      }).format(
+                        currentCar.deposit_value ||
+                          (isMotorbike ? 2_000_000 : 10_000_000),
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1145,6 +1274,20 @@ export function DepositClient({ carsData, specsData, initialCar }: { carsData: a
 }
 
 function getColorHex(name: string) {
+  const normalized = name.toLocaleLowerCase('vi')
+  if (normalized.includes('đỏ')) return '#B5122B'
+  if (normalized.includes('trắng')) return '#F4F4F2'
+  if (normalized.includes('đen')) return '#171717'
+  if (normalized.includes('xám')) return '#73777A'
+  if (normalized.includes('bạc')) return '#C0C0C0'
+  if (normalized.includes('vàng')) return '#D9A514'
+  if (normalized.includes('cam')) return '#E96324'
+  if (normalized.includes('tím')) return '#34304F'
+  if (normalized.includes('xanh rêu') || normalized.includes('oliu')) {
+    return '#65705A'
+  }
+  if (normalized.includes('xanh')) return '#496D78'
+
   const map: Record<string, string> = {
     'Infinity Blanc': '#ffffff',
     'Jet Black': '#000000',

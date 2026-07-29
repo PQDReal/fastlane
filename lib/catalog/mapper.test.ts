@@ -110,6 +110,8 @@ describe('mapCatalogProduct', () => {
     expect(product.content).toEqual({
       specificationText: 'Chất liệu cotton',
       specifications: { material: 'Cotton' },
+      category: null,
+      categories: [],
     })
   })
 
