@@ -304,6 +304,9 @@ function AccessoryImageCarousel({
     }
     dragStart.current = null
     setDragOffset(0)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
     window.setTimeout(() => {
       suppressClick.current = false
     }, 0)
@@ -317,22 +320,17 @@ function AccessoryImageCarousel({
     <div
       role="region"
       aria-label={`Ảnh ${productName}`}
-      className={`group/gallery relative aspect-square overflow-hidden bg-[#f3f5f6] ${multiple ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`group/gallery relative aspect-square select-none overflow-hidden bg-[#f3f5f6] ${multiple ? 'cursor-grab active:cursor-grabbing' : ''}`}
       style={{ touchAction: multiple ? 'pan-y' : 'auto' }}
       onPointerDown={(event) => {
         if (!multiple || event.button !== 0 || (event.target as Element).closest('button')) return
         dragStart.current = event.clientX
+        event.currentTarget.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => {
         if (dragStart.current === null) return
-        const limit = event.currentTarget.clientWidth * 0.35
+        const limit = event.currentTarget.clientWidth * 0.92
         const distance = event.clientX - dragStart.current
-        if (
-          Math.abs(distance) > 6
-          && !event.currentTarget.hasPointerCapture(event.pointerId)
-        ) {
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }
         const clampedDistance = Math.max(-limit, Math.min(limit, distance))
         setDragOffset(clampedDistance)
       }}
@@ -415,12 +413,6 @@ function AccessoryImageCarousel({
           >
             <ChevronRight size={24} strokeWidth={2.5} />
           </button>
-          <span
-            aria-live="polite"
-            className="absolute right-3 top-3 z-20 rounded-md bg-slate-950/70 px-2 py-1 font-mono text-[10px] text-white backdrop-blur"
-          >
-            {currentDisplayIndex} / {images.length}
-          </span>
         </>
       )}
 
