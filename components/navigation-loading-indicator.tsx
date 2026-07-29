@@ -10,6 +10,11 @@ export function NavigationLoadingIndicator() {
   const navigationStartedAt = useRef(0)
   const [isNavigating, setIsNavigating] = useState(false)
 
+  function startNavigation() {
+    navigationStartedAt.current = performance.now()
+    setIsNavigating(true)
+  }
+
   useEffect(() => {
     if (!navigationStartedAt.current) return
 
@@ -71,22 +76,33 @@ export function NavigationLoadingIndicator() {
         return
       }
 
-      navigationStartedAt.current =
-        performance.now()
-      setIsNavigating(true)
+      queueMicrotask(() => {
+        if (!event.defaultPrevented) startNavigation()
+      })
     }
+
+    const handleProgrammaticNavigation = () => startNavigation()
 
     document.addEventListener(
       'click',
       handleClick,
       true,
     )
-    return () =>
+    window.addEventListener(
+      'fastlane:navigation-start',
+      handleProgrammaticNavigation,
+    )
+    return () => {
       document.removeEventListener(
         'click',
         handleClick,
         true,
       )
+      window.removeEventListener(
+        'fastlane:navigation-start',
+        handleProgrammaticNavigation,
+      )
+    }
   }, [])
 
   useEffect(() => {

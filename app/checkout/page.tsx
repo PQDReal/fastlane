@@ -60,9 +60,11 @@ export default function CheckoutPage() {
     cartLoading,
     cartLoaded,
     cartError,
+    syncCartOwner,
     loadCart,
     clearCartCache,
   } = useAppStore()
+  const userSubject = typeof user?.sub === 'string' ? user.sub : null
   const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -96,8 +98,11 @@ export default function CheckoutPage() {
   }, [user, userLoading])
 
   useEffect(() => {
-    if (user && !cartLoaded) void loadCart()
-  }, [cartLoaded, loadCart, user])
+    if (!userSubject) return
+
+    const ownerChanged = syncCartOwner(userSubject)
+    if (ownerChanged || !cartLoaded) void loadCart(userSubject)
+  }, [cartLoaded, loadCart, syncCartOwner, userSubject])
 
   useEffect(() => {
     if (!user) return
@@ -321,7 +326,7 @@ export default function CheckoutPage() {
       )
       if (['CART_CHANGED', 'PRICE_CHANGED', 'OUT_OF_STOCK'].includes(code)) {
         idempotencyKey.current = null
-        await loadCart()
+        if (userSubject) await loadCart(userSubject)
       }
       setSubmitting(false)
       return
