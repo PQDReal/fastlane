@@ -114,7 +114,7 @@ function Swatch({ value }: { value: CatalogOptionValue }) {
         alt=""
         width={28}
         height={28}
-        className="h-7 w-7 rounded-md border border-black/10 object-cover"
+        className="h-7 w-7 rounded-sm border border-black/10 object-cover"
       />
     )
   }
@@ -122,7 +122,7 @@ function Swatch({ value }: { value: CatalogOptionValue }) {
     return (
       <span
         aria-hidden="true"
-        className="h-7 w-7 rounded-md border border-black/10"
+        className="h-7 w-7 rounded-sm border border-black/10"
         style={{ backgroundColor: value.colorHex }}
       />
     )
@@ -151,7 +151,7 @@ function OptionGroup({
         <select
           value={selectedValue ?? ''}
           onChange={(event) => onChange(group.code, event.target.value)}
-          className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          className="mt-2 h-10 w-full rounded-sm border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
         >
           <option value="" disabled={group.minimumSelections > 0}>
             {group.minimumSelections > 0
@@ -189,7 +189,7 @@ function OptionGroup({
               disabled={!available}
               aria-pressed={selected}
               onClick={() => onChange(group.code, value.code)}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
+              className={`inline-flex min-h-10 items-center gap-2 rounded-sm border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
                 selected
                   ? 'border-brand-600 bg-brand-50 text-brand-800 ring-2 ring-brand-100'
                   : 'border-slate-300 bg-white text-slate-600 hover:border-slate-500'
@@ -351,6 +351,13 @@ export function AccessoryDetailClient({
   const listHref = selectedVehicle
     ? `/accessories?vehicle=${encodeURIComponent(selectedVehicle)}`
     : '/accessories'
+  const selectedOptionLabels = product.optionGroups
+    .map((group) => ({
+      groupName: group.name,
+      valueName: group.values.find((value) => value.code === selection[group.code])?.name,
+    }))
+    .filter((option): option is { groupName: string; valueName: string } => Boolean(option.valueName))
+  const orderTotal = price === undefined ? undefined : price * quantity
 
   return (
     <>
@@ -365,8 +372,8 @@ export function AccessoryDetailClient({
 
         <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-10">
           <section aria-label="Hình ảnh sản phẩm" className="min-w-0">
-            <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
-              <div className="absolute left-4 top-4 z-10 rounded-md border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
+            <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center overflow-hidden border border-slate-200 bg-white p-6 sm:p-8">
+              <div className="absolute left-4 top-4 z-10 rounded-sm border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
                 Media {String(selectedMediaIndex + 1).padStart(2, '0')} / {String(selectedMedia.length).padStart(2, '0')}
               </div>
               {activeMedia && <MediaPreview media={activeMedia} productName={product.name} />}
@@ -401,7 +408,7 @@ export function AccessoryDetailClient({
                     aria-label={`Xem media ${index + 1}`}
                     aria-current={selectedMediaIndex === index ? 'true' : undefined}
                     onClick={() => setSelectedMediaIndex(index)}
-                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-white p-2 transition ${selectedMediaIndex === index ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-400'}`}
+                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-sm border bg-white p-2 transition ${selectedMediaIndex === index ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-400'}`}
                   >
                     <MediaPreview media={media} productName={product.name} thumbnail />
                   </button>
@@ -425,30 +432,17 @@ export function AccessoryDetailClient({
                 PART NO. {selectedVariant?.sku ?? 'CHỌN CẤU HÌNH'}
               </p>
 
-              {product.description && (
-                <div className="mt-6">
-                  <h2 className="text-base font-bold text-slate-950">Mô tả sản phẩm</h2>
-                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{product.description}</p>
-                </div>
-              )}
-
-            </section>
-
-            <section
-              aria-label="Cấu hình và mua hàng"
-              className="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-[98px]"
-            >
-              <div className="border-b border-slate-200 pb-4">
+              <div className="mt-7 border-y border-slate-200 py-5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Giá bán</p>
                 <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
-                  <p className="text-2xl font-bold tracking-tight text-brand-700">
+                  <p className="text-3xl font-bold tracking-tight text-brand-700">
                     {price === undefined ? 'Liên hệ' : formatPrice(price)}
                     {price !== undefined && maximumPrice !== null && maximumPrice !== undefined && maximumPrice !== price
                       ? ` – ${formatPrice(maximumPrice)}`
                       : ''}
                   </p>
                   {selectedVariant && hasDiscount && (
-                    <p className="mb-0.5 text-xs text-slate-400 line-through">
+                    <p className="mb-0.5 text-sm text-slate-400 line-through">
                       {formatPrice(selectedVariant.originalPrice)}
                     </p>
                   )}
@@ -456,9 +450,9 @@ export function AccessoryDetailClient({
               </div>
 
               {product.serviceLabels.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   {product.serviceLabels.map((service) => (
-                    <span key={service.id} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
+                    <span key={service.id} className="inline-flex min-h-9 items-center gap-2 rounded-sm border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
                       <Wrench size={14} className="text-brand-600" /> {service.name}
                     </span>
                   ))}
@@ -475,10 +469,54 @@ export function AccessoryDetailClient({
                 />
               ))}
 
-              <div className="mt-5 flex items-end justify-between gap-4 border-t border-slate-200 pt-4">
+              {product.description && (
+                <div className="mt-8 border-t border-slate-200 pt-6">
+                  <h2 className="text-base font-bold text-slate-950">Mô tả sản phẩm</h2>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{product.description}</p>
+                </div>
+              )}
+
+            </section>
+
+            <section
+              aria-label="Cấu hình và mua hàng"
+              className="h-fit border border-slate-200 bg-white p-5 shadow-[0_18px_45px_-32px_rgba(15,23,42,0.45)] xl:sticky xl:top-[98px]"
+            >
+              <div className="border-b border-slate-200 pb-5">
+                <h2 className="text-xl font-bold text-slate-950">Đặt sản phẩm</h2>
+              </div>
+
+              <div className="flex gap-4 border-b border-slate-200 py-5">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border border-slate-100 bg-slate-50 p-2">
+                  {activeMedia && <MediaPreview media={activeMedia} productName={product.name} thumbnail />}
+                </div>
+                <div className="min-w-0 pt-1">
+                  <p className="line-clamp-2 text-sm font-bold leading-5 text-slate-900">{product.name}</p>
+                  {selectedOptionLabels.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                      {selectedOptionLabels.map((option) => (
+                        <p key={option.groupName} className="text-xs text-slate-500">
+                          <span className="font-semibold text-slate-700">{option.groupName}:</span> {option.valueName}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-400">Chọn phiên bản ở cột bên cạnh</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-end justify-between gap-4 border-b border-slate-200 py-5">
+                <p className="text-sm font-bold text-slate-900">Tổng tiền</p>
+                <p className="text-xl font-bold tracking-tight text-brand-700">
+                  {orderTotal === undefined ? 'Liên hệ' : formatPrice(orderTotal)}
+                </p>
+              </div>
+
+              <div className="mt-5 flex items-end justify-between gap-4">
                 <div>
                   <p className="text-sm font-bold text-slate-900">Số lượng</p>
-                  <div className="mt-2 inline-flex items-center rounded-lg border border-slate-300 bg-white">
+                  <div className="mt-2 inline-flex items-center rounded-sm border border-slate-300 bg-white">
                     <button
                       type="button"
                       aria-label="Giảm số lượng"
@@ -516,7 +554,7 @@ export function AccessoryDetailClient({
                   type="button"
                   onClick={handleBuyNow}
                   disabled={!selectedVariant || !inStock || !canPurchase || submitting}
-                  className="flex min-h-12 w-full items-center justify-center rounded-lg bg-brand-600 px-5 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="flex min-h-12 w-full items-center justify-center rounded-sm bg-brand-600 px-5 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {submittingAction === 'checkout' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                   {submittingAction === 'checkout' ? 'Đang xử lý...' : 'Mua ngay'}
@@ -525,7 +563,7 @@ export function AccessoryDetailClient({
                   type="button"
                   onClick={handleAdd}
                   disabled={!selectedVariant || !inStock || !canPurchase || submitting}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:border-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:border-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   {submittingAction === 'cart' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
                   {submittingAction === 'cart'
@@ -541,7 +579,7 @@ export function AccessoryDetailClient({
               </div>
 
             {feedback && (
-              <div role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+              <div role="status" className={`mt-4 rounded-sm px-4 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                 <div className="flex items-center gap-2">
                   {feedback.type === 'success' && <Check size={17} />}
                   <span>{feedback.message}</span>
@@ -562,7 +600,7 @@ export function AccessoryDetailClient({
             </h2>
             <div className="mt-7 grid gap-5 lg:grid-cols-2">
               {product.content.sections.map((section) => (
-                <article key={section.key} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <article key={section.key} className="border border-slate-200 bg-white p-5 sm:p-6">
                   <h3 className="text-base font-bold text-slate-950">{section.title}</h3>
                   {section.body && (
                     <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{section.body}</p>
@@ -622,7 +660,7 @@ export function AccessoryDetailClient({
             type="button"
             onClick={handleBuyNow}
             disabled={!selectedVariant || !inStock || !canPurchase || submitting}
-            className="inline-flex h-12 items-center justify-center rounded-lg bg-brand-600 px-4 text-xs font-bold uppercase tracking-wide text-white disabled:bg-slate-300"
+            className="inline-flex h-12 items-center justify-center rounded-sm bg-brand-600 px-4 text-xs font-bold uppercase tracking-wide text-white disabled:bg-slate-300"
           >
             {submittingAction === 'checkout' ? <Loader2 size={17} className="mr-2 animate-spin" /> : null}
             Mua ngay
@@ -632,7 +670,7 @@ export function AccessoryDetailClient({
             onClick={handleAdd}
             disabled={!selectedVariant || !inStock || !canPurchase || submitting}
             aria-label="Thêm vào giỏ hàng"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-slate-300 bg-white px-4 text-xs font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
           >
             {submittingAction === 'cart' ? <Loader2 size={17} className="animate-spin" /> : <ShoppingCart size={17} />}
             <span className="hidden sm:inline">Thêm vào giỏ</span>
