@@ -132,7 +132,7 @@ export default async function Home() {
 
               <div className="mt-12 flex flex-wrap gap-4">
                 <Button asChild variant="default" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 font-bold relative z-20">
-                  <Link href="/deposit?car=VF 9">Đặt cọc ngay</Link>
+                  <Link href="/deposit?type=car&model=VF%209">Đặt cọc ngay</Link>
                 </Button>
                 <Button asChild variant="outline" className="h-12 px-8 border-muted-foreground/30 text-foreground hover:bg-muted font-bold relative z-20">
                   <Link href="/cars/vf-9">Thông số kỹ thuật</Link>

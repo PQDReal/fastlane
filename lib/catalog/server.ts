@@ -22,6 +22,7 @@ const CATALOG_PRODUCT_SELECT = `
   description,
   product_type,
   displayed_price,
+  created_at,
   image_urls,
   specifications,
   service_label_assignments:product_service_label_assignments(

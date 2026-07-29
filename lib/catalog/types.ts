@@ -209,6 +209,7 @@ export type CatalogProduct = {
   description: string | null
   productType: CatalogProductType
   displayedPrice: number | null
+  createdAt?: string | null
   content: CatalogProductContent
   serviceLabels: CatalogServiceLabel[]
   collectionMemberships: CatalogCollectionMembership[]

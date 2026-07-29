@@ -24,7 +24,7 @@ function ActionButton({ action, kind }: { action: ToastAction; kind: ToastKind }
   const style = action.variant === 'danger'
     ? 'bg-white text-red-700 hover:bg-red-50'
     : kind === 'warning'
-      ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+      ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
       : 'border border-white/40 bg-white/10 text-white hover:bg-white/20'
 
   return <button type="button" onClick={action.onClick} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${style}`}>{action.label}</button>

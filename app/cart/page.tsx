@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import {
   ArrowLeft,
@@ -25,6 +25,10 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 0,
   }).format(price)
 
+type PendingNavigation =
+  | { type: 'href'; href: string }
+  | { type: 'history-back' }
+
 export default function CartPage() {
   const router = useRouter()
   const { user, isLoading: userLoading } = useUser()
@@ -33,15 +37,25 @@ export default function CartPage() {
     cartLoading,
     cartLoaded,
     cartError,
+    cartOwnerSubject,
+    syncCartOwner,
     loadCart,
     removeFromCart,
     updateQuantity,
   } = useAppStore()
+  const userSubject = typeof user?.sub === 'string' ? user.sub : null
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectionInitialized, setSelectionInitialized] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
-  const closeToast = useCallback((id: number) => setToasts((items) => items.filter((item) => item.id !== id)), [])
+  const uncheckedItemsRef = useRef<typeof cartItems>([])
+  const leaveToastIdRef = useRef<number | null>(null)
+  const historyGuardInstalledRef = useRef(false)
+  const historyBypassRef = useRef(false)
+  const closeToast = useCallback((id: number) => {
+    if (leaveToastIdRef.current === id) leaveToastIdRef.current = null
+    setToasts((items) => items.filter((item) => item.id !== id))
+  }, [])
   const notify = useCallback((toast: Omit<ToastMessage, 'id'>, duration = 4500) => {
     const id = Date.now() + Math.random()
     setToasts((items) => [...items, { ...toast, id }])
@@ -56,8 +70,16 @@ export default function CartPage() {
   }, [user, userLoading])
 
   useEffect(() => {
-    if (user && !cartLoaded) void loadCart()
-  }, [cartLoaded, loadCart, user])
+    if (!userSubject) return
+
+    const ownerChanged = syncCartOwner(userSubject)
+    if (ownerChanged || !cartLoaded) void loadCart(userSubject)
+  }, [cartLoaded, loadCart, syncCartOwner, userSubject])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+    setSelectionInitialized(false)
+  }, [cartOwnerSubject])
 
   useEffect(() => {
     if (!cartLoaded) return
@@ -76,6 +98,14 @@ export default function CartPage() {
     () => cartItems.filter((item) => selectedIds.has(item.id)),
     [cartItems, selectedIds],
   )
+  const uncheckedItems = useMemo(
+    () => cartItems.filter((item) => !selectedIds.has(item.id)),
+    [cartItems, selectedIds],
+  )
+  useEffect(() => {
+    uncheckedItemsRef.current = selectionInitialized ? uncheckedItems : []
+  }, [selectionInitialized, uncheckedItems])
+
   const allSelected =
     cartItems.length > 0 && selectedIds.size === cartItems.length
   const selectedQuantity = selectedItems.reduce(
@@ -136,11 +166,153 @@ export default function CartPage() {
     }])
   }
 
+  const continueNavigation = useCallback((destination: PendingNavigation) => {
+    window.dispatchEvent(new Event('fastlane:navigation-start'))
+
+    if (destination.type === 'history-back') {
+      historyBypassRef.current = true
+      window.history.go(-2)
+      return
+    }
+
+    const url = new URL(destination.href, window.location.href)
+    if (url.origin === window.location.origin) {
+      router.push(`${url.pathname}${url.search}${url.hash}`)
+      return
+    }
+    window.location.assign(url.href)
+  }, [router])
+
+  const requestLeaveConfirmation = useCallback((destination: PendingNavigation) => {
+    const items = uncheckedItemsRef.current
+    if (items.length === 0) {
+      continueNavigation(destination)
+      return
+    }
+    if (leaveToastIdRef.current !== null) return
+
+    const id = Date.now() + Math.random()
+    leaveToastIdRef.current = id
+    const message = items.length === 1
+      ? `Bạn đã bỏ chọn “${items[0].name}”. Bạn có muốn xóa sản phẩm này khỏi giỏ hàng trước khi rời trang?`
+      : `Bạn đã bỏ chọn ${items.length} dòng sản phẩm. Bạn có muốn xóa các sản phẩm này khỏi giỏ hàng trước khi rời trang?`
+
+    const keepItemsAndLeave = () => {
+      closeToast(id)
+      continueNavigation(destination)
+    }
+    const deleteItemsAndLeave = async () => {
+      closeToast(id)
+      setActionError(null)
+
+      for (const item of items) {
+        const result = await removeFromCart(item.id)
+        if (!result.ok) {
+          setActionError(result.message)
+          notify({
+            kind: 'error',
+            title: 'Xóa sản phẩm thất bại',
+            message: 'Giỏ hàng chưa được xóa hết. Bạn vẫn đang ở lại trang này.',
+          })
+          return
+        }
+      }
+
+      setSelectedIds((current) => {
+        const next = new Set(current)
+        items.forEach((item) => next.delete(item.id))
+        return next
+      })
+      continueNavigation(destination)
+    }
+
+    setToasts((current) => [...current, {
+      id,
+      kind: 'warning',
+      title: 'Xóa sản phẩm đã bỏ chọn?',
+      message,
+      secondaryAction: { label: 'Giữ lại', onClick: keepItemsAndLeave },
+      action: {
+        label: 'Xóa',
+        variant: 'danger',
+        onClick: () => void deleteItemsAndLeave(),
+      },
+    }])
+  }, [closeToast, continueNavigation, notify, removeFromCart])
+
+  useEffect(() => {
+    if (!user || !cartLoaded) return
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        uncheckedItemsRef.current.length === 0
+      ) return
+
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const anchor = target.closest<HTMLAnchorElement>('a[href]')
+      if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return
+
+      const url = new URL(anchor.href, window.location.href)
+      const current = new URL(window.location.href)
+      if (
+        url.origin === current.origin &&
+        url.pathname === current.pathname &&
+        url.search === current.search
+      ) return
+
+      event.preventDefault()
+      requestLeaveConfirmation({ type: 'href', href: url.href })
+    }
+
+    document.addEventListener('click', handleDocumentClick, true)
+    return () => document.removeEventListener('click', handleDocumentClick, true)
+  }, [cartLoaded, requestLeaveConfirmation, user])
+
+  useEffect(() => {
+    if (!user || !cartLoaded) return
+
+    const guardState = { ...window.history.state, fastlaneCartGuard: true }
+    if (!historyGuardInstalledRef.current) {
+      if (!window.history.state?.fastlaneCartGuard) {
+        window.history.pushState(guardState, '', window.location.href)
+      }
+      historyGuardInstalledRef.current = true
+    }
+
+    const handlePopState = () => {
+      if (historyBypassRef.current) {
+        historyBypassRef.current = false
+        return
+      }
+      if (uncheckedItemsRef.current.length === 0) {
+        historyBypassRef.current = true
+        window.history.back()
+        return
+      }
+
+      window.history.pushState(guardState, '', window.location.href)
+      requestLeaveConfirmation({ type: 'history-back' })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [cartLoaded, requestLeaveConfirmation, user])
+
   const proceedToCheckout = () => {
     if (selectedIds.size === 0) return
     const params = new URLSearchParams()
     selectedItems.forEach((item) => params.append('item', item.id))
-    router.push(`/checkout?${params.toString()}`)
+    requestLeaveConfirmation({
+      type: 'href',
+      href: `/checkout?${params.toString()}`,
+    })
   }
 
   if (userLoading || (user && !cartLoaded && cartLoading)) {

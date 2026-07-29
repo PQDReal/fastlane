@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
 
-import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
+import { authorizeAdminPromotionRequest } from '@/lib/auth/admin-promotions'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
-import { legacyProductType, promotionProductTypes } from '@/lib/promotions/product-types'
+import {
+  legacyProductType,
+  productTypesFromLegacy,
+  promotionProductTypes,
+} from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
+const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
 type Context = { params: Promise<{ promotionId: string }> }
 
 function authError(error: unknown) {
@@ -13,8 +18,53 @@ function authError(error: unknown) {
   throw error
 }
 
+function isProductTypesColumnMissing(error: { code?: string; message: string }) {
+  return error.code === 'PGRST204' ||
+    error.message.includes('applicable_product_types')
+}
+
+export async function GET(request: Request, context: Context) {
+  try { await authorizeAdminPromotionRequest(request) } catch (error) { return authError(error) }
+
+  const { promotionId } = await context.params
+  const supabase = getSupabaseAdmin()
+  const current = await supabase
+    .from('promotions')
+    .select(SELECT)
+    .eq('id', promotionId)
+    .maybeSingle()
+
+  if (!current.error) {
+    if (!current.data) {
+      return NextResponse.json({ error: 'Không tìm thấy khuyến mãi.' }, { status: 404 })
+    }
+    return NextResponse.json(current.data)
+  }
+  if (!isProductTypesColumnMissing(current.error)) {
+    return NextResponse.json({ error: 'Không thể tải khuyến mãi.' }, { status: 500 })
+  }
+
+  const legacy = await supabase
+    .from('promotions')
+    .select(LEGACY_SELECT)
+    .eq('id', promotionId)
+    .maybeSingle()
+  if (legacy.error) {
+    return NextResponse.json({ error: 'Không thể tải khuyến mãi.' }, { status: 500 })
+  }
+  if (!legacy.data) {
+    return NextResponse.json({ error: 'Không tìm thấy khuyến mãi.' }, { status: 404 })
+  }
+
+  const { applicable_product_type, ...promotion } = legacy.data
+  return NextResponse.json({
+    ...promotion,
+    applicable_product_types: productTypesFromLegacy(applicable_product_type),
+  })
+}
+
 export async function PATCH(request: Request, context: Context) {
-  try { await authorizeAdminCatalogRequest(request) } catch (error) { return authError(error) }
+  try { await authorizeAdminPromotionRequest(request) } catch (error) { return authError(error) }
   try {
     const { promotionId } = await context.params
     const body = await request.json()
@@ -81,4 +131,33 @@ export async function PATCH(request: Request, context: Context) {
   } catch {
     return NextResponse.json({ error: 'Dữ liệu không hợp lệ.' }, { status: 400 })
   }
+}
+
+export async function DELETE(request: Request, context: Context) {
+  try { await authorizeAdminPromotionRequest(request) } catch (error) { return authError(error) }
+
+  const { promotionId } = await context.params
+  const { data, error } = await getSupabaseAdmin()
+    .from('promotions')
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', promotionId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    return NextResponse.json(
+      { error: 'Không thể ngừng áp dụng khuyến mãi.' },
+      { status: 500 },
+    )
+  }
+  if (!data) {
+    return NextResponse.json(
+      { error: 'Không tìm thấy khuyến mãi.' },
+      { status: 404 },
+    )
+  }
+  return new Response(null, { status: 204 })
 }

@@ -1,13 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-
-import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
+import { useEffect, useState } from 'react'
 
 const MAX_BUDGET = 20_000_000
 const BUDGET_STEP = 100_000
-const DEFAULT_BUDGET = 10_000_000
+export const DEFAULT_ACCESSORY_BUDGET = 10_000_000
 
 const formatBudget = (value: number) =>
   new Intl.NumberFormat('vi-VN').format(value)
@@ -20,51 +17,50 @@ const floorBudget = (value: number) =>
   BUDGET_STEP
 
 type AccessoryFiltersProps = {
-  categories: string[]
-  serviceLabels: CatalogServiceLabel[]
-  selectedServiceCodes: string[]
+  categories: readonly string[]
+  selectedCategories: string[]
+  onSelectedCategoriesChange: (categories: string[]) => void
+  budget: number
+  onBudgetChange: (budget: number) => void
 }
 
 export function AccessoryFilters({
   categories,
-  serviceLabels,
-  selectedServiceCodes,
+  selectedCategories,
+  onSelectedCategoriesChange,
+  budget,
+  onBudgetChange,
 }: AccessoryFiltersProps) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const [isFiltering, startFiltering] = useTransition()
   const allCategory = categories[0] ?? 'Tất cả'
-  const [selectedCategories, setSelectedCategories] =
-    useState<string[]>([allCategory])
-  const [budget, setBudget] = useState(DEFAULT_BUDGET)
   const [budgetInput, setBudgetInput] = useState(
-    formatBudget(DEFAULT_BUDGET),
+    formatBudget(budget),
   )
+
+  useEffect(() => {
+    setBudgetInput(formatBudget(budget))
+  }, [budget])
 
   const toggleCategory = (category: string) => {
     if (category === allCategory) {
-      setSelectedCategories([allCategory])
+      onSelectedCategoriesChange([allCategory])
       return
     }
 
-    setSelectedCategories((current) => {
-      const individualCategories = current.filter(
-        (item) => item !== allCategory,
-      )
-      const next = individualCategories.includes(category)
-        ? individualCategories.filter(
-            (item) => item !== category,
-          )
-        : [...individualCategories, category]
+    const individualCategories = selectedCategories.filter(
+      (item) => item !== allCategory,
+    )
+    const next = individualCategories.includes(category)
+      ? individualCategories.filter((item) => item !== category)
+      : [...individualCategories, category]
 
-      return next.length > 0 ? next : [allCategory]
-    })
+    onSelectedCategoriesChange(
+      next.length > 0 ? next : [allCategory],
+    )
   }
 
   const commitBudget = (value = budget) => {
     const nextBudget = floorBudget(value)
-    setBudget(nextBudget)
+    onBudgetChange(nextBudget)
     setBudgetInput(formatBudget(nextBudget))
   }
 
@@ -72,27 +68,14 @@ export function AccessoryFilters({
     const digits = value.replace(/\D/g, '')
 
     if (digits === '') {
-      setBudget(0)
+      onBudgetChange(0)
       setBudgetInput('')
       return
     }
 
     const nextBudget = clampBudget(Number(digits))
-    setBudget(nextBudget)
+    onBudgetChange(nextBudget)
     setBudgetInput(formatBudget(nextBudget))
-  }
-
-  const toggleService = (code: string) => {
-    const selected = new Set(selectedServiceCodes)
-    if (selected.has(code)) selected.delete(code)
-    else selected.add(code)
-
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('service')
-    params.delete('page')
-    for (const value of selected) params.append('service', value)
-    const query = params.toString()
-    startFiltering(() => router.push(query ? `${pathname}?${query}` : pathname))
   }
 
   return (
@@ -150,7 +133,7 @@ export function AccessoryFilters({
           step="1"
           value={budget}
           onChange={(event) =>
-            setBudget(Number(event.target.value))
+            onBudgetChange(Number(event.target.value))
           }
           onPointerUp={() => commitBudget()}
           onKeyUp={() => commitBudget()}
@@ -193,33 +176,6 @@ export function AccessoryFilters({
           </span>
         </div>
       </div>
-
-      {serviceLabels.length > 0 && (
-        <fieldset className="mt-10" disabled={isFiltering}>
-          <legend className="mb-5 text-lg font-bold tracking-tight text-foreground">
-            Dịch vụ
-          </legend>
-          <div className="space-y-3">
-            {serviceLabels.map((label) => (
-              <label key={label.id} className="group flex cursor-pointer items-start gap-3 active:scale-[0.99]">
-                <input
-                  type="checkbox"
-                  checked={selectedServiceCodes.includes(label.code)}
-                  onChange={() => toggleService(label.code)}
-                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-muted-foreground/30 accent-foreground focus-visible:ring-2 focus-visible:ring-brand-500"
-                />
-                <span>
-                  <span className="block text-sm font-medium text-foreground">{label.name}</span>
-                  {label.description && (
-                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{label.description}</span>
-                  )}
-                </span>
-              </label>
-            ))}
-          </div>
-          {isFiltering && <p className="mt-3 text-xs text-muted-foreground">Đang lọc phụ kiện…</p>}
-        </fieldset>
-      )}
     </div>
   )
 }

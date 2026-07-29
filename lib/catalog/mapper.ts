@@ -458,6 +458,7 @@ export function mapCatalogProduct(value: unknown): CatalogProduct {
     description: nullableString(row.description),
     productType: productType(row.product_type),
     displayedPrice: nullableNumber(row.displayed_price),
+    createdAt: nullableString(row.created_at),
     content: mapProductContent(row.specifications),
     serviceLabels: mapServiceLabelAssignments(
       row.service_label_assignments ?? row.product_service_label_assignments,
