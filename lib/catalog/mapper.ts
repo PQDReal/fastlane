@@ -186,7 +186,9 @@ function mediaType(value: unknown): CatalogMediaType {
 }
 
 function productType(value: unknown): CatalogProductType {
-  return value === 'VEHICLE' ? 'VEHICLE' : 'ACCESSORY'
+  if (value === 'CAR' || value === 'BIKE') return value
+  if (value === 'VEHICLE') return 'CAR'
+  return 'ACCESSORY'
 }
 
 function compareOrdered(
@@ -354,6 +356,7 @@ export function mapCatalogProduct(value: unknown): CatalogProduct {
     description: nullableString(row.description),
     productType: productType(row.product_type),
     displayedPrice: nullableNumber(row.displayed_price),
+    depositPrice: nullableNumber(row.deposit_price),
     content: mapProductContent(row.specifications),
     collectionMemberships: mapCollectionMemberships(
       row.collection_memberships ?? row.product_collection_memberships,

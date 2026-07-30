@@ -32,13 +32,14 @@ export async function POST(req: Request) {
           car_variant: data.car_variant,
           exterior_color: data.exterior_color,
           interior_color: data.interior_color,
+          vehicle_variant_id: data.vehicle_variant_id || null,
           optional_packages: data.optional_packages || [],
           showroom: data.showroom || 'VinFast Landmark 81',
           sales_consultant: data.sales_consultant || null,
           payment_method: data.payment_method || 'bank_transfer',
           deposit_amount: data.deposit_amount || 10000000,
           total_estimated_price: data.total_estimated_price || 0,
-          status: 'PAID'
+          status: 'PENDING_CONFIRMATION'
         }
       ])
 

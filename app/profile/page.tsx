@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
@@ -150,12 +150,64 @@ function ProfileContent() {
     : status === 'Cancelled'
       ? <XCircle className="h-5 w-5 text-red-500" />
       : <Clock className="h-5 w-5 text-yellow-500" />
+  
+  const translateStatus = (s: string, isCar: boolean) => {
+    if (isCar) {
+      return {
+        'PENDING_DEPOSIT': 'Chờ cọc',
+        'PENDING_CONFIRMATION': 'Chờ xác nhận cọc',
+        'CONFIRMED': 'Đã xác nhận',
+        'PENDING_CONTRACT': 'Chờ tạo HĐ',
+        'CONTRACT_SIGNED': 'Đã ký HĐ',
+        'PENDING_PAYMENT': 'Chờ thanh toán',
+        'PAID': 'Đã thanh toán',
+        'PREPARING_DELIVERY': 'Chờ giao xe',
+        'DELIVERED': 'Đã giao xe',
+        'COMPLETED': 'Hoàn thành',
+        'CANCELLED': 'Đã hủy cọc',
+        'PENDING': 'Chờ xác nhận cọc', // Legacy
+        'Pending': 'Chờ xác nhận cọc', // Fallbacks
+        'Processing': 'Chờ giao xe',
+        'Shipped': 'Đang vận chuyển',
+        'Completed': 'Đã nhận xe',
+        'Cancelled': 'Đã hủy cọc',
+        'Confirmed': 'Đã xác nhận',
+      }[s] || s
+    }
+    return {
+      'Created': 'Chờ xác nhận',
+      'Paid': 'Đã thanh toán',
+      'Pending': 'Chờ xác nhận',
+      'Processing': 'Đang chuẩn bị hàng',
+      'Shipped': 'Đang giao hàng',
+      'Completed': 'Giao thành công',
+      'Cancelled': 'Đã hủy',
+      'Confirmed': 'Đã xác nhận',
+    }[s] || s
+  }
+  
+  const translatePaymentStatus = (s: string, isCar: boolean) => {
+    if (isCar) {
+      return {
+        'Pending': 'Chưa đặt cọc',
+        'Paid': 'Đã đặt cọc',
+        'Refunded': 'Đã hoàn cọc',
+        'Failed': 'Thanh toán lỗi',
+      }[s] || s
+    }
+    return {
+      'Pending': 'Chưa thanh toán',
+      'Paid': 'Đã thanh toán',
+      'Refunded': 'Đã hoàn tiền',
+      'Failed': 'Thất bại',
+    }[s] || s
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
       <Header />
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
-      <div className="mx-auto flex w-full max-w-[1000px] flex-1 px-6 py-32">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 px-6 py-32">
         <div className="flex w-full flex-col gap-8 md:flex-row">
           <aside className="w-full shrink-0 md:w-64">
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -170,7 +222,7 @@ function ProfileContent() {
                 <button onClick={() => setActiveTab('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
                 <button onClick={() => setActiveTab('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
                 <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
-                <button onClick={() => setActiveTab('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử đặt xe</button>
+                <button onClick={() => setActiveTab('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử mua xe</button>
               </div>
             </div>
           </aside>
@@ -208,7 +260,7 @@ function ProfileContent() {
             ) : (
               <div>
                 <h2 className="mb-6 text-2xl font-bold text-gray-900">
-                  {activeTab === 'orders' ? 'Lịch sử mua hàng' : 'Lịch sử đặt xe'}
+                  {activeTab === 'orders' ? 'Lịch sử mua hàng' : 'Lịch sử mua xe'}
                 </h2>
                 <div className="space-y-4">
                   {ordersLoading && (
@@ -220,107 +272,181 @@ function ProfileContent() {
                   )}
                   {userOrders.map(order => {
                     if (activeTab === 'car-orders') {
-                      const getCarImageUrl = (model: string) => {
-                        const m = model?.toLowerCase() || '';
-                        if (m.includes('vf 3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE11.webp';
-                        if (m.includes('vf 5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF5/GA12V/CE11.webp';
-                        if (m.includes('vf 6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/CE11.webp';
-                        if (m.includes('vf 7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF7/CE11.webp';
-                        if (m.includes('vf 9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE11.webp';
-                        if (m.includes('vf 2')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE11.webp'; // Fallback for VF2 if needed
-                        return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                      const status = order.status;
+                      const vVariant = order.depositDetails?.vehicleVariant;
+                      
+                      const cleanCarModel = (vVariant?.product_name || order.carModel || '').replace(/vinfast\s*/i, '').trim();
+                      let cleanCarVariant = (vVariant?.variant_name || vVariant?.version || order.carVariant || '').replace(/vinfast\s*/i, '').trim();
+                      
+                      // Remove base model (e.g. 'VF 8') from variant if model already has it to avoid duplication
+                      const modelMatch = cleanCarModel.match(/VF\s*\d+/i);
+                      if (modelMatch) {
+                        const regex = new RegExp(modelMatch[0] + '\\s*', 'i');
+                        cleanCarVariant = cleanCarVariant.replace(regex, '').trim();
+                      }
+                      
+                      const carName = `${cleanCarModel} ${cleanCarVariant}`.trim();
+                      
+                      let carImage = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                      if (vVariant?.image_car_url) {
+                        carImage = vVariant.image_car_url;
+                      } else {
+                        const lowerModel = cleanCarModel.toLowerCase();
+                        if (lowerModel.includes('vf 8') || lowerModel.includes('vf8')) carImage = '/images/vf8.png';
+                        else if (lowerModel.includes('vf 9') || lowerModel.includes('vf9')) carImage = '/images/vf9.png';
+                        else if (lowerModel.includes('vf 3') || lowerModel.includes('vf5') || lowerModel.includes('vf 6') || lowerModel.includes('vf 7')) carImage = '/images/car-sale.png';
                       }
 
-                      const carImage = getCarImageUrl(order.carModel || '');
-                      const isPending = order.paymentStatus === 'Pending';
-                      const isCancelled = order.status === 'Cancelled';
-                      const isPaid = order.paymentStatus === 'Paid';
-                      
-                      const modelText = order.carModel || '';
-                      const variantText = order.carVariant || '';
-                      const carName = variantText.toLowerCase().includes(modelText.toLowerCase()) 
-                        ? variantText 
-                        : `${modelText} ${variantText}`.trim();
+                      let stateIcon = <Clock className="w-5 h-5 shrink-0 text-gray-500" />;
+                      let stateText = translateStatus(status, true);
+                      let actionBtn = null;
+
+                      switch (status) {
+                        case 'PENDING_DEPOSIT':
+                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-yellow-500" />;
+                          stateText = 'Đang chờ thanh toán cọc. Vui lòng hoàn tất để giữ ưu đãi!';
+                          actionBtn = (
+                            <button onClick={() => setSelectedOrder(order)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all">
+                              Thanh toán ngay
+                            </button>
+                          );
+                          break;
+                        case 'PENDING_CONFIRMATION':
+                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-blue-500" />;
+                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast.';
+                          break;
+                        case 'CONFIRMED':
+                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
+                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast, bạn có thể tải lên CCCD.';
+                          actionBtn = (
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-[#836100] text-[#836100] hover:bg-[#836100] hover:text-white transition-all">
+                              Tải lên CCCD
+                            </button>
+                          );
+                          break;
+                        case 'PENDING_CONTRACT':
+                          stateIcon = <FileText className="w-5 h-5 shrink-0 text-blue-500" />;
+                          stateText = 'VinFast đang tạo Hợp đồng điện tử. Sẽ mất một chút thời gian.';
+                          break;
+                        case 'CONTRACT_SIGNED':
+                          stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
+                          stateText = 'Đã có Hợp đồng điện tử. Vui lòng xem và ký xác nhận.';
+                          actionBtn = (
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                              Xem & Ký HĐ
+                            </button>
+                          );
+                          break;
+                        case 'PENDING_PAYMENT':
+                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
+                          stateText = 'Đang chờ thanh toán phần còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
+                          actionBtn = (
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all">
+                              Thanh toán
+                            </button>
+                          );
+                          break;
+                        case 'PAID':
+                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />;
+                          stateText = 'Đã thanh toán thành công. Đang sắp xếp lịch giao xe.';
+                          break;
+                        case 'PREPARING_DELIVERY':
+                          stateIcon = <Package className="w-5 h-5 shrink-0 text-purple-500" />;
+                          stateText = 'Xe đang được chuẩn bị bàn giao. Vui lòng chờ liên hệ!';
+                          break;
+                        case 'DELIVERED':
+                        case 'COMPLETED':
+                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
+                          stateText = 'Đã nhận xe thành công. Chúc bạn có những chuyến đi tuyệt vời!';
+                          break;
+                        case 'CANCELLED':
+                          stateIcon = <XCircle className="w-5 h-5 shrink-0 text-red-500" />;
+                          stateText = 'Đơn hàng đã bị hủy.';
+                          break;
+                      }
+
+                      const stateBox = (
+                        <div className="flex items-start gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
+                          {stateIcon}
+                          <span className="text-sm font-medium text-gray-700 leading-snug">{stateText}</span>
+                        </div>
+                      );
+
+                      const showPaidBadge = ['PENDING_CONFIRMATION', 'CONFIRMED', 'PENDING_CONTRACT', 'CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status);
+                      const displayColor = order.exteriorColor || vVariant?.color || '';
 
                       return (
-                        <div key={order.id} className="border border-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all duration-300 bg-white flex flex-col md:flex-row gap-6">
-                          {/* Image Section */}
-                          <div className="w-full md:w-1/3 aspect-[16/9] bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center relative border border-slate-100">
-                            <img 
-                              src={carImage} 
-                              alt={carName} 
-                              className="w-full h-full object-cover mix-blend-multiply" 
-                              onError={(e) => {
-                                e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
-                                e.currentTarget.onerror = null;
-                              }}
-                            />
-                            {isPaid && (
-                              <div className="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Đã đặt cọc
+                        <div key={order.id} className="border border-gray-200 rounded-2xl p-7 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white shadow-sm flex flex-col lg:flex-row gap-8 items-stretch">
+                          
+                          {/* LEFT: Image */}
+                          <div className="w-full lg:w-[220px] shrink-0 flex flex-col items-center justify-center">
+                            <div className="aspect-[4/3] w-full relative">
+                              <img 
+                                src={carImage} 
+                                alt={carName} 
+                                className="w-full h-full object-contain mix-blend-multiply" 
+                                onError={(e) => {
+                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                                  e.currentTarget.onerror = null;
+                                }}
+                              />
+                            </div>
+                            {showPaidBadge && (
+                              <div className="mt-4 bg-green-500 text-white text-sm font-bold px-4 py-1.5 rounded-full shadow-sm flex items-center justify-center gap-1.5 h-8 w-fit mx-auto">
+                                <CheckCircle2 className="w-4 h-4" /> Đã đặt cọc
                               </div>
                             )}
                           </div>
 
-                          {/* Info Section */}
-                          <div className="flex-1 flex flex-col justify-between">
-                            <div>
-                              <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
-                                  VinFast {carName}
-                                </h3>
-                                <div className="text-right">
-                                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Mã đơn: {order.orderNumber}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4 mb-4">
-                                <p className="text-[#836100] text-xl font-bold">
-                                  Cọc: {formatPrice(order.pricing.amountDueNow)}
-                                </p>
-                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
-                                <p className="text-sm text-gray-500">
-                                  Ngày đặt: {formatDate(order.createdAt)}
-                                </p>
-                              </div>
+                          {/* MIDDLE: Car Info & Timeline */}
+                          <div className="flex-1 flex flex-col items-center text-center justify-center min-w-0 py-2">
+                            <h3 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight mb-2">
+                              VinFast {cleanCarModel}
+                            </h3>
+                            <p className="text-lg text-gray-500 font-medium mb-6">
+                              {cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}
+                            </p>
+                            
+                            <div className="mb-6 flex flex-col items-center">
+                              <p className="text-sm uppercase tracking-wider text-gray-400 font-bold mb-1">Tiền cọc</p>
+                              <p className="text-[#836100] text-4xl font-bold">
+                                {formatPrice(order.pricing.amountDueNow)}
+                              </p>
                             </div>
 
-                            {/* Status & Actions */}
-                            <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
-                              <div className="flex-1 w-full">
-                                {isPending && !isCancelled && (
-                                  <div className="flex items-center gap-2 text-yellow-600 bg-yellow-50 px-4 py-2 rounded-lg">
-                                    <Clock className="w-5 h-5" />
-                                    <span className="text-sm font-medium">Đang chờ thanh toán cọc. Vui lòng hoàn tất để giữ ưu đãi!</span>
-                                  </div>
-                                )}
-                                {isCancelled && (
-                                  <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
-                                    <XCircle className="w-5 h-5" />
-                                    <span className="text-sm font-medium">Đơn hàng đã bị hủy.</span>
-                                  </div>
-                                )}
-                                {isPaid && (
-                                  <div className="flex items-center gap-2 text-green-700 bg-green-50 px-4 py-2 rounded-lg">
-                                    <CheckCircle2 className="w-5 h-5" />
-                                    <span className="text-sm font-medium">Đã xác nhận cọc. Sắp tới tư vấn viên sẽ liên hệ để bổ sung hồ sơ!</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex gap-3 w-full sm:w-auto">
-                                <button 
-                                  onClick={() => setSelectedOrder(order)}
-                                  className="px-5 py-2.5 rounded-xl font-medium text-sm border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors w-full sm:w-auto text-center"
-                                >
-                                  Xem chi tiết
-                                </button>
-                                {isPending && !isCancelled && (
-                                  <button className="px-5 py-2.5 rounded-xl font-medium text-sm bg-[#836100] text-white hover:bg-[#6a4f00] transition-colors w-full sm:w-auto text-center shadow-md">
-                                    Thanh toán ngay
-                                  </button>
-                                )}
-                              </div>
+                            <div className="mt-auto flex justify-center">
+                              {stateBox}
                             </div>
                           </div>
+
+                          {/* RIGHT: Order Summary */}
+                          <div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-4">
+                            <div className="bg-gray-50 rounded-xl border border-gray-100 p-6 flex-1 flex flex-col justify-center gap-6">
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Mã đơn</p>
+                                <p className="text-xl font-bold text-gray-900">{order.orderNumber}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Ngày đặt</p>
+                                <p className="text-base font-bold text-gray-700">{formatDate(order.createdAt)}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-3">
+                              <button 
+                                onClick={() => setSelectedOrder(order)}
+                                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-all group shadow-sm"
+                              >
+                                Xem chi tiết <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                              </button>
+                              {actionBtn && (
+                                <div className="w-full">
+                                  {actionBtn}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
                         </div>
                       )
                     }
@@ -335,7 +461,7 @@ function ProfileContent() {
                           </div>
                           <div className="flex items-center gap-2">
                             {statusIcon(order.status)}
-                            <span className="text-sm font-medium text-gray-700">{order.status}</span>
+                            <span className="text-sm font-medium text-gray-700">{translateStatus(order.status, false)}</span>
                           </div>
                         </div>
                         <div className="flex justify-between items-center">
@@ -345,7 +471,7 @@ function ProfileContent() {
                             </div>
                             <div>
                               <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
-                              <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
+                              <p className="text-sm text-gray-500">Thanh toán: {translatePaymentStatus(order.paymentStatus, false)}</p>
                             </div>
                           </div>
                           <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
@@ -380,7 +506,7 @@ function ProfileContent() {
               >
                 <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">Chi tiết đơn đặt xe</h3>
+                    <h3 className="text-xl font-bold text-gray-900">Chi tiết đơn mua xe</h3>
                     <p className="text-sm text-gray-500">Mã đơn: {selectedOrder.orderNumber}</p>
                   </div>
                   <button
@@ -398,15 +524,15 @@ function ProfileContent() {
                   <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Dòng xe</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.carModel}</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Phiên bản</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.carVariant}</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Màu ngoại thất</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.exteriorColor}</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.color || selectedOrder.depositDetails.exteriorColor}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Màu nội thất</p>

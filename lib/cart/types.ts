@@ -132,7 +132,7 @@ export type AccessoryOrder = {
   id: string
   orderNumber: string
   customer: { id: string; email: string }
-  status: 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled'
+  status: 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled' | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'PENDING_PAYMENT' | 'PAID' | 'PREPARING_DELIVERY' | 'DELIVERED'
   statusUpdatedAt: string
   pricing: {
     currency: 'VND'
@@ -191,8 +191,9 @@ export type AccessoryOrder = {
 
 export type AccessoryOrderSummary = Pick<
   AccessoryOrder,
-  'id' | 'orderNumber' | 'status' | 'createdAt' | 'statusUpdatedAt'
+  'id' | 'orderNumber' | 'createdAt' | 'statusUpdatedAt'
 > & {
+  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'PENDING_PAYMENT' | 'PAID' | 'PREPARING_DELIVERY' | 'DELIVERED'
   orderType?: 'accessory' | 'deposit'
   carModel?: string
   carVariant?: string
@@ -214,5 +215,6 @@ export type AccessoryOrderSummary = Pick<
     district: string
     customerType: string
     totalEstimatedPrice: string
+    vehicleVariant?: any
   }
 }

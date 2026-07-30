@@ -222,7 +222,7 @@ export async function listCustomerOrders(
       id: order.id,
       orderNumber: order.orderNumber,
       orderType: 'accessory',
-      status: order.status,
+      status: order.status as AccessoryOrderSummary['status'],
       paymentStatus: order.payment.status,
       nextPaymentDueAt:
         order.payment.status === 'Pending'
@@ -242,7 +242,7 @@ export async function listCustomerOrders(
   if (!type || type === 'car') {
     const { data: depositData, error: depositError } = await supabase
       .from('deposit_orders')
-      .select('*')
+      .select('*, vehicle_variants(*)')
       .or(`customer_id.eq.${customerId},email.eq.${customerEmail}`)
   
     if (depositError) throw new Error(`Unable to list deposit orders: ${depositError.message}`)
@@ -253,10 +253,11 @@ export async function listCustomerOrders(
       
       if (deposit.status === 'PAID') {
         paymentStatus = 'Paid'
-        orderStatus = 'Paid'
       } else if (deposit.status === 'CANCELLED') {
-        orderStatus = 'Cancelled'
+        paymentStatus = 'Pending' // Or keep it what it was
       }
+
+      orderStatus = deposit.status; // Pass through the status directly for the UI to handle
       
       return {
         id: deposit.id,
@@ -264,13 +265,13 @@ export async function listCustomerOrders(
         orderType: 'deposit',
         carModel: deposit.car_model,
         carVariant: deposit.car_variant,
-        status: orderStatus,
-        paymentStatus,
+        status: orderStatus as AccessoryOrderSummary['status'],
+        paymentStatus: paymentStatus as 'Pending' | 'Paid',
         nextPaymentDueAt: null,
         pricing: {
           currency: 'VND',
-          grandTotal: '10000000', // Cọc cố định 10 triệu
-          amountDueNow: '10000000',
+          grandTotal: deposit.deposit_amount ? String(deposit.deposit_amount) : (deposit.vehicle_variants?.deposit_amount ? String(deposit.vehicle_variants.deposit_amount) : '10000000'),
+          amountDueNow: deposit.deposit_amount ? String(deposit.deposit_amount) : (deposit.vehicle_variants?.deposit_amount ? String(deposit.vehicle_variants.deposit_amount) : '10000000'),
           balanceDue: '0',
         },
         createdAt: deposit.created_at,
@@ -287,6 +288,7 @@ export async function listCustomerOrders(
           district: deposit.district,
           customerType: deposit.customer_type,
           totalEstimatedPrice: deposit.total_estimated_price,
+          vehicleVariant: deposit.vehicle_variants
         }
       }
     })
