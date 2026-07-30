@@ -1,10 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { type MouseEvent, useState } from 'react'
 import { Eye, Heart, Loader2, ShoppingCart } from 'lucide-react'
 import Link from 'next/link'
 
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
+import {
+  cancelCartAnimation,
+  launchCartAnimation,
+  prepareCartAnimation,
+} from '@/lib/cart/animation'
 import {
   filterCompatibleVariants,
   resolveCatalogImageUrl,
@@ -180,9 +185,10 @@ export function AccessoryCard({ product }: { product: CatalogProduct }) {
     setFeedback(null)
   }
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     if (!resolvedVariant || !inStock || submitting) return
 
+    const animationId = prepareCartAnimation(event.currentTarget)
     setSubmitting(true)
     setFeedback(null)
     const result = await addToCart(
@@ -192,6 +198,7 @@ export function AccessoryCard({ product }: { product: CatalogProduct }) {
     setSubmitting(false)
 
     if (!result.ok) {
+      cancelCartAnimation(animationId)
       if (result.code === 'AUTHENTICATION_REQUIRED') {
         window.location.assign(
           `/auth/login?returnTo=${encodeURIComponent(detailHref)}`,
@@ -202,6 +209,7 @@ export function AccessoryCard({ product }: { product: CatalogProduct }) {
       return
     }
 
+    launchCartAnimation(animationId, 1)
     setFeedback('Đã thêm vào giỏ hàng')
   }
 

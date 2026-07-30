@@ -5,7 +5,14 @@ import Link from 'next/link'
 import { BikeColorSelector } from '../../../components/bike-color-selector'
 import { getSupabaseAdmin } from '../../../lib/supabase-admin'
 import { Button } from '../../../components/ui/button'
-import { Check, CircleHelp } from 'lucide-react'
+import {
+  BatteryCharging,
+  Calculator,
+  Check,
+  CircleHelp,
+  FileDown,
+} from 'lucide-react'
+import { BikeShareButton } from './bike-detail-actions'
 import {
   getBikeColorFallbacks,
   getBikeColorImage,
@@ -452,11 +459,26 @@ export default async function BikeDetailPage(
   const description =
     asString(product.description) ||
     `Xe máy điện VinFast ${product.name}.`
+  const brochureUrl = [
+    rawSpecifications.brochure_url,
+    rawSpecifications.brochureUrl,
+    rawSpecifications.brochure,
+    gallery.brochure_url,
+    gallery.brochureUrl,
+    gallery.brochure,
+  ]
+    .map(asString)
+    .find(
+      (value) =>
+        /^(?:https?:\/\/|\/)/i.test(value) &&
+        /\.pdf(?:[?#].*)?$/i.test(value),
+    ) ?? ''
   const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}`
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
+  const estimatorHref = `/cost-estimator?vehicle=${encodeURIComponent(product.slug)}`
 
   return (
-    <main className="flex min-h-screen flex-col bg-background selection:bg-brand-500 selection:text-white">
+    <main className="flex min-h-screen flex-col bg-background pb-24 selection:bg-brand-500 selection:text-white md:pb-0">
       <Header />
 
       {/* HERO SECTION */}
@@ -473,8 +495,20 @@ className={`absolute inset-0 h-full w-full object-center ${
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/80" />
 
-        <div className="relative z-10 mt-32 flex flex-col items-center px-6 text-center sm:mt-40">
-          {/* Same unobstructed hero treatment as the car page. */}
+        <div className="absolute right-5 top-28 z-20 sm:right-8 sm:top-32">
+          <BikeShareButton productName={product.name} />
+        </div>
+
+        <div className="relative z-10 mt-28 flex flex-col items-center px-6 text-center sm:mt-36">
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.32em] text-white/70">
+            Xe máy điện
+          </p>
+          <h1 className="text-5xl font-black uppercase tracking-[-0.05em] text-white drop-shadow-2xl sm:text-7xl lg:text-8xl">
+            {product.name}
+          </h1>
+          <p className="mt-4 rounded-full border border-white/20 bg-black/20 px-5 py-2 text-sm font-semibold text-white/90 backdrop-blur-sm">
+            Giá từ {formatPrice(product.displayed_price)}
+          </p>
         </div>
 
         <div className="relative z-10 flex w-full flex-col items-center pb-12">
@@ -487,17 +521,32 @@ className={`absolute inset-0 h-full w-full object-center ${
               Đặt cọc ngay
             </Link>
           </div>
+          <a
+            href="#performance"
+            className="flex flex-col items-center text-white/65 transition-colors hover:text-white"
+            aria-label="Khám phá thông tin xe"
+          >
+            <span className="mb-7 text-[10px] font-bold uppercase tracking-[0.3em] sm:text-xs">
+              Khám phá
+            </span>
+            <span className="scroll-line relative h-10 w-px overflow-hidden bg-white/35 sm:h-16">
+              <span className="scroll-line-pulse absolute left-0 top-0 h-8 w-px bg-white" />
+            </span>
+          </a>
         </div>
       </section>
 
       {/* STICKY NAV CTA */}
       <div className="sticky top-[74px] z-40 border-b border-white/10 bg-background/80 shadow-sm backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 sm:px-6">
           <h2 className="hidden text-lg font-bold sm:block">
             {product.name}
           </h2>
 
-          <div className="flex gap-6 text-sm font-semibold text-muted-foreground">
+          <nav
+            aria-label="Điều hướng nội dung xe"
+            className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto whitespace-nowrap text-xs font-semibold text-muted-foreground [scrollbar-width:none] sm:justify-center sm:gap-6 sm:text-sm [&::-webkit-scrollbar]:hidden"
+          >
             <a
               href="#design"
               className="transition-colors hover:text-foreground"
@@ -518,9 +567,9 @@ className={`absolute inset-0 h-full w-full object-center ${
             >
               Thông số
             </a>
-          </div>
+          </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="mr-2 hidden font-bold md:block">
               {formatPrice(
                 product.displayed_price,
@@ -534,9 +583,7 @@ className={`absolute inset-0 h-full w-full object-center ${
               className="hidden rounded-full border-brand-600 font-bold text-brand-600 hover:bg-brand-50 sm:inline-flex"
             >
               <Link
-                href={`/cost-estimator?vehicle=${encodeURIComponent(
-                  product.slug,
-                )}`}
+                href={estimatorHref}
               >
                 Dự toán
               </Link>
@@ -591,6 +638,93 @@ className={`absolute inset-0 h-full w-full object-center ${
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CUSTOMER UTILITIES */}
+      <section className="border-b border-black/5 bg-background py-14 sm:py-16">
+        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
+          <div className="mb-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-brand-700">
+                Tiện ích cho bạn
+              </p>
+              <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+                Chọn bước tiếp theo
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+              Xem trước chi phí và chính sách sử dụng để chọn phương án phù hợp với nhu cầu di chuyển.
+            </p>
+          </div>
+
+          <div
+            className={`grid gap-4 ${
+              brochureUrl
+                ? 'md:grid-cols-3'
+                : 'md:grid-cols-2'
+            }`}
+          >
+            <Link
+              href={estimatorHref}
+              className="group flex min-h-40 flex-col justify-between rounded-2xl border border-black/10 bg-muted/40 p-6 transition-all hover:-translate-y-1 hover:border-brand-500/40 hover:bg-brand-50 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <Calculator
+                size={24}
+                className="text-brand-700"
+              />
+              <div className="mt-8">
+                <h3 className="font-bold">
+                  Dự toán chi phí
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Ước tính giá xe, chi phí đăng ký và phương án trả góp.
+                </p>
+              </div>
+            </Link>
+
+            <a
+              href="https://vinfastauto.com/vn_vi/dich-vu-pin-xe-may-dien"
+              target="_blank"
+              rel="noreferrer"
+              className="group flex min-h-40 flex-col justify-between rounded-2xl border border-black/10 bg-muted/40 p-6 transition-all hover:-translate-y-1 hover:border-brand-500/40 hover:bg-brand-50 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <BatteryCharging
+                size={24}
+                className="text-brand-700"
+              />
+              <div className="mt-8">
+                <h3 className="font-bold">
+                  Chính sách pin
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Tham khảo hình thức sử dụng pin và các chi phí liên quan.
+                </p>
+              </div>
+            </a>
+
+            {brochureUrl && (
+              <a
+                href={brochureUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex min-h-40 flex-col justify-between rounded-2xl border border-black/10 bg-muted/40 p-6 transition-all hover:-translate-y-1 hover:border-brand-500/40 hover:bg-brand-50 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                <FileDown
+                  size={24}
+                  className="text-brand-700"
+                />
+                <div className="mt-8">
+                  <h3 className="font-bold">
+                    Tải brochure
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Xem tài liệu giới thiệu và thông tin chính thức của mẫu xe.
+                  </p>
+                </div>
+              </a>
+            )}
           </div>
         </div>
       </section>
@@ -852,6 +986,24 @@ className={`absolute inset-0 h-full w-full object-center ${
           </div>
         </div>
       </section>
+
+      {/* MOBILE PURCHASE ACTIONS */}
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white/95 px-3 pt-3 shadow-[0_-12px_36px_rgba(0,0,0,0.12)] backdrop-blur-xl pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-2 gap-3">
+          <Link
+            href={testDriveHref}
+            className="flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100 active:scale-[0.98]"
+          >
+            Trải nghiệm
+          </Link>
+          <Link
+            href={depositHref}
+            className="flex h-12 items-center justify-center rounded-full bg-brand-600 px-4 text-sm font-bold text-white shadow-md transition-colors hover:bg-brand-700 active:scale-[0.98]"
+          >
+            Đặt cọc
+          </Link>
+        </div>
+      </div>
 
       <Footer />
     </main>

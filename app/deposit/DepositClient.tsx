@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
@@ -8,6 +9,151 @@ import {
   findDepositVehicle,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
+
+const DEPOSIT_STEPS = [
+  { number: 1, label: 'Lựa chọn xe' },
+  { number: 2, label: 'Nhập thông tin' },
+  { number: 3, label: 'Thanh toán' },
+] as const
+
+function DepositStepper({ currentStep }: { currentStep: number }) {
+  const [isExploring, setIsExploring] = useState(false)
+  const shouldReduceMotion = useReducedMotion()
+  const visibleSteps = DEPOSIT_STEPS
+
+  return (
+    <div className="-mx-8 mb-10 mt-2 overflow-hidden px-8">
+      <motion.ol
+        layout
+        aria-label={`Tiến trình đặt cọc, bước ${currentStep} trên 3`}
+        className="flex h-14 w-full items-stretch gap-1.5"
+        onHoverStart={() => setIsExploring(true)}
+        onHoverEnd={() => setIsExploring(false)}
+      >
+        <AnimatePresence mode="popLayout">
+          {visibleSteps.map((step, index) => {
+            const isCurrent = step.number === currentStep
+            const isCompleted = step.number < currentStep
+            const showFullLabel = isCurrent || isExploring
+
+            return (
+              <motion.li
+                layout
+                key={step.number}
+                aria-current={isCurrent ? 'step' : undefined}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: -120, scaleX: 0.82 }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scaleX: 1,
+                  flexGrow: showFullLabel ? 1 : 0,
+                  flexBasis: showFullLabel ? 0 : 52,
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: -180, scaleX: 0.72 }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        layout: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        opacity: { duration: 0.18 },
+                        x: {
+                          duration: 0.34,
+                          ease: [0.7, 0, 0.2, 1],
+                        },
+                        scaleX: {
+                          duration: 0.3,
+                          ease: [0.7, 0, 0.2, 1],
+                        },
+                        flexGrow: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        flexBasis: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                      }
+                }
+                className={`relative min-w-[52px] origin-left overflow-hidden ${
+                  isCurrent
+                    ? 'bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.2)]'
+                    : isCompleted
+                      ? 'bg-brand-100 text-brand-800'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+                style={{
+                  clipPath:
+                    index === 0
+                      ? 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%)'
+                      : 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%)',
+                }}
+              >
+                <div
+                  className={`flex h-full items-center gap-2.5 ${
+                    index === 0 ? 'pl-3' : 'pl-5'
+                  } pr-6`}
+                >
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                      isCurrent
+                        ? 'bg-white text-slate-950'
+                        : isCompleted
+                          ? 'border border-brand-300 bg-brand-600 text-white'
+                        : 'border border-slate-300 bg-white text-slate-500'
+                    }`}
+                  >
+                    {step.number}
+                  </span>
+
+                  <AnimatePresence initial={false}>
+                    {showFullLabel && (
+                      <motion.span
+                        initial={
+                          shouldReduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, x: -8 }
+                        }
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={
+                          shouldReduceMotion
+                            ? { duration: 0.01 }
+                            : {
+                                duration: 0.22,
+                                ease: [0.16, 1, 0.3, 1],
+                              }
+                        }
+                        className={`truncate text-[11px] font-extrabold uppercase tracking-[0.08em] sm:text-xs ${
+                          !isCurrent ? 'hidden sm:block' : ''
+                        }`}
+                      >
+                        {step.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {!showFullLabel && (
+                    <span className="sr-only">{step.label}</span>
+                  )}
+                </div>
+              </motion.li>
+            )
+          })}
+        </AnimatePresence>
+      </motion.ol>
+    </div>
+  )
+}
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -55,12 +201,14 @@ export function DepositClient({
   const [interiorImageIndex, setInteriorImageIndex] = useState(0)
   const [selectedPackages, setSelectedPackages] = useState<string[]>([])
   const [currentStep, setCurrentStep] = useState(1)
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1)
   const [customerType, setCustomerType] = useState<'personal' | 'corporate'>('personal')
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', district: '' })
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const shouldReduceMotion = useReducedMotion()
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
@@ -68,6 +216,11 @@ export function DepositClient({
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
+  }
+
+  const goToStep = (nextStep: number) => {
+    setStepDirection(nextStep >= currentStep ? 1 : -1)
+    setCurrentStep(nextStep)
   }
 
   useEffect(() => {
@@ -175,7 +328,7 @@ export function DepositClient({
 
   const handleNextStep = () => {
     if (currentStep === 1) {
-      setCurrentStep(2)
+      goToStep(2)
     } else if (currentStep === 2) {
       const isMissingPersonal = customerType === 'personal' && !formData.name;
       const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
@@ -184,7 +337,7 @@ export function DepositClient({
         addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
         return;
       }
-      setCurrentStep(3)
+      goToStep(3)
     } else if (currentStep === 3) {
       if (!termsAccepted) {
         addToast({ kind: 'warning', title: 'Vui lòng xác nhận đồng ý với các Điều kiện & Điều khoản' });
@@ -248,7 +401,7 @@ export function DepositClient({
         if (res.error) {
           addToast({ kind: 'error', title: 'Lỗi', message: res.error })
         } else {
-          setCurrentStep(4)
+          goToStep(4)
         }
       }).catch(err => {
         setIsSubmitting(false)
@@ -559,7 +712,7 @@ export function DepositClient({
         />
 
         {/* LEFT COLUMN: CAR SHOWCASE */}
-        <div className="flex-1 flex flex-col relative z-10">
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col">
           
           {/* SLEEK TOP BAR */}
           <div className="w-full px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 z-50 relative">
@@ -596,7 +749,20 @@ export function DepositClient({
               </div>
 
               {/* VEHICLE SELECTOR */}
-              <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar">
+              <div
+                className={
+                  isMotorbike
+                    ? 'grid max-w-full grid-rows-2 gap-2 overflow-x-auto rounded-[26px] border border-slate-200 bg-white/75 p-2 shadow-sm backdrop-blur-md hide-scrollbar'
+                    : 'inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar'
+                }
+                style={
+                  isMotorbike
+                    ? {
+                        gridTemplateColumns: `repeat(${Math.ceil(availableCars.length / 2)}, minmax(112px, max-content))`,
+                      }
+                    : undefined
+                }
+              >
                 {availableCars.map((car, idx) => {
                 const allImages = [
                   ...(car.gallery?.exterior_images || []),
@@ -624,10 +790,14 @@ export function DepositClient({
                   <button
                     key={idx}
                     onClick={() => setSelectedCarId(car.name)}
-                    className={`px-6 py-2.5 rounded-full text-sm font-medium tracking-wider transition-all duration-300 whitespace-nowrap flex items-center justify-center min-w-[80px] h-10 ${
+                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 ${
+                      isMotorbike
+                        ? 'h-11 min-w-[112px] px-5 py-2.5 text-[15px] font-bold tracking-[0.04em]'
+                        : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
+                    } ${
                       isSelected 
                         ? 'bg-slate-900 text-white shadow-lg scale-105' 
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
+                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group'
                     }`}
                   >
                     {logo ? (
@@ -733,28 +903,73 @@ export function DepositClient({
         </div>
 
         {/* RIGHT COLUMN: PREMIUM CONFIGURATOR */}
-        <div className="w-full lg:w-[540px] xl:w-[600px] bg-white text-slate-900 shadow-2xl z-20 flex flex-col relative rounded-t-[40px] lg:rounded-t-none lg:rounded-l-[40px] overflow-hidden">
+        <div className="relative z-20 flex w-full shrink-0 flex-col overflow-hidden rounded-t-[40px] bg-white text-slate-900 shadow-2xl lg:w-[540px] lg:rounded-l-[40px] lg:rounded-t-none xl:w-[600px]">
           
           <div className="flex-1 overflow-y-auto hide-scrollbar p-8 pb-48">
             
-            {/* MODERN STEPPER */}
-            <div className="flex items-center gap-4 mb-10 mt-2">
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 1 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>1</div>
-                 {currentStep === 1 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Lựa chọn xe</span>}
-               </div>
-               <div className={`h-px flex-1 ${currentStep >= 2 ? 'bg-slate-900' : 'bg-slate-200'}`}></div>
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 2 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>2</div>
-                 {currentStep === 2 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Nhập thông tin</span>}
-               </div>
-               <div className={`h-px flex-1 ${currentStep >= 3 ? 'bg-slate-900' : 'bg-slate-200'}`}></div>
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 3 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>3</div>
-                 {currentStep === 3 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Đặt cọc xe</span>}
-               </div>
-            </div>
+            {/* SPEED-INSPIRED STEPPER */}
+            <AnimatePresence>
+              {currentStep <= 3 && (
+                <motion.div
+                  key="deposit-stepper"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={
+                    shouldReduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, x: -140 }
+                  }
+                  transition={
+                    shouldReduceMotion
+                      ? { duration: 0.01 }
+                      : { duration: 0.3, ease: [0.7, 0, 0.2, 1] }
+                  }
+                >
+                  <DepositStepper currentStep={currentStep} />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
+            <AnimatePresence mode="popLayout" custom={stepDirection}>
+              <motion.div
+                key={currentStep}
+                custom={stepDirection}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x: stepDirection > 0 ? 72 : -72,
+                        filter: 'blur(3px)',
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  filter: 'blur(0px)',
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x: stepDirection > 0 ? -110 : 110,
+                        filter: 'blur(3px)',
+                      }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        x: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        opacity: { duration: 0.2 },
+                        filter: { duration: 0.22 },
+                      }
+                }
+              >
             {currentStep === 1 && (
               <>
 
@@ -969,7 +1184,7 @@ export function DepositClient({
             )}
             
             {currentStep === 2 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
                 <h3 className="text-2xl font-bold tracking-tight mb-8">Thông tin người đặt cọc</h3>
                 
                 <div className="space-y-6">
@@ -1077,7 +1292,7 @@ export function DepositClient({
             )}
             
             {currentStep === 3 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
                 <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-6">
                   <h3 className="text-xl font-bold tracking-tight text-slate-800">Thông tin đơn hàng</h3>
                   <svg className="w-5 h-5 text-slate-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -1176,7 +1391,7 @@ export function DepositClient({
             )}
             
             {currentStep === 4 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500 text-center py-12">
+              <div className="py-12 text-center">
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Check size={40} strokeWidth={3} />
                 </div>
@@ -1206,7 +1421,9 @@ export function DepositClient({
                 </div>
               </div>
             )}
-            
+              </motion.div>
+            </AnimatePresence>
+
           </div>
 
            {/* BOTTOM CHECKOUT BAR */}
@@ -1241,7 +1458,7 @@ export function DepositClient({
                    <div className="flex gap-2 sm:gap-3 shrink-0">
                      {currentStep > 1 && (
                        <button 
-                         onClick={() => setCurrentStep(currentStep - 1)}
+                         onClick={() => goToStep(currentStep - 1)}
                          className="flex items-center justify-center bg-slate-100 text-slate-600 px-3 sm:px-6 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap shrink-0 hover:bg-slate-200 transition-all active:scale-95"
                        >
                          Quay lại

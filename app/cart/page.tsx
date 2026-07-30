@@ -267,6 +267,10 @@ export default function CartPage() {
         url.search === current.search
       ) return
 
+      const guardedEvent = event as MouseEvent & {
+        fastlaneNavigationDeferred?: boolean
+      }
+      guardedEvent.fastlaneNavigationDeferred = true
       event.preventDefault()
       requestLeaveConfirmation({ type: 'href', href: url.href })
     }

@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronDown, LogOut, Menu, Search, ShoppingCart, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -9,6 +9,12 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
+import {
+  CART_ANIMATION_CANCEL,
+  CART_ANIMATION_COMPLETE,
+  CART_ANIMATION_PREPARE,
+  type CartAnimationResolutionDetail,
+} from '@/lib/cart/animation'
 
 export function MotionDiv(props: HTMLMotionProps<'div'>) {
   return <motion.div {...props} />
@@ -38,6 +44,11 @@ export function Header() {
     syncCartOwner,
   } = useAppStore()
   const userSubject = typeof user?.sub === 'string' ? user.sub : null
+  const cartCount = getCartCount()
+  const cartCountRef = useRef(cartCount)
+  const pendingCartAnimationsRef = useRef(0)
+  const [displayedCartCount, setDisplayedCartCount] = useState(cartCount)
+  cartCountRef.current = cartCount
 
   // Header is transparent on homepage and car/bike detail pages
   const isTransparentPage = pathname === '/' || /^\/(cars|bikes)\/[^\/]+$/.test(pathname)
@@ -57,6 +68,52 @@ export function Header() {
       void loadCart(userSubject)
     }
   }, [cartLoaded, loadCart, syncCartOwner, userLoading, userSubject])
+
+  useEffect(() => {
+    if (pendingCartAnimationsRef.current === 0) {
+      setDisplayedCartCount(cartCount)
+    }
+  }, [cartCount])
+
+  useEffect(() => {
+    const handlePrepare = (_event: Event) => {
+      pendingCartAnimationsRef.current += 1
+    }
+    const handleCancel = (_event: Event) => {
+      pendingCartAnimationsRef.current = Math.max(
+        0,
+        pendingCartAnimationsRef.current - 1,
+      )
+      if (pendingCartAnimationsRef.current === 0) {
+        window.setTimeout(() => {
+          setDisplayedCartCount(cartCountRef.current)
+        }, 0)
+      }
+    }
+    const handleComplete = (event: Event) => {
+      const { quantity } = (
+        event as CustomEvent<CartAnimationResolutionDetail>
+      ).detail
+      pendingCartAnimationsRef.current = Math.max(
+        0,
+        pendingCartAnimationsRef.current - 1,
+      )
+      if (pendingCartAnimationsRef.current === 0) {
+        setDisplayedCartCount(cartCountRef.current)
+      } else {
+        setDisplayedCartCount((count) => count + quantity)
+      }
+    }
+
+    window.addEventListener(CART_ANIMATION_PREPARE, handlePrepare)
+    window.addEventListener(CART_ANIMATION_CANCEL, handleCancel)
+    window.addEventListener(CART_ANIMATION_COMPLETE, handleComplete)
+    return () => {
+      window.removeEventListener(CART_ANIMATION_PREPARE, handlePrepare)
+      window.removeEventListener(CART_ANIMATION_CANCEL, handleCancel)
+      window.removeEventListener(CART_ANIMATION_COMPLETE, handleComplete)
+    }
+  }, [])
 
   const headerSolid = scrolled || !isTransparentPage
 
@@ -83,13 +140,27 @@ export function Header() {
 
         <div className={`flex shrink-0 items-center justify-end gap-4 transition-colors duration-500 xl:gap-6 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={23} strokeWidth={2} /></button>
-          <Link aria-label="Giỏ hàng" href="/cart" className="relative block hover:opacity-70 transition-opacity">
+          <Link
+            aria-label="Giỏ hàng"
+            href="/cart"
+            data-cart-animation-target="true"
+            className="relative block transition-opacity hover:opacity-70"
+          >
             <ShoppingCart size={23} strokeWidth={2} />
-            {getCartCount() > 0 && (
-              <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                {getCartCount()}
-              </span>
-            )}
+            <AnimatePresence initial={false} mode="popLayout">
+              {displayedCartCount > 0 && (
+                <motion.span
+                  key={displayedCartCount}
+                  initial={{ opacity: 0, scale: 0.25, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.4, y: -3 }}
+                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+                >
+                  {displayedCartCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Link>
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">

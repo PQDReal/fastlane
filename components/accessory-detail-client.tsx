@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { type MouseEvent, useMemo, useState } from 'react'
 import { Check, ChevronLeft, Loader2, Minus, Plus, ShoppingCart } from 'lucide-react'
 import Link from 'next/link'
 
@@ -20,6 +20,11 @@ import type {
   CatalogVariant,
 } from '@/lib/catalog/types'
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
+import {
+  cancelCartAnimation,
+  launchCartAnimation,
+  prepareCartAnimation,
+} from '@/lib/cart/animation'
 import { useAppStore } from '@/lib/store'
 
 const formatPrice = (price: number) =>
@@ -263,8 +268,9 @@ export function AccessoryDetailClient({
     setFeedback(null)
   }
 
-  const handleAdd = async () => {
+  const handleAdd = async (event: MouseEvent<HTMLButtonElement>) => {
     if (!selectedVariant || !inStock || submitting) return
+    const animationId = prepareCartAnimation(event.currentTarget)
     setSubmitting(true)
     setFeedback(null)
     const result = await addToCart(
@@ -274,6 +280,7 @@ export function AccessoryDetailClient({
     setSubmitting(false)
 
     if (!result.ok) {
+      cancelCartAnimation(animationId)
       if (result.code === 'AUTHENTICATION_REQUIRED') {
         window.location.assign(
           `/auth/login?returnTo=${encodeURIComponent(`/accessories/${product.slug}`)}`,
@@ -284,6 +291,7 @@ export function AccessoryDetailClient({
       return
     }
 
+    launchCartAnimation(animationId, quantity)
     setFeedback({ type: 'success', message: 'Đã thêm sản phẩm vào giỏ hàng.' })
   }
 
