@@ -57,57 +57,26 @@ export function DepositClient({
   const [selectedPackages, setSelectedPackages] = useState<string[]>([])
   const [currentStep, setCurrentStep] = useState(1)
   const [customerType, setCustomerType] = useState<'personal' | 'corporate'>('personal')
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', ward: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', district: '' })
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
-
-  const addToast = (toast: Omit<ToastMessage, 'id'>) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { ...toast, id }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
-  }
-
   const [dbVariants, setDbVariants] = useState<any[]>([])
-
   const [provinces, setProvinces] = useState<LocationOption[]>([])
-  const [wards, setWards] = useState<LocationOption[]>([])
-  const [provinceCode, setProvinceCode] = useState('')
-  const [locationsLoading, setLocationsLoading] = useState(true)
-  const [wardsLoading, setWardsLoading] = useState(false)
+  const [districts, setDistricts] = useState<LocationOption[]>([])
+  const [provinceCode, setProvinceCode] = useState<number | null>(null)
 
   useEffect(() => {
-    let active = true
-    setLocationsLoading(true)
-    fetch('/api/v1/locations', { headers: { Accept: 'application/json' } })
-      .then((res) => res.json())
-      .then((payload) => {
-        if (active) setProvinces(payload.data ?? [])
+    fetch('https://esgoo.net/api-tinhthanh/1/0.htm')
+      .then(res => res.json())
+      .then(data => {
+        if (data.error === 0) {
+          setProvinces(data.data.map((p: any) => ({ code: Number(p.id), name: p.full_name })))
+        }
       })
-      .catch(() => {})
-      .finally(() => { if (active) setLocationsLoading(false) })
-    return () => { active = false }
+      .catch(err => console.error('Error fetching provinces:', err))
   }, [])
-
-  useEffect(() => {
-    if (!provinceCode) {
-      setWards([])
-      return
-    }
-    const controller = new AbortController()
-    setWardsLoading(true)
-    fetch(`/api/v1/locations?provinceCode=${provinceCode}`, { signal: controller.signal, headers: { Accept: 'application/json' } })
-      .then((res) => res.json())
-      .then((payload) => {
-        setWards(payload.data ?? [])
-      })
-      .catch(() => {})
-      .finally(() => { if (!controller.signal.aborted) setWardsLoading(false) })
-    return () => controller.abort()
-  }, [provinceCode])
 
   useEffect(() => {
     async function fetchVariants() {
@@ -122,6 +91,29 @@ export function DepositClient({
     }
     fetchVariants()
   }, [selectedCarId, carsData])
+
+  useEffect(() => {
+    if (provinceCode) {
+      fetch(`https://esgoo.net/api-tinhthanh/2/${provinceCode}.htm`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error === 0) {
+            setDistricts(data.data.map((d: any) => ({ code: Number(d.id), name: d.full_name })))
+          }
+        })
+        .catch(err => console.error('Error fetching districts:', err))
+    } else {
+      setDistricts([])
+    }
+  }, [provinceCode])
+
+  const addToast = (toast: Omit<ToastMessage, 'id'>) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { ...toast, id }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  }
 
   useEffect(() => {
     setInteriorImageIndex(0)
@@ -233,7 +225,7 @@ export function DepositClient({
       const isMissingPersonal = customerType === 'personal' && !formData.name;
       const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
       
-      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.ward) {
+      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.district) {
         addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
         return;
       }
@@ -267,13 +259,6 @@ export function DepositClient({
         if (pkg) packagesPrice += pkg.price
       })
       const totalPrice = basePrice + colorPrice + packagesPrice
-      
-      const matchingVariant = dbVariants.find(v => 
-        (v.product_name || '').includes(currentCarObj.name) && 
-        (v.version || '').includes(selectedVariantName) && 
-        v.color === selectedColor
-      )
-      const matchingVariantId = matchingVariant?.id || null
 
       fetch('/api/deposit', {
         method: 'POST',
@@ -287,7 +272,7 @@ export function DepositClient({
           email: formData.email,
           id_card_number: formData.idCard,
           province: formData.province,
-          ward: formData.ward,
+          district: formData.district,
           car_model: currentCarObj.name,
           car_variant: selectedVariant,
           exterior_color: selectedColor,
@@ -295,12 +280,12 @@ export function DepositClient({
             currentCarObj.product_type === 'motorbike'
               ? ''
               : selectedInteriorColor,
-          vehicle_variant_id: matchingVariantId,
+          vehicle_variant_id: matchingDbVariant?.id,
           optional_packages: selectedPackages,
           showroom: 'VinFast Landmark 81',
           payment_method: paymentMethod,
           deposit_amount:
-            matchingVariant?.deposit_amount ||
+            matchingDbVariant?.deposit_amount ||
             currentCarObj.deposit_value ||
             (currentCarObj.product_type === 'motorbike' ? 2000000 : 10000000),
           total_estimated_price: totalPrice
@@ -448,10 +433,68 @@ export function DepositClient({
     }
   }
 
-  const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
-  const matchingDbVariant = dbVariants.find(v => 
+  let interiorImages: string[] = []
+  if (currentCar.name === 'VF 9') {
+    if (selectedInteriorColor === 'Cotton Beige') {
+      interiorImages = Array.from({length: 4}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI13/${i+1}.webp`)
+    } else if (selectedInteriorColor === 'Saddle Brown') {
+      interiorImages = Array.from({length: 10}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI12/${i+1}.webp`)
+    } else if (selectedInteriorColor === 'Granite Black') {
+      interiorImages = [
+        'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI11/1.jpg',
+        'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI11/2.jpg'
+      ]
+    } else {
+      interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
+        .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
+    }
+  } else if (currentCar.name.includes('VF 8')) {
+    const isAllNew = currentCar.name.includes('All-New')
+    const code = selectedInteriorColor === 'Granite Black' ? 'CI11' : 'CI12'
+    
+    if (isAllNew) {
+      interiorImages = [
+        `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/${code}/1.webp`
+      ]
+    } else {
+      interiorImages = [
+        `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/1.png`,
+        `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/2.png`,
+        `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/3.png`,
+        `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/4.png`,
+        `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/5.png`
+      ]
+    }
+  } else if (currentCar.name === 'VF 3') {
+    interiorImages = ['https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF3/TI1CV/interior/CI11/1.jpg']
+  } else if (currentCar.name === 'VF 5') {
+    interiorImages = ['https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF5/GA12V/interior/CI11/1.jpg']
+  } else if (currentCar.name === 'VF 6' || currentCar.name === 'VF 7') {
+    if (selectedInteriorColor === 'Cotton Beige') {
+      if (currentCar.name === 'VF 7') {
+        interiorImages = Array.from({length: 6}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF7/interior/CI13/${i+1}.webp`)
+      } else {
+        interiorImages = ['https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF6/interior/CI13/1.webp']
+      }
+    } else if (selectedInteriorColor === 'Mocca Brown') {
+      interiorImages = Array.from({length: 6}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF6/interior/CI18/${i+1}.png`)
+    } else {
+      if (currentCar.name === 'VF 7') {
+        interiorImages = Array.from({length: 5}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF7/interior/CI11/${i+1}.webp`)
+      } else {
+        interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
+          .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
+      }
+    }
+  } else {
+    interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
+      .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
+  }
+
+  const selectedVariantNameForDb = selectedVariant.replace(currentCar.name + ' ', '')
+  const matchingDbVariant = dbVariants?.find((v: any) => 
     (v.product_name || '').includes(currentCar.name) && 
-    (v.version || '').includes(selectedVariantName) && 
+    (v.version || '').includes(selectedVariantNameForDb) && 
     v.color === selectedColor
   )
 
@@ -467,7 +510,6 @@ export function DepositClient({
     { name: 'Navy Blue', hex: '#1c2841' }
     ]
 
-  let interiorImages: string[] = []
   if (!isMotorbike && currentCar.name === 'VF 2') {
     availableInteriorColors = [
       { name: 'Grey', hex: '#808080', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw33eb76b4/images/deposit/interior/CI1M.webp' }
@@ -484,150 +526,56 @@ export function DepositClient({
     const isEco = selectedVariant.toLowerCase().includes('eco')
     const hasCottonBeige = ['Jet Black', 'Crimson Red', 'Ivy Green'].includes(selectedColor)
     const hasSaddleBrown = !isEco && selectedColor !== 'Crimson Red'
->>>>>>> origin/develop
 
-  if (matchingDbVariant?.specs?.interior_colors?.length > 0) {
-    availableInteriorColors = matchingDbVariant.specs.interior_colors.map((c: any) => ({
-      name: c.name,
-      hex: c.hex,
-      swatch: c.swatch,
-      images: c.images
-    }))
+    availableInteriorColors = [graniteBlack]
+    if (hasSaddleBrown) availableInteriorColors.push(saddleBrown)
+    if (hasCottonBeige) availableInteriorColors.push(cottonBeige)
+  } else if (currentCar.name === 'VF 5') {
+    availableInteriorColors = [
+      { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+    ]
+  } else if (currentCar.name === 'VF 6' || currentCar.name === 'VF 7') {
+    const isEco = selectedVariant.toLowerCase().includes('eco')
+    const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+    const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
+    const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' } // Fallback CI18 URL, relying on hex
     
-    const activeInteriorObj = (availableInteriorColors as any[]).find((c: any) => c.name === selectedInteriorColor)
-    if (activeInteriorObj?.images?.length > 0) {
-      interiorImages = activeInteriorObj.images
+    if (isEco) {
+      const allowsBeige = selectedColor === 'Jet Black' || selectedColor === 'Solar Ruby'
+      availableInteriorColors = allowsBeige ? [black, cottonBeige] : [black]
     } else {
-      interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
-        .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
+      if (selectedColor === 'Solar Ruby') {
+        availableInteriorColors = [cottonBeige]
+      } else if (selectedColor === 'Jet Black') {
+        availableInteriorColors = [moccaBrown, cottonBeige]
+      } else {
+        availableInteriorColors = [moccaBrown]
+      }
     }
-  } else {
-    if (currentCar.name === 'VF 9') {
-      if (selectedInteriorColor === 'Cotton Beige') {
-        interiorImages = Array.from({length: 4}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI13/${i+1}.webp`)
-      } else if (selectedInteriorColor === 'Saddle Brown') {
-        interiorImages = Array.from({length: 10}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI12/${i+1}.webp`)
-      } else if (selectedInteriorColor === 'Granite Black') {
-        interiorImages = [
-          'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI11/1.jpg',
-          'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF9/interior/CI11/2.jpg'
-        ]
-      } else {
-        interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
-          .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
-      }
-    } else if (currentCar.name.includes('VF 8')) {
-      const isAllNew = currentCar.name.includes('All-New')
-      const code = selectedInteriorColor === 'Granite Black' ? 'CI11' : 'CI12'
-      
-      if (isAllNew) {
-        interiorImages = [
-          `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8-THE-ALL-NEW/interior/${code}/1.webp`
-        ]
-      } else {
-        interiorImages = [
-          `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/1.png`,
-          `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/2.png`,
-          `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/3.png`,
-          `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/4.png`,
-          `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF8/interior/${code}/5.png`
-        ]
-      }
-    } else if (currentCar.name === 'VF 3') {
-      interiorImages = ['https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF3/TI1CV/interior/CI11/1.jpg']
-    } else if (currentCar.name === 'VF 5') {
-      interiorImages = ['https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF5/GA12V/interior/CI11/1.jpg']
-    } else if (currentCar.name === 'VF 6' || currentCar.name === 'VF 7') {
-      if (selectedInteriorColor === 'Cotton Beige') {
-        if (currentCar.name === 'VF 7') {
-          interiorImages = Array.from({length: 6}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF7/interior/CI13/${i+1}.webp`)
-        } else {
-          interiorImages = ['https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF6/interior/CI13/1.webp']
-        }
-      } else if (selectedInteriorColor === 'Mocca Brown') {
-        interiorImages = Array.from({length: 6}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF6/interior/CI18/${i+1}.png`)
-      } else {
-        if (currentCar.name === 'VF 7') {
-          interiorImages = Array.from({length: 5}).map((_, i) => `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VF7/interior/CI11/${i+1}.webp`)
-        } else {
-          interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
-            .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
-        }
-      }
+  } else if (currentCar.name.includes('VF 8')) {
+    availableInteriorColors = availableInteriorColors.slice(0, 2)
+    const allowsSaddleBrown = [
+      'Infinity Blanc', 
+      'Starburst Blue', 
+      'Jet Black', 
+      'Starburst Blue Body - Infinity Blanc Roof', 
+      'Jet Black Body - Stealth Gray Roof'
+    ].includes(selectedColor)
+
+    if (!allowsSaddleBrown) {
+      availableInteriorColors = [availableInteriorColors[0]] // Only Granite Black
+    }
+  } else if (currentCar.name.includes('MPV')) {
+    const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+    const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' }
+    
+    if (selectedColor === 'Solar Ruby' || selectedColor === 'Introspective Brown') {
+      availableInteriorColors = [black]
     } else {
-      interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
-        .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
-    }
-  
-    if (currentCar.name === 'VF 2') {
-      availableInteriorColors = [
-        { name: 'Grey', hex: '#808080', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw33eb76b4/images/deposit/interior/CI1M.webp' }
-      ]
-    } else if (currentCar.name === 'VF 3') {
-      availableInteriorColors = [
-        { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-      ]
-    } else if (currentCar.name === 'VF 9') {
-      const graniteBlack = { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-      const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
-      const saddleBrown = { name: 'Saddle Brown', hex: '#633517', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw65203801/images/deposit/interior/CI12.webp' }
-      
-      const isEco = selectedVariant.toLowerCase().includes('eco')
-      const hasCottonBeige = ['Jet Black', 'Crimson Red', 'Ivy Green'].includes(selectedColor)
-      const hasSaddleBrown = !isEco && selectedColor !== 'Crimson Red'
-  
-      availableInteriorColors = [graniteBlack]
-      if (hasSaddleBrown) availableInteriorColors.push(saddleBrown)
-      if (hasCottonBeige) availableInteriorColors.push(cottonBeige)
-    } else if (currentCar.name === 'VF 5') {
-      availableInteriorColors = [
-        { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-      ]
-    } else if (currentCar.name === 'VF 6' || currentCar.name === 'VF 7') {
-      const isEco = selectedVariant.toLowerCase().includes('eco')
-      const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-      const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
-      const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' } // Fallback CI18 URL, relying on hex
-      
-      if (isEco) {
-        const allowsBeige = selectedColor === 'Jet Black' || selectedColor === 'Solar Ruby'
-        availableInteriorColors = allowsBeige ? [black, cottonBeige] : [black]
-      } else {
-        if (selectedColor === 'Solar Ruby') {
-          availableInteriorColors = [cottonBeige]
-        } else if (selectedColor === 'Jet Black') {
-          availableInteriorColors = [moccaBrown, cottonBeige]
-        } else {
-          availableInteriorColors = [moccaBrown]
-        }
-      }
-    } else if (currentCar.name.includes('VF 8')) {
-      availableInteriorColors = availableInteriorColors.slice(0, 2)
-      const allowsSaddleBrown = [
-        'Infinity Blanc', 
-        'Starburst Blue', 
-        'Jet Black', 
-        'Starburst Blue Body - Infinity Blanc Roof', 
-        'Jet Black Body - Stealth Gray Roof'
-      ].includes(selectedColor)
-  
-      if (!allowsSaddleBrown) {
-        availableInteriorColors = [availableInteriorColors[0]] // Only Granite Black
-      }
-    } else if (currentCar.name.includes('MPV')) {
-      const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-      const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' }
-      
-      if (selectedColor === 'Solar Ruby' || selectedColor === 'Introspective Brown') {
-        availableInteriorColors = [black]
-      } else {
-        availableInteriorColors = [black, moccaBrown]
-      }
+      availableInteriorColors = [black, moccaBrown]
     }
   }
 
-  const powetrain = currentSpecs.variants?.[variants[0]]?.specs?.powertrain || {}
-  const dimension = currentSpecs.variants?.[variants[0]]?.specs?.dimension || {}
   const interiorColorNames = JSON.stringify(availableInteriorColors.map(c => c.name))
   useEffect(() => {
     if (!selectedInteriorColor || !availableInteriorColors.some(c => c.name === selectedInteriorColor)) {
@@ -1140,28 +1088,30 @@ export function DepositClient({
                   )}
 
                   <div className="grid grid-cols-2 gap-4">
-                    <SearchableLocationSelect
-                      label="Tỉnh / Thành phố"
-                      options={provinces}
-                      value={provinceCode}
-                      onChange={(option) => {
-                        setProvinceCode(option ? String(option.code) : '')
-                        setFormData({ ...formData, province: option ? option.name : '', ward: '' })
-                      }}
-                      placeholder="Chọn Tỉnh / Thành phố"
-                      loading={locationsLoading}
-                    />
-                    <SearchableLocationSelect
-                      label="Phường / Xã"
-                      options={wards}
-                      value={formData.ward}
-                      onChange={(option) => {
-                        setFormData({ ...formData, ward: option ? option.name : '' })
-                      }}
-                      placeholder="Chọn Phường / Xã"
-                      loading={wardsLoading}
-                      disabled={!provinceCode}
-                    />
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
+                      <SearchableLocationSelect
+                        label=""
+                        options={provinces}
+                        value={formData.province}
+                        onChange={(val) => {
+                          setProvinceCode(val?.code || null)
+                          setFormData({ ...formData, province: val?.name || '', district: '' })
+                        }}
+                        placeholder="Chọn Tỉnh/Thành"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700">Quận / Huyện <span className="text-red-500">*</span></label>
+                      <SearchableLocationSelect
+                        label=""
+                        options={districts}
+                        value={formData.district}
+                        onChange={(val) => setFormData({ ...formData, district: val?.name || '' })}
+                        placeholder="Chọn Quận/Huyện"
+                        disabled={!formData.province}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2 pt-4">
@@ -1323,10 +1273,9 @@ export function DepositClient({
               <div className="flex items-center justify-between gap-2 sm:gap-4">
                 {currentStep < 4 ? (
                  <>
-                   <div className="flex items-center gap-4 sm:gap-6">
-                    <div>
-                      <div className="text-xs sm:text-sm font-medium text-slate-500 mb-0.5 whitespace-nowrap">Tổng dự tính</div>
-                      <div className="text-lg sm:text-xl font-black text-slate-900 whitespace-nowrap">
+                   <div>
+                     <div className="text-xs sm:text-sm font-medium text-slate-500 mb-0.5 whitespace-nowrap">Tổng dự tính</div>
+                     <div className="text-lg sm:text-xl font-black text-slate-900 whitespace-nowrap">
                        {(() => {
                           const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
                           const variantData = currentSpecs.variants?.[selectedVariantName]
@@ -1345,15 +1294,7 @@ export function DepositClient({
                           const totalPrice = basePrice + colorPrice + packagesPrice
                           return totalPrice > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice) : 'Liên hệ'
                        })()}
-                      </div>
-                    </div>
-                    
-                    <div className="pl-4 sm:pl-6 border-l border-slate-200">
-                      <div className="text-xs sm:text-sm font-bold text-blue-600 mb-0.5 whitespace-nowrap">Cọc trước</div>
-                      <div className="text-lg sm:text-xl font-black text-blue-700 whitespace-nowrap">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(matchingDbVariant?.deposit_amount || 10000000)}
-                      </div>
-                    </div>
+                     </div>
                    </div>
                    
                    <div className="flex gap-2 sm:gap-3 shrink-0">
@@ -1376,10 +1317,10 @@ export function DepositClient({
                  </>
                ) : (
                  <button 
-                   onClick={() => window.location.href = '/profile?tab=car-orders'}
+                   onClick={() => window.location.href = '/'}
                    className="w-full flex justify-center items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-full font-bold text-sm tracking-widest hover:bg-slate-800 transition-all uppercase hover:shadow-xl active:scale-95"
                  >
-                   Xem lịch sử mua xe
+                   Về trang chủ
                  </button>
                )}
              </div>

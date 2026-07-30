@@ -209,7 +209,7 @@ export type CatalogProduct = {
   description: string | null
   productType: CatalogProductType
   displayedPrice: number | null
-  depositPrice: number | null
+  depositPrice?: number | null
   createdAt?: string | null
   content: CatalogProductContent
   serviceLabels: CatalogServiceLabel[]

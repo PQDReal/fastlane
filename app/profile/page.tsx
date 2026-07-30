@@ -378,7 +378,7 @@ function ProfileContent() {
                       );
 
                       const showPaidBadge = ['PENDING_CONFIRMATION', 'CONFIRMED', 'PENDING_CONTRACT', 'CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status);
-                      const displayColor = order.exteriorColor || vVariant?.color || '';
+                      const displayColor = (order as any).exteriorColor || vVariant?.color || '';
 
                       return (
                         <div key={order.id} className="border border-gray-200 rounded-2xl p-7 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white shadow-sm flex flex-col lg:flex-row gap-8 items-stretch">
