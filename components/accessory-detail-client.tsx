@@ -277,6 +277,8 @@ export function AccessoryDetailClient({
     [product, selectedVariant?.id, selection],
   )
   const activeMedia = selectedMedia[selectedMediaIndex] ?? selectedMedia[0]
+  const purchaseMedia = selectedMedia.find((media) => media.mediaType === 'IMAGE')
+    ?? selectedMedia[0]
   const inStock = Boolean(selectedVariant && selectedVariant.availableQuantity > 0)
 
   const changeOption = (groupCode: string, valueCode: string) => {
@@ -533,7 +535,7 @@ export function AccessoryDetailClient({
 
               <div className="flex gap-4 border-b border-slate-200 py-5">
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border border-slate-100 bg-slate-50 p-2">
-                  {activeMedia && <MediaPreview media={activeMedia} productName={product.name} thumbnail />}
+                  {purchaseMedia && <MediaPreview media={purchaseMedia} productName={product.name} thumbnail />}
                 </div>
                 <div className="min-w-0 pt-1">
                   <p className="line-clamp-2 text-sm font-bold leading-5 text-slate-900">{product.name}</p>
