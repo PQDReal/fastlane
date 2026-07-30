@@ -45,6 +45,8 @@ export async function GET(request: Request) {
       categoryName: category?.name ?? null,
       onHandQuantity: inventory?.on_hand_quantity ?? 0,
       updatedAt: inventory?.updated_at ?? null,
+      variantIsActive: variant.is_active,
+      productIsActive: Boolean(product?.is_active),
       isActive: Boolean(variant.is_active && product?.is_active),
     }
   })

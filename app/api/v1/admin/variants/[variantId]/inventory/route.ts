@@ -25,9 +25,10 @@ export async function PUT(request: Request, context: Context) {
     return NextResponse.json({ error: 'D\u1eef li\u1ec7u g\u1eedi l\u00ean kh\u00f4ng h\u1ee3p l\u1ec7.' }, { status: 400 })
   }
 
-  const payload = body as { availableQuantity?: unknown; expectedUpdatedAt?: unknown }
+  const payload = body as { availableQuantity?: unknown; expectedUpdatedAt?: unknown; isActive?: unknown }
   const quantity = payload.availableQuantity
   const expectedUpdatedAt = payload.expectedUpdatedAt
+  const isActive = payload.isActive
 
   if (!Number.isInteger(quantity) || (quantity as number) < 0 || (quantity as number) > 1_000_000) {
     return NextResponse.json({ error: 'S\u1ed1 l\u01b0\u1ee3ng t\u1ed3n ph\u1ea3i l\u00e0 s\u1ed1 nguy\u00ean t\u1eeb 0 \u0111\u1ebfn 1.000.000.' }, { status: 400 })
@@ -36,12 +37,21 @@ export async function PUT(request: Request, context: Context) {
     return NextResponse.json({ error: 'Phi\u00ean b\u1ea3n d\u1eef li\u1ec7u t\u1ed3n kho kh\u00f4ng h\u1ee3p l\u1ec7.' }, { status: 400 })
   }
 
+  if (typeof isActive !== 'boolean') {
+    return NextResponse.json({ error: 'Trạng thái kinh doanh không hợp lệ.' }, { status: 400 })
+  }
+
   const { variantId } = await context.params
   const supabase = getSupabaseAdmin()
-  const { data: variant, error: variantError } = await supabase.from('product_variants').select('id').eq('id', variantId).maybeSingle()
+  const { data: variant, error: variantError } = await supabase.from('product_variants').select('id,is_active').eq('id', variantId).maybeSingle()
   if (variantError) return NextResponse.json({ error: variantError.message }, { status: 500 })
   if (!variant) return NextResponse.json({ error: 'Kh\u00f4ng t\u00ecm th\u1ea5y phi\u00ean b\u1ea3n s\u1ea3n ph\u1ea9m.' }, { status: 404 })
 
+  async function responseWithStatus(data: { variant_id: string; on_hand_quantity: number; updated_at: string }) {
+    const { error: statusError } = await supabase.from('product_variants').update({ is_active: isActive }).eq('id', variantId)
+    if (statusError) return NextResponse.json({ error: statusError.message }, { status: 400 })
+    return NextResponse.json({ variantId: data.variant_id, onHandQuantity: data.on_hand_quantity, updatedAt: data.updated_at, variantIsActive: isActive })
+  }
   const { data: current, error: currentError } = await supabase
     .from('inventory_items')
     .select('variant_id,on_hand_quantity,updated_at')
@@ -65,7 +75,7 @@ export async function PUT(request: Request, context: Context) {
       const status = error.code === '23505' ? 409 : 400
       return NextResponse.json({ error: status === 409 ? 'T\u1ed3n kho \u0111\u00e3 thay \u0111\u1ed5i. Vui l\u00f2ng th\u1eed l\u1ea1i.' : error.message }, { status })
     }
-    return NextResponse.json({ variantId: data.variant_id, onHandQuantity: data.on_hand_quantity, updatedAt: data.updated_at })
+    return responseWithStatus(data)
   }
 
   const { data, error } = await supabase
@@ -78,5 +88,5 @@ export async function PUT(request: Request, context: Context) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   if (!data) return NextResponse.json({ error: 'T\u1ed3n kho \u0111\u00e3 thay \u0111\u1ed5i. Vui l\u00f2ng t\u1ea3i l\u1ea1i d\u1eef li\u1ec7u.' }, { status: 409 })
-  return NextResponse.json({ variantId: data.variant_id, onHandQuantity: data.on_hand_quantity, updatedAt: data.updated_at })
+  return responseWithStatus(data)
 }

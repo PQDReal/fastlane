@@ -2,14 +2,14 @@
 
 import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArchiveX, Boxes, ChevronLeft, ChevronRight, Filter, Layers3, Loader2, Pencil, Search, X } from 'lucide-react'
+import { AlertTriangle, ArchiveX, Ban, Boxes, ChevronLeft, ChevronRight, Filter, Layers3, Loader2, Pencil, Search, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 
 type InventoryStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
-type InventoryItem = { variantId: string; sku: string; productName: string; variantName: string; productType: string; categoryName: string | null; onHandQuantity: number; updatedAt: string | null; isActive: boolean }
-type InventoryUpdate = { variantId: string; onHandQuantity: number; updatedAt: string }
+type InventoryItem = { variantId: string; sku: string; productName: string; variantName: string; productType: string; categoryName: string | null; onHandQuantity: number; updatedAt: string | null; variantIsActive: boolean; productIsActive: boolean; isActive: boolean }
+type InventoryUpdate = { variantId: string; onHandQuantity: number; updatedAt: string; variantIsActive: boolean }
 
 const LOW_STOCK_THRESHOLD = 5
 const TEXT = {
@@ -25,11 +25,13 @@ export default function AdminInventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | InventoryStatus>('ALL')
+  const [inactiveOnly, setInactiveOnly] = useState(false)
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [isLoading, setIsLoading] = useState(true)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [adjustingItem, setAdjustingItem] = useState<InventoryItem | null>(null)
   const [quantityInput, setQuantityInput] = useState('0')
+  const [variantActive, setVariantActive] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -57,20 +59,20 @@ export default function AdminInventoryPage() {
   }, [notify])
 
   const productTypes = useMemo(() => [...new Set(items.map((item) => productTypeLabel(item)))].sort(), [items])
-  const summary = useMemo(() => ({ skuCount: items.length, totalQuantity: items.reduce((total, item) => total + item.onHandQuantity, 0), lowStockCount: items.filter((item) => inventoryStatus(item.onHandQuantity) === 'LOW_STOCK').length, outOfStockCount: items.filter((item) => inventoryStatus(item.onHandQuantity) === 'OUT_OF_STOCK').length }), [items])
+  const summary = useMemo(() => ({ skuCount: items.length, totalQuantity: items.reduce((total, item) => total + item.onHandQuantity, 0), lowStockCount: items.filter((item) => inventoryStatus(item.onHandQuantity) === 'LOW_STOCK').length, outOfStockCount: items.filter((item) => inventoryStatus(item.onHandQuantity) === 'OUT_OF_STOCK').length, inactiveCount: items.filter((item) => !item.isActive).length }), [items])
   const filteredItems = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
-    return items.filter((item) => (!query || [item.sku, item.productName, item.variantName].some((value) => value.toLowerCase().includes(query))) && (statusFilter === 'ALL' || (statusFilter === 'IN_STOCK' ? item.onHandQuantity > 0 : inventoryStatus(item.onHandQuantity) === statusFilter)) && (typeFilter === 'ALL' || productTypeLabel(item) === typeFilter))
-  }, [items, searchTerm, statusFilter, typeFilter])
+    return items.filter((item) => (!query || [item.sku, item.productName, item.variantName].some((value) => value.toLowerCase().includes(query))) && (statusFilter === 'ALL' || (statusFilter === 'IN_STOCK' ? item.onHandQuantity > 0 : inventoryStatus(item.onHandQuantity) === statusFilter)) && (typeFilter === 'ALL' || productTypeLabel(item) === typeFilter) && (!inactiveOnly || !item.isActive))
+  }, [inactiveOnly, items, searchTerm, statusFilter, typeFilter])
 
-  useEffect(() => { setCurrentPage(1) }, [searchTerm, statusFilter, typeFilter, pageSize])
+  useEffect(() => { setCurrentPage(1) }, [inactiveOnly, searchTerm, statusFilter, typeFilter, pageSize])
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
   const safePage = Math.min(currentPage, totalPages)
   const paginatedItems = filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize)
   const parsedQuantity = Number(quantityInput)
-  const canSaveAdjustment = Boolean(adjustingItem) && Number.isInteger(parsedQuantity) && parsedQuantity >= 0 && parsedQuantity <= 1_000_000 && parsedQuantity !== adjustingItem?.onHandQuantity
+  const canSaveAdjustment = Boolean(adjustingItem) && Number.isInteger(parsedQuantity) && parsedQuantity >= 0 && parsedQuantity <= 1_000_000 && (parsedQuantity !== adjustingItem?.onHandQuantity || variantActive !== adjustingItem?.variantIsActive)
 
-  function openAdjustment(item: InventoryItem) { setAdjustingItem(item); setQuantityInput(String(item.onHandQuantity)) }
+  function openAdjustment(item: InventoryItem) { setAdjustingItem(item); setQuantityInput(String(item.onHandQuantity)); setVariantActive(item.variantIsActive) }
   function closeAdjustment() { if (!isSaving) setAdjustingItem(null) }
 
   async function saveAdjustment(event: FormEvent<HTMLFormElement>) {
@@ -80,27 +82,37 @@ export default function AdminInventoryPage() {
     if (!Number.isInteger(quantity) || quantity < 0 || quantity > 1_000_000) { notify('error', TEXT.updateError, 'S\u1ed1 l\u01b0\u1ee3ng ph\u1ea3i l\u00e0 s\u1ed1 nguy\u00ean t\u1eeb 0 \u0111\u1ebfn 1.000.000.'); return }
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/v1/admin/variants/${adjustingItem.variantId}/inventory`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ availableQuantity: quantity, expectedUpdatedAt: adjustingItem.updatedAt }) })
+      const response = await fetch(`/api/v1/admin/variants/${adjustingItem.variantId}/inventory`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ availableQuantity: quantity, expectedUpdatedAt: adjustingItem.updatedAt, isActive: variantActive }) })
       if (!response.ok) throw new Error(await responseError(response))
       const updated: InventoryUpdate = await response.json()
-      setItems((current) => current.map((item) => item.variantId === updated.variantId ? { ...item, onHandQuantity: updated.onHandQuantity, updatedAt: updated.updatedAt } : item))
+      setItems((current) => current.map((item) => item.variantId === updated.variantId ? { ...item, onHandQuantity: updated.onHandQuantity, updatedAt: updated.updatedAt, variantIsActive: updated.variantIsActive, isActive: updated.variantIsActive && item.productIsActive } : item))
       setAdjustingItem(null)
       notify('success', TEXT.updateSuccess)
     } catch (cause) { notify('error', TEXT.updateError, cause instanceof Error ? cause.message : TEXT.updateError) } finally { setIsSaving(false) }
   }
 
-  const cards = [{ label: TEXT.totalSku, value: summary.skuCount, Icon: Layers3, color: 'bg-blue-50 text-blue-600' }, { label: TEXT.totalQuantity, value: summary.totalQuantity, Icon: Boxes, color: 'bg-emerald-50 text-emerald-600' }, { label: TEXT.lowStock, value: summary.lowStockCount, Icon: AlertTriangle, color: 'bg-amber-50 text-amber-600' }, { label: TEXT.outOfStock, value: summary.outOfStockCount, Icon: ArchiveX, color: 'bg-red-50 text-red-600' }]
+  const cards = [{ label: TEXT.totalSku, value: summary.skuCount, Icon: Layers3, color: 'bg-blue-50 text-blue-600', filter: null }, { label: TEXT.totalQuantity, value: summary.totalQuantity, Icon: Boxes, color: 'bg-emerald-50 text-emerald-600', filter: null }, { label: TEXT.lowStock, value: summary.lowStockCount, Icon: AlertTriangle, color: 'bg-amber-50 text-amber-600', filter: 'LOW_STOCK' as const }, { label: TEXT.outOfStock, value: summary.outOfStockCount, Icon: ArchiveX, color: 'bg-red-50 text-red-600', filter: 'OUT_OF_STOCK' as const }, { label: TEXT.inactive, value: summary.inactiveCount, Icon: Ban, color: 'bg-slate-100 text-slate-600', filter: 'INACTIVE' as const }]
 
   return (
     <div className="min-w-0 space-y-6">
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">{TEXT.title}</h1><p className="mt-1 text-sm text-slate-500">{TEXT.subtitle}</p></div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(({ label, value, Icon, color }) => <div key={label} className="flex min-w-0 items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${color}`}><Icon size={23} /></div><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-500">{label}</p><p className="text-2xl font-bold text-slate-900">{value.toLocaleString('vi-VN')}</p></div></div>)}</div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">{cards.map(({ label, value, Icon, color, filter }) => {
+        const content = <><div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${color}`}><Icon size={23} /></div><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-500">{label}</p><p className="text-2xl font-bold text-slate-900">{value.toLocaleString('vi-VN')}</p></div></>
+        if (!filter) return <div key={label} className="flex min-w-0 items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">{content}</div>
+        const active = filter === 'INACTIVE' ? inactiveOnly : !inactiveOnly && statusFilter === filter
+        const applyFilter = () => {
+          if (filter === 'INACTIVE') { setInactiveOnly(!active); setStatusFilter('ALL'); return }
+          setInactiveOnly(false)
+          setStatusFilter(active ? 'ALL' : filter)
+        }
+        return <button key={label} type="button" aria-pressed={active} onClick={applyFilter} className={`flex min-w-0 items-center gap-4 rounded-xl border bg-white p-5 text-left shadow-sm transition duration-150 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${active ? 'border-brand-500 ring-1 ring-brand-500' : 'border-slate-200'}`}>{content}</button>
+      })}</div>
 
       <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="search" placeholder={TEXT.search} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-4 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500" /></div>
-          <div className="flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"><Filter size={16} className="shrink-0 text-slate-400" /><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'ALL' | InventoryStatus)} className="min-w-0 bg-transparent focus:outline-none"><option value="ALL">{TEXT.allStatuses}</option><option value="IN_STOCK">{statusLabel('IN_STOCK')}</option><option value="LOW_STOCK">{statusLabel('LOW_STOCK')}</option><option value="OUT_OF_STOCK">{statusLabel('OUT_OF_STOCK')}</option></select></div>
+          <div className="flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"><Filter size={16} className="shrink-0 text-slate-400" /><select value={statusFilter} onChange={(event) => { setInactiveOnly(false); setStatusFilter(event.target.value as 'ALL' | InventoryStatus) }} className="min-w-0 bg-transparent focus:outline-none"><option value="ALL">{TEXT.allStatuses}</option><option value="IN_STOCK">{statusLabel('IN_STOCK')}</option><option value="LOW_STOCK">{statusLabel('LOW_STOCK')}</option><option value="OUT_OF_STOCK">{statusLabel('OUT_OF_STOCK')}</option></select></div>
         </div>
 
         <table className="w-full table-fixed text-left text-sm">
@@ -110,10 +122,10 @@ export default function AdminInventoryPage() {
             <th className="w-[9%] px-2 py-4 text-center">{TEXT.quantity}</th><th className="hidden w-[14%] px-3 py-4 2xl:table-cell">{TEXT.updatedAt}</th><th className="w-[13%] px-3 py-4">{TEXT.status}</th><th className="w-[10%] px-3 py-4 text-right">{TEXT.action}</th>
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {isLoading ? <tr><td colSpan={8} className="px-6 py-14 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" /></td></tr> : paginatedItems.map((item) => { const status = inventoryStatus(item.onHandQuantity); const badge = status === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-700' : status === 'LOW_STOCK' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'; return <tr key={item.variantId} className="transition-colors hover:bg-slate-50">
+            {isLoading ? <tr><td colSpan={8} className="px-6 py-14 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" /></td></tr> : paginatedItems.map((item) => { const status = inventoryStatus(item.onHandQuantity); const badge = status === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-700' : status === 'LOW_STOCK' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'; return <tr key={item.variantId} role="button" tabIndex={0} aria-label={`Điều chỉnh tồn kho ${item.productName} ${item.variantName}`} onClick={() => openAdjustment(item)} onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openAdjustment(item) } }} className="cursor-pointer transition duration-150 hover:bg-slate-50 active:scale-[0.997] active:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500">
               <td className="px-3 py-4"><span className="block truncate font-medium text-slate-500" title={item.sku}>{item.sku}</span></td><td className="px-3 py-4"><span className="block truncate font-semibold text-slate-900" title={item.productName}>{item.productName}</span></td><td className="px-3 py-4"><span className="block truncate text-slate-600" title={item.variantName}>{item.variantName}</span></td><td className="hidden truncate px-3 py-4 text-slate-600 xl:table-cell">{productTypeLabel(item)}</td>
               <td className={`px-2 py-4 text-center text-lg font-bold ${status === 'OUT_OF_STOCK' ? 'text-red-600' : status === 'LOW_STOCK' ? 'text-amber-600' : 'text-slate-900'}`}>{item.onHandQuantity}</td><td className="hidden px-3 py-4 text-xs text-slate-500 2xl:table-cell">{item.updatedAt ? new Date(item.updatedAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : TEXT.neverUpdated}</td><td className="px-3 py-4"><span className={`inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold uppercase ${badge}`}><span className="truncate">{statusLabel(status)}</span></span>{!item.isActive && <span className="mt-1 block truncate text-[10px] text-slate-400">{TEXT.inactive}</span>}</td>
-              <td className="px-3 py-4 text-right"><button type="button" onClick={() => openAdjustment(item)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100" title={TEXT.adjust}><Pencil size={13} /><span className="hidden 2xl:inline">{TEXT.adjust}</span></button></td>
+              <td className="px-3 py-4 text-right"><button type="button" onClick={(event) => { event.stopPropagation(); openAdjustment(item) }} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100" title={TEXT.adjust}><Pencil size={13} /><span className="hidden 2xl:inline">{TEXT.adjust}</span></button></td>
             </tr> })}
             {!isLoading && filteredItems.length === 0 && <tr><td colSpan={8} className="px-6 py-14 text-center text-slate-500">{TEXT.noData}</td></tr>}
           </tbody>
@@ -142,7 +154,7 @@ export default function AdminInventoryPage() {
         {adjustingItem && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeAdjustment() }} role="dialog" aria-modal="true" aria-labelledby="inventory-adjust-title">
           <motion.div className="w-full max-w-md rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 20, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4"><div className="min-w-0"><h2 id="inventory-adjust-title" className="font-bold text-slate-900">{TEXT.adjustTitle}</h2><p className="truncate text-xs text-slate-500">{adjustingItem.sku} · {adjustingItem.variantName}</p></div><button type="button" onClick={closeAdjustment} disabled={isSaving} className="rounded p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button></div>
-            <form onSubmit={saveAdjustment} className="space-y-5 p-6"><div className="rounded-lg bg-slate-50 p-4"><p className="text-xs font-medium text-slate-500">{TEXT.currentQuantity}</p><p className="mt-1 text-2xl font-bold text-slate-900">{adjustingItem.onHandQuantity}</p></div><label className="block text-sm font-medium text-slate-700">{TEXT.newQuantity}<input autoFocus required type="number" min={0} max={1000000} step={1} value={quantityInput} onChange={(event) => setQuantityInput(event.target.value)} className="mt-1.5 h-11 w-full rounded-md border border-slate-200 px-3 text-lg font-semibold focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500" /></label><div className="flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={closeAdjustment} disabled={isSaving} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{TEXT.cancel}</button><button type="submit" disabled={isSaving || !canSaveAdjustment} className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">{isSaving && <Loader2 size={15} className="mr-2 animate-spin" />}{TEXT.save}</button></div></form>
+            <form onSubmit={saveAdjustment} className="space-y-5 p-6"><div className="rounded-lg bg-slate-50 p-4"><p className="text-xs font-medium text-slate-500">{TEXT.currentQuantity}</p><p className="mt-1 text-2xl font-bold text-slate-900">{adjustingItem.onHandQuantity}</p></div><label className="block text-sm font-medium text-slate-700">{TEXT.newQuantity}<input autoFocus required type="number" min={0} max={1000000} step={1} value={quantityInput} onChange={(event) => setQuantityInput(event.target.value)} className="mt-1.5 h-11 w-full rounded-md border border-slate-200 px-3 text-lg font-semibold focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500" /></label><div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-semibold text-slate-800">Trạng thái kinh doanh</p><p className="mt-1 text-xs text-slate-500">Áp dụng cho phiên bản sản phẩm này.</p></div><button type="button" role="switch" aria-checked={variantActive} onClick={() => setVariantActive((active) => !active)} className="inline-flex items-center gap-2 text-xs font-semibold"><span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${variantActive ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${variantActive ? 'translate-x-5' : 'translate-x-0'}`} /></span><span className={variantActive ? 'text-emerald-700' : 'text-slate-500'}>{variantActive ? 'Đang kinh doanh' : 'Ngừng kinh doanh'}</span></button></div>{!adjustingItem.productIsActive && <p className="mt-3 text-xs font-medium text-amber-700">Sản phẩm cha đang ngừng kinh doanh. Cần kích hoạt lại sản phẩm để phiên bản này được bán.</p>}</div><div className="flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={closeAdjustment} disabled={isSaving} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{TEXT.cancel}</button><button type="submit" disabled={isSaving || !canSaveAdjustment} className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">{isSaving && <Loader2 size={15} className="mr-2 animate-spin" />}{TEXT.save}</button></div></form>
           </motion.div>
         </motion.div>}
       </AnimatePresence></AdminModalPortal>
