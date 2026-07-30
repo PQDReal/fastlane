@@ -3,10 +3,15 @@ import {
   getBikeListingImage,
   parseBikeImageUrls,
 } from './bike-images'
+import motorbikeImageManifest from '../scripts/data/motorbike-image-manifest.json'
 
 export type DepositVehicleType = 'car' | 'motorbike'
 
 type UnknownRecord = Record<string, any>
+
+const motorbikeImagesBySlug = new Map(
+  motorbikeImageManifest.map((entry) => [entry.slug, entry]),
+)
 
 export function mergeMotorbikeDatabaseRows(
   publishedMotorbikes: UnknownRecord[],
@@ -139,6 +144,7 @@ function motorbikeSlug(motorbike: UnknownRecord): string {
 export function normalizeMotorbikesForDeposit(motorbikes: UnknownRecord[]) {
   return motorbikes.map((motorbike) => {
     const slug = motorbikeSlug(motorbike)
+    const manifestImages = motorbikeImagesBySlug.get(slug)
     const colorDetails = Array.isArray(motorbike.color_details)
       ? motorbike.color_details
       : []
@@ -167,11 +173,16 @@ export function normalizeMotorbikesForDeposit(motorbikes: UnknownRecord[]) {
       motorbike.image_urls || motorbike.images,
       colorNames,
     )
-    const fallbackImage = databaseImages.listingImage || getBikeListingImage(
-      slug,
-      motorbike.images,
-      firstUsableImage(motorbike),
-    )
+    const fallbackImage =
+      databaseImages.listingImage ||
+      getBikeListingImage(
+        slug,
+        motorbike.images,
+        firstUsableImage(motorbike),
+      ) ||
+      manifestImages?.listingImage ||
+      manifestImages?.heroImage ||
+      ''
     const colors = databaseImages.followsOrderedContract
       ? databaseImages.colorImages.map((detail) => ({
           name: detail.colorName,
@@ -192,6 +203,10 @@ export function normalizeMotorbikesForDeposit(motorbikes: UnknownRecord[]) {
                 depositVehicleKey(candidate?.color_name ?? candidate?.name) ===
                 depositVehicleKey(name),
             )
+            const manifestColor = manifestImages?.colors.find(
+              (candidate) =>
+                depositVehicleKey(candidate.name) === depositVehicleKey(name),
+            )
 
             return {
               name,
@@ -202,10 +217,14 @@ export function normalizeMotorbikesForDeposit(motorbikes: UnknownRecord[]) {
                   detail?.image_url ||
                     detail?.image ||
                     rawColorObject.image ||
+                    manifestColor?.imageUrl ||
                     '',
                 ) || fallbackImage,
               swatch:
-                detail?.swatch || rawColorObject.swatch || undefined,
+                detail?.swatch ||
+                rawColorObject.swatch ||
+                manifestColor?.swatchUrl ||
+                undefined,
             }
         })
     const variants =
