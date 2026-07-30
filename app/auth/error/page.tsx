@@ -15,6 +15,10 @@ const errors: Record<string, { title: string; message: string }> = {
     title: 'Đăng nhập không thành công',
     message: 'Không thể hoàn tất quá trình xác thực. Vui lòng thử đăng nhập lại.',
   },
+  authorization_denied: {
+    title: 'Bạn đã từ chối xác nhận',
+    message: 'Phiên đăng nhập chưa được hoàn tất. Hãy đăng nhập lại nếu bạn muốn tiếp tục.',
+  },
   email_unverified: {
     title: 'Email chưa được xác thực',
     message: 'Vui lòng xác thuẹc email qua thư từ FASTLANE, sau \u0111\u00f3 \u0111\u0103ng nh\u1eadp l\u1ea1i \u0111\u1ec3 truy c\u1eadp trang web.',

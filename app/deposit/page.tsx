@@ -4,9 +4,11 @@ import { DepositClient } from './DepositClient'
 import {
   buildMotorbikeDepositSpecs,
   findDepositVehicle,
+  mergeMotorbikeDatabaseRows,
   normalizeMotorbikesForDeposit,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
+import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +19,29 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
 
   const carsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
+  const publishedMotorbikes = JSON.parse(fs.readFileSync(motorbikesDataPath, 'utf8'))
+  const motorbikeResult = await getSupabaseAdmin()
+    .from('products')
+    .select(`
+      name,
+      slug,
+      displayed_price,
+      image_urls,
+      specifications,
+      category:categories!inner(name),
+      product_variants(name,original_price,sale_price,deposit_amount,is_active)
+    `)
+    .eq('is_active', true)
+    .eq('categories.name', 'Xe máy điện')
+    .order('name', { ascending: true })
+  if (motorbikeResult.error) {
+    console.error('Unable to load motorbike deposit data from Supabase:', motorbikeResult.error)
+  }
   const motorbikesData = normalizeMotorbikesForDeposit(
-    JSON.parse(fs.readFileSync(motorbikesDataPath, 'utf8')),
+    mergeMotorbikeDatabaseRows(
+      publishedMotorbikes,
+      motorbikeResult.data ?? [],
+    ),
   )
   const specsData = {
     ...JSON.parse(fs.readFileSync(specsDataPath, 'utf8')),

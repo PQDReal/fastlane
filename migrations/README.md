@@ -66,6 +66,10 @@ The dynamic options sequence is:
 - `015_products_search_name_only.sql` rebuilds product search vectors from
   the unaccented product name only and narrows the write trigger to name
   changes while retaining the existing GIN index.
+- `016_deposit_orders.sql` creates or hardens vehicle deposit persistence,
+  server-owned order numbers, request idempotency, product references and the
+  initial `PENDING_PAYMENT` state. Apply it before deploying the updated
+  `/api/deposit` route.
 
 Apply `013`, `014`, and `015` in that order. Do not run `014` without the
 pre-deployment backup described at the bottom of that migration.

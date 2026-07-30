@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const migration = fs.readFileSync(
   path.join(process.cwd(), 'migrations/015_products_search_name_only.sql'),
   'utf8',
-)
+).replace(/\r\n?/g, '\n')
 
 describe('products name-only search migration', () => {
   it('preflights and keeps the existing GIN index', () => {
