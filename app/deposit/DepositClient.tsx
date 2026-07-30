@@ -1,14 +1,161 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
-import { SearchableLocationSelect, LocationOption } from '@/components/ui/searchable-location-select'
 import {
   findDepositVehicle,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
+
+type LocationOption = { code: number; name: string }
+
+const DEPOSIT_STEPS = [
+  { number: 1, label: 'Lựa chọn xe' },
+  { number: 2, label: 'Nhập thông tin' },
+  { number: 3, label: 'Thanh toán' },
+] as const
+
+function DepositStepper({ currentStep }: { currentStep: number }) {
+  const [isExploring, setIsExploring] = useState(false)
+  const shouldReduceMotion = useReducedMotion()
+  const visibleSteps = DEPOSIT_STEPS
+
+  return (
+    <div className="-mx-8 mb-10 mt-2 overflow-hidden px-8">
+      <motion.ol
+        layout
+        aria-label={`Tiến trình đặt cọc, bước ${currentStep} trên 3`}
+        className="flex h-14 w-full items-stretch gap-1.5"
+        onHoverStart={() => setIsExploring(true)}
+        onHoverEnd={() => setIsExploring(false)}
+      >
+        <AnimatePresence mode="popLayout">
+          {visibleSteps.map((step, index) => {
+            const isCurrent = step.number === currentStep
+            const isCompleted = step.number < currentStep
+            const showFullLabel = isCurrent || isExploring
+
+            return (
+              <motion.li
+                layout
+                key={step.number}
+                aria-current={isCurrent ? 'step' : undefined}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: -120, scaleX: 0.82 }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scaleX: 1,
+                  flexGrow: showFullLabel ? 1 : 0,
+                  flexBasis: showFullLabel ? 0 : 52,
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: -180, scaleX: 0.72 }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        layout: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        opacity: { duration: 0.18 },
+                        x: {
+                          duration: 0.34,
+                          ease: [0.7, 0, 0.2, 1],
+                        },
+                        scaleX: {
+                          duration: 0.3,
+                          ease: [0.7, 0, 0.2, 1],
+                        },
+                        flexGrow: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        flexBasis: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                      }
+                }
+                className={`relative min-w-[52px] origin-left overflow-hidden ${
+                  isCurrent
+                    ? 'bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.2)]'
+                    : isCompleted
+                      ? 'bg-brand-100 text-brand-800'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+                style={{
+                  clipPath:
+                    index === 0
+                      ? 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%)'
+                      : 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%)',
+                }}
+              >
+                <div
+                  className={`flex h-full items-center gap-2.5 ${
+                    index === 0 ? 'pl-3' : 'pl-5'
+                  } pr-6`}
+                >
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                      isCurrent
+                        ? 'bg-white text-slate-950'
+                        : isCompleted
+                          ? 'border border-brand-300 bg-brand-600 text-white'
+                        : 'border border-slate-300 bg-white text-slate-500'
+                    }`}
+                  >
+                    {step.number}
+                  </span>
+
+                  <AnimatePresence initial={false}>
+                    {showFullLabel && (
+                      <motion.span
+                        initial={
+                          shouldReduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, x: -8 }
+                        }
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={
+                          shouldReduceMotion
+                            ? { duration: 0.01 }
+                            : {
+                                duration: 0.22,
+                                ease: [0.16, 1, 0.3, 1],
+                              }
+                        }
+                        className={`truncate text-[11px] font-extrabold uppercase tracking-[0.08em] sm:text-xs ${
+                          !isCurrent ? 'hidden sm:block' : ''
+                        }`}
+                      >
+                        {step.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {!showFullLabel && (
+                    <span className="sr-only">{step.label}</span>
+                  )}
+                </div>
+              </motion.li>
+            )
+          })}
+        </AnimatePresence>
+      </motion.ol>
+    </div>
+  )
+}
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -56,56 +203,27 @@ export function DepositClient({
   const [interiorImageIndex, setInteriorImageIndex] = useState(0)
   const [selectedPackages, setSelectedPackages] = useState<string[]>([])
   const [currentStep, setCurrentStep] = useState(1)
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1)
   const [customerType, setCustomerType] = useState<'personal' | 'corporate'>('personal')
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', district: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', ward: '' })
+  const [provinces, setProvinces] = useState<LocationOption[]>([])
+  const [wards, setWards] = useState<LocationOption[]>([])
+  const [provinceCode, setProvinceCode] = useState('')
+  const [locationsLoading, setLocationsLoading] = useState(true)
+  const [wardsLoading, setWardsLoading] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderNumber: string
+    depositAmount: number
+    totalEstimatedPrice: number
+    status: string
+  } | null>(null)
+  const depositIdempotencyKey = useRef<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
-  const [dbVariants, setDbVariants] = useState<any[]>([])
-  const [provinces, setProvinces] = useState<LocationOption[]>([])
-  const [districts, setDistricts] = useState<LocationOption[]>([])
-  const [provinceCode, setProvinceCode] = useState<number | null>(null)
-
-  useEffect(() => {
-    fetch('https://esgoo.net/api-tinhthanh/1/0.htm')
-      .then(res => res.json())
-      .then(data => {
-        if (data.error === 0) {
-          setProvinces(data.data.map((p: any) => ({ code: Number(p.id), name: p.full_name })))
-        }
-      })
-      .catch(err => console.error('Error fetching provinces:', err))
-  }, [])
-
-  useEffect(() => {
-    async function fetchVariants() {
-      try {
-        const currentCarObj = carsData.find(c => c.name === selectedCarId) || carsData[0]
-        const res = await fetch(`/api/v1/vehicle-variants?product_name=${encodeURIComponent(currentCarObj.name)}`)
-        const data = await res.json()
-        setDbVariants(data)
-      } catch (err) {
-        console.error(err)
-      }
-    }
-    fetchVariants()
-  }, [selectedCarId, carsData])
-
-  useEffect(() => {
-    if (provinceCode) {
-      fetch(`https://esgoo.net/api-tinhthanh/2/${provinceCode}.htm`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error === 0) {
-            setDistricts(data.data.map((d: any) => ({ code: Number(d.id), name: d.full_name })))
-          }
-        })
-        .catch(err => console.error('Error fetching districts:', err))
-    } else {
-      setDistricts([])
-    }
-  }, [provinceCode])
+  const shouldReduceMotion = useReducedMotion()
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
@@ -113,6 +231,63 @@ export function DepositClient({
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
+  }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLocationsLoading(true)
+    fetch('/api/v1/locations', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải tỉnh/thành phố.')
+        setProvinces(payload.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLocationError(error instanceof Error ? error.message : 'Không thể tải tỉnh/thành phố.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLocationsLoading(false)
+      })
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (!provinceCode) {
+      setWards([])
+      return
+    }
+
+    const controller = new AbortController()
+    setWardsLoading(true)
+    setLocationError(null)
+    fetch(`/api/v1/locations?provinceCode=${provinceCode}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải xã/phường.')
+        setWards(payload.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLocationError(error instanceof Error ? error.message : 'Không thể tải xã/phường.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setWardsLoading(false)
+      })
+    return () => controller.abort()
+  }, [provinceCode])
+  const goToStep = (nextStep: number) => {
+    if (nextStep < 3) depositIdempotencyKey.current = null
+    setStepDirection(nextStep >= currentStep ? 1 : -1)
+    setCurrentStep(nextStep)
   }
 
   useEffect(() => {
@@ -218,89 +393,84 @@ export function DepositClient({
     }
   }
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (currentStep === 1) {
-      setCurrentStep(2)
+      goToStep(2)
     } else if (currentStep === 2) {
       const isMissingPersonal = customerType === 'personal' && !formData.name;
       const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
       
-      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.district) {
+      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.ward) {
         addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
         return;
       }
-      setCurrentStep(3)
+      goToStep(3)
     } else if (currentStep === 3) {
       if (!termsAccepted) {
         addToast({ kind: 'warning', title: 'Vui lòng xác nhận đồng ý với các Điều kiện & Điều khoản' });
         return;
       }
 
-      setIsSubmitting(true);
-      
-      const order_number = 'VF' + Math.floor(Math.random() * 1000000)
+      setIsSubmitting(true)
 
       const currentCarObj =
         availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
-      const currentSpecsObj = specsData[currentCarObj.name] || {}
-      
-      const selectedVariantName = selectedVariant.replace(currentCarObj.name + ' ', '')
-      const variantData = currentSpecsObj.variants?.[selectedVariantName]
-      const basePrice = variantData?.price || currentCarObj.displayed_price || 0
-      
-      const advancedColorsList = (currentCarObj.colors || []).slice(4)
-      const isAdvancedColor = advancedColorsList.some((c: any) => c.name === selectedColor)
-      const colorPrice = isAdvancedColor ? (currentCarObj.name.includes('MPV') ? 10000000 : (['VF 7', 'VF 9'].includes(currentCarObj.name) || currentCarObj.name.includes('VF 8') ? 12000000 : 8000000)) : 0
-      
-      let packagesPrice = 0
-      const availablePackages = currentCarObj.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
-      selectedPackages.forEach(id => {
-        const pkg = availablePackages.find((p: any) => p.id === id)
-        if (pkg) packagesPrice += pkg.price
-      })
-      const totalPrice = basePrice + colorPrice + packagesPrice
 
-      fetch('/api/deposit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_number,
-          customer_type: customerType,
-          full_name: formData.name,
-          company_name: formData.companyName,
-          phone_number: formData.phone,
-          email: formData.email,
-          id_card_number: formData.idCard,
-          province: formData.province,
-          district: formData.district,
-          car_model: currentCarObj.name,
-          car_variant: selectedVariant,
-          exterior_color: selectedColor,
-          interior_color:
-            currentCarObj.product_type === 'motorbike'
-              ? ''
-              : selectedInteriorColor,
-          vehicle_variant_id: matchingDbVariant?.id,
-          optional_packages: selectedPackages,
-          showroom: 'VinFast Landmark 81',
-          payment_method: paymentMethod,
-          deposit_amount:
-            matchingDbVariant?.deposit_amount ||
-            currentCarObj.deposit_value ||
-            (currentCarObj.product_type === 'motorbike' ? 2000000 : 10000000),
-          total_estimated_price: totalPrice
+      if (!depositIdempotencyKey.current) {
+        depositIdempotencyKey.current = crypto.randomUUID()
+      }
+
+      try {
+        const response = await fetch('/api/deposit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': depositIdempotencyKey.current,
+          },
+          body: JSON.stringify({
+            customer_type: customerType,
+            full_name: formData.name,
+            company_name: formData.companyName,
+            phone_number: formData.phone,
+            email: formData.email,
+            id_card_number: formData.idCard,
+            province: formData.province,
+            ward: formData.ward,
+            vehicle_type: currentCarObj.product_type === 'motorbike' ? 'motorbike' : 'car',
+            car_model: currentCarObj.name,
+            car_variant: selectedVariant,
+            exterior_color: selectedColor,
+            interior_color:
+              currentCarObj.product_type === 'motorbike'
+                ? ''
+                : selectedInteriorColor,
+            optional_packages: selectedPackages,
+            payment_method: paymentMethod,
+            terms_accepted: true,
+          }),
         })
-      }).then(res => res.json()).then(res => {
-        setIsSubmitting(false)
-        if (res.error) {
-          addToast({ kind: 'error', title: 'Lỗi', message: res.error })
-        } else {
-          setCurrentStep(4)
+        const result = await response.json().catch(() => null)
+
+        if (!response.ok || !result?.data) {
+          addToast({
+            kind: 'error',
+            title: 'Không thể tạo đơn đặt cọc',
+            message: result?.error?.message || 'Vui lòng thử lại sau.',
+          })
+          return
         }
-      }).catch(err => {
+
+        setCompletedOrder(result.data)
+        goToStep(4)
+      } catch {
+        addToast({
+          kind: 'error',
+          title: 'Lỗi kết nối',
+          message: 'Không thể kết nối máy chủ. Bạn có thể thử gửi lại mà không tạo trùng đơn.',
+        })
+      } finally {
         setIsSubmitting(false)
-        addToast({ kind: 'error', title: 'Lỗi hệ thống', message: 'Không thể kết nối máy chủ' })
-      })
+      }
     }
   }
   
@@ -491,13 +661,6 @@ export function DepositClient({
       .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
   }
 
-  const selectedVariantNameForDb = selectedVariant.replace(currentCar.name + ' ', '')
-  const matchingDbVariant = dbVariants?.find((v: any) => 
-    (v.product_name || '').includes(currentCar.name) && 
-    (v.version || '').includes(selectedVariantNameForDb) && 
-    v.color === selectedColor
-  )
-
   const powetrain = currentSpecs.variants?.[variants[0]]?.specs?.powertrain || {}
   const dimension = currentSpecs.variants?.[variants[0]]?.specs?.dimension || {}
   
@@ -613,11 +776,11 @@ export function DepositClient({
         />
 
         {/* LEFT COLUMN: CAR SHOWCASE */}
-        <div className="flex-1 flex flex-col relative z-10">
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col">
           
           {/* SLEEK TOP BAR */}
           <div className="w-full px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 z-50 relative">
-            <div className={`flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start transition-all duration-300 ${currentStep > 1 ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className="flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start">
               {/* VEHICLE TYPE TOGGLE */}
               <div
                 className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1.5 shadow-sm"
@@ -650,7 +813,20 @@ export function DepositClient({
               </div>
 
               {/* VEHICLE SELECTOR */}
-              <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar">
+              <div
+                className={
+                  isMotorbike
+                    ? 'grid max-w-full grid-rows-2 gap-2 overflow-x-auto rounded-[26px] border border-slate-200 bg-white/75 p-2 shadow-sm backdrop-blur-md hide-scrollbar'
+                    : 'inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar'
+                }
+                style={
+                  isMotorbike
+                    ? {
+                        gridTemplateColumns: `repeat(${Math.ceil(availableCars.length / 2)}, minmax(112px, max-content))`,
+                      }
+                    : undefined
+                }
+              >
                 {availableCars.map((car, idx) => {
                 const allImages = [
                   ...(car.gallery?.exterior_images || []),
@@ -678,10 +854,14 @@ export function DepositClient({
                   <button
                     key={idx}
                     onClick={() => setSelectedCarId(car.name)}
-                    className={`px-6 py-2.5 rounded-full text-sm font-medium tracking-wider transition-all duration-300 whitespace-nowrap flex items-center justify-center min-w-[80px] h-10 ${
+                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 ${
+                      isMotorbike
+                        ? 'h-11 min-w-[112px] px-5 py-2.5 text-[15px] font-bold tracking-[0.04em]'
+                        : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
+                    } ${
                       isSelected 
                         ? 'bg-slate-900 text-white shadow-lg scale-105' 
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
+                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group'
                     }`}
                   >
                     {logo ? (
@@ -697,7 +877,7 @@ export function DepositClient({
 
             {/* VIEW TOGGLE */}
             {!isMotorbike && !currentCar.name.includes('MPV') && (
-              <div className={`inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0 transition-all duration-300 ${currentStep > 1 ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
                 <button 
                   onClick={() => setViewMode('exterior')}
                   className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'exterior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
@@ -787,28 +967,73 @@ export function DepositClient({
         </div>
 
         {/* RIGHT COLUMN: PREMIUM CONFIGURATOR */}
-        <div className="w-full lg:w-[540px] xl:w-[600px] bg-white text-slate-900 shadow-2xl z-20 flex flex-col relative rounded-t-[40px] lg:rounded-t-none lg:rounded-l-[40px] overflow-hidden">
+        <div className="relative z-20 flex w-full shrink-0 flex-col overflow-hidden rounded-t-[40px] bg-white text-slate-900 shadow-2xl lg:w-[540px] lg:rounded-l-[40px] lg:rounded-t-none xl:w-[600px]">
           
           <div className="flex-1 overflow-y-auto hide-scrollbar p-8 pb-48">
             
-            {/* MODERN STEPPER */}
-            <div className="flex items-center gap-4 mb-10 mt-2">
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 1 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>1</div>
-                 {currentStep === 1 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Lựa chọn xe</span>}
-               </div>
-               <div className={`h-px flex-1 ${currentStep >= 2 ? 'bg-slate-900' : 'bg-slate-200'}`}></div>
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 2 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>2</div>
-                 {currentStep === 2 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Nhập thông tin</span>}
-               </div>
-               <div className={`h-px flex-1 ${currentStep >= 3 ? 'bg-slate-900' : 'bg-slate-200'}`}></div>
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 3 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>3</div>
-                 {currentStep === 3 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Đặt cọc xe</span>}
-               </div>
-            </div>
+            {/* SPEED-INSPIRED STEPPER */}
+            <AnimatePresence>
+              {currentStep <= 3 && (
+                <motion.div
+                  key="deposit-stepper"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={
+                    shouldReduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, x: -140 }
+                  }
+                  transition={
+                    shouldReduceMotion
+                      ? { duration: 0.01 }
+                      : { duration: 0.3, ease: [0.7, 0, 0.2, 1] }
+                  }
+                >
+                  <DepositStepper currentStep={currentStep} />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
+            <AnimatePresence mode="popLayout" custom={stepDirection}>
+              <motion.div
+                key={currentStep}
+                custom={stepDirection}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x: stepDirection > 0 ? 72 : -72,
+                        filter: 'blur(3px)',
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  filter: 'blur(0px)',
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x: stepDirection > 0 ? -110 : 110,
+                        filter: 'blur(3px)',
+                      }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        x: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        opacity: { duration: 0.2 },
+                        filter: { duration: 0.22 },
+                      }
+                }
+              >
             {currentStep === 1 && (
               <>
 
@@ -1023,7 +1248,7 @@ export function DepositClient({
             )}
             
             {currentStep === 2 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
                 <h3 className="text-2xl font-bold tracking-tight mb-8">Thông tin người đặt cọc</h3>
                 
                 <div className="space-y-6">
@@ -1090,30 +1315,44 @@ export function DepositClient({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                      <SearchableLocationSelect
-                        label=""
-                        options={provinces}
-                        value={formData.province}
-                        onChange={(val) => {
-                          setProvinceCode(val?.code || null)
-                          setFormData({ ...formData, province: val?.name || '', district: '' })
+                      <select
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none disabled:cursor-not-allowed disabled:opacity-60"
+                        value={provinceCode}
+                        disabled={locationsLoading}
+                        onChange={e => {
+                          const nextCode = e.target.value
+                          const selectedProvince = provinces.find(province => String(province.code) === nextCode)
+                          setProvinceCode(nextCode)
+                          setFormData({...formData, province: selectedProvince?.name ?? '', ward: ''})
                         }}
-                        placeholder="Chọn Tỉnh/Thành"
-                      />
+                      >
+                        <option value="">{locationsLoading ? 'Đang tải Tỉnh/Thành...' : 'Chọn Tỉnh/Thành'}</option>
+                        {provinces.map(province => (
+                          <option key={province.code} value={province.code}>{province.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Quận / Huyện <span className="text-red-500">*</span></label>
-                      <SearchableLocationSelect
-                        label=""
-                        options={districts}
-                        value={formData.district}
-                        onChange={(val) => setFormData({ ...formData, district: val?.name || '' })}
-                        placeholder="Chọn Quận/Huyện"
-                        disabled={!formData.province}
-                      />
+                      <label className="text-sm font-semibold text-slate-700">Xã / Phường <span className="text-red-500">*</span></label>
+                      <select
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none disabled:cursor-not-allowed disabled:opacity-60"
+                        value={formData.ward}
+                        disabled={!provinceCode || wardsLoading}
+                        onChange={e => setFormData({...formData, ward: e.target.value})}
+                      >
+                        <option value="">
+                          {wardsLoading ? 'Đang tải Xã/Phường...' : provinceCode ? 'Chọn Xã/Phường' : 'Chọn Tỉnh/Thành trước'}
+                        </option>
+                        {wards.map(ward => (
+                          <option key={ward.code} value={ward.name}>{ward.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
+                  {locationError && (
+                    <p className="text-sm text-red-600" role="status">{locationError}</p>
+                  )}
                   <div className="space-y-2 pt-4">
                     <label className="text-sm font-semibold text-slate-700">Showroom nhận xe <span className="text-red-500">*</span></label>
                     <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-medium">
@@ -1135,7 +1374,7 @@ export function DepositClient({
             )}
             
             {currentStep === 3 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
                 <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-6">
                   <h3 className="text-xl font-bold tracking-tight text-slate-800">Thông tin đơn hàng</h3>
                   <svg className="w-5 h-5 text-slate-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -1234,16 +1473,16 @@ export function DepositClient({
             )}
             
             {currentStep === 4 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500 text-center py-12">
+              <div className="py-12 text-center">
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Check size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-3xl font-bold tracking-tight mb-4">Hoàn tất đặt cọc!</h3>
-                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Cảm ơn bạn đã tin tưởng VinFast. Nhân viên của chúng tôi sẽ liên hệ trong thời gian sớm nhất để xác nhận.</p>
+                <h3 className="text-3xl font-bold tracking-tight mb-4">Đã tạo đơn đặt cọc</h3>
+                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Đơn đang chờ hoàn tất thanh toán. Nhân viên của chúng tôi sẽ liên hệ để xác nhận và hướng dẫn bước tiếp theo.</p>
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8 text-left">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-sm text-slate-500">Mã đơn hàng</span>
-                    <span className="font-bold">VF{Math.floor(Math.random() * 1000000)}</span>
+                    <span className="font-bold">{completedOrder?.orderNumber || '\u0110ang c\u1eadp nh\u1eadt'}</span>
                   </div>
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-sm text-slate-500">Xe đặt cọc</span>
@@ -1255,17 +1494,15 @@ export function DepositClient({
                       {new Intl.NumberFormat('vi-VN', {
                         style: 'currency',
                         currency: 'VND',
-                      }).format(
-                        matchingDbVariant?.deposit_amount ||
-                        currentCar.deposit_value ||
-                        (isMotorbike ? 2_000_000 : 10_000_000),
-                      )}
+                      }).format(completedOrder?.depositAmount || 0)}
                     </span>
                   </div>
                 </div>
               </div>
             )}
-            
+              </motion.div>
+            </AnimatePresence>
+
           </div>
 
            {/* BOTTOM CHECKOUT BAR */}
@@ -1300,7 +1537,7 @@ export function DepositClient({
                    <div className="flex gap-2 sm:gap-3 shrink-0">
                      {currentStep > 1 && (
                        <button 
-                         onClick={() => setCurrentStep(currentStep - 1)}
+                         onClick={() => goToStep(currentStep - 1)}
                          className="flex items-center justify-center bg-slate-100 text-slate-600 px-3 sm:px-6 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap shrink-0 hover:bg-slate-200 transition-all active:scale-95"
                        >
                          Quay lại

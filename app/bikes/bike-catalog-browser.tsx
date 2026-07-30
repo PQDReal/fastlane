@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Search, SlidersHorizontal } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 
 import { CatalogPagination } from '../../components/catalog-pagination'
@@ -72,6 +72,14 @@ export function BikeCatalogBrowser({
     pageStart,
     pageStart + PAGE_SIZE,
   )
+  const resultStart =
+    filteredBikes.length === 0 ? 0 : pageStart + 1
+  const resultEnd = Math.min(
+    pageStart + PAGE_SIZE,
+    filteredBikes.length,
+  )
+  const activePriceBandLabel =
+    priceBands.find((band) => band.value === priceBand)?.label
   const hasActiveFilters =
     search.trim().length > 0 ||
     priceBand !== 'all' ||
@@ -99,7 +107,7 @@ export function BikeCatalogBrowser({
 
   return (
     <div ref={catalogRef} className="scroll-mt-28">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex w-full flex-wrap items-center gap-4 md:w-auto">
           <div className="relative w-full md:w-[336px]">
             <Search
@@ -107,13 +115,23 @@ export function BikeCatalogBrowser({
               size={18}
             />
             <input
-              type="search"
+              type="text"
               value={search}
               onChange={(event) => updateSearch(event.target.value)}
               placeholder="Tìm kiếm xe..."
               aria-label="Tìm kiếm xe máy điện"
-              className="h-12 w-full rounded-full border border-muted bg-background pl-12 pr-4 outline-none transition-colors focus:border-brand-500"
+              className="h-12 w-full rounded-full border border-muted bg-background pl-12 pr-11 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => updateSearch('')}
+                aria-label="Xóa từ khóa tìm kiếm"
+                className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                <X size={15} />
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -139,9 +157,72 @@ export function BikeCatalogBrowser({
           aria-live="polite"
           className="text-sm font-medium text-muted-foreground"
         >
-          Hiển thị {filteredBikes.length} dòng xe
+          {filteredBikes.length === 0
+            ? 'Hiển thị 0 kết quả'
+            : `Hiển thị ${resultStart}–${resultEnd} trên ${filteredBikes.length} dòng xe`}
         </p>
       </div>
+
+      <AnimatePresence initial={false}>
+        {hasActiveFilters && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="mb-8 flex flex-wrap items-center gap-2"
+            aria-label="Bộ lọc đang áp dụng"
+          >
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Đang lọc
+            </span>
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => updateSearch('')}
+                className="inline-flex items-center gap-2 rounded-full border border-muted bg-muted/40 px-3 py-1.5 text-xs font-semibold transition-colors hover:border-foreground/30"
+              >
+                “{search.trim()}”
+                <X size={13} />
+              </button>
+            )}
+            {priceBand !== 'all' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPriceBand('all')
+                  setPage(1)
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-muted bg-muted/40 px-3 py-1.5 text-xs font-semibold transition-colors hover:border-foreground/30"
+              >
+                {activePriceBandLabel}
+                <X size={13} />
+              </button>
+            )}
+            {sort !== 'name' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSort('name')
+                  setPage(1)
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-muted bg-muted/40 px-3 py-1.5 text-xs font-semibold transition-colors hover:border-foreground/30"
+              >
+                {sort === 'price-asc'
+                  ? 'Giá thấp đến cao'
+                  : 'Giá cao đến thấp'}
+                <X size={13} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="ml-1 text-xs font-bold text-brand-700 underline-offset-4 hover:underline"
+            >
+              Xóa tất cả
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence initial={false}>
         {filterOpen && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { type MouseEvent, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -37,6 +37,11 @@ import type {
   CatalogSelection,
   CatalogVariant,
 } from '@/lib/catalog/types'
+import {
+  cancelCartAnimation,
+  launchCartAnimation,
+  prepareCartAnimation,
+} from '@/lib/cart/animation'
 import { useAppStore } from '@/lib/store'
 
 const formatPrice = (price: number) =>
@@ -294,8 +299,14 @@ export function AccessoryDetailClient({
     setFeedback(null)
   }
 
-  const handlePurchase = async (destination: 'cart' | 'checkout') => {
+  const handlePurchase = async (
+    destination: 'cart' | 'checkout',
+    sourceElement?: HTMLButtonElement,
+  ) => {
     if (!selectedVariant || !inStock || submitting) return
+    const animationId = destination === 'cart' && sourceElement
+      ? prepareCartAnimation(sourceElement)
+      : ''
     setSubmittingAction(destination)
     setFeedback(null)
     const result = await addToCart(
@@ -305,6 +316,7 @@ export function AccessoryDetailClient({
     setSubmittingAction(null)
 
     if (!result.ok) {
+      if (animationId) cancelCartAnimation(animationId)
       if (result.code === 'AUTHENTICATION_REQUIRED') {
         const detailParams = new URLSearchParams()
         if (selectedVehicle) detailParams.set('vehicle', selectedVehicle)
@@ -331,10 +343,13 @@ export function AccessoryDetailClient({
       return
     }
 
+    launchCartAnimation(animationId, quantity)
     setFeedback({ type: 'success', message: 'Đã thêm sản phẩm vào giỏ hàng.' })
   }
 
-  const handleAdd = () => handlePurchase('cart')
+  const handleAdd = (event: MouseEvent<HTMLButtonElement>) => (
+    handlePurchase('cart', event.currentTarget)
+  )
   const handleBuyNow = () => handlePurchase('checkout')
 
   const showPreviousMedia = () => {

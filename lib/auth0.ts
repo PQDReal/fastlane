@@ -5,6 +5,16 @@ import { Auth0EmailUnverifiedError, syncAuth0User } from '@/lib/services/user-se
 
 const POPUP_COMPLETE_PATH = '/auth/popup-complete'
 
+function isAuthorizationDenied(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as {
+    code?: unknown
+    cause?: { code?: unknown }
+  }
+  return candidate.code === 'access_denied'
+    || candidate.cause?.code === 'access_denied'
+}
+
 export const auth0 = new Auth0Client({
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
@@ -28,13 +38,13 @@ export const auth0 = new Auth0Client({
 
     if (error || !session) {
       console.error('Auth0 callback failed', { error: error?.message ?? 'Session was not created' })
-      const errorDetails = error
-        ? `${error.name} ${error.message} ${String(error.cause ?? '')}`
-        : ''
-      const code = /blocked|unauthorized|access_denied/i.test(errorDetails)
-        ? 'account_inactive'
-        : 'callback_failed'
-      return NextResponse.redirect(errorDestination(code))
+      return NextResponse.redirect(
+        errorDestination(
+          isAuthorizationDenied(error)
+            ? 'authorization_denied'
+            : 'callback_failed',
+        ),
+      )
     }
 
     let localUser

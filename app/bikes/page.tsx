@@ -1,6 +1,6 @@
 import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
-import { ChevronRight } from 'lucide-react'
+import { BatteryCharging, ChevronRight, Leaf, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 import { getProductImage } from '../../lib/get-product-image'
@@ -73,21 +73,42 @@ export default async function BikesPage() {
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
       
-      <div className="bg-muted py-24 border-b border-black/5">
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
-          <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-8">
-            <Link href="/" className="hover:text-brand-600 transition-colors">Trang chủ</Link>
+      <section className="relative overflow-hidden border-b border-black/5 bg-muted py-20 sm:py-28">
+        <div className="pointer-events-none absolute -left-24 top-8 h-72 w-72 rounded-full bg-brand-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-slate-900/10 blur-3xl" />
+        <div className="relative mx-auto max-w-[1440px] px-6 text-center lg:px-12">
+          <div className="mb-8 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Link href="/" className="transition-colors hover:text-brand-600">Trang chủ</Link>
             <ChevronRight size={14} />
             <span className="text-foreground">Xe máy điện</span>
           </div>
-          <h1 className="text-5xl font-bold tracking-tight text-foreground sm:text-7xl">Xe máy điện</h1>
-          <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.32em] text-brand-700">
+            Di chuyển xanh mỗi ngày
+          </p>
+          <h1 className="text-5xl font-bold tracking-[-0.04em] text-foreground sm:text-7xl">
+            Xe máy điện
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
             Giải pháp di chuyển đô thị thông minh, thân thiện với môi trường, thiết kế thời trang và vận hành êm ái.
           </p>
+          <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 divide-x divide-black/10 rounded-2xl border border-black/5 bg-white/60 px-3 py-5 shadow-sm backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-2 px-2">
+              <Zap size={19} className="text-brand-600" />
+              <span className="text-xs font-semibold sm:text-sm">Vận hành êm ái</span>
+            </div>
+            <div className="flex flex-col items-center gap-2 px-2">
+              <BatteryCharging size={19} className="text-brand-600" />
+              <span className="text-xs font-semibold sm:text-sm">{bikes.length} dòng xe</span>
+            </div>
+            <div className="flex flex-col items-center gap-2 px-2">
+              <Leaf size={19} className="text-brand-600" />
+              <span className="text-xs font-semibold sm:text-sm">Không khí thải</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-12 py-16 w-full">
+      <div className="mx-auto w-full max-w-[1440px] px-6 py-16 lg:px-12">
         <BikeCatalogBrowser bikes={bikes} />
       </div>
 

@@ -6,11 +6,21 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { getMyProfile } from '@/lib/api/profile-client'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 
-type Props = { children: ReactNode; className?: string; onSuccess?: () => void; forceLogin?: boolean }
+type Props = {
+  children: ReactNode
+  className?: string
+  forceFreshLogin?: boolean
+  onSuccess?: () => void
+}
 type AuthCompleteMessage = { type: 'auth_complete'; success: boolean; error?: { code?: string; message?: string } }
 const POPUP_NAME = 'fastlane-auth0-login'
 
-export function PopupLoginButton({ children, className, onSuccess, forceLogin = false }: Props) {
+export function PopupLoginButton({
+  children,
+  className,
+  forceFreshLogin = false,
+  onSuccess,
+}: Props) {
   const router = useRouter()
   const { invalidate } = useUser()
   const popupRef = useRef<Window | null>(null)
@@ -61,16 +71,11 @@ export function PopupLoginButton({ children, className, onSuccess, forceLogin = 
     const height = 720
     const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2)
     const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2)
-    const forceNextLogin = document.cookie
-      .split(';')
-      .some((cookie) => cookie.trim() === 'fastlane_force_login=1')
-    if (forceNextLogin) {
-      document.cookie = 'fastlane_force_login=; Path=/; Max-Age=0; SameSite=Lax'
-    }
-    const loginUrl = forceLogin || forceNextLogin
-      ? '/auth/login?returnTo=%2Fauth%2Fpopup-complete&prompt=login'
-      : '/auth/login?returnTo=%2Fauth%2Fpopup-complete'
-    popupRef.current = window.open(loginUrl, POPUP_NAME, `popup=yes,width=${width},height=${height},left=${left},top=${top}`)
+    const params = new URLSearchParams({
+      returnTo: '/auth/popup-complete',
+    })
+    if (forceFreshLogin) params.set('prompt', 'login')
+    popupRef.current = window.open(`/auth/login?${params}`, POPUP_NAME, `popup=yes,width=${width},height=${height},left=${left},top=${top}`)
     if (!popupRef.current) window.location.assign('/auth/error?code=popup_blocked')
     else popupRef.current.focus()
   }

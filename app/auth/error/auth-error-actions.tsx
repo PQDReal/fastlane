@@ -18,7 +18,7 @@ export function AuthErrorActions({
     <div className="mt-8 grid gap-3">
       {canRetry && (
         <PopupLoginButton
-          forceLogin={forceLogin}
+          forceFreshLogin
           onSuccess={() => window.location.assign('/')}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
         >
