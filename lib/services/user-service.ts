@@ -5,8 +5,16 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 export type Auth0SessionUser = {
   sub: string
   email?: string | null
+  email_verified?: boolean | null
   name?: string | null
   phone_number?: string | null
+}
+
+export class Auth0EmailUnverifiedError extends Error {
+  constructor() {
+    super('Auth0 email must be verified before accessing the application')
+    this.name = 'Auth0EmailUnverifiedError'
+  }
 }
 
 export type LocalUser = {
@@ -38,6 +46,25 @@ export async function findUserByAuth0Subject(
 
   if (error) {
     throw new Error(`Unable to load local user: ${error.message}`)
+  }
+
+  return data
+}
+
+export async function findUserByEmail(email: string): Promise<LocalUser | null> {
+  const normalizedEmail = email.trim().toLowerCase()
+  if (!normalizedEmail) return null
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('users')
+    .select(
+      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+    )
+    .eq('email', normalizedEmail)
+    .maybeSingle<LocalUser>()
+
+  if (error) {
+    throw new Error(`Unable to load local user by email: ${error.message}`)
   }
 
   return data
@@ -108,6 +135,18 @@ export async function syncAuth0User(
     }
 
     return data
+  }
+
+  const existingEmailUser = await findUserByEmail(email)
+  if (existingEmailUser) {
+    if (user.email_verified !== true) {
+      throw new Auth0EmailUnverifiedError()
+    }
+    return existingEmailUser
+  }
+
+  if (user.email_verified !== true) {
+    throw new Auth0EmailUnverifiedError()
   }
 
   const { data, error } = await getSupabaseAdmin()

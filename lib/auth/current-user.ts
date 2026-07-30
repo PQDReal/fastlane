@@ -20,6 +20,7 @@ export async function getCurrentUser(): Promise<LocalUser | null> {
   const user = await syncAuth0User({
     sub: session.user.sub,
     email: session.user.email,
+    email_verified: session.user.email_verified,
     name: session.user.name,
     phone_number: typeof phoneNumber === 'string' ? phoneNumber : null,
   })

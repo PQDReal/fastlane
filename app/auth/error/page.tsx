@@ -15,6 +15,10 @@ const errors: Record<string, { title: string; message: string }> = {
     title: 'Đăng nhập không thành công',
     message: 'Không thể hoàn tất quá trình xác thực. Vui lòng thử đăng nhập lại.',
   },
+  email_unverified: {
+    title: 'Email chưa được xác thực',
+    message: 'Vui lòng xác thuẹc email qua thư từ FASTLANE, sau \u0111\u00f3 \u0111\u0103ng nh\u1eadp l\u1ea1i \u0111\u1ec3 truy c\u1eadp trang web.',
+  },
   sync_failed: {
     title: 'Không thể kiểm tra tài khoản',
     message: 'Hệ thống chưa thể kiểm tra trạng thái tài khoản. Vui lòng thử lại sau.',
@@ -39,7 +43,10 @@ export default async function AuthErrorPage({ searchParams }: Props) {
         </div>
         <h1 className="mt-6 text-2xl font-bold text-slate-950">{error.title}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">{error.message}</p>
-        <AuthErrorActions canRetry={code !== 'account_inactive'} />
+        <AuthErrorActions
+          canRetry={code !== 'account_inactive'}
+          retryLabel={code === 'email_unverified' ? 'T\u00f4i \u0111\u00e3 x\u00e1c th\u1ef1c email' : undefined}
+        />
       </section>
     </main>
   )
