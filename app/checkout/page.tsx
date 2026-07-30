@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { ArrowLeft, Check, Loader2, LockKeyhole, MapPin, ShoppingBag, Star } from 'lucide-react'
-import { AnimatePresence } from 'framer-motion'
+import { ArrowLeft, Check, ChevronDown, Loader2, LockKeyhole, MapPin, ShoppingBag, Star } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -81,6 +81,7 @@ export default function CheckoutPage() {
   const [addressesLoading, setAddressesLoading] = useState(false)
   const [addressesError, setAddressesError] = useState<string | null>(null)
   const [addressModalOpen, setAddressModalOpen] = useState(false)
+  const [addressListOpen, setAddressListOpen] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const idempotencyKey = useRef<string | null>(null)
 
@@ -383,8 +384,8 @@ export default function CheckoutPage() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr_420px]">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_390px]">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7 lg:order-2 lg:sticky lg:top-28 lg:self-start">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Địa chỉ nhận hàng</h2>
@@ -419,20 +420,31 @@ export default function CheckoutPage() {
                   </button>
                 </div>
               ) : (
-                <div role="radiogroup" aria-label="Địa chỉ nhận hàng đã lưu" className="mt-6 max-h-[430px] space-y-3 overflow-y-auto pr-1">
-                  {savedAddresses.map((address) => {
+                <div role="radiogroup" aria-label="Địa chỉ nhận hàng đã lưu" className="mt-6 -mr-3 max-h-[430px] space-y-3 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+                  <AnimatePresence initial={false}>
+                    {(addressListOpen ? savedAddresses : selectedAddress ? [selectedAddress] : savedAddresses.slice(0, 1)).map((address) => {
                     const selected = address.id === selectedAddressId
                     return (
-                      <button
+                      <motion.button
                         key={address.id}
+                        initial={{ opacity: 0, height: 0, y: -6 }}
+                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -6 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                         type="button"
                         role="radio"
                         aria-checked={selected}
+                        aria-expanded={selected ? addressListOpen : undefined}
                         onClick={() => {
+                          if (!addressListOpen) {
+                            setAddressListOpen(true)
+                            return
+                          }
                           setSelectedAddressId(address.id)
+                          setAddressListOpen(false)
                           setSubmitError(null)
                         }}
-                        className={`w-full rounded-2xl border p-5 text-left transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] ${
+                        className={`w-full overflow-hidden rounded-2xl border p-5 text-left transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] ${
                           selected
                             ? 'border-[#836100] bg-[#836100]/5 shadow-sm'
                             : 'border-slate-200 hover:border-slate-300'
@@ -468,16 +480,25 @@ export default function CheckoutPage() {
                                 Địa chỉ này thiếu phường/xã. Vui lòng cập nhật trước khi đặt hàng.
                               </p>
                             )}
+                            {!addressListOpen && savedAddresses.length > 1 && (
+                              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#836100]">
+                                Chọn địa chỉ khác
+                                <motion.span animate={{ rotate: addressListOpen ? 180 : 0 }} transition={{ duration: 0.18 }}>
+                                  <ChevronDown className="h-4 w-4" />
+                                </motion.span>
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </button>
+                      </motion.button>
                     )
-                  })}
+                    })}
+                  </AnimatePresence>
                 </div>
               )}
             </section>
 
-            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
+            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:order-1">
               <h2 className="text-xl font-bold text-slate-900">Đơn hàng</h2>
               <ul className="mt-6 max-h-80 space-y-5 overflow-y-auto pr-1">
                 {selectedItems.map((item) => (
@@ -502,6 +523,38 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
+                <div className="mt-3 flex gap-2">
+                  <label htmlFor="promotion-code" className="sr-only">Mã giảm giá</label>
+                  <input
+                    id="promotion-code"
+                    type="text"
+                    value={promotionCode}
+                    onChange={(event) => {
+                      setPromotionCode(event.target.value.toUpperCase())
+                      setAppliedPromotion(null)
+                      setPromotionError(null)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return
+                      event.preventDefault()
+                      void handleApplyPromotion(promotionCode)
+                    }}
+                    placeholder="Nhập mã giảm giá"
+                    autoComplete="off"
+                    aria-invalid={Boolean(promotionError)}
+                    aria-describedby={promotionError ? 'promotion-code-error' : undefined}
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-4 text-sm font-semibold uppercase outline-none transition placeholder:font-normal placeholder:normal-case focus:border-[#836100] focus:ring-2 focus:ring-[#836100]/15"
+                  />
+                  <button
+                    type="button"
+                    disabled={applyingPromotion || promotionsLoading || !promotionCode.trim()}
+                    onClick={() => void handleApplyPromotion(promotionCode)}
+                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#836100] px-4 text-sm font-bold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {applyingPromotion && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Áp dụng
+                  </button>
+                </div>
                 {promotionsLoading ? (
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" /> Đang tìm mã phù hợp...
