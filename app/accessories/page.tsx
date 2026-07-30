@@ -59,7 +59,7 @@ export default async function AccessoriesPage({
       <Header />
 
       <header className="border-b border-slate-200/80 bg-white shadow-xs">
-        <div className="mx-auto max-w-[1440px] px-6 py-6 lg:px-12 lg:py-7">
+        <div className="mx-auto max-w-[1480px] px-6 py-6 lg:px-12 lg:py-7">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium text-slate-400">
             <Link href="/" className="transition hover:text-brand-600">Trang chủ</Link>
             <ChevronRight size={13} />
@@ -77,7 +77,7 @@ export default async function AccessoriesPage({
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1440px] flex-1 gap-6 px-6 py-8 lg:grid-cols-[270px_minmax(0,1fr)] lg:gap-8 lg:px-12 lg:py-10">
+      <div className="mx-auto grid w-full max-w-[1480px] flex-1 gap-6 px-6 py-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8 lg:px-12 lg:py-10">
         <AccessoryCategoryNavigation
           filters={filters}
           facets={catalogPage.facets}
@@ -124,7 +124,7 @@ export default async function AccessoriesPage({
           </div>
 
           {catalogPage.products.length > 0 ? (
-            <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {catalogPage.products.map((product) => (
                 <AccessoryCard
                   key={product.id}
