@@ -203,6 +203,30 @@ export async function updateAuth0UsersByEmail(
     })
   }
 }
+export async function verifyAuth0UsersByEmail(
+  email: string,
+  fallbackSubject: string,
+) {
+  const users = await getAuth0UsersByEmail(email)
+  let candidates = users
+
+  if (!candidates.some((user) => user.user_id === fallbackSubject)) {
+    try {
+      candidates = [...candidates, await getAuth0User(fallbackSubject)]
+    } catch (error) {
+      if (!(error instanceof Auth0ManagementError) || error.status !== 404) throw error
+    }
+  }
+
+  const pending = candidates.filter((user) => user.email_verified !== true)
+  for (const user of pending) {
+    const connection = user.identities?.[0]?.connection
+    await updateAuth0User(user.user_id, {
+      emailVerified: true,
+      connection,
+    })
+  }
+}
 export function deleteAuth0User(subject: string) {
   return managementRequest<void>(`/users/${encodeURIComponent(subject)}`, {
     method: 'DELETE',

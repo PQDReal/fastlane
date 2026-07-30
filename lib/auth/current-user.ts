@@ -2,8 +2,8 @@ import 'server-only'
 
 import { auth0 } from '@/lib/auth0'
 import {
+  findUserByEmail,
   findUserByAuth0Subject,
-  syncAuth0User,
   type LocalUser,
 } from '@/lib/services/user-service'
 
@@ -15,14 +15,9 @@ export async function getCurrentUser(): Promise<LocalUser | null> {
   const existingUser = await findUserByAuth0Subject(session.user.sub)
   if (existingUser) return existingUser.status === 'ACTIVE' ? existingUser : null
 
-  const phoneNumber = session.user.phone_number
+  const email = session.user.email?.trim()
+  if (!email) return null
 
-  const user = await syncAuth0User({
-    sub: session.user.sub,
-    email: session.user.email,
-    email_verified: session.user.email_verified,
-    name: session.user.name,
-    phone_number: typeof phoneNumber === 'string' ? phoneNumber : null,
-  })
-  return user.status === 'ACTIVE' ? user : null
+  const emailUser = await findUserByEmail(email)
+  return emailUser?.status === 'ACTIVE' ? emailUser : null
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Edit, Loader2, Plus, Search, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -264,7 +265,21 @@ export default function AdminCategoriesPage() {
               {isLoading ? (
                 <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500"><Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" /></td></tr>
               ) : filteredCategories.map((category) => (
-                <tr key={category.id} className="transition-colors hover:bg-slate-50">
+                <tr
+                  key={category.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Sửa danh mục ${category.name}`}
+                  onClick={() => openEditForm(category)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      openEditForm(category)
+                    }
+                  }}
+                  className="cursor-pointer transition duration-150 hover:bg-slate-50 active:scale-[0.997] active:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                >
                   <td className="px-6 py-4 font-semibold text-slate-900">{category.name}</td>
                   <td className="max-w-xs truncate px-6 py-4 text-slate-500">{category.description || '-'}</td>
                   <td className="w-48 px-6 py-4">
@@ -272,7 +287,10 @@ export default function AdminCategoriesPage() {
                       type="button"
                       role="switch"
                       aria-checked={category.isActive ?? category.is_active ?? true}
-                      onClick={() => void toggleCategoryStatus(category)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void toggleCategoryStatus(category)
+                      }}
                       disabled={togglingId === category.id}
                       className="inline-flex items-center gap-3 rounded-md py-1 text-sm font-medium text-slate-700 disabled:cursor-wait disabled:opacity-60"
                       aria-label={`Chuyển ${category.name} sang ${(category.isActive ?? category.is_active ?? true) ? 'không hoạt động' : 'hoạt động'}`}
@@ -286,10 +304,10 @@ export default function AdminCategoriesPage() {
                   </td>
                   <td className="w-32 px-6 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button type="button" onClick={() => openEditForm(category)} className="rounded p-2 text-slate-400 hover:bg-brand-50 hover:text-brand-600" aria-label={`Sửa ${category.name}`} title="Sửa">
+                      <button type="button" onClick={(event) => { event.stopPropagation(); openEditForm(category) }} className="rounded p-2 text-slate-400 hover:bg-brand-50 hover:text-brand-600" aria-label={`Sửa ${category.name}`} title="Sửa">
                         <Edit size={16} />
                       </button>
-                      <button type="button" onClick={() => requestDeleteCategory(category)} disabled={deletingId === category.id} className="rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50" aria-label={`Xóa ${category.name}`} title="Xóa">
+                      <button type="button" onClick={(event) => { event.stopPropagation(); requestDeleteCategory(category) }} disabled={deletingId === category.id} className="rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50" aria-label={`Xóa ${category.name}`} title="Xóa">
                         {deletingId === category.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                       </button>
                     </div>
@@ -306,7 +324,7 @@ export default function AdminCategoriesPage() {
 
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
 
-      <AnimatePresence onExitComplete={resetFormState}>
+      <AdminModalPortal><AnimatePresence onExitComplete={resetFormState}>
         {isFormOpen && (
 <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
@@ -355,7 +373,7 @@ export default function AdminCategoriesPage() {
             </motion.div>
           </motion.div>
       )}
-      </AnimatePresence>
+      </AnimatePresence></AdminModalPortal>
     </div>
   )
 }

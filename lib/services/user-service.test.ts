@@ -17,6 +17,7 @@ const existingUser: LocalUser = {
   phone_number: '0901234567',
   role: 'CUSTOMER',
   status: 'ACTIVE',
+  email_verified: true,
   created_at: '2026-07-01T00:00:00.000Z',
   updated_at: '2026-07-28T00:00:00.000Z',
 }
@@ -115,4 +116,26 @@ describe('syncAuth0User', () => {
       email: existingUser.email,
       email_verified: false,
     })).rejects.toThrow('email must be verified')
-  })})
+  })
+
+  it('stores a new unverified account before denying access', async () => {
+    const noSubject = findQuery(null)
+    const noEmail = findQuery(null)
+    const insertedUser = { ...existingUser, auth0_subject: 'auth0|new-unverified-user', email: 'new@example.com' }
+    const insert = { insert: vi.fn(), select: vi.fn(), single: vi.fn().mockResolvedValue({ data: insertedUser, error: null }) }
+    insert.insert.mockReturnValue(insert)
+    insert.select.mockReturnValue(insert)
+    getSupabaseAdmin
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(noSubject) })
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(noEmail) })
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(insert) })
+
+    await expect(syncAuth0User({ sub: insertedUser.auth0_subject, email: insertedUser.email, email_verified: false, name: 'New User' }))
+      .rejects.toThrow('email must be verified')
+    expect(insert.insert).toHaveBeenCalledWith(expect.objectContaining({
+      auth0_subject: insertedUser.auth0_subject,
+      email: insertedUser.email,
+      full_name: 'New User',
+    }))
+  })
+})

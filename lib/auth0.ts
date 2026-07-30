@@ -28,7 +28,13 @@ export const auth0 = new Auth0Client({
 
     if (error || !session) {
       console.error('Auth0 callback failed', { error: error?.message ?? 'Session was not created' })
-      return NextResponse.redirect(errorDestination('callback_failed'))
+      const errorDetails = error
+        ? `${error.name} ${error.message} ${String(error.cause ?? '')}`
+        : ''
+      const code = /blocked|unauthorized|access_denied/i.test(errorDetails)
+        ? 'account_inactive'
+        : 'callback_failed'
+      return NextResponse.redirect(errorDestination(code))
     }
 
     let localUser

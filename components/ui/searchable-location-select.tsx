@@ -27,7 +27,10 @@ export function SearchableLocationSelect({
 
   useEffect(() => { setQuery(selected?.name ?? '') }, [selected?.name])
 
-  const normalizedQuery = searchable(query.trim())
+  const normalizedQuery =
+    selected && query.trim() === selected.name
+      ? ''
+      : searchable(query.trim())
   const filtered = options.filter((option) => !normalizedQuery || searchable(option.name).includes(normalizedQuery))
 
   return (

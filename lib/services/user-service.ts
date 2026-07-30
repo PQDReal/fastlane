@@ -25,6 +25,7 @@ export type LocalUser = {
   phone_number: string | null
   role: 'ADMIN' | 'CUSTOMER'
   status: 'ACTIVE' | 'INACTIVE'
+  email_verified: boolean
   created_at: string
   updated_at: string
 }
@@ -39,7 +40,7 @@ export async function findUserByAuth0Subject(
   const { data, error } = await getSupabaseAdmin()
     .from('users')
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
     )
     .eq('auth0_subject', normalizedSubject)
     .maybeSingle<LocalUser>()
@@ -58,7 +59,7 @@ export async function findUserByEmail(email: string): Promise<LocalUser | null> 
   const { data, error } = await getSupabaseAdmin()
     .from('users')
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
     )
     .eq('email', normalizedEmail)
     .maybeSingle<LocalUser>()
@@ -90,7 +91,7 @@ export async function updateUserProfile(
     .update(updates)
     .eq('auth0_subject', subject)
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
     )
     .single<LocalUser>()
 
@@ -116,17 +117,22 @@ export async function syncAuth0User(
 
   const existingUser = await findUserByAuth0Subject(subject)
   if (existingUser) {
-    if (existingUser.email === email) return existingUser
+    const verificationChanged = typeof user.email_verified === 'boolean'
+      && existingUser.email_verified !== user.email_verified
+    if (existingUser.email === email && !verificationChanged) return existingUser
+
+    const updates: Record<string, string | boolean> = {
+      email,
+      updated_at: new Date().toISOString(),
+    }
+    if (typeof user.email_verified === 'boolean') updates.email_verified = user.email_verified
 
     const { data, error } = await getSupabaseAdmin()
       .from('users')
-      .update({
-        email,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('auth0_subject', subject)
       .select(
-        'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+        'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
       )
       .single<LocalUser>()
 
@@ -142,12 +148,24 @@ export async function syncAuth0User(
     if (user.email_verified !== true) {
       throw new Auth0EmailUnverifiedError()
     }
-    return existingEmailUser
+    if (existingEmailUser.email_verified) return existingEmailUser
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('users')
+      .update({ email_verified: true, updated_at: new Date().toISOString() })
+      .eq('id', existingEmailUser.id)
+      .select(
+        'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
+      )
+      .single<LocalUser>()
+
+    if (error) {
+      throw new Error(`Unable to synchronize Auth0 email verification: ${error.message}`)
+    }
+
+    return data
   }
 
-  if (user.email_verified !== true) {
-    throw new Auth0EmailUnverifiedError()
-  }
 
   const { data, error } = await getSupabaseAdmin()
     .from('users')
@@ -156,15 +174,20 @@ export async function syncAuth0User(
       email,
       full_name: user.name?.trim() || email,
       phone_number: user.phone_number?.trim() || null,
+      email_verified: user.email_verified === true,
       updated_at: new Date().toISOString(),
     })
     .select(
-      'id, auth0_subject, email, full_name, phone_number, role, status, created_at, updated_at',
+      'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
     )
     .single<LocalUser>()
 
   if (error) {
     throw new Error(`Unable to synchronize Auth0 user: ${error.message}`)
+  }
+
+  if (user.email_verified !== true) {
+    throw new Auth0EmailUnverifiedError()
   }
 
   return data

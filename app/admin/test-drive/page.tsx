@@ -1,5 +1,6 @@
 'use client'
 
+import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { CalendarDays, FileDown, Loader2, RefreshCw, Search, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -158,7 +159,7 @@ export default function AdminTestDrivePage() {
           </table>
         </div>
       </div>
-      <AnimatePresence>
+      <AdminModalPortal><AnimatePresence>
       {selectedRequest && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedRequest(null) }}>
           <motion.section initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.97 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }} role="dialog" aria-modal="true" aria-labelledby="test-drive-detail-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
@@ -192,10 +193,10 @@ export default function AdminTestDrivePage() {
           </motion.section>
         </motion.div>
       )}
-      </AnimatePresence>
+      </AnimatePresence></AdminModalPortal>
 
-      {reasonRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !updatingId) setReasonRequest(null) }}>
+      <AdminModalPortal><AnimatePresence>{reasonRequest && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !updatingId) setReasonRequest(null) }}>
           <form onSubmit={submitReason} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -212,7 +213,7 @@ export default function AdminTestDrivePage() {
               <button type="submit" disabled={Boolean(updatingId) || !reason.trim()} className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{updatingId && <Loader2 size={15} className="mr-2 animate-spin" />}Xác nhận</button>
             </div>
           </form>
-        </div>
-      )}    </div>
+        </motion.div>
+      )}</AnimatePresence></AdminModalPortal>    </div>
   )
 }
