@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 const allowedCodes = new Set([
   'account_inactive',
   'callback_failed',
+  'email_unverified',
   'sync_failed',
 ])
 
