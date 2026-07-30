@@ -1,5 +1,6 @@
 'use client'
 
+import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArchiveX, Boxes, ChevronLeft, ChevronRight, Filter, Layers3, Loader2, Pencil, Search, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -137,14 +138,14 @@ export default function AdminInventoryPage() {
         )}
       </div>
 
-      <AnimatePresence>
+      <AdminModalPortal><AnimatePresence>
         {adjustingItem && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeAdjustment() }} role="dialog" aria-modal="true" aria-labelledby="inventory-adjust-title">
           <motion.div className="w-full max-w-md rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 20, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.97 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4"><div className="min-w-0"><h2 id="inventory-adjust-title" className="font-bold text-slate-900">{TEXT.adjustTitle}</h2><p className="truncate text-xs text-slate-500">{adjustingItem.sku} · {adjustingItem.variantName}</p></div><button type="button" onClick={closeAdjustment} disabled={isSaving} className="rounded p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button></div>
             <form onSubmit={saveAdjustment} className="space-y-5 p-6"><div className="rounded-lg bg-slate-50 p-4"><p className="text-xs font-medium text-slate-500">{TEXT.currentQuantity}</p><p className="mt-1 text-2xl font-bold text-slate-900">{adjustingItem.onHandQuantity}</p></div><label className="block text-sm font-medium text-slate-700">{TEXT.newQuantity}<input autoFocus required type="number" min={0} max={1000000} step={1} value={quantityInput} onChange={(event) => setQuantityInput(event.target.value)} className="mt-1.5 h-11 w-full rounded-md border border-slate-200 px-3 text-lg font-semibold focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500" /></label><div className="flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={closeAdjustment} disabled={isSaving} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{TEXT.cancel}</button><button type="submit" disabled={isSaving || !canSaveAdjustment} className="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">{isSaving && <Loader2 size={15} className="mr-2 animate-spin" />}{TEXT.save}</button></div></form>
           </motion.div>
         </motion.div>}
-      </AnimatePresence>
+      </AnimatePresence></AdminModalPortal>
     </div>
   )
 }

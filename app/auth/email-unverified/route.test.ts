@@ -18,5 +18,7 @@ describe('email-unverified session cleanup', () => {
       expect(deletedCookies).toContain(name + '=')
     }
     expect(deletedCookies).toContain('Expires=Thu, 01 Jan 1970 00:00:00 GMT')
+    expect(deletedCookies).toContain('fastlane_force_login=1')
+    expect(deletedCookies).toContain('Max-Age=600')
   })
 })

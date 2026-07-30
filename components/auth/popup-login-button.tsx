@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { getMyProfile } from '@/lib/api/profile-client'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 
 type Props = {
   children: ReactNode
@@ -23,6 +24,7 @@ export function PopupLoginButton({
   const router = useRouter()
   const { invalidate } = useUser()
   const popupRef = useRef<Window | null>(null)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   const finish = useCallback(async () => {
     await invalidate()
@@ -48,7 +50,16 @@ export function PopupLoginButton({
       } else {
         popupRef.current = null
         const code = event.data.error?.code ?? 'callback_failed'
-        window.location.assign(`/auth/error?code=${encodeURIComponent(code)}`)
+        const id = Date.now()
+        const content = code === 'email_unverified'
+          ? { title: 'Email chưa được xác thực', message: 'Vui lòng xác thực email hoặc đăng nhập bằng tài khoản khác.' }
+          : code === 'account_inactive'
+            ? { title: 'Tài khoản đã bị vô hiệu hóa', message: 'Vui lòng liên hệ quản trị viên để được hỗ trợ.' }
+            : { title: 'Đăng nhập không thành công', message: event.data.error?.message || 'Vui lòng thử đăng nhập lại.' }
+        setToasts((current) => [...current, { id, kind: 'error', ...content }])
+        window.setTimeout(() => {
+          setToasts((current) => current.filter((toast) => toast.id !== id))
+        }, 4500)
       }
     }
     window.addEventListener('message', receive)
@@ -69,5 +80,13 @@ export function PopupLoginButton({
     else popupRef.current.focus()
   }
 
-  return <button type="button" onClick={login} className={className}>{children}</button>
+  return (
+    <>
+      <ToastViewport
+        toasts={toasts}
+        onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}
+      />
+      <button type="button" onClick={login} className={className}>{children}</button>
+    </>
+  )
 }

@@ -8,9 +8,11 @@ import { PopupLoginButton } from '@/components/auth/popup-login-button'
 export function AuthErrorActions({
   canRetry,
   retryLabel = 'Thử đăng nhập lại',
+  forceLogin = false,
 }: {
   canRetry: boolean
   retryLabel?: string
+  forceLogin?: boolean
 }) {
   return (
     <div className="mt-8 grid gap-3">

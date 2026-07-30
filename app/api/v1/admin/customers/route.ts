@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await getSupabaseAdmin()
     .from('users')
-    .select('id,email,full_name,phone_number,role,status,created_at,updated_at')
+    .select('id,email,full_name,phone_number,role,status,email_verified,created_at,updated_at')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: 'Không thể tải danh sách khách hàng.' }, { status: 500 })
@@ -69,10 +69,11 @@ export async function POST(request: Request) {
       email,
       full_name: fullName,
       phone_number: phoneNumber,
+      email_verified: false,
       role: 'CUSTOMER',
       status: 'ACTIVE',
     })
-    .select('id,email,full_name,phone_number,role,status,created_at,updated_at')
+    .select('id,email,full_name,phone_number,role,status,email_verified,created_at,updated_at')
     .single()
 
   if (error) {
@@ -81,5 +82,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: conflict ? 'Email đã tồn tại.' : 'Không thể lưu tài khoản vào database.' }, { status: conflict ? 409 : 500 })
   }
 
-  return NextResponse.json(data, { status: 201 })
+  return NextResponse.json({ ...data, email_verified: false }, { status: 201 })
 }

@@ -27,5 +27,14 @@ export function GET(request: NextRequest) {
   for (const name of new Set(['__session', ...sessionCookieNames])) {
     response.cookies.delete({ name, path: '/' })
   }
+  response.cookies.set({
+    name: 'fastlane_force_login',
+    value: '1',
+    path: '/',
+    maxAge: 600,
+    sameSite: 'lax',
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+  })
   return response
 }
