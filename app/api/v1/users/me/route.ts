@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { getCurrentUser } from '@/lib/auth/current-user'
+import { auth0 } from '@/lib/auth0'
+import { updateAuth0UsersByEmail } from '@/lib/auth0-management'
 import { updateUserProfile, type LocalUser } from '@/lib/services/user-service'
 
 const PHONE_PATTERN = /^\+?[0-9]{9,15}$/
@@ -88,11 +90,63 @@ export async function PATCH(request: Request) {
     return errorResponse(400, 'VALIDATION_FAILED', 'phoneNumber must contain 9 to 15 digits')
   }
 
+  const changedFullName = fullName !== undefined && fullName !== user.full_name
+    ? fullName
+    : undefined
+  const changedPhoneNumber = phoneNumber !== undefined && phoneNumber !== user.phone_number
+    ? phoneNumber
+    : undefined
+
+  const session = await auth0.getSession()
+  if (!session) {
+    return errorResponse(401, 'AUTHENTICATION_REQUIRED', 'Authentication required')
+  }
+
+  let updatedUser: LocalUser
   try {
-    const updatedUser = await updateUserProfile(user.auth0_subject, { fullName, phoneNumber })
-    return NextResponse.json(responseData(updatedUser))
+    updatedUser = changedFullName === undefined && changedPhoneNumber === undefined
+      ? user
+      : await updateUserProfile(user.auth0_subject, {
+          fullName: changedFullName,
+          phoneNumber: changedPhoneNumber,
+        })
   } catch (error) {
-    console.error('Unable to update profile:', error)
+    console.error('Unable to update local profile:', error)
     return errorResponse(500, 'INTERNAL_SERVER_ERROR', 'Unable to update profile')
   }
+
+  try {
+    if (changedFullName !== undefined || changedPhoneNumber !== undefined) {
+      await updateAuth0UsersByEmail(user.email, session.user.sub, {
+        fullName: changedFullName,
+        phoneNumber: changedPhoneNumber,
+      })
+    }
+  } catch (error) {
+    console.error('Unable to synchronize profile with Auth0:', error)
+    await updateUserProfile(user.auth0_subject, {
+      fullName: user.full_name,
+      phoneNumber: user.phone_number,
+    }).catch((rollbackError) => {
+      console.error('Unable to roll back local profile:', rollbackError)
+    })
+    return errorResponse(502, 'AUTH0_SYNC_FAILED', 'Unable to synchronize profile with Auth0')
+  }
+
+  try {
+    await auth0.updateSession({
+      ...session,
+      user: {
+        ...session.user,
+        ...(changedFullName !== undefined ? { name: changedFullName } : {}),
+        ...(changedPhoneNumber !== undefined ? { phone_number: changedPhoneNumber } : {}),
+      },
+    })
+  } catch (error) {
+    // Auth0 and the database are already synchronized. A later session refresh
+    // will pick up these claims if the cookie cannot be refreshed right now.
+    console.error('Unable to refresh the profile session:', error)
+  }
+
+  return NextResponse.json(responseData(updatedUser))
 }

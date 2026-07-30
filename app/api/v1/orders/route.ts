@@ -13,8 +13,9 @@ export async function GET(request: Request) {
       100,
       Math.max(1, Number.parseInt(params.get('limit') || '20', 10) || 20),
     )
+    const type = params.get('type') as 'accessory' | 'car' | null
     return NextResponse.json(
-      await listCustomerOrders(customer.id, page, limit),
+      await listCustomerOrders(customer.id, customer.email, page, limit, type ?? undefined),
     )
   } catch (error) {
     return apiErrorResponse(error)

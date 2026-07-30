@@ -177,6 +177,9 @@ export function Header() {
                 <Link href="/profile?tab=orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Lịch sử mua hàng
                 </Link>
+                <Link href="/profile?tab=car-orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                  Lịch sử mua xe
+                </Link>
                 <div className="my-1 border-t border-gray-100"></div>
                 <a href="/auth/logout" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
                   Đăng xuất

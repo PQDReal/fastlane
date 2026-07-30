@@ -28,6 +28,16 @@ export async function middleware(request: NextRequest) {
     return applyCorsHeaders(new NextResponse(null, { status: 204 }), origin)
   }
 
+  const session = await auth0.getSession(request)
+
+  if (
+    session &&
+    session.user.email_verified !== true &&
+    request.nextUrl.pathname !== '/auth/email-unverified'
+  ) {
+    return NextResponse.redirect(new URL('/auth/email-unverified', request.url))
+  }
+
   const response = await auth0.middleware(request)
 
   if (isApiRequest && isSwaggerOrigin) {

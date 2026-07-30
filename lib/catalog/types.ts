@@ -2,7 +2,7 @@ import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 
 export const CATALOG_PLACEHOLDER_IMAGE = '/images/vf8.png'
 
-export type CatalogProductType = 'ACCESSORY' | 'VEHICLE'
+export type CatalogProductType = 'ACCESSORY' | 'CAR' | 'BIKE'
 
 export type CatalogCollectionKind = 'CATEGORY' | 'MODEL' | 'CAMPAIGN'
 
@@ -209,6 +209,7 @@ export type CatalogProduct = {
   description: string | null
   productType: CatalogProductType
   displayedPrice: number | null
+  depositPrice?: number | null
   createdAt?: string | null
   content: CatalogProductContent
   serviceLabels: CatalogServiceLabel[]

@@ -85,4 +85,34 @@ describe('syncAuth0User', () => {
       phone_number: expect.anything(),
     }))
   })
-})
+
+  it('reuses the existing local user for a different verified Auth0 subject', async () => {
+    const noSubject = findQuery(null)
+    const sameEmail = findQuery(existingUser)
+    getSupabaseAdmin
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(noSubject) })
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(sameEmail) })
+
+    const result = await syncAuth0User({
+      sub: 'google-oauth2|user-1',
+      email: 'CUSTOMER@example.com',
+      email_verified: true,
+    })
+
+    expect(result).toEqual(existingUser)
+    expect(getSupabaseAdmin).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not reuse an account when the matching email is unverified', async () => {
+    const noSubject = findQuery(null)
+    const sameEmail = findQuery(existingUser)
+    getSupabaseAdmin
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(noSubject) })
+      .mockReturnValueOnce({ from: vi.fn().mockReturnValue(sameEmail) })
+
+    await expect(syncAuth0User({
+      sub: 'auth0|unverified-user',
+      email: existingUser.email,
+      email_verified: false,
+    })).rejects.toThrow('email must be verified')
+  })})
