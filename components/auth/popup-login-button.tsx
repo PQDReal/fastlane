@@ -5,11 +5,21 @@ import { useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { getMyProfile } from '@/lib/api/profile-client'
 
-type Props = { children: ReactNode; className?: string; onSuccess?: () => void }
+type Props = {
+  children: ReactNode
+  className?: string
+  forceFreshLogin?: boolean
+  onSuccess?: () => void
+}
 type AuthCompleteMessage = { type: 'auth_complete'; success: boolean; error?: { code?: string; message?: string } }
 const POPUP_NAME = 'fastlane-auth0-login'
 
-export function PopupLoginButton({ children, className, onSuccess }: Props) {
+export function PopupLoginButton({
+  children,
+  className,
+  forceFreshLogin = false,
+  onSuccess,
+}: Props) {
   const router = useRouter()
   const { invalidate } = useUser()
   const popupRef = useRef<Window | null>(null)
@@ -50,7 +60,11 @@ export function PopupLoginButton({ children, className, onSuccess }: Props) {
     const height = 720
     const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2)
     const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2)
-    popupRef.current = window.open('/auth/login?returnTo=%2Fauth%2Fpopup-complete', POPUP_NAME, `popup=yes,width=${width},height=${height},left=${left},top=${top}`)
+    const params = new URLSearchParams({
+      returnTo: '/auth/popup-complete',
+    })
+    if (forceFreshLogin) params.set('prompt', 'login')
+    popupRef.current = window.open(`/auth/login?${params}`, POPUP_NAME, `popup=yes,width=${width},height=${height},left=${left},top=${top}`)
     if (!popupRef.current) window.location.assign('/auth/error?code=popup_blocked')
     else popupRef.current.focus()
   }
