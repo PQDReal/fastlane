@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
+import { SearchableLocationSelect, LocationOption } from '@/components/ui/searchable-location-select'
 import {
   findDepositVehicle,
   type DepositVehicleType,
@@ -61,6 +62,50 @@ export function DepositClient({
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [dbVariants, setDbVariants] = useState<any[]>([])
+  const [provinces, setProvinces] = useState<LocationOption[]>([])
+  const [districts, setDistricts] = useState<LocationOption[]>([])
+  const [provinceCode, setProvinceCode] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('https://esgoo.net/api-tinhthanh/1/0.htm')
+      .then(res => res.json())
+      .then(data => {
+        if (data.error === 0) {
+          setProvinces(data.data.map((p: any) => ({ code: Number(p.id), name: p.full_name })))
+        }
+      })
+      .catch(err => console.error('Error fetching provinces:', err))
+  }, [])
+
+  useEffect(() => {
+    async function fetchVariants() {
+      try {
+        const currentCarObj = carsData.find(c => c.name === selectedCarId) || carsData[0]
+        const res = await fetch(`/api/v1/vehicle-variants?product_name=${encodeURIComponent(currentCarObj.name)}`)
+        const data = await res.json()
+        setDbVariants(data)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchVariants()
+  }, [selectedCarId, carsData])
+
+  useEffect(() => {
+    if (provinceCode) {
+      fetch(`https://esgoo.net/api-tinhthanh/2/${provinceCode}.htm`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error === 0) {
+            setDistricts(data.data.map((d: any) => ({ code: Number(d.id), name: d.full_name })))
+          }
+        })
+        .catch(err => console.error('Error fetching districts:', err))
+    } else {
+      setDistricts([])
+    }
+  }, [provinceCode])
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
@@ -235,10 +280,12 @@ export function DepositClient({
             currentCarObj.product_type === 'motorbike'
               ? ''
               : selectedInteriorColor,
+          vehicle_variant_id: matchingDbVariant?.id,
           optional_packages: selectedPackages,
           showroom: 'VinFast Landmark 81',
           payment_method: paymentMethod,
           deposit_amount:
+            matchingDbVariant?.deposit_amount ||
             currentCarObj.deposit_value ||
             (currentCarObj.product_type === 'motorbike' ? 2000000 : 10000000),
           total_estimated_price: totalPrice
@@ -444,6 +491,13 @@ export function DepositClient({
       .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
   }
 
+  const selectedVariantNameForDb = selectedVariant.replace(currentCar.name + ' ', '')
+  const matchingDbVariant = dbVariants?.find((v: any) => 
+    (v.product_name || '').includes(currentCar.name) && 
+    (v.version || '').includes(selectedVariantNameForDb) && 
+    v.color === selectedColor
+  )
+
   const powetrain = currentSpecs.variants?.[variants[0]]?.specs?.powertrain || {}
   const dimension = currentSpecs.variants?.[variants[0]]?.specs?.dimension || {}
   
@@ -563,7 +617,7 @@ export function DepositClient({
           
           {/* SLEEK TOP BAR */}
           <div className="w-full px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 z-50 relative">
-            <div className="flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start">
+            <div className={`flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start transition-all duration-300 ${currentStep > 1 ? 'opacity-50 pointer-events-none' : ''}`}>
               {/* VEHICLE TYPE TOGGLE */}
               <div
                 className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1.5 shadow-sm"
@@ -643,7 +697,7 @@ export function DepositClient({
 
             {/* VIEW TOGGLE */}
             {!isMotorbike && !currentCar.name.includes('MPV') && (
-              <div className="inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
+              <div className={`inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0 transition-all duration-300 ${currentStep > 1 ? 'opacity-50 pointer-events-none' : ''}`}>
                 <button 
                   onClick={() => setViewMode('exterior')}
                   className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'exterior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
@@ -1036,23 +1090,27 @@ export function DepositClient({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, district: ''})}>
-                        <option value="">Chọn Tỉnh/Thành</option>
-                        <option value="HN">Hà Nội</option>
-                        <option value="HCM">TP. Hồ Chí Minh</option>
-                        <option value="DN">Đà Nẵng</option>
-                        <option value="HP">Hải Phòng</option>
-                      </select>
+                      <SearchableLocationSelect
+                        label=""
+                        options={provinces}
+                        value={formData.province}
+                        onChange={(val) => {
+                          setProvinceCode(val?.code || null)
+                          setFormData({ ...formData, province: val?.name || '', district: '' })
+                        }}
+                        placeholder="Chọn Tỉnh/Thành"
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Quận / Huyện <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
-                        <option value="">Chọn Quận/Huyện</option>
-                        {formData.province === 'HN' && <><option value="Ba Đình">Ba Đình</option><option value="Hoàn Kiếm">Hoàn Kiếm</option><option value="Cầu Giấy">Cầu Giấy</option></>}
-                        {formData.province === 'HCM' && <><option value="Q1">Quận 1</option><option value="Q3">Quận 3</option><option value="QTD">Thủ Đức</option></>}
-                        {formData.province === 'DN' && <><option value="HC">Hải Châu</option><option value="TK">Thanh Khê</option></>}
-                        {formData.province === 'HP' && <><option value="HB">Hồng Bàng</option><option value="LC">Lê Chân</option></>}
-                      </select>
+                      <SearchableLocationSelect
+                        label=""
+                        options={districts}
+                        value={formData.district}
+                        onChange={(val) => setFormData({ ...formData, district: val?.name || '' })}
+                        placeholder="Chọn Quận/Huyện"
+                        disabled={!formData.province}
+                      />
                     </div>
                   </div>
 
@@ -1198,8 +1256,9 @@ export function DepositClient({
                         style: 'currency',
                         currency: 'VND',
                       }).format(
+                        matchingDbVariant?.deposit_amount ||
                         currentCar.deposit_value ||
-                          (isMotorbike ? 2_000_000 : 10_000_000),
+                        (isMotorbike ? 2_000_000 : 10_000_000),
                       )}
                     </span>
                   </div>

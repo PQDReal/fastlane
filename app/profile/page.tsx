@@ -3,7 +3,8 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
@@ -17,9 +18,10 @@ import type { AccessoryOrderSummary } from '@/lib/cart/types'
 function ProfileContent() {
   const { user, isLoading } = useUser()
   const searchParams = useSearchParams()
+  const validTabs = ['info', 'orders', 'car-orders', 'addresses']
   const requestedTab = searchParams?.get('tab')
-  const initialTab = requestedTab === 'orders' || requestedTab === 'addresses' ? requestedTab : 'info'
-  const [activeTab, setActiveTab] = useState<'info' | 'addresses' | 'orders'>(initialTab)
+  const initialTab = validTabs.includes(requestedTab || '') ? requestedTab : 'info'
+  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'car-orders' | 'addresses'>(initialTab as any)
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -29,6 +31,7 @@ function ProfileContent() {
   const [userOrders, setUserOrders] = useState<AccessoryOrderSummary[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
 
   function showToast(
     kind: ToastMessage['kind'],
@@ -97,12 +100,13 @@ function ProfileContent() {
   }
 
   useEffect(() => {
-    if (!user || activeTab !== 'orders') return
+    if (!user || (activeTab !== 'orders' && activeTab !== 'car-orders')) return
 
     let active = true
     setOrdersLoading(true)
     setOrdersError(null)
-    fetch('/api/v1/orders?limit=20')
+    const typeQuery = activeTab === 'orders' ? 'accessory' : 'car'
+    fetch(`/api/v1/orders?limit=20&type=${typeQuery}`)
       .then(async (response) => {
         const payload = await response.json()
         if (!response.ok) {
@@ -147,12 +151,64 @@ function ProfileContent() {
     : status === 'Cancelled'
       ? <XCircle className="h-5 w-5 text-red-500" />
       : <Clock className="h-5 w-5 text-yellow-500" />
+  
+  const translateStatus = (s: string, isCar: boolean) => {
+    if (isCar) {
+      return {
+        'PENDING_DEPOSIT': 'Chờ cọc',
+        'PENDING_CONFIRMATION': 'Chờ xác nhận cọc',
+        'CONFIRMED': 'Đã xác nhận',
+        'PENDING_CONTRACT': 'Chờ tạo HĐ',
+        'CONTRACT_SIGNED': 'Đã ký HĐ',
+        'PENDING_PAYMENT': 'Chờ thanh toán',
+        'PAID': 'Đã thanh toán',
+        'PREPARING_DELIVERY': 'Chờ giao xe',
+        'DELIVERED': 'Đã giao xe',
+        'COMPLETED': 'Hoàn thành',
+        'CANCELLED': 'Đã hủy cọc',
+        'PENDING': 'Chờ xác nhận cọc', // Legacy
+        'Pending': 'Chờ xác nhận cọc', // Fallbacks
+        'Processing': 'Chờ giao xe',
+        'Shipped': 'Đang vận chuyển',
+        'Completed': 'Đã nhận xe',
+        'Cancelled': 'Đã hủy cọc',
+        'Confirmed': 'Đã xác nhận',
+      }[s] || s
+    }
+    return {
+      'Created': 'Chờ xác nhận',
+      'Paid': 'Đã thanh toán',
+      'Pending': 'Chờ xác nhận',
+      'Processing': 'Đang chuẩn bị hàng',
+      'Shipped': 'Đang giao hàng',
+      'Completed': 'Giao thành công',
+      'Cancelled': 'Đã hủy',
+      'Confirmed': 'Đã xác nhận',
+    }[s] || s
+  }
+  
+  const translatePaymentStatus = (s: string, isCar: boolean) => {
+    if (isCar) {
+      return {
+        'Pending': 'Chưa đặt cọc',
+        'Paid': 'Đã đặt cọc',
+        'Refunded': 'Đã hoàn cọc',
+        'Failed': 'Thanh toán lỗi',
+      }[s] || s
+    }
+    return {
+      'Pending': 'Chưa thanh toán',
+      'Paid': 'Đã thanh toán',
+      'Refunded': 'Đã hoàn tiền',
+      'Failed': 'Thất bại',
+    }[s] || s
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
       <Header />
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
-      <div className="mx-auto flex w-full max-w-[1000px] flex-1 px-6 py-32">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 px-6 py-32">
         <div className="flex w-full flex-col gap-8 md:flex-row">
           <aside className="w-full shrink-0 md:w-64">
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -170,7 +226,8 @@ function ProfileContent() {
               <div className="p-2">
                 <button onClick={() => setActiveTab('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
                 <button onClick={() => setActiveTab('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
-                <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử đơn hàng</button>
+                <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
+                <button onClick={() => setActiveTab('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử mua xe</button>
               </div>
             </div>
           </aside>
@@ -207,7 +264,9 @@ function ProfileContent() {
               <ProfileSavedAddresses profileName={profile?.fullName ?? ''} profilePhone={profile?.phoneNumber ?? ''} showToast={showToast} />
             ) : (
               <div>
-                <h2 className="mb-6 text-2xl font-bold text-gray-900">Lịch sử đơn hàng</h2>
+                <h2 className="mb-6 text-2xl font-bold text-gray-900">
+                  {activeTab === 'orders' ? 'Lịch sử mua hàng' : 'Lịch sử mua xe'}
+                </h2>
                 <div className="space-y-4">
                   {ordersLoading && (
                     <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-[#836100]" /></div>
@@ -216,38 +275,325 @@ function ProfileContent() {
                   {!ordersLoading && !ordersError && userOrders.length === 0 && (
                     <p className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Bạn chưa có đơn hàng nào.</p>
                   )}
-                  {userOrders.map(order => (
-                    <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
-                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
-                          <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
+                  {userOrders.map(order => {
+                    if (activeTab === 'car-orders') {
+                      const status = order.status;
+                      const vVariant = order.depositDetails?.vehicleVariant;
+                      
+                      const cleanCarModel = (vVariant?.product_name || order.carModel || '').replace(/vinfast\s*/i, '').trim();
+                      let cleanCarVariant = (vVariant?.variant_name || vVariant?.version || order.carVariant || '').replace(/vinfast\s*/i, '').trim();
+                      
+                      // Remove base model (e.g. 'VF 8') from variant if model already has it to avoid duplication
+                      const modelMatch = cleanCarModel.match(/VF\s*\d+/i);
+                      if (modelMatch) {
+                        const regex = new RegExp(modelMatch[0] + '\\s*', 'i');
+                        cleanCarVariant = cleanCarVariant.replace(regex, '').trim();
+                      }
+                      
+                      const carName = `${cleanCarModel} ${cleanCarVariant}`.trim();
+                      
+                      let carImage = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                      if (vVariant?.image_car_url) {
+                        carImage = vVariant.image_car_url;
+                      } else {
+                        const lowerModel = cleanCarModel.toLowerCase();
+                        if (lowerModel.includes('vf 8') || lowerModel.includes('vf8')) carImage = '/images/vf8.png';
+                        else if (lowerModel.includes('vf 9') || lowerModel.includes('vf9')) carImage = '/images/vf9.png';
+                        else if (lowerModel.includes('vf 3') || lowerModel.includes('vf5') || lowerModel.includes('vf 6') || lowerModel.includes('vf 7')) carImage = '/images/car-sale.png';
+                      }
+
+                      let stateIcon = <Clock className="w-5 h-5 shrink-0 text-gray-500" />;
+                      let stateText = translateStatus(status, true);
+                      let actionBtn = null;
+
+                      switch (status) {
+                        case 'PENDING_DEPOSIT':
+                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-yellow-500" />;
+                          stateText = 'Đang chờ thanh toán cọc. Vui lòng hoàn tất để giữ ưu đãi!';
+                          actionBtn = (
+                            <button onClick={() => setSelectedOrder(order)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all">
+                              Thanh toán ngay
+                            </button>
+                          );
+                          break;
+                        case 'PENDING_CONFIRMATION':
+                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-blue-500" />;
+                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast.';
+                          break;
+                        case 'CONFIRMED':
+                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
+                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast, bạn có thể tải lên CCCD.';
+                          actionBtn = (
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-[#836100] text-[#836100] hover:bg-[#836100] hover:text-white transition-all">
+                              Tải lên CCCD
+                            </button>
+                          );
+                          break;
+                        case 'PENDING_CONTRACT':
+                          stateIcon = <FileText className="w-5 h-5 shrink-0 text-blue-500" />;
+                          stateText = 'VinFast đang tạo Hợp đồng điện tử. Sẽ mất một chút thời gian.';
+                          break;
+                        case 'CONTRACT_SIGNED':
+                          stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
+                          stateText = 'Đã có Hợp đồng điện tử. Vui lòng xem và ký xác nhận.';
+                          actionBtn = (
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                              Xem & Ký HĐ
+                            </button>
+                          );
+                          break;
+                        case 'PENDING_PAYMENT':
+                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
+                          stateText = 'Đang chờ thanh toán phần còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
+                          actionBtn = (
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all">
+                              Thanh toán
+                            </button>
+                          );
+                          break;
+                        case 'PAID':
+                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />;
+                          stateText = 'Đã thanh toán thành công. Đang sắp xếp lịch giao xe.';
+                          break;
+                        case 'PREPARING_DELIVERY':
+                          stateIcon = <Package className="w-5 h-5 shrink-0 text-purple-500" />;
+                          stateText = 'Xe đang được chuẩn bị bàn giao. Vui lòng chờ liên hệ!';
+                          break;
+                        case 'DELIVERED':
+                        case 'COMPLETED':
+                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
+                          stateText = 'Đã nhận xe thành công. Chúc bạn có những chuyến đi tuyệt vời!';
+                          break;
+                        case 'CANCELLED':
+                          stateIcon = <XCircle className="w-5 h-5 shrink-0 text-red-500" />;
+                          stateText = 'Đơn hàng đã bị hủy.';
+                          break;
+                      }
+
+                      const stateBox = (
+                        <div className="flex items-start gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
+                          {stateIcon}
+                          <span className="text-sm font-medium text-gray-700 leading-snug">{stateText}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {statusIcon(order.status)}
-                          <span className="text-sm font-medium text-gray-700">{order.status}</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Package className="h-6 w-6 text-gray-400" />
+                      );
+
+                      const showPaidBadge = ['PENDING_CONFIRMATION', 'CONFIRMED', 'PENDING_CONTRACT', 'CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status);
+                      const displayColor = (order as any).exteriorColor || vVariant?.color || '';
+
+                      return (
+                        <div key={order.id} className="border border-gray-200 rounded-2xl p-7 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white shadow-sm flex flex-col lg:flex-row gap-8 items-stretch">
+                          
+                          {/* LEFT: Image */}
+                          <div className="w-full lg:w-[220px] shrink-0 flex flex-col items-center justify-center">
+                            <div className="aspect-[4/3] w-full relative">
+                              <img 
+                                src={carImage} 
+                                alt={carName} 
+                                className="w-full h-full object-contain mix-blend-multiply" 
+                                onError={(e) => {
+                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                                  e.currentTarget.onerror = null;
+                                }}
+                              />
+                            </div>
+                            {showPaidBadge && (
+                              <div className="mt-4 bg-green-500 text-white text-sm font-bold px-4 py-1.5 rounded-full shadow-sm flex items-center justify-center gap-1.5 h-8 w-fit mx-auto">
+                                <CheckCircle2 className="w-4 h-4" /> Đã đặt cọc
+                              </div>
+                            )}
                           </div>
+
+                          {/* MIDDLE: Car Info & Timeline */}
+                          <div className="flex-1 flex flex-col items-center text-center justify-center min-w-0 py-2">
+                            <h3 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight mb-2">
+                              VinFast {cleanCarModel}
+                            </h3>
+                            <p className="text-lg text-gray-500 font-medium mb-6">
+                              {cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}
+                            </p>
+                            
+                            <div className="mb-6 flex flex-col items-center">
+                              <p className="text-sm uppercase tracking-wider text-gray-400 font-bold mb-1">Tiền cọc</p>
+                              <p className="text-[#836100] text-4xl font-bold">
+                                {formatPrice(order.pricing.amountDueNow)}
+                              </p>
+                            </div>
+
+                            <div className="mt-auto flex justify-center">
+                              {stateBox}
+                            </div>
+                          </div>
+
+                          {/* RIGHT: Order Summary */}
+                          <div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-4">
+                            <div className="bg-gray-50 rounded-xl border border-gray-100 p-6 flex-1 flex flex-col justify-center gap-6">
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Mã đơn</p>
+                                <p className="text-xl font-bold text-gray-900">{order.orderNumber}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Ngày đặt</p>
+                                <p className="text-base font-bold text-gray-700">{formatDate(order.createdAt)}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-3">
+                              <button 
+                                onClick={() => setSelectedOrder(order)}
+                                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-all group shadow-sm"
+                              >
+                                Xem chi tiết <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                              </button>
+                              {actionBtn && (
+                                <div className="w-full">
+                                  {actionBtn}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                        </div>
+                      )
+                    }
+
+                    // Original Accessory Order UI
+                    return (
+                      <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
+                        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
                           <div>
-                            <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
-                            <p className="text-sm text-gray-500">Thanh toán: {order.paymentStatus}</p>
+                            <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
+                            <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {statusIcon(order.status)}
+                            <span className="text-sm font-medium text-gray-700">{translateStatus(order.status, false)}</span>
                           </div>
                         </div>
-                        <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <Package className="h-6 w-6 text-gray-400" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
+                              <p className="text-sm text-gray-500">Thanh toán: {translatePaymentStatus(order.paymentStatus, false)}</p>
+                            </div>
+                          </div>
+                          <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
           </section>
         </div>
       </div>
+      
+      {/* Order Details Modal */}
+      <AnimatePresence>
+        {selectedOrder && selectedOrder.orderType === 'deposit' && selectedOrder.depositDetails && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedOrder(null)}
+              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+            />
+            <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl pointer-events-auto flex flex-col"
+              >
+                <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Chi tiết đơn mua xe</h3>
+                    <p className="text-sm text-gray-500">Mã đơn: {selectedOrder.orderNumber}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+              <div className="p-6 space-y-8">
+                {/* Thông tin xe */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin xe</h4>
+                  <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Dòng xe</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Phiên bản</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Màu ngoại thất</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.color || selectedOrder.depositDetails.exteriorColor}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Màu nội thất</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.interiorColor}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Thông tin thanh toán */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thanh toán & Giao nhận</h4>
+                  <div className="bg-gray-50 rounded-xl p-5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Showroom nhận xe</span>
+                      <span className="font-semibold text-gray-900 text-right">{selectedOrder.depositDetails.showroom}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Tổng giá trị dự kiến</span>
+                      <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
+                    </div>
+                    <div className="border-t border-gray-200 pt-4 flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Số tiền đã cọc</span>
+                      <span className="font-bold text-[#836100] text-lg">{formatPrice(selectedOrder.pricing.amountDueNow)}</span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Thông tin khách hàng */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin khách hàng</h4>
+                  <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Số điện thoại</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerPhone}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-gray-500 mb-1">CMND/CCCD/MST</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.idCardNumber}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-gray-500 mb-1">Khu vực</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.district}, {selectedOrder.depositDetails.province}</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
       <Footer />
     </main>
   )
