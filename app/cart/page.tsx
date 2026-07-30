@@ -322,7 +322,7 @@ export default function CartPage() {
   if (userLoading || (user && !cartLoaded && cartLoading)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-[#836100]" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
       </main>
     )
   }
@@ -336,7 +336,7 @@ export default function CartPage() {
 
       <div className="border-y border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-5 py-4 text-sm lg:px-8">
-          <Link href="/accessories" className="font-semibold text-[#836100] hover:underline">
+          <Link href="/accessories" className="font-semibold text-brand-700 hover:underline">
             Phụ kiện
           </Link>
           <span className="text-slate-300">/</span>
@@ -354,7 +354,7 @@ export default function CartPage() {
           </div>
           <Link
             href="/accessories"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#836100]"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-brand-700"
           >
             <ArrowLeft size={16} /> Tiếp tục mua hàng
           </Link>
@@ -367,27 +367,27 @@ export default function CartPage() {
         )}
 
         {cartItems.length === 0 ? (
-          <section className="rounded-2xl border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
+          <section className="rounded-xl border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
             <ShoppingBag className="mx-auto h-14 w-14 text-slate-300" />
             <h2 className="mt-5 text-xl font-bold text-slate-900">Giỏ hàng đang trống</h2>
             <p className="mt-2 text-sm text-slate-500">Hãy thêm phụ kiện bạn yêu thích vào giỏ hàng.</p>
             <Link
               href="/accessories"
-              className="mt-6 inline-flex rounded-full bg-[#836100] px-6 py-3 font-semibold text-white hover:bg-[#6a4e00]"
+              className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700"
             >
               Xem phụ kiện
             </Link>
           </section>
         ) : (
           <>
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-4 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:px-6">
                 <input
                   type="checkbox"
                   aria-label="Chọn tất cả sản phẩm"
                   checked={allSelected}
                   onChange={toggleAll}
-                  className="h-5 w-5 accent-[#836100]"
+                  className="h-5 w-5 accent-brand-600"
                 />
                 <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Sản phẩm</span>
                 <span className="hidden text-xs font-bold uppercase tracking-wide text-slate-600 md:block">Giá tiền</span>
@@ -406,7 +406,7 @@ export default function CartPage() {
                     aria-label={`Chọn ${item.name}`}
                     checked={selectedIds.has(item.id)}
                     onChange={() => toggleItem(item.id)}
-                    className="mt-6 h-5 w-5 accent-[#836100] md:mt-0"
+                    className="mt-6 h-5 w-5 accent-brand-600 md:mt-0"
                   />
 
                   <div className="flex min-w-0 gap-4">
@@ -419,12 +419,12 @@ export default function CartPage() {
                     <div className="min-w-0 self-center">
                       <Link
                         href={`/accessories/${item.productSlug}`}
-                        className="line-clamp-2 font-semibold text-slate-900 hover:text-[#836100]"
+                        className="line-clamp-2 font-semibold text-slate-900 hover:text-brand-700"
                       >
                         {item.name}
                       </Link>
                       <p className="mt-1 text-xs text-slate-500">SKU: {item.sku}</p>
-                      <p className="mt-2 font-bold text-[#836100] md:hidden">{formatPrice(item.price)}</p>
+                      <p className="mt-2 font-bold text-brand-700 md:hidden">{formatPrice(item.price)}</p>
                     </div>
                   </div>
 
@@ -454,7 +454,7 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <p className="col-start-2 mt-2 text-base font-bold text-[#836100] md:col-auto md:mt-0 md:text-right">
+                  <p className="col-start-2 mt-2 text-base font-bold text-brand-700 md:col-auto md:mt-0 md:text-right">
                     <span className="mr-2 font-normal text-slate-500 md:hidden">Thành tiền:</span>
                     {formatPrice(item.price * item.quantity)}
                   </p>
@@ -473,20 +473,20 @@ export default function CartPage() {
               ))}
             </section>
 
-            <section className="mt-6 flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <section className="mt-6 flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div>
                 <p className="text-sm text-slate-500">
                   Đã chọn <span className="font-semibold text-slate-800">{selectedItems.length}</span> dòng ({selectedQuantity} sản phẩm)
                 </p>
                 <p className="mt-1 text-lg font-semibold text-slate-800">
-                  Tổng thanh toán: <span className="ml-2 text-2xl font-bold text-[#836100]">{formatPrice(selectedTotal)}</span>
+                  Tổng thanh toán: <span className="ml-2 text-2xl font-bold text-brand-700">{formatPrice(selectedTotal)}</span>
                 </p>
               </div>
               <button
                 type="button"
                 disabled={selectedItems.length === 0 || cartLoading}
                 onClick={proceedToCheckout}
-                className="rounded-xl bg-[#836100] px-8 py-3.5 font-bold text-white transition hover:bg-[#6a4e00] disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="min-h-12 rounded-lg bg-brand-600 px-8 py-3.5 font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 Thanh toán ({selectedItems.length})
               </button>

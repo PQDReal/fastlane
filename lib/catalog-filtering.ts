@@ -62,7 +62,13 @@ export function matchesBikePriceBand(
 export function classifyAccessory(
   product: CatalogProduct,
 ): Exclude<AccessoryCategory, 'Tất cả'> {
-  const sourceCategory = product.content.category
+  const categoryMemberships = product.collectionMemberships.filter(
+    ({ collection }) => collection.kind === 'CATEGORY',
+  )
+  const sourceCategory = (
+    categoryMemberships.find(({ isPrimary }) => isPrimary)
+    ?? categoryMemberships[0]
+  )?.collection.name
   if (
     sourceCategory &&
     ACCESSORY_CATEGORIES.includes(

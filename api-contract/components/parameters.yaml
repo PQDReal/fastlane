@@ -39,6 +39,7 @@ Sort:
 OrderSort: { name: sort, in: query, schema: { type: string, enum: [created_desc, created_asc, status_asc], default: created_desc } }
 ProductSlug: { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' } }
 ProductId: { name: productId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+ServiceLabelId: { name: labelId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
 ProductIdQuery: { name: productId, in: query, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
 CategoryId: { name: categoryId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
 VariantId: { name: variantId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }

@@ -1,19 +1,55 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCallback, useState, useEffect, useRef } from 'react'
+import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Wrench, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '../../../components/ui/button'
-import Link from 'next/link'
+import { ToastViewport, type ToastMessage } from '../../../components/ui/toast'
+import type { CatalogServiceLabel } from '../../../lib/catalog/service-labels'
+
+type AdminProduct = {
+  id: string
+  name: string
+  product_type: string | null
+  image_urls: string[] | null
+  displayed_price: number | null
+  is_active: boolean
+  created_at: string
+  category: string
+  sku?: string
+  service_label_assignments?: Array<{ service_label_id: string }>
+}
+
+async function responseError(response: Response) {
+  try {
+    const body = await response.json()
+    return typeof body.error === 'string' ? body.error : 'Có lỗi xảy ra.'
+  } catch {
+    return 'Có lỗi xảy ra.'
+  }
+}
 
 export default function AdminProductsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [categories, setCategories] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<AdminProduct[]>([])
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const [isLoading, setIsLoading] = useState(true)
+  const [serviceLabels, setServiceLabels] = useState<CatalogServiceLabel[]>([])
+  const [assignmentProduct, setAssignmentProduct] = useState<AdminProduct | null>(null)
+  const [selectedServiceLabelIds, setSelectedServiceLabelIds] = useState<string[]>([])
+  const [savingLabels, setSavingLabels] = useState(false)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const assignmentCloseRef = useRef<HTMLButtonElement>(null)
+
+  const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
+    const id = Date.now() + Math.random()
+    setToasts((items) => [...items, { id, kind, title, message }])
+    window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4500)
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -29,6 +65,29 @@ export default function AdminProductsPage() {
       .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]))
   }, [])
+
+  useEffect(() => {
+    fetch('/api/v1/admin/service-labels', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await responseError(response))
+        return response.json()
+      })
+      .then((data) => setServiceLabels(Array.isArray(data) ? data : []))
+      .catch((error) => notify('error', 'Tải nhãn dịch vụ thất bại', error instanceof Error ? error.message : undefined))
+  }, [notify])
+
+  useEffect(() => {
+    if (!assignmentProduct) return
+    const timer = window.setTimeout(() => assignmentCloseRef.current?.focus(), 80)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !savingLabels) setAssignmentProduct(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [assignmentProduct, savingLabels])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -52,11 +111,47 @@ export default function AdminProductsPage() {
     void fetchProducts()
     return () => controller.abort()
   }, [categoryFilter, debouncedSearch, page])
-  const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
+  const formatMoney = (val: number | null) => val === null ? '—' : new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN')
+
+  function openServiceLabels(product: AdminProduct) {
+    setAssignmentProduct(product)
+    setSelectedServiceLabelIds((product.service_label_assignments ?? []).map((item) => item.service_label_id))
+  }
+
+  function toggleServiceLabel(id: string) {
+    setSelectedServiceLabelIds((current) => current.includes(id)
+      ? current.filter((value) => value !== id)
+      : [...current, id])
+  }
+
+  async function saveServiceLabels() {
+    if (!assignmentProduct) return
+    setSavingLabels(true)
+    try {
+      const response = await fetch(`/api/v1/admin/products/${assignmentProduct.id}/service-labels`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceLabelIds: selectedServiceLabelIds }),
+      })
+      if (!response.ok) throw new Error(await responseError(response))
+      const body = await response.json()
+      const savedIds = Array.isArray(body.serviceLabelIds) ? body.serviceLabelIds : []
+      setProducts((items) => items.map((product) => product.id === assignmentProduct.id
+        ? { ...product, service_label_assignments: savedIds.map((id: string) => ({ service_label_id: id })) }
+        : product))
+      setAssignmentProduct(null)
+      notify('success', 'Cập nhật nhãn phụ kiện thành công')
+    } catch (error) {
+      notify('error', 'Cập nhật nhãn phụ kiện thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setSavingLabels(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
+      <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sản phẩm</h1>
@@ -149,7 +244,8 @@ export default function AdminProductsPage() {
                   <td className="px-6 py-4 text-slate-500">{formatDate(product.created_at)}</td>
                   <td className="relative w-28 px-6 py-4 text-right">
                     <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded"><Edit size={16}/></button>
+                      {product.product_type === 'ACCESSORY' && <button type="button" onClick={() => openServiceLabels(product)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-brand-50 hover:text-brand-600" aria-label={`Gán nhãn dịch vụ cho ${product.name}`}><Wrench size={16}/></button>}
+                      <button type="button" className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" aria-label={`Sửa ${product.name}`}><Edit size={16}/></button>
                       <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
                     </div>
                     <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
@@ -177,6 +273,21 @@ export default function AdminProductsPage() {
             </div>
           </div>
         )}      </div>
+
+      <AnimatePresence>
+        {assignmentProduct && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !savingLabels) setAssignmentProduct(null) }}>
+            <motion.div role="dialog" aria-modal="true" aria-labelledby="product-service-label-dialog-title" className="w-full max-w-lg rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
+              <div className="flex items-center justify-between border-b px-6 py-4"><div><h2 id="product-service-label-dialog-title" className="text-lg font-bold">Gán nhãn dịch vụ</h2><p className="mt-1 text-sm text-slate-500">{assignmentProduct.name}</p></div><button ref={assignmentCloseRef} type="button" onClick={() => setAssignmentProduct(null)} disabled={savingLabels} className="rounded p-2 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label="Đóng"><X size={18} /></button></div>
+              <div className="space-y-3 p-6">
+                {serviceLabels.filter((label) => label.isActive).map((label) => <label key={label.id} className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition active:scale-[0.99] hover:bg-slate-50"><input type="checkbox" checked={selectedServiceLabelIds.includes(label.id)} onChange={() => toggleServiceLabel(label.id)} className="mt-0.5 h-4 w-4 accent-slate-900 focus-visible:ring-2 focus-visible:ring-brand-500" /><span><span className="block text-sm font-semibold text-slate-800">{label.name}</span>{label.description && <span className="mt-1 block text-xs text-slate-500">{label.description}</span>}</span></label>)}
+                {serviceLabels.filter((label) => label.isActive).length === 0 && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-slate-500">Chưa có nhãn dịch vụ đang hoạt động.</p>}
+              </div>
+              <div className="flex justify-end gap-3 border-t px-6 py-4"><Button type="button" variant="outline" onClick={() => setAssignmentProduct(null)} disabled={savingLabels}>Hủy</Button><Button type="button" onClick={() => void saveServiceLabels()} disabled={savingLabels} className="bg-slate-900 text-white">{savingLabels && <Loader2 size={16} className="mr-2 animate-spin" />}Lưu nhãn</Button></div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

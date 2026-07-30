@@ -230,6 +230,12 @@ paths:
     $ref: './paths/admin-products.yaml#/~1admin~1products'
   /admin/products/{productId}:
     $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}'
+  /admin/products/{productId}/service-labels:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1service-labels'
+  /admin/service-labels:
+    $ref: './paths/admin-products.yaml#/~1admin~1service-labels'
+  /admin/service-labels/{labelId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1service-labels~1{labelId}'
   /admin/products/{productId}/variants:
     $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1variants'
   /admin/variants/{variantId}:
