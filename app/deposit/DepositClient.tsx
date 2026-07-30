@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
@@ -9,6 +9,8 @@ import {
   findDepositVehicle,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
+
+type LocationOption = { code: number; name: string }
 
 const DEPOSIT_STEPS = [
   { number: 1, label: 'Lựa chọn xe' },
@@ -203,10 +205,23 @@ export function DepositClient({
   const [currentStep, setCurrentStep] = useState(1)
   const [stepDirection, setStepDirection] = useState<1 | -1>(1)
   const [customerType, setCustomerType] = useState<'personal' | 'corporate'>('personal')
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', district: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', ward: '' })
+  const [provinces, setProvinces] = useState<LocationOption[]>([])
+  const [wards, setWards] = useState<LocationOption[]>([])
+  const [provinceCode, setProvinceCode] = useState('')
+  const [locationsLoading, setLocationsLoading] = useState(true)
+  const [wardsLoading, setWardsLoading] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderNumber: string
+    depositAmount: number
+    totalEstimatedPrice: number
+    status: string
+  } | null>(null)
+  const depositIdempotencyKey = useRef<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const shouldReduceMotion = useReducedMotion()
 
@@ -218,7 +233,59 @@ export function DepositClient({
     }, 3000);
   }
 
+  useEffect(() => {
+    const controller = new AbortController()
+    setLocationsLoading(true)
+    fetch('/api/v1/locations', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải tỉnh/thành phố.')
+        setProvinces(payload.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLocationError(error instanceof Error ? error.message : 'Không thể tải tỉnh/thành phố.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLocationsLoading(false)
+      })
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (!provinceCode) {
+      setWards([])
+      return
+    }
+
+    const controller = new AbortController()
+    setWardsLoading(true)
+    setLocationError(null)
+    fetch(`/api/v1/locations?provinceCode=${provinceCode}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải xã/phường.')
+        setWards(payload.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLocationError(error instanceof Error ? error.message : 'Không thể tải xã/phường.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setWardsLoading(false)
+      })
+    return () => controller.abort()
+  }, [provinceCode])
   const goToStep = (nextStep: number) => {
+    if (nextStep < 3) depositIdempotencyKey.current = null
     setStepDirection(nextStep >= currentStep ? 1 : -1)
     setCurrentStep(nextStep)
   }
@@ -326,14 +393,14 @@ export function DepositClient({
     }
   }
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (currentStep === 1) {
       goToStep(2)
     } else if (currentStep === 2) {
       const isMissingPersonal = customerType === 'personal' && !formData.name;
       const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
       
-      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.district) {
+      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.ward) {
         addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
         return;
       }
@@ -344,69 +411,66 @@ export function DepositClient({
         return;
       }
 
-      setIsSubmitting(true);
-      
-      const order_number = 'VF' + Math.floor(Math.random() * 1000000)
+      setIsSubmitting(true)
 
       const currentCarObj =
         availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
-      const currentSpecsObj = specsData[currentCarObj.name] || {}
-      
-      const selectedVariantName = selectedVariant.replace(currentCarObj.name + ' ', '')
-      const variantData = currentSpecsObj.variants?.[selectedVariantName]
-      const basePrice = variantData?.price || currentCarObj.displayed_price || 0
-      
-      const advancedColorsList = (currentCarObj.colors || []).slice(4)
-      const isAdvancedColor = advancedColorsList.some((c: any) => c.name === selectedColor)
-      const colorPrice = isAdvancedColor ? (currentCarObj.name.includes('MPV') ? 10000000 : (['VF 7', 'VF 9'].includes(currentCarObj.name) || currentCarObj.name.includes('VF 8') ? 12000000 : 8000000)) : 0
-      
-      let packagesPrice = 0
-      const availablePackages = currentCarObj.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
-      selectedPackages.forEach(id => {
-        const pkg = availablePackages.find((p: any) => p.id === id)
-        if (pkg) packagesPrice += pkg.price
-      })
-      const totalPrice = basePrice + colorPrice + packagesPrice
 
-      fetch('/api/deposit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_number,
-          customer_type: customerType,
-          full_name: formData.name,
-          company_name: formData.companyName,
-          phone_number: formData.phone,
-          email: formData.email,
-          id_card_number: formData.idCard,
-          province: formData.province,
-          district: formData.district,
-          car_model: currentCarObj.name,
-          car_variant: selectedVariant,
-          exterior_color: selectedColor,
-          interior_color:
-            currentCarObj.product_type === 'motorbike'
-              ? ''
-              : selectedInteriorColor,
-          optional_packages: selectedPackages,
-          showroom: 'VinFast Landmark 81',
-          payment_method: paymentMethod,
-          deposit_amount:
-            currentCarObj.deposit_value ||
-            (currentCarObj.product_type === 'motorbike' ? 2000000 : 10000000),
-          total_estimated_price: totalPrice
+      if (!depositIdempotencyKey.current) {
+        depositIdempotencyKey.current = crypto.randomUUID()
+      }
+
+      try {
+        const response = await fetch('/api/deposit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': depositIdempotencyKey.current,
+          },
+          body: JSON.stringify({
+            customer_type: customerType,
+            full_name: formData.name,
+            company_name: formData.companyName,
+            phone_number: formData.phone,
+            email: formData.email,
+            id_card_number: formData.idCard,
+            province: formData.province,
+            ward: formData.ward,
+            vehicle_type: currentCarObj.product_type === 'motorbike' ? 'motorbike' : 'car',
+            car_model: currentCarObj.name,
+            car_variant: selectedVariant,
+            exterior_color: selectedColor,
+            interior_color:
+              currentCarObj.product_type === 'motorbike'
+                ? ''
+                : selectedInteriorColor,
+            optional_packages: selectedPackages,
+            payment_method: paymentMethod,
+            terms_accepted: true,
+          }),
         })
-      }).then(res => res.json()).then(res => {
-        setIsSubmitting(false)
-        if (res.error) {
-          addToast({ kind: 'error', title: 'Lỗi', message: res.error })
-        } else {
-          goToStep(4)
+        const result = await response.json().catch(() => null)
+
+        if (!response.ok || !result?.data) {
+          addToast({
+            kind: 'error',
+            title: 'Không thể tạo đơn đặt cọc',
+            message: result?.error?.message || 'Vui lòng thử lại sau.',
+          })
+          return
         }
-      }).catch(err => {
+
+        setCompletedOrder(result.data)
+        goToStep(4)
+      } catch {
+        addToast({
+          kind: 'error',
+          title: 'Lỗi kết nối',
+          message: 'Không thể kết nối máy chủ. Bạn có thể thử gửi lại mà không tạo trùng đơn.',
+        })
+      } finally {
         setIsSubmitting(false)
-        addToast({ kind: 'error', title: 'Lỗi hệ thống', message: 'Không thể kết nối máy chủ' })
-      })
+      }
     }
   }
   
@@ -1251,26 +1315,44 @@ export function DepositClient({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, district: ''})}>
-                        <option value="">Chọn Tỉnh/Thành</option>
-                        <option value="HN">Hà Nội</option>
-                        <option value="HCM">TP. Hồ Chí Minh</option>
-                        <option value="DN">Đà Nẵng</option>
-                        <option value="HP">Hải Phòng</option>
+                      <select
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none disabled:cursor-not-allowed disabled:opacity-60"
+                        value={provinceCode}
+                        disabled={locationsLoading}
+                        onChange={e => {
+                          const nextCode = e.target.value
+                          const selectedProvince = provinces.find(province => String(province.code) === nextCode)
+                          setProvinceCode(nextCode)
+                          setFormData({...formData, province: selectedProvince?.name ?? '', ward: ''})
+                        }}
+                      >
+                        <option value="">{locationsLoading ? 'Đang tải Tỉnh/Thành...' : 'Chọn Tỉnh/Thành'}</option>
+                        {provinces.map(province => (
+                          <option key={province.code} value={province.code}>{province.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Quận / Huyện <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
-                        <option value="">Chọn Quận/Huyện</option>
-                        {formData.province === 'HN' && <><option value="Ba Đình">Ba Đình</option><option value="Hoàn Kiếm">Hoàn Kiếm</option><option value="Cầu Giấy">Cầu Giấy</option></>}
-                        {formData.province === 'HCM' && <><option value="Q1">Quận 1</option><option value="Q3">Quận 3</option><option value="QTD">Thủ Đức</option></>}
-                        {formData.province === 'DN' && <><option value="HC">Hải Châu</option><option value="TK">Thanh Khê</option></>}
-                        {formData.province === 'HP' && <><option value="HB">Hồng Bàng</option><option value="LC">Lê Chân</option></>}
+                      <label className="text-sm font-semibold text-slate-700">Xã / Phường <span className="text-red-500">*</span></label>
+                      <select
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none disabled:cursor-not-allowed disabled:opacity-60"
+                        value={formData.ward}
+                        disabled={!provinceCode || wardsLoading}
+                        onChange={e => setFormData({...formData, ward: e.target.value})}
+                      >
+                        <option value="">
+                          {wardsLoading ? 'Đang tải Xã/Phường...' : provinceCode ? 'Chọn Xã/Phường' : 'Chọn Tỉnh/Thành trước'}
+                        </option>
+                        {wards.map(ward => (
+                          <option key={ward.code} value={ward.name}>{ward.name}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
+                  {locationError && (
+                    <p className="text-sm text-red-600" role="status">{locationError}</p>
+                  )}
                   <div className="space-y-2 pt-4">
                     <label className="text-sm font-semibold text-slate-700">Showroom nhận xe <span className="text-red-500">*</span></label>
                     <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-medium">
@@ -1395,12 +1477,12 @@ export function DepositClient({
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Check size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-3xl font-bold tracking-tight mb-4">Hoàn tất đặt cọc!</h3>
-                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Cảm ơn bạn đã tin tưởng VinFast. Nhân viên của chúng tôi sẽ liên hệ trong thời gian sớm nhất để xác nhận.</p>
+                <h3 className="text-3xl font-bold tracking-tight mb-4">Đã tạo đơn đặt cọc</h3>
+                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Đơn đang chờ hoàn tất thanh toán. Nhân viên của chúng tôi sẽ liên hệ để xác nhận và hướng dẫn bước tiếp theo.</p>
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8 text-left">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-sm text-slate-500">Mã đơn hàng</span>
-                    <span className="font-bold">VF{Math.floor(Math.random() * 1000000)}</span>
+                    <span className="font-bold">{completedOrder?.orderNumber || '\u0110ang c\u1eadp nh\u1eadt'}</span>
                   </div>
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-sm text-slate-500">Xe đặt cọc</span>
@@ -1412,10 +1494,7 @@ export function DepositClient({
                       {new Intl.NumberFormat('vi-VN', {
                         style: 'currency',
                         currency: 'VND',
-                      }).format(
-                        currentCar.deposit_value ||
-                          (isMotorbike ? 2_000_000 : 10_000_000),
-                      )}
+                      }).format(completedOrder?.depositAmount || 0)}
                     </span>
                   </div>
                 </div>

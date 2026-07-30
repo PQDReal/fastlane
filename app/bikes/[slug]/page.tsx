@@ -14,13 +14,13 @@ import {
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
 import {
-  getBikeColorFallbacks,
   getBikeColorImage,
   getBikeDetailImages,
   getBikeHeroImage,
   getBikeListingImage,
   isBikeSwatchImage,
   isRenderableBikeImage,
+  parseBikeImageUrls,
 } from '../../../lib/bike-images'
 
 export const dynamic = 'force-dynamic'
@@ -212,35 +212,17 @@ export default async function BikeDetailPage(
     gallery.all_images,
   )
 
-  const productImages = getStringArray(
-    product.image_urls,
-  )
-
-  const listingImage = getBikeListingImage(
-    product.slug,
-    product.image_urls,
-    '/images/vento.png',
-  )
-
-  const heroImage = getBikeHeroImage(
-    product.slug,
-    bannerImages,
-    listingImage,
-  )
-
   const rawColorDetails = asArray(
     rawSpecifications.color_details,
   )
 
-  const fallbackColorDetails = getBikeColorFallbacks(
-    product.slug,
-  )
-  const colorDetails =
-    fallbackColorDetails.length > 0
-      ? fallbackColorDetails
-      : rawColorDetails
-          .map(asObject)
-          .map((item, index) => {
+  const specificationColorNames = asString(specifications['Màu sắc'])
+    .split(/[;,]/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+  const legacyColorDetails = rawColorDetails
+    .map(asObject)
+    .map((item, index) => {
             const colorName =
               asString(item.color_name) || asString(item.name)
             const candidate =
@@ -268,6 +250,29 @@ export default async function BikeDetailPage(
               swatchUrl,
             }
           })
+  const orderedColorNames = legacyColorDetails.length > 0
+    ? legacyColorDetails.map((item) => item.colorName)
+    : specificationColorNames
+
+  const databaseImages = parseBikeImageUrls(
+    product.image_urls,
+    orderedColorNames,
+  )
+  const productImages = getStringArray(product.image_urls)
+  const listingImage = databaseImages.listingImage || getBikeListingImage(
+    product.slug,
+    product.image_urls,
+    '/images/vento.png',
+  )
+  const heroImage = databaseImages.followsOrderedContract
+    ? {
+        src: databaseImages.heroImage,
+        contain: databaseImages.heroImage === databaseImages.listingImage,
+      }
+    : getBikeHeroImage(product.slug, bannerImages, listingImage)
+  const colorDetails = databaseImages.followsOrderedContract
+    ? databaseImages.colorImages
+    : legacyColorDetails
 
   const orderedColorDetails = colorDetails
     .filter(
@@ -304,14 +309,16 @@ export default async function BikeDetailPage(
    * exterior_images is reserved for ordered color renders
    * when it has a one-to-one color mapping.
    */
-  const detailImages = getBikeDetailImages(
-    product.slug,
-    [
-      ...interiorImages,
-      ...allImages,
-      ...productImages,
-    ],
-  )
+  const detailImages = databaseImages.followsOrderedContract
+    ? databaseImages.detailImages
+    : getBikeDetailImages(
+        product.slug,
+        [
+          ...interiorImages,
+          ...allImages,
+          ...productImages,
+        ],
+      )
 
   const displayImgs = detailImages.slice(0, 2)
   const displayIntImgs = detailImages.slice(2, 3)
