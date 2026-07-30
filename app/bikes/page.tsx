@@ -1,36 +1,26 @@
 import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
-import { VehicleCard } from '../../components/vehicle-card'
-import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 import { getProductImage } from '../../lib/get-product-image'
 import { getBikeListingImage } from '../../lib/bike-images'
-
-import { Pagination } from '../../components/pagination'
+import { BikeCatalogBrowser } from './bike-catalog-browser'
 
 export const dynamic = 'force-dynamic'
 
-export default async function BikesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const searchParams = await props.searchParams
-  const pageParam = searchParams?.page
-  const currentPage = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
-  const pageSize = 12
-  const start = (currentPage - 1) * pageSize
-  const end = start + pageSize - 1
-
+export default async function BikesPage() {
   const supabase = getSupabaseAdmin()
-  const { data: rawBikes, count } = await supabase
+  const { data: rawBikes } = await supabase
     .from('products')
-    .select(`*, category:categories!inner(name)`, { count: 'exact' })
+    .select(`*, category:categories!inner(name)`)
     .eq('is_active', true)
     .eq('categories.name', 'Xe máy điện')
     .order('name', { ascending: true })
     .order('id', { ascending: true })
-    .range(start, end)
+    .limit(100)
   
   const bikesData = rawBikes || []
-  const totalPages = count ? Math.ceil(count / pageSize) : 1
 
   const bikes = bikesData.map((bike) => {
     const specifications =
@@ -73,9 +63,7 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
     return {
       name: bike.name,
       desc: bike.description || 'Xe máy điện VinFast',
-      price: new Intl.NumberFormat('vi-VN').format(
-        bike.displayed_price ?? 0,
-      ),
+      price: Number(bike.displayed_price ?? 0),
       image,
       href: `/bikes/${bike.slug}`,
     }
@@ -100,29 +88,7 @@ export default async function BikesPage(props: { searchParams?: Promise<{ [key: 
       </div>
 
       <div className="mx-auto max-w-[1440px] px-6 lg:px-12 py-16 w-full">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
-          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-            <div className="relative w-full md:w-[300px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <input type="text" placeholder="Tìm kiếm xe..." className="w-full h-12 pl-12 pr-4 rounded-full border border-muted bg-background focus:outline-none focus:border-brand-500 transition-colors" />
-            </div>
-            <button className="h-12 px-6 rounded-full border border-muted flex items-center gap-2 hover:bg-muted transition-colors font-medium text-sm shrink-0">
-              <SlidersHorizontal size={16} />
-              Bộ lọc
-            </button>
-          </div>
-          <div className="text-sm text-muted-foreground font-medium">
-            Hiển thị {bikes.length} dòng xe
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {bikes.map((bike) => (
-            <VehicleCard key={bike.href} {...bike} />
-          ))}
-        </div>
-        
-        <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/bikes" />
+        <BikeCatalogBrowser bikes={bikes} />
       </div>
 
       <Footer />

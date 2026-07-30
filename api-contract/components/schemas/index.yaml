@@ -73,6 +73,14 @@ ProductOptionGroupInput:
   $ref: './product.yaml#/ProductOptionGroupInput'
 ProductSpecification:
   $ref: './product.yaml#/ProductSpecification'
+AccessoryContentSectionType:
+  $ref: './product.yaml#/AccessoryContentSectionType'
+AccessoryContentAttribute:
+  $ref: './product.yaml#/AccessoryContentAttribute'
+AccessoryContentSection:
+  $ref: './product.yaml#/AccessoryContentSection'
+AccessoryContentV1:
+  $ref: './product.yaml#/AccessoryContentV1'
 ProductImage:
   $ref: './product.yaml#/ProductImage'
 ProductImageCreateRequest:
@@ -109,6 +117,18 @@ ProductCreateRequest:
   $ref: './product.yaml#/ProductCreateRequest'
 ProductPatchRequest:
   $ref: './product.yaml#/ProductPatchRequest'
+ServiceLabel:
+  $ref: './product.yaml#/ServiceLabel'
+ServiceLabelListResponse:
+  $ref: './product.yaml#/ServiceLabelListResponse'
+ServiceLabelCreateRequest:
+  $ref: './product.yaml#/ServiceLabelCreateRequest'
+ServiceLabelPatchRequest:
+  $ref: './product.yaml#/ServiceLabelPatchRequest'
+ReplaceProductServiceLabelsRequest:
+  $ref: './product.yaml#/ReplaceProductServiceLabelsRequest'
+ReplaceProductServiceLabelsResponse:
+  $ref: './product.yaml#/ReplaceProductServiceLabelsResponse'
 
 AddCartItemRequest:
   $ref: './cart.yaml#/AddCartItemRequest'

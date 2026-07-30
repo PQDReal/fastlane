@@ -54,7 +54,8 @@ function product(): CatalogProduct {
     productType: 'ACCESSORY',
     displayedPrice: null,
     depositPrice: null,
-    content: { specificationText: null, specifications: {} },
+    content: { schema: 'accessory_content_v1', sections: [] },
+    serviceLabels: [],
     collectionMemberships: [],
     legacyImageUrls: ['legacy.jpg'],
     optionGroups: [

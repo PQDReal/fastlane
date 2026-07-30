@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
+import { UserAvatar } from '@/components/auth/user-avatar'
 import { ProfileSavedAddresses } from '@/components/profile-saved-addresses'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
@@ -212,9 +213,13 @@ function ProfileContent() {
           <aside className="w-full shrink-0 md:w-64">
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
               <div className="border-b border-gray-100 p-6 text-center">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-100">
-                  {user.picture ? <img src={user.picture} alt={displayName} className="h-full w-full object-cover" /> : <User className="h-8 w-8 text-gray-400" />}
-                </div>
+                <UserAvatar
+                  picture={user.picture}
+                  name={displayName}
+                  className="mx-auto mb-4 h-20 w-20"
+                  iconClassName="text-gray-400"
+                  iconSize={32}
+                />
                 <h2 className="font-bold text-gray-900">{displayName}</h2>
                 <p className="mt-1 truncate text-xs text-gray-500">{profile?.email || user.email}</p>
               </div>

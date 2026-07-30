@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, LogOut, Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, Search, ShoppingCart, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
+import { UserAvatar } from '@/components/auth/user-avatar'
 
 export function MotionDiv(props: HTMLMotionProps<'div'>) {
   return <motion.div {...props} />
@@ -29,7 +30,14 @@ export function Header() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
-  const { setSearchModalOpen, getCartCount, loadCart, cartLoaded, clearCartCache } = useAppStore()
+  const {
+    setSearchModalOpen,
+    getCartCount,
+    loadCart,
+    cartLoaded,
+    syncCartOwner,
+  } = useAppStore()
+  const userSubject = typeof user?.sub === 'string' ? user.sub : null
 
   // Header is transparent on homepage and car/bike detail pages
   const isTransparentPage = pathname === '/' || /^\/(cars|bikes)\/[^\/]+$/.test(pathname)
@@ -42,13 +50,13 @@ export function Header() {
   }, [])
 
   useEffect(() => {
-    if (!userLoading && user && !cartLoaded) {
-      void loadCart()
+    if (userLoading) return
+
+    const ownerChanged = syncCartOwner(userSubject)
+    if (userSubject && (ownerChanged || !cartLoaded)) {
+      void loadCart(userSubject)
     }
-    if (!userLoading && !user && cartLoaded) {
-      clearCartCache()
-    }
-  }, [cartLoaded, clearCartCache, loadCart, user, userLoading])
+  }, [cartLoaded, loadCart, syncCartOwner, userLoading, userSubject])
 
   const headerSolid = scrolled || !isTransparentPage
 
@@ -85,13 +93,7 @@ export function Header() {
           </Link>
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
-              {user.picture ? (
-                <img src={user.picture} alt={user.name || ''} className="h-7 w-7 rounded-full object-cover shadow-sm ring-1 ring-black/5" />
-              ) : (
-                <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
-                  <UserRound aria-hidden="true" size={14} strokeWidth={2.5} className="text-slate-500" />
-                </div>
-              )}
+              <UserAvatar picture={user.picture} name={user.name} />
               <span className="max-w-24 lg:max-w-32 truncate text-xs font-semibold" title={user.email ?? undefined}>
                 {accountLabel}
               </span>

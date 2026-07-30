@@ -1,82 +1,163 @@
-import { Header } from '../../components/header'
-import { Footer } from '../../components/footer'
-import { AccessoryCard } from '../../components/accessory-card'
-import { Search, ChevronRight } from 'lucide-react'
+import {
+  ArrowRight,
+  ChevronRight,
+  PackageSearch,
+  SlidersHorizontal,
+} from 'lucide-react'
 import Link from 'next/link'
 
-import { Pagination } from '../../components/pagination'
-import { listAccessoryCatalog } from '../../lib/catalog/server'
-import { AccessoryFilters } from './accessory-filters'
+import { AccessoryCard } from '@/components/accessory-card'
+import { AccessoryCategoryNavigation } from '@/components/accessory-category-navigation'
+import { AccessorySearchInput } from '@/components/accessory-search-input'
+import { AccessoryServiceStockFilters } from '@/components/accessory-service-stock-filters'
+import { AccessorySortSelect } from '@/components/accessory-sort-select'
+import { Footer } from '@/components/footer'
+import { Header } from '@/components/header'
+import { Pagination } from '@/components/pagination'
+import {
+  accessorySearchParams,
+  parseAccessoryFilters,
+  parseAccessoryPage,
+  type AccessorySearchParams,
+} from '@/lib/catalog/accessory-filters'
+import { listAccessoryCatalog } from '@/lib/catalog/server'
 
 export const dynamic = 'force-dynamic'
 
-const categories = ["Tất cả", "Sạc & Cáp", "Nội thất", "Ngoại thất", "Đồ dã ngoại", "Quần áo thời trang"]
-
-export default async function AccessoriesPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const searchParams = await props.searchParams
-  const pageParam = searchParams?.page
-  const parsedPage = typeof pageParam === 'string' ? Number.parseInt(pageParam, 10) : 1
-  const requestedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1
-  const pageSize = 12
+export default async function AccessoriesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<AccessorySearchParams>
+}) {
+  const resolvedSearchParams = await searchParams
+  let filters = parseAccessoryFilters(resolvedSearchParams)
   const catalogPage = await listAccessoryCatalog({
-    page: requestedPage,
-    pageSize,
+    page: parseAccessoryPage(resolvedSearchParams),
+    pageSize: 12,
+    filters,
   })
-  const accessories = catalogPage.products
-  const currentPage = catalogPage.page
-  const totalPages = catalogPage.totalPages
+
+  if (
+    filters.category
+    && !catalogPage.facets.vehicleRelevantCategories.includes(filters.category)
+  ) {
+    filters = { ...filters, vehicle: null }
+  }
+
+  const firstResult = catalogPage.total === 0
+    ? 0
+    : (catalogPage.page - 1) * catalogPage.pageSize + 1
+  const lastResult = Math.min(
+    catalogPage.total,
+    catalogPage.page * catalogPage.pageSize,
+  )
+  const advancedFilterCount = filters.services.length
+    + Number(filters.stock !== 'all')
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
-      
-      <div className="bg-muted py-20 border-b border-black/5">
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
-          <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6">
-            <Link href="/" className="hover:text-brand-600 transition-colors">Trang chủ</Link>
-            <ChevronRight size={14} />
-            <span className="text-foreground">Phụ kiện chính hãng</span>
+
+      <header className="border-b border-slate-200/80 bg-white shadow-xs">
+        <div className="mx-auto max-w-[1480px] px-6 py-6 lg:px-12 lg:py-7">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <Link href="/" className="transition hover:text-brand-600">Trang chủ</Link>
+            <ChevronRight size={13} />
+            <span className="font-semibold text-slate-700">Phụ kiện</span>
+          </nav>
+
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl lg:text-4xl">
+              Phụ kiện Chính Hãng VinFast
+            </h1>
+            <p className="max-w-md text-xs leading-5 text-slate-500 sm:text-right sm:text-sm">
+              Tìm theo tên sản phẩm hoặc thu hẹp kết quả theo danh mục và dòng xe phù hợp.
+            </p>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">Phụ kiện chính hãng</h1>
-          <p className="mt-4 text-base text-muted-foreground max-w-2xl mx-auto">
-            Cá nhân hóa chiếc xe của bạn với bộ sưu tập phụ kiện cao cấp, được thiết kế độc quyền cho các dòng xe Fastlane.
-          </p>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-12 py-12 w-full flex flex-col md:flex-row gap-12">
-        {/* Sidebar Filters */}
-        <aside className="w-full shrink-0 md:w-72">
-          <AccessoryFilters categories={categories} />
-        </aside>
+      <div className="mx-auto grid w-full max-w-[1480px] flex-1 gap-6 px-6 py-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8 lg:px-12 lg:py-10">
+        <AccessoryCategoryNavigation
+          filters={filters}
+          facets={catalogPage.facets}
+        />
 
-        {/* Product Grid */}
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8">
-            <div className="relative w-full sm:w-[350px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <input type="text" placeholder="Tìm kiếm phụ kiện..." className="w-full h-11 pl-11 pr-4 rounded-full border border-muted bg-background focus:outline-none focus:border-brand-500 transition-colors text-sm" />
+        <section aria-labelledby="accessory-results-heading" className="min-w-0">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_220px]">
+              <AccessorySearchInput filters={filters} />
+              <AccessorySortSelect filters={filters} />
             </div>
-            
-            <div className="flex items-center gap-4 w-full sm:w-auto">
-              <span className="text-sm text-muted-foreground font-medium hidden lg:inline">Hiển thị {accessories.length} kết quả</span>
-              <select className="h-11 px-4 rounded-full border border-muted bg-background text-sm font-medium focus:outline-none focus:border-brand-500">
-                <option>Mới nhất</option>
-                <option>Giá: Thấp đến cao</option>
-                <option>Giá: Cao đến thấp</option>
-                <option>Bán chạy nhất</option>
-              </select>
-            </div>
+
+            <details open={advancedFilterCount > 0 || undefined} className="mt-3">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2">
+                  <SlidersHorizontal size={16} /> Bộ lọc nâng cao
+                </span>
+                <span className="text-xs font-medium text-slate-400">
+                  {advancedFilterCount > 0
+                    ? `${advancedFilterCount} đang dùng`
+                    : 'Dịch vụ, tình trạng'}
+                </span>
+              </summary>
+              <AccessoryServiceStockFilters
+                filters={filters}
+                facets={catalogPage.facets}
+              />
+            </details>
           </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {accessories.map((item) => (
-                 <AccessoryCard key={item.id} product={item} />
+          <div className="mt-6 flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <h2 id="accessory-results-heading" className="text-2xl font-bold tracking-tight text-slate-950">
+              {catalogPage.total === 0
+                ? 'Không tìm thấy sản phẩm'
+                : `${catalogPage.total} phụ kiện phù hợp`}
+            </h2>
+            <p className="text-sm text-slate-500">
+              Hiển thị{' '}
+              <span className="font-semibold tabular-nums text-slate-800">
+                {firstResult}–{lastResult}
+              </span>{' '}
+              / {catalogPage.total}
+            </p>
+          </div>
+
+          {catalogPage.products.length > 0 ? (
+            <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {catalogPage.products.map((product) => (
+                <AccessoryCard
+                  key={product.id}
+                  product={product}
+                  selectedVehicle={filters.vehicle ?? undefined}
+                />
               ))}
             </div>
-            
-            <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl="/accessories" />
-          </div>
+          ) : (
+            <div className="mt-7 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+              <PackageSearch className="mx-auto h-11 w-11 text-slate-300" />
+              <h3 className="mt-5 text-xl font-bold text-slate-950">
+                Chưa có phụ kiện khớp bộ lọc
+              </h3>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                Hãy thử bỏ bớt một điều kiện hoặc chọn lại dòng xe.
+              </p>
+              <Link
+                href="/accessories"
+                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-bold text-white transition hover:bg-brand-700"
+              >
+                Xem toàn bộ phụ kiện <ArrowRight size={16} />
+              </Link>
+            </div>
+          )}
+
+          <Pagination
+            currentPage={catalogPage.page}
+            totalPages={catalogPage.totalPages}
+            baseUrl="/accessories"
+            query={accessorySearchParams(filters)}
+          />
+        </section>
       </div>
 
       <Footer />

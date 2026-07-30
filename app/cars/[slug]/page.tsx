@@ -112,6 +112,8 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
   const carMarketing = landingData[carRichData.name] || landingData['VF 8'] || { design: {}, technology: {}, safety: {} }
   const isVF6 = product.name === 'VF 6'
+  const depositHref = `/deposit?type=car&model=${encodeURIComponent(product.name)}`
+  const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
 
   return (
     <main className="flex min-h-screen flex-col bg-background selection:bg-brand-500 selection:text-white">
@@ -132,10 +134,10 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
         <div className="relative z-10 flex flex-col items-center pb-12 w-full animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
           <div className="flex gap-4 mb-12">
-            <button className="h-12 sm:h-14 px-8 sm:px-12 rounded-full bg-white text-black font-bold uppercase tracking-widest text-sm sm:text-base hover:bg-white/90 transition-all hover:scale-105 active:scale-95 shadow-xl">
+            <Link href={testDriveHref} className="flex h-12 items-center justify-center rounded-full bg-white px-8 text-sm font-bold uppercase tracking-widest text-black shadow-xl transition-all hover:scale-105 hover:bg-white/90 active:scale-95 sm:h-14 sm:px-12 sm:text-base">
               Trải nghiệm
-            </button>
-            <Link href={`/deposit?model=${product.name}`} className="h-12 sm:h-14 px-8 sm:px-12 rounded-full bg-transparent border-2 border-white text-white font-bold uppercase tracking-widest text-sm sm:text-base hover:bg-white/10 transition-all hover:scale-105 active:scale-95 shadow-xl backdrop-blur-sm flex items-center justify-center">
+            </Link>
+            <Link href={depositHref} className="h-12 sm:h-14 px-8 sm:px-12 rounded-full bg-transparent border-2 border-white text-white font-bold uppercase tracking-widest text-sm sm:text-base hover:bg-white/10 transition-all hover:scale-105 active:scale-95 shadow-xl backdrop-blur-sm flex items-center justify-center">
               Đặt cọc ngay
             </Link>
           </div>
@@ -169,7 +171,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
               <Link href={{ pathname: '/cost-estimator', query: { vehicle: product.slug } }}>Dự toán</Link>
             </Button>
             <Button size="sm" className="rounded-full bg-brand-600 hover:bg-brand-700 text-white font-bold" asChild>
-              <Link href={`/deposit?model=${product.name}`}>Đặt cọc</Link>
+              <Link href={depositHref}>Đặt cọc</Link>
             </Button>
           </div>
         </div>
@@ -238,7 +240,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
                 
                 <div className="flex justify-center mb-8 px-4">
                   <Button className="bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded-none h-14 font-bold tracking-widest w-full sm:max-w-md shadow-lg transition-colors" asChild>
-                    <Link href={`/deposit?model=${product.name}`}>ĐẶT CỌC</Link>
+                    <Link href={depositHref}>ĐẶT CỌC</Link>
                   </Button>
                 </div>
                 <p className="text-center text-sm text-slate-700/80 px-4">(*) Mức giá ưu đãi mang tính chất tham khảo. Chương trình áp dụng theo điều khoản & điều kiện.</p>
@@ -455,10 +457,10 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
           <p className="text-xl text-white/70 mb-12">Gia nhập cộng đồng người dùng xe điện toàn cầu cùng VinFast.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
              <Button variant="default" className="bg-white text-black hover:bg-white/90 h-14 px-10 rounded-full font-bold uppercase tracking-wider text-sm transition-transform hover:scale-105" asChild>
-              <Link href="/deposit">Đặt cọc ngay</Link>
+               <Link href={depositHref}>Đặt cọc ngay</Link>
             </Button>
-            <Button variant="outline" className="h-14 px-10 rounded-full border-white/20 text-white hover:bg-white/10 font-bold uppercase tracking-wider text-sm">
-              Đăng ký lái thử
+            <Button variant="outline" className="h-14 px-10 rounded-full border-white/20 text-white hover:bg-white/10 font-bold uppercase tracking-wider text-sm" asChild>
+              <Link href={testDriveHref}>Đăng ký lái thử</Link>
             </Button>
           </div>
         </div>

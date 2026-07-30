@@ -79,6 +79,9 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
 
   const standardColors = options.filter(opt => typeof opt.color === 'string' || (typeof opt.color === 'object' && (!opt.color.price_delta || opt.color.price_delta === 0)))
   const advancedColors = options.filter(opt => typeof opt.color === 'object' && opt.color.price_delta && opt.color.price_delta > 0)
+  const firstAdvancedColor = advancedColors[0]?.color
+  const advancedPrice =
+    typeof firstAdvancedColor === 'object' ? firstAdvancedColor.price_delta : undefined
 
   const renderSwatch = ({ color: colorObj, optIdx }: { color: any; optIdx: number }) => {
     const isSelected = selectedIndex === optIdx
@@ -150,9 +153,9 @@ export function CarColorSelector({ colors, images }: CarColorSelectorProps) {
                 <div className="flex flex-col items-center gap-6">
                    <h3 className="text-xl sm:text-2xl font-light text-slate-600 flex flex-col items-center">
                      Màu nâng cao
-                     {typeof advancedColors[0]?.color !== 'string' && advancedColors[0]?.color?.price_delta && (
+                     {advancedPrice && (
                        <span className="text-sm font-medium text-blue-600 mt-1">
-                         +{new Intl.NumberFormat('vi-VN').format(advancedColors[0].color.price_delta)} VNĐ
+                         +{new Intl.NumberFormat('vi-VN').format(advancedPrice)} VNĐ
                        </span>
                      )}
                    </h3>

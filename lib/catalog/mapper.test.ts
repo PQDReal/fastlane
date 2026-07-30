@@ -14,10 +14,20 @@ describe('mapCatalogProduct', () => {
       displayed_price: '250000',
       image_urls: ['legacy.jpg'],
       specifications: {
-        specification_text: 'Chất liệu cotton',
-        specifications: { material: 'Cotton' },
-        variants: [{ sku: 'must-not-be-read' }],
+        schema: 'accessory_content_v1',
+        sections: [{
+          key: 'technical_specs', type: 'TECHNICAL_SPECS', title: 'Thông số',
+          display_order: 10, body: null, items: [],
+          attributes: [{ label: 'Chất liệu', value: 'Cotton' }],
+        }],
       },
+      service_label_assignments: [{
+        service_label_id: 'label-1',
+        service_label: {
+          id: 'label-1', code: 'installation', name: 'Có lắp đặt',
+          description: null, display_order: 10, is_active: true,
+        },
+      }],
       category: { id: 'category-1', name: 'Phụ kiện', slug: 'accessories' },
       collection_memberships: [{
         id: 'membership-1', source_system: 'VINFAST_DEMANDWARE', is_primary: true,
@@ -108,14 +118,22 @@ describe('mapCatalogProduct', () => {
       },
     ])
     expect(product.content).toEqual({
-      specificationText: 'Chất liệu cotton',
-      specifications: { material: 'Cotton' },
+      schema: 'accessory_content_v1',
+      sections: [{
+        key: 'technical_specs', type: 'TECHNICAL_SPECS', title: 'Thông số',
+        displayOrder: 10, body: null, items: [],
+        attributes: [{ label: 'Chất liệu', value: 'Cotton' }],
+      }],
     })
+    expect(product.serviceLabels).toEqual([expect.objectContaining({
+      id: 'label-1', code: 'installation', name: 'Có lắp đặt', displayOrder: 10,
+    })])
   })
 
   it('handles products with zero option groups and missing inventory', () => {
     const product = mapCatalogProduct({
       id: 'product-1', name: 'Sản phẩm', slug: 'san-pham', product_type: 'ACCESSORY',
+      specifications: { schema: 'accessory_content_v1', sections: [] },
       variants: [{
         id: 'variant-1', product_id: 'product-1', sku: 'SKU-1', name: 'Mặc định',
         original_price: 100, sale_price: null, is_active: true,
@@ -123,7 +141,15 @@ describe('mapCatalogProduct', () => {
     })
     expect(product.optionGroups).toEqual([])
     expect(product.collectionMemberships).toEqual([])
+    expect(product.serviceLabels).toEqual([])
     expect(product.variants[0].selectedOptions).toEqual({})
     expect(product.variants[0].availableQuantity).toBe(0)
+  })
+
+  it('rejects legacy or malformed accessory specifications without fallback', () => {
+    expect(() => mapCatalogProduct({
+      id: 'product-1', name: 'Legacy', slug: 'legacy', product_type: 'ACCESSORY',
+      specifications: { specification_text: 'legacy' }, variants: [],
+    })).toThrow('Invalid accessory_content_v1 document')
   })
 })

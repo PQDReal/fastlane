@@ -1,3 +1,5 @@
+import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
+
 export const CATALOG_PLACEHOLDER_IMAGE = '/images/vf8.png'
 
 export type CatalogProductType = 'ACCESSORY' | 'CAR' | 'BIKE'
@@ -137,9 +139,65 @@ export type CatalogPriceRange = {
   maximum: number
 }
 
+export type CatalogAccessoryContentSectionType =
+  | 'TECHNICAL_SPECS'
+  | 'FEATURES'
+  | 'USAGE_GUIDE'
+  | 'CARE_GUIDE'
+  | 'INSTALLATION_GUIDE'
+  | 'PACKAGE_CONTENTS'
+  | 'WARRANTY'
+  | 'SHIPPING_NOTE'
+  | 'SAFETY_NOTE'
+  | 'PURCHASE_NOTE'
+  | 'OTHER'
+
+export type CatalogAccessoryContentAttribute = {
+  label: string
+  value: string
+}
+
+export type CatalogAccessoryContentSection = {
+  key: string
+  type: CatalogAccessoryContentSectionType
+  title: string
+  displayOrder: number
+  body: string | null
+  items: string[]
+  attributes: CatalogAccessoryContentAttribute[]
+}
+
 export type CatalogProductContent = {
-  specificationText: string | null
-  specifications: Record<string, unknown>
+  schema: 'accessory_content_v1'
+  sections: CatalogAccessoryContentSection[]
+}
+
+export type AccessoryCatalogSort = 'name-asc' | 'price-asc' | 'price-desc'
+
+export type AccessoryStockFilter = 'all' | 'in-stock'
+
+export type AccessoryCatalogFilters = {
+  query: string
+  category: string | null
+  vehicle: string | null
+  services: string[]
+  stock: AccessoryStockFilter
+  sort: AccessoryCatalogSort
+}
+
+export type AccessoryCatalogFacetOption = {
+  value: string
+  label: string
+  count: number
+}
+
+export type AccessoryCatalogFacets = {
+  categories: AccessoryCatalogFacetOption[]
+  vehicles: AccessoryCatalogFacetOption[]
+  vehicleRelevantCategories: string[]
+  vehiclesByCategory: Record<string, AccessoryCatalogFacetOption[]>
+  services: AccessoryCatalogFacetOption[]
+  total: number
 }
 
 export type CatalogProduct = {
@@ -152,7 +210,9 @@ export type CatalogProduct = {
   productType: CatalogProductType
   displayedPrice: number | null
   depositPrice: number | null
+  createdAt?: string | null
   content: CatalogProductContent
+  serviceLabels: CatalogServiceLabel[]
   collectionMemberships: CatalogCollectionMembership[]
   legacyImageUrls: string[]
   optionGroups: CatalogOptionGroup[]
@@ -181,10 +241,12 @@ export type CatalogResolvedMedia = {
 
 export type AccessoryCatalogPage = {
   products: CatalogProduct[]
+  serviceLabels: CatalogServiceLabel[]
   page: number
   pageSize: number
   total: number
   totalPages: number
+  facets: AccessoryCatalogFacets
 }
 
 export type CatalogVariantContext = {
