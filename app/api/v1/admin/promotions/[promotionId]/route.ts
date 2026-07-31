@@ -9,7 +9,7 @@ import {
 } from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
-const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
+const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,is_public,created_at,updated_at'
 const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
 type Context = { params: Promise<{ promotionId: string }> }
 
@@ -20,7 +20,7 @@ function authError(error: unknown) {
 
 function isProductTypesColumnMissing(error: { code?: string; message: string }) {
   return error.code === 'PGRST204' ||
-    error.message.includes('applicable_product_types')
+    (error.message.includes('applicable_product_types') || error.message.includes('is_public'))
 }
 
 export async function GET(request: Request, context: Context) {
@@ -60,6 +60,7 @@ export async function GET(request: Request, context: Context) {
   return NextResponse.json({
     ...promotion,
     applicable_product_types: productTypesFromLegacy(applicable_product_type),
+    is_public: true,
   })
 }
 
@@ -73,6 +74,11 @@ export async function PATCH(request: Request, context: Context) {
     if ('isActive' in body) {
       if (typeof body.isActive !== 'boolean') return NextResponse.json({ error: 'Trạng thái không hợp lệ.' }, { status: 400 })
       updates.is_active = body.isActive
+    }
+
+    if ('isPublic' in body) {
+      if (typeof body.isPublic !== 'boolean') return NextResponse.json({ error: 'Trạng thái công khai không hợp lệ.' }, { status: 400 })
+      updates.is_public = body.isPublic
     }
 
     const hasFormFields = ['code', 'name', 'description', 'type', 'value', 'applicableProductTypes', 'maxDiscountAmount', 'minimumOrderAmount', 'usageLimit', 'startsAt', 'endsAt'].some((key) => key in body)
@@ -121,7 +127,7 @@ export async function PATCH(request: Request, context: Context) {
     if (error) {
       const message = error.code === '23505'
         ? 'Mã khuyến mãi đã tồn tại.'
-        : error.code === 'PGRST204' || error.message.includes('applicable_product_types')
+        : error.code === 'PGRST204' || (error.message.includes('applicable_product_types') || error.message.includes('is_public'))
           ? 'Database chưa áp dụng migration loại sản phẩm đa lựa chọn.'
           : 'Không thể cập nhật khuyến mãi.'
       return NextResponse.json({ error: message }, { status: error.code === '23505' ? 409 : 400 })

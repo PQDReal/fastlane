@@ -168,6 +168,7 @@ describe('Admin Promotion detail API', () => {
       startsAt: '2030-01-01T00:00:00.000Z',
       endsAt: '2030-02-01T00:00:00.000Z',
       isActive: true,
+      isPublic: false,
     }), context)
 
     expect(response.status).toBe(200)
@@ -175,6 +176,7 @@ describe('Admin Promotion detail API', () => {
       expect.objectContaining({
         code: 'SAVE10',
         applicable_product_types: ['ACCESSORY'],
+        is_public: false,
       }),
     )
   })
