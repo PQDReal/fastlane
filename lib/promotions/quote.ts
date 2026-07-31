@@ -2,7 +2,9 @@ import 'server-only'
 
 import { ApiRouteError } from '@/lib/api/errors'
 import { readCustomerCart } from '@/lib/cart/server'
+import { evaluatePromotion } from '@/lib/promotions/engine'
 import { productTypesFromLegacy, promotionProductTypes } from '@/lib/promotions/product-types'
+import type { PromotionProductType } from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type PromotionRow = {
@@ -34,6 +36,8 @@ export type AccessoryPromotionQuote = {
   subtotal: number
   grandTotal: number
 }
+
+export type ProductPromotionQuote = AccessoryPromotionQuote
 
 const CURRENT_SELECT =
   'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active'
@@ -203,4 +207,62 @@ export async function quoteAccessoryPromotion(
   const quote = quoteEligiblePromotion(promotion, subtotal, now)
   if (!quote) invalidPromotion('Mã giảm giá không tạo ra giá trị giảm cho đơn hàng này.')
   return quote
+}
+
+export async function quoteProductPromotion(
+  rawCode: string,
+  productType: Exclude<PromotionProductType, 'ACCESSORY'>,
+  subtotal: number,
+): Promise<ProductPromotionQuote> {
+  const code = rawCode.trim().toUpperCase()
+  if (!/^[A-Z0-9_-]{3,64}$/.test(code)) invalidPromotion('Mã giảm giá không hợp lệ.')
+  if (!Number.isSafeInteger(subtotal) || subtotal <= 0) {
+    throw new ApiRouteError(422, 'INVALID_SUBTOTAL', 'Giá trị xe không hợp lệ.')
+  }
+
+  const promotion = await findPromotion(code)
+  if (!promotion) invalidPromotion('Mã giảm giá không tồn tại.')
+  const applicableProductTypes =
+    promotion.applicable_product_types === undefined
+      ? productTypesFromLegacy(promotion.applicable_product_type)
+      : promotionProductTypes(promotion.applicable_product_types)
+  const evaluation = evaluatePromotion(
+    {
+      id: promotion.id,
+      code: promotion.code,
+      type: promotion.type,
+      value: Number(promotion.value),
+      applicableProductTypes,
+      maxDiscountAmount:
+        promotion.max_discount_amount === null
+          ? null
+          : Number(promotion.max_discount_amount),
+      minimumOrderAmount: Number(promotion.minimum_order_amount ?? 0),
+      usageLimit: promotion.usage_limit,
+      usedCount: Number(promotion.used_count),
+      startsAt: promotion.starts_at,
+      endsAt: promotion.ends_at,
+      isActive: promotion.is_active,
+    },
+    [{ id: 'vehicle-deposit', productType, lineTotal: subtotal }],
+  )
+
+  if (!evaluation.applicable) {
+    invalidPromotion(
+      evaluation.violations[0]?.message ??
+        'Mã giảm giá không áp dụng cho mẫu xe này.',
+    )
+  }
+
+  return {
+    promotionId: promotion.id,
+    code: promotion.code,
+    name: promotion.name,
+    description: promotion.description,
+    type: promotion.type,
+    value: Number(promotion.value),
+    discountAmount: evaluation.discountAmount,
+    subtotal: evaluation.subtotal,
+    grandTotal: evaluation.grandTotal,
+  }
 }
