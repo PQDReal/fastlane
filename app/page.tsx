@@ -59,12 +59,16 @@ export default async function Home() {
   const products = sortedProducts.map(p => {
     const image = getProductImage(p.name, p.image_urls)
     const specsSummary = getCarSpecsSummary(p.name)
+    const categoryName = Array.isArray(p.category)
+      ? p.category[0]?.name
+      : p.category?.name
+    const productPath = categoryName === 'Xe máy điện' ? 'bikes' : 'cars'
     return {
       name: p.name.toUpperCase().startsWith('VINFAST') ? p.name.toUpperCase() : `VINFAST ${p.name.toUpperCase()}`,
       desc: specsSummary || p.description || 'Xe ô tô điện VinFast',
       price: new Intl.NumberFormat('vi-VN').format(p.displayed_price),
       image,
-      href: `/cars/${p.slug}`
+      href: `/${productPath}/${p.slug}`
     }
   })
 
@@ -168,7 +172,7 @@ export default async function Home() {
               <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">Bộ sưu tập</h2>
               <p className="mt-4 text-lg text-muted-foreground max-w-md">Những thiết kế được yêu thích nhất, mang đậm ngôn ngữ thiết kế tương lai.</p>
             </div>
-            <a className="group flex items-center text-[13px] font-bold uppercase tracking-widest text-brand-600 hover:text-brand-700 transition-colors" href="#products">
+            <a className="group flex items-center text-[13px] font-bold uppercase tracking-widest text-brand-600 hover:text-brand-700 transition-colors" href="./bikes">
               Xem tất cả <ArrowRight className="ml-3 transition-transform group-hover:translate-x-1" size={18} />
             </a>
           </MotionDiv>
