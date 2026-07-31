@@ -70,6 +70,12 @@ The dynamic options sequence is:
   server-owned order numbers, request idempotency, product references and the
   initial `PENDING_PAYMENT` state. Apply it before deploying the updated
   `/api/deposit` route.
+- `022_deposit_order_integrity.sql` preserves every legacy deposit column,
+  adds province/ward identifiers, request hashes and promotion relationships,
+  reuses the existing `promotion_code` column as the immutable code snapshot, and
+  enforces new contact, catalog-pair and amount invariants with `NOT VALID`
+  checks so historical rows do not block rollout. Apply it before enabling
+  deposit promotion codes in the UI.
 
 Apply `013`, `014`, and `015` in that order. Do not run `014` without the
 pre-deployment backup described at the bottom of that migration.

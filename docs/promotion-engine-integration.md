@@ -2,10 +2,9 @@
 
 ## Trạng thái
 
-`lib/promotions/engine.ts` là domain engine thuần và đã sẵn sàng để tích hợp.
-Engine hiện **chưa được gọi** từ `lib/promotions/quote.ts` hoặc checkout. Việc tách
-này có chủ đích để người làm checkout có thể nối engine sau khi contract pricing
-và transaction được thống nhất.
+`lib/promotions/engine.ts` là domain engine thuần. Luồng báo giá đặt cọc đã gọi
+engine qua `quoteProductPromotion()`; luồng phụ kiện cũ vẫn giữ adapter riêng
+cho đến khi người phụ trách checkout chuyển đổi.
 
 Engine:
 
@@ -189,6 +188,25 @@ Checkout không được tin quote cũ. Trong transaction tạo order:
 
 Engine chỉ quyết định eligibility và số tiền giảm. Engine không chịu trách nhiệm
 lock row, consume quota, idempotency hoặc transaction.
+
+### Luồng đặt cọc xe hiện tại
+
+- `POST /api/deposit/quote` xác thực mẫu xe, phiên bản, màu, package và chạy
+  promotion engine. Endpoint này không consume quota.
+- `POST /api/deposit` định giá lại toàn bộ phía server, không nhận giá hay
+  discount từ browser.
+- `022_deposit_order_integrity.sql` lưu `subtotal`, `discount_amount`,
+  `promotion_id`; cột `promotion_code` hiện có được giữ làm snapshot mã tại
+  thời điểm đặt cọc. Trigger `deposit_orders_consume_promotion` dùng để
+  lock promotion, kiểm tra lại cửa sổ hiệu lực/quota, tăng `used_count` trong
+  cùng transaction với insert đơn.
+- `request_hash` ngăn cùng một `Idempotency-Key` bị dùng lại với nội dung khác.
+- API trả `createdAt` với offset `+07:00`; PostgreSQL vẫn lưu `timestamptz`
+  theo instant chuẩn, không cộng thêm bảy giờ vào dữ liệu gốc.
+
+Showroom vẫn là snapshot hiện tại và payment method mới chỉ là lựa chọn cho
+đơn `PENDING_PAYMENT`. Migration/API này không tạo showroom schema và không
+gọi payment gateway, để hai phần đó có thể được tích hợp độc lập sau.
 
 ### Soft-delete Admin Promotion
 
