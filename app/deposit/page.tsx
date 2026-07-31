@@ -18,7 +18,6 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   const motorbikesDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'motorbikes.json')
   const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
 
-  const carsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
   const publishedMotorbikes = JSON.parse(fs.readFileSync(motorbikesDataPath, 'utf8'))
   const motorbikeResult = await getSupabaseAdmin()
     .from('products')
@@ -37,6 +36,24 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   if (motorbikeResult.error) {
     console.error('Unable to load motorbike deposit data from Supabase:', motorbikeResult.error)
   }
+
+  const supabase = getSupabaseAdmin()
+  let dbProducts: any[] = []
+  try {
+    const { data } = await supabase.from('products').select('name, advanced_color_price').eq('product_type', 'CAR')
+    if (data) dbProducts = data
+  } catch (e) {
+    console.error('Error fetching advanced_color_price', e)
+  }
+
+  const rawCarsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
+  const carsData = rawCarsData.map((c: any) => {
+    const dbP = dbProducts.find(p => p.name === c.name || c.name.includes(p.name) || p.name.includes(c.name))
+    if (dbP && dbP.advanced_color_price !== null) {
+      c.advanced_color_price = dbP.advanced_color_price
+    }
+    return c
+  })
   const motorbikesData = normalizeMotorbikesForDeposit(
     mergeMotorbikeDatabaseRows(
       publishedMotorbikes,
