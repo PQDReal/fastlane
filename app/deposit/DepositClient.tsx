@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
-import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
+import { Check, Battery, Zap, Ruler, ArrowRight, ChevronDown } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
 import {
   findDepositVehicle,
@@ -163,6 +163,50 @@ function stringArray(value: unknown): string[] {
     : []
 }
 
+const normalizeWard = (name: string) => {
+  if (!name) return '';
+  return name.toLowerCase()
+    .replace(/^(phường|xã|thị trấn|thị xã|quận|huyện|thành phố|thị tứ|phố|ấp|thôn|bản)\s+/i, '')
+    .replace(/\s+/g, '')
+    .trim();
+};
+
+const findMatchingWard = (showroom: any, locationWards: LocationOption[]) => {
+  if (!locationWards || locationWards.length === 0) return null;
+  
+  const normDistrict = normalizeWard(showroom.district_name || '');
+  const addressNorm = showroom.address ? showroom.address.toLowerCase() : '';
+  
+  // 1. Try exact normalized match on district_name
+  if (normDistrict) {
+    const exactMatch = locationWards.find(w => normalizeWard(w.name) === normDistrict);
+    if (exactMatch) return exactMatch.name;
+  }
+  
+  // 2. Try matching ward names inside s.address
+  const sortedWards = [...locationWards].sort((a, b) => b.name.length - a.name.length);
+  for (const w of sortedWards) {
+    const normW = normalizeWard(w.name);
+    if (!normW) continue;
+    if (addressNorm.includes(normW) || normalizeWard(showroom.address || '').includes(normW)) {
+      return w.name;
+    }
+  }
+  
+  // 3. Fallback to raw substring match
+  for (const w of sortedWards) {
+    if (showroom.address && showroom.address.includes(w.name)) {
+      return w.name;
+    }
+    if (showroom.district_name && showroom.district_name.includes(w.name)) {
+      return w.name;
+    }
+  }
+  
+  return null;
+};
+
+
 export function DepositClient({
   carsData,
   motorbikesData,
@@ -225,6 +269,16 @@ export function DepositClient({
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const shouldReduceMotion = useReducedMotion()
 
+  const [showrooms, setShowrooms] = useState<any[]>([])
+  const [selectedShowroom, setSelectedShowroom] = useState<any>(null)
+  const [openShowroom, setOpenShowroom] = useState(false)
+  const [dbVariants, setDbVariants] = useState<any[]>([])
+  const [promotionCode, setPromotionCode] = useState('')
+  const [applyingPromotion, setApplyingPromotion] = useState(false)
+  const [appliedPromotion, setAppliedPromotion] = useState<any>(null)
+  const [promotionError, setPromotionError] = useState<string | null>(null)
+  const [promotionSuccess, setPromotionSuccess] = useState<string | null>(null)
+
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
     setToasts(prev => [...prev, { ...toast, id }]);
@@ -253,8 +307,32 @@ export function DepositClient({
       .finally(() => {
         if (!controller.signal.aborted) setLocationsLoading(false)
       })
+
+    fetch('/data/showroomcar.json')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.data) {
+          setShowrooms(data.data)
+        }
+      })
+      .catch(console.error)
+
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    async function fetchVariants() {
+      try {
+        const currentCarObj = carsData.find(c => c.name === selectedCarId) || carsData[0]
+        const res = await fetch(`/api/v1/vehicle-variants?product_name=${encodeURIComponent(currentCarObj.name)}`)
+        const data = await res.json()
+        setDbVariants(data)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchVariants()
+  }, [selectedCarId, carsData])
 
   useEffect(() => {
     if (!provinceCode) {
@@ -272,7 +350,14 @@ export function DepositClient({
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải xã/phường.')
-        setWards(payload.data ?? [])
+        const fetchedWards = payload.data ?? []
+        setWards(fetchedWards)
+        if (selectedShowroom) {
+          const matchedWard = findMatchingWard(selectedShowroom, fetchedWards)
+          if (matchedWard) {
+            setFormData(prev => ({ ...prev, ward: matchedWard }))
+          }
+        }
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
@@ -305,21 +390,43 @@ export function DepositClient({
               c.name.startsWith('VinFast'),
           )
           .sort((a, b) => {
-      const getOrder = (name: string) => {
-        if (name.includes('VF 2')) return 2
-        if (name.includes('VF 3')) return 3
-        if (name.includes('VF 5')) return 5
-        if (name.includes('VF 6')) return 6
-        if (name.includes('MPV 7') || name.includes('VF 7')) return 7
-        if (name.includes('All-New 2026') || name.includes('VF 8')) return 8
-        if (name.includes('VF 9')) return 9
-        return 100
-      }
-      const orderA = getOrder(a.name)
-      const orderB = getOrder(b.name)
-      if (orderA !== orderB) return orderA - orderB
-      return a.name.length - b.name.length
-    })
+            const getOrder = (name: string) => {
+              if (name.includes('VF 3')) return 1
+              if (name.includes('VF 5')) return 2
+              if (name.includes('VF 6')) return 3
+              if (name.includes('VF 7')) return 4
+              if (name.includes('MPV 7')) return 5
+              if (name.includes('VF 8')) return 6
+              if (name.includes('VF 9')) return 7
+              return 100
+            }
+            const orderA = getOrder(a.name)
+            const orderB = getOrder(b.name)
+            if (orderA !== orderB) return orderA - orderB
+            return a.name.length - b.name.length
+          })
+
+  const getDepositAmount = () => {
+    const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
+    const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor) 
+      || dbVariants.find(v => v.version === selectedVariantName)
+    
+    if (matchingDbVariant && matchingDbVariant.deposit_amount) {
+      return Number(matchingDbVariant.deposit_amount)
+    }
+
+    if (currentCar.deposit_value) {
+      const depVal = Number(currentCar.deposit_value)
+      if (depVal > 0) return depVal
+    }
+
+    if (currentCar.deposit) {
+      const depVal = parseInt(currentCar.deposit.toString().replace(/[^0-9]/g, ''), 10)
+      if (!isNaN(depVal) && depVal > 0) return depVal
+    }
+
+    return vehicleType === 'motorbike' ? 2000000 : 10000000
+  }
 
   const handleVehicleTypeChange = (nextType: DepositVehicleType) => {
     if (nextType === vehicleType) return
@@ -393,12 +500,85 @@ export function DepositClient({
     }
   }
 
+  const filteredShowrooms = showrooms.filter(s => {
+    if (!formData.province) return true;
+    
+    const normalize = (str: string) => {
+       if (!str) return '';
+       return str.toLowerCase()
+         .replace(/tỉnh |thành phố |tp\. |quận |huyện |thị xã |phường |xã |thị trấn /g, '')
+         .trim();
+    }
+    
+    const provName = normalize(s.province_name);
+    const formProv = normalize(formData.province);
+    
+    const isSameProvince = provName.includes(formProv) || formProv.includes(provName);
+    
+    if (formData.ward && isSameProvince) {
+      const distName = normalize(s.district_name);
+      const formWard = normalize(formData.ward);
+      return distName.includes(formWard) || formWard.includes(distName);
+    }
+    return isSameProvince;
+  });
+
+  const handleApplyPromotion = async () => {
+    if (!promotionCode.trim()) return;
+    setApplyingPromotion(true);
+    setPromotionError(null);
+    setPromotionSuccess(null);
+    
+    try {
+      const currentCarObj = availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
+      const currentSpecsObj = specsData[currentCarObj.name] || {}
+      
+      const selectedVariantName = selectedVariant.replace(currentCarObj.name + ' ', '')
+      const variantData = currentSpecsObj.variants?.[selectedVariantName]
+      const basePrice = variantData?.price || currentCarObj.displayed_price || 0
+      
+      const advancedColorsList = (currentCarObj.colors || []).slice(4)
+      const isAdvancedColor = advancedColorsList.some((c: any) => c.name === selectedColor)
+      const colorPrice = isAdvancedColor ? (currentCarObj.advanced_color_price || 0) : 0
+      
+      let packagesPrice = 0
+      const availablePackages = currentCarObj.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
+      selectedPackages.forEach(id => {
+        const pkg = availablePackages.find((p: any) => p.id === id)
+        if (pkg) packagesPrice += pkg.price
+      })
+      const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor) || dbVariants.find(v => v.version === selectedVariantName)
+
+      const baseVariantPrice = matchingDbVariant?.price || basePrice
+      const subtotal = baseVariantPrice + colorPrice + packagesPrice
+      const type = vehicleType === 'motorbike' ? 'BIKE' : 'CAR'
+
+      const res = await fetch('/api/v1/deposit/promotion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promotionCode, subtotal, vehicleType: type })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Mã giảm giá không hợp lệ');
+      
+      setAppliedPromotion(data.data);
+      setPromotionSuccess('Áp dụng mã giảm giá thành công!');
+      addToast({ kind: 'success', title: 'Áp dụng mã ưu đãi thành công' })
+    } catch (err: any) {
+      setPromotionError(err.message);
+      setAppliedPromotion(null);
+      addToast({ kind: 'error', title: err.message })
+    } finally {
+      setApplyingPromotion(false)
+    }
+  }
+
   const handleNextStep = async () => {
     if (currentStep === 1) {
       goToStep(2)
     } else if (currentStep === 2) {
       const isMissingPersonal = customerType === 'personal' && !formData.name;
-      const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
+      const isMissingCorporate = customerType === 'corporate' && (!formData.companyName || !formData.name);
       
       if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.ward) {
         addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
@@ -440,13 +620,12 @@ export function DepositClient({
             car_model: currentCarObj.name,
             car_variant: selectedVariant,
             exterior_color: selectedColor,
-            interior_color:
-              currentCarObj.product_type === 'motorbike'
-                ? ''
-                : selectedInteriorColor,
+            interior_color: selectedInteriorColor || null,
             optional_packages: selectedPackages,
             payment_method: paymentMethod,
-            terms_accepted: true,
+            terms_accepted: termsAccepted,
+            showroom: selectedShowroom?.name || '',
+            promotion_code: appliedPromotion ? promotionCode : null
           }),
         })
         const result = await response.json().catch(() => null)
@@ -498,6 +677,8 @@ export function DepositClient({
   if (!isMotorbike && currentCar.name === 'VF 3') {
     variants = ['Eco', 'Plus']
   } else if (!isMotorbike && currentCar.name === 'VF 2') {
+    variants = ['Tiêu chuẩn']
+  } else if (!isMotorbike && currentCar.name.includes('MPV')) {
     variants = ['Tiêu chuẩn']
   }
   const colors = currentCar.colors || []
@@ -789,8 +970,9 @@ export function DepositClient({
                 <button
                   type="button"
                   onClick={() => handleVehicleTypeChange('car')}
+                  disabled={currentStep > 1}
                   aria-pressed={vehicleType === 'car'}
-                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 ${
+                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     vehicleType === 'car'
                       ? 'scale-105 bg-slate-900 text-white shadow-lg'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -801,8 +983,9 @@ export function DepositClient({
                 <button
                   type="button"
                   onClick={() => handleVehicleTypeChange('motorbike')}
+                  disabled={currentStep > 1}
                   aria-pressed={vehicleType === 'motorbike'}
-                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 ${
+                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     vehicleType === 'motorbike'
                       ? 'scale-105 bg-slate-900 text-white shadow-lg'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -853,15 +1036,17 @@ export function DepositClient({
                 return (
                   <button
                     key={idx}
+                    type="button"
+                    disabled={currentStep > 1}
                     onClick={() => setSelectedCarId(car.name)}
-                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 ${
+                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 disabled:cursor-not-allowed ${
                       isMotorbike
                         ? 'h-11 min-w-[112px] px-5 py-2.5 text-[15px] font-bold tracking-[0.04em]'
                         : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
                     } ${
                       isSelected 
-                        ? 'bg-slate-900 text-white shadow-lg scale-105' 
-                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group'
+                        ? 'bg-slate-900 text-white shadow-lg scale-105 disabled:opacity-90' 
+                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-600'
                     }`}
                   >
                     {logo ? (
@@ -1249,7 +1434,19 @@ export function DepositClient({
             
             {currentStep === 2 && (
               <div>
-                <h3 className="text-2xl font-bold tracking-tight mb-8">Thông tin người đặt cọc</h3>
+                <h3 className="text-2xl font-bold tracking-tight mb-6">Thông tin người đặt cọc</h3>
+                
+                <div className="mb-8 p-5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/30 border border-blue-100/80 flex items-center justify-between shadow-sm">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Số tiền đặt cọc</span>
+                    <span className="text-sm font-semibold text-slate-600">Áp dụng cho dòng xe {currentCar.name}</span>
+                  </div>
+                  <span className="text-2xl font-black text-slate-900 tracking-tight">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                      getDepositAmount()
+                    )}
+                  </span>
+                </div>
                 
                 <div className="space-y-6">
                   {/* Loại khách hàng */}
@@ -1354,20 +1551,91 @@ export function DepositClient({
                     <p className="text-sm text-red-600" role="status">{locationError}</p>
                   )}
                   <div className="space-y-2 pt-4">
-                    <label className="text-sm font-semibold text-slate-700">Showroom nhận xe <span className="text-red-500">*</span></label>
-                    <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-medium">
-                      VinFast Landmark 81, TP. Hồ Chí Minh
+                    <div className="relative text-sm font-medium text-gray-700" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenShowroom(false) }}>
+                      <label className="text-sm font-semibold text-slate-700 mb-2 block">Showroom nhận xe <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenShowroom(!openShowroom)}
+                          className="w-full text-left rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-10 font-normal focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-700 min-h-[46px]"
+                        >
+                          <span className="block whitespace-normal break-words text-sm">
+                            {selectedShowroom ? `${selectedShowroom.name} - ${selectedShowroom.address}` : 'Chọn showroom'}
+                          </span>
+                        </button>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      </div>
+                      
+                      {openShowroom && (
+                        <div className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
+                          {filteredShowrooms.length ? filteredShowrooms.map(s => {
+                            const active = selectedShowroom?.entity_id === s.entity_id;
+                            return (
+                              <button
+                                key={s.entity_id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedShowroom(s);
+                                  setOpenShowroom(false);
+                                  const matchedWard = findMatchingWard(s, wards);
+                                  if (matchedWard) {
+                                    setFormData(prev => ({ ...prev, ward: matchedWard }));
+                                  }
+                                }}
+                                className={`flex w-full items-start justify-between rounded-lg px-3 py-2.5 text-left text-sm font-normal transition active:scale-[0.99] ${active ? 'bg-slate-100 text-slate-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                              >
+                                <span className="break-words whitespace-normal w-full pr-2 leading-relaxed">{s.name} - {s.address}</span>
+                                {active && <Check className="h-4 w-4 flex-shrink-0 mt-0.5" />}
+                              </button>
+                            )
+                          }) : <p className="px-3 py-6 text-center text-sm font-normal text-gray-500">Không tìm thấy kết quả phù hợp.</p>}
+                        </div>
+                      )}
                     </div>
+                    {filteredShowrooms.length === 0 && formData.province && (
+                      <p className="text-sm text-amber-600 mt-1">Không tìm thấy showroom nào ở khu vực bạn chọn. Vui lòng chọn khu vực khác.</p>
+                    )}
                   </div>
 
                   <div className="space-y-2 pt-4">
-                    <label className="text-sm font-semibold text-slate-700">Mã ưu đãi / E-voucher</label>
-                    <div className="flex gap-3">
-                      <input type="text" placeholder="Nhập mã ưu đãi" className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white uppercase" />
-                      <button className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors whitespace-nowrap">
-                        Áp dụng
-                      </button>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-semibold text-slate-700">Mã ưu đãi / E-voucher</label>
+                      {appliedPromotion && (
+                        <span className="text-xs font-semibold text-emerald-600">Đã áp dụng mã {appliedPromotion.code}</span>
+                      )}
                     </div>
+                    <div className="flex gap-3">
+                      <input 
+                        type="text" 
+                        placeholder="Nhập mã ưu đãi" 
+                        value={promotionCode}
+                        onChange={(e) => setPromotionCode(e.target.value.toUpperCase())}
+                        disabled={applyingPromotion || !!appliedPromotion}
+                        className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white uppercase disabled:opacity-50" 
+                      />
+                      {appliedPromotion ? (
+                        <button 
+                          onClick={() => {
+                            setAppliedPromotion(null)
+                            setPromotionCode('')
+                            setPromotionSuccess(null)
+                          }}
+                          className="px-6 py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors whitespace-nowrap"
+                        >
+                          Hủy mã
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={handleApplyPromotion}
+                          disabled={applyingPromotion || !promotionCode.trim()}
+                          className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors whitespace-nowrap disabled:opacity-50"
+                        >
+                          {applyingPromotion ? 'Đang áp dụng...' : 'Áp dụng'}
+                        </button>
+                      )}
+                    </div>
+                    {promotionError && <p className="text-sm text-red-500 mt-1">{promotionError}</p>}
+                    {promotionSuccess && <p className="text-sm text-emerald-600 mt-1">{promotionSuccess}</p>}
                   </div>
                 </div>
               </div>
@@ -1404,6 +1672,14 @@ export function DepositClient({
                       <div className="flex justify-between items-center py-3 border-t border-slate-100">
                         <span className="text-slate-600">Nội thất</span>
                         <span className="font-medium text-slate-800">{selectedInteriorColor}</span>
+                      </div>
+                    )}
+                    {appliedPromotion && (
+                      <div className="flex justify-between items-center py-3 border-t border-slate-100">
+                        <span className="text-slate-600">Mã giảm giá ({appliedPromotion.code})</span>
+                        <span className="font-medium text-emerald-600">
+                          -{new Intl.NumberFormat('vi-VN').format(appliedPromotion.discountAmount)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1519,7 +1795,7 @@ export function DepositClient({
                           const basePrice = variantData?.price || currentCar.displayed_price || 0
                           
                           const isAdvancedColor = advancedColors.some((c: any) => c.name === selectedColor)
-                          const colorPrice = isAdvancedColor ? (currentCar.name.includes('MPV') ? 10000000 : (['VF 7', 'VF 9'].includes(currentCar.name) || currentCar.name.includes('VF 8') ? 12000000 : 8000000)) : 0
+                          const colorPrice = isAdvancedColor ? (currentCar.advanced_color_price || 0) : 0
                           
                           let packagesPrice = 0
                           const availablePackages = currentCar.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
@@ -1528,7 +1804,13 @@ export function DepositClient({
                             if (pkg) packagesPrice += pkg.price
                           })
                           
-                          const totalPrice = basePrice + colorPrice + packagesPrice
+                          const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor) || dbVariants.find(v => v.version === selectedVariantName)
+                          
+                          const baseVariantPrice = matchingDbVariant?.price || basePrice
+                          let totalPrice = baseVariantPrice + colorPrice + packagesPrice
+                          if (appliedPromotion) {
+                            totalPrice = Math.max(0, totalPrice - appliedPromotion.discountAmount)
+                          }
                           return totalPrice > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice) : 'Liên hệ'
                        })()}
                      </div>

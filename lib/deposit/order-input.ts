@@ -18,6 +18,8 @@ export type DepositOrderInput = {
   interiorColor: string | null
   optionalPackages: string[]
   paymentMethod: DepositPaymentMethod
+  showroom?: string | null
+  promotionCode?: string | null
 }
 
 export class DepositInputError extends Error {}
@@ -79,6 +81,8 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
     'optional_packages',
     'payment_method',
     'terms_accepted',
+    'showroom',
+    'promotion_code',
   ])
   if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
     throw new DepositInputError('Yêu cầu đặt cọc chứa trường không được hỗ trợ.')
@@ -147,6 +151,8 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
       ['credit_card', 'atm', 'bank_transfer'] as const,
       'Phương thức thanh toán',
     ),
+    showroom: input.showroom ? text(input, 'showroom', 'Showroom', { max: 120 }) : null,
+    promotionCode: input.promotion_code ? text(input, 'promotion_code', 'Mã khuyến mãi', { max: 20 }) : null,
   }
 }
 

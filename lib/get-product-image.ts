@@ -16,6 +16,37 @@ const OVERRIDE_IMAGES: Record<string, string> = {
 }
 
 export function getProductImage(productName: string, dbImageUrls: string[] | null = null, fallback: string = '/images/vf8.png'): string {
+  // 1. Use DB image if valid and available
+  if (dbImageUrls && dbImageUrls.length > 0) {
+    // Ưu tiên tìm ảnh xe (thường có từ khoá 'car-compare', 'exterior', hoặc '.png', '.webp') 
+    // và loại trừ logo, banner, video, nội thất, v.v.
+    const carImage = dbImageUrls.find((url: string) => {
+      const lowerUrl = url.toLowerCase();
+      const isImage = lowerUrl.match(/\.(jpeg|jpg|png|webp)$/i);
+      const isNotMisc = !lowerUrl.includes('logo') && 
+                        !lowerUrl.includes('banner') && 
+                        !lowerUrl.includes('interior') && 
+                        !lowerUrl.includes('section') && 
+                        !lowerUrl.includes('map');
+      
+      // Ưu tiên ảnh xe trong suốt hoặc ảnh so sánh
+      return isImage && isNotMisc && (lowerUrl.includes('car-compare') || lowerUrl.includes('.png') || lowerUrl.includes('.webp'));
+    }) || dbImageUrls.find((url: string) => {
+      const lowerUrl = url.toLowerCase();
+      const isImage = lowerUrl.match(/\.(jpeg|jpg|png|webp)$/i);
+      const isNotMisc = !lowerUrl.includes('logo') && 
+                        !lowerUrl.includes('banner') && 
+                        !lowerUrl.includes('interior') && 
+                        !lowerUrl.includes('section') && 
+                        !lowerUrl.includes('map');
+      return isImage && isNotMisc;
+    });
+
+    if (carImage && (carImage.startsWith('http') || carImage.startsWith('/'))) {
+      return carImage;
+    }
+  }
+
   const sortedKeys = Object.keys(OVERRIDE_IMAGES).sort((a, b) => b.length - a.length)
   const normalizedProductName = productName.toLowerCase().replace(/-/g, ' ')
   const overrideKey = sortedKeys.find(k => normalizedProductName.includes(k.toLowerCase().replace(/-/g, ' ')))
@@ -30,10 +61,6 @@ export function getProductImage(productName: string, dbImageUrls: string[] | nul
     return `/images/${formattedName}.png`
   }
 
-  // 2. Use DB image if valid
-  if (dbImageUrls && dbImageUrls.length > 0 && dbImageUrls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
-    return dbImageUrls[0]
-  }
 
 
   if (!cachedData) {

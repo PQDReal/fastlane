@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+import { ApiRouteError } from '@/lib/api/errors'
+import { quoteVehiclePromotion } from '@/lib/promotions/quote'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import {
   DepositInputError,
@@ -202,6 +204,20 @@ export async function POST(request: Request) {
       vehicleQuote(input),
       getCurrentUser().catch(() => null),
     ])
+
+    let discountAmount = 0
+    if (input.promotionCode) {
+      try {
+        const vehicleType = input.vehicleType === 'motorbike' ? 'BIKE' : 'CAR'
+        const promoQuote = await quoteVehiclePromotion(input.promotionCode, quote.totalEstimatedPrice, vehicleType)
+        if (promoQuote) {
+          discountAmount = promoQuote.discountAmount
+        }
+      } catch (e) {
+        console.error('Invalid promotion code on deposit:', e)
+      }
+    }
+
     const now = new Date().toISOString()
     const insertResult = await getSupabaseAdmin()
       .from('deposit_orders')
@@ -225,11 +241,13 @@ export async function POST(request: Request) {
         exterior_color: input.exteriorColor,
         interior_color: input.interiorColor ?? '',
         optional_packages: input.optionalPackages,
-        showroom: 'VinFast Landmark 81',
+        showroom: input.showroom || 'VinFast Landmark 81',
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
-        total_estimated_price: quote.totalEstimatedPrice,
+        total_estimated_price: Math.max(0, quote.totalEstimatedPrice - discountAmount),
+        promotion_code: input.promotionCode || null,
+        discount_amount: discountAmount > 0 ? discountAmount : null,
         status: 'PENDING_PAYMENT',
         terms_accepted_at: now,
       })
@@ -249,6 +267,14 @@ export async function POST(request: Request) {
         )
       }
       throw insertResult.error
+    }
+
+    if (input.promotionCode && discountAmount > 0) {
+      const supabase = getSupabaseAdmin()
+      const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
+      if (promo) {
+        await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
+      }
     }
 
     return NextResponse.json(responseData(insertResult.data), { status: 201 })

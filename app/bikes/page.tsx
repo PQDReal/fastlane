@@ -73,22 +73,27 @@ export default async function BikesPage() {
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
       <Header />
       
-      <section className="relative overflow-hidden border-b border-black/5 bg-muted py-20 sm:py-28">
-        <div className="pointer-events-none absolute -left-24 top-8 h-72 w-72 rounded-full bg-brand-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-slate-900/10 blur-3xl" />
-        <div className="relative mx-auto max-w-[1440px] px-6 text-center lg:px-12">
-          <div className="mb-8 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <Link href="/" className="transition-colors hover:text-brand-600">Trang chủ</Link>
-            <ChevronRight size={14} />
-            <span className="text-foreground">Xe máy điện</span>
+      <div className="relative bg-slate-50 py-12 md:py-16 overflow-hidden border-b border-slate-200">
+        {/* Magic pattern background (Dot Grid) */}
+        <div 
+          className="absolute inset-0 opacity-[0.3]"
+          style={{
+            backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 to-transparent opacity-80" />
+        
+        <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-12 text-center flex flex-col items-center">
+          <div className="flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-4 bg-white/60 backdrop-blur-sm px-4 py-1.5 rounded-full ring-1 ring-slate-200/50">
+            <Link href="/" className="hover:text-brand-600 transition-colors">Trang chủ</Link>
+            <ChevronRight size={12} />
+            <span className="text-slate-900">Xe máy điện</span>
           </div>
-          <p className="mb-4 text-xs font-bold uppercase tracking-[0.32em] text-brand-700">
-            Di chuyển xanh mỗi ngày
-          </p>
-          <h1 className="text-5xl font-bold tracking-[-0.04em] text-foreground sm:text-7xl">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl md:text-6xl mb-4">
             Xe máy điện
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+          <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
             Giải pháp di chuyển đô thị thông minh, thân thiện với môi trường, thiết kế thời trang và vận hành êm ái.
           </p>
           <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 divide-x divide-black/10 rounded-2xl border border-black/5 bg-white/60 px-3 py-5 shadow-sm backdrop-blur-sm">
@@ -106,7 +111,7 @@ export default async function BikesPage() {
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
       <div className="mx-auto w-full max-w-[1440px] px-6 py-16 lg:px-12">
         <BikeCatalogBrowser bikes={bikes} />

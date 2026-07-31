@@ -25,6 +25,13 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
     notFound()
   }
 
+  const { data: variantsData } = await supabase
+    .from('vehicle_variants')
+    .select('*')
+    .eq('product_id', product.id)
+    .eq('is_active', true)
+
+
   // Load JSON data
   const carsDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json')
   const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
@@ -104,11 +111,29 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
   const specs = firstVariant?.specs || {}
 
   // Extract images that look like colored variants
-  const carColors = carRichData.colors || []
-  let colorImages = carColors.map((c: any) => typeof c === 'object' && c.image ? c.image : null).filter(Boolean)
-  if (colorImages.length === 0) {
-    colorImages = exteriorImgs.filter((img: string) => img.toLowerCase().includes('product-') || img.toLowerCase().includes('/exterior/'))
+  const uniqueColorsMap = new Map()
+  variantsData?.forEach(v => {
+    if (v.color && v.image_car_url && !uniqueColorsMap.has(v.color)) {
+      uniqueColorsMap.set(v.color, {
+        name: v.color,
+        swatch: v.image_color_url,
+        image: v.image_car_url
+      })
+    }
+  })
+  
+  const dbColorsArr = Array.from(uniqueColorsMap.values())
+  const dbCarColors = dbColorsArr.map(c => ({ name: c.name, swatch: c.swatch }))
+  const dbColorImages = dbColorsArr.map(c => c.image)
+
+  const fallbackCarColors = carRichData.colors || []
+  let fallbackColorImages = fallbackCarColors.map((c: any) => typeof c === 'object' && c.image ? c.image : null).filter(Boolean)
+  if (fallbackColorImages.length === 0) {
+    fallbackColorImages = exteriorImgs.filter((img: string) => img.toLowerCase().includes('product-') || img.toLowerCase().includes('/exterior/'))
   }
+
+  const carColors = dbCarColors.length > 0 ? dbCarColors : fallbackCarColors
+  const colorImages = dbColorImages.length > 0 ? dbColorImages : fallbackColorImages
 
   const carMarketing = landingData[carRichData.name] || landingData['VF 8'] || { design: {}, technology: {}, safety: {} }
   const isVF6 = product.name === 'VF 6'
