@@ -176,7 +176,7 @@ describe('Admin Promotions collection API', () => {
       from: vi.fn().mockReturnValue({ insert }),
     })
 
-    const response = await POST(request('POST', validCreateBody()))
+    const response = await POST(request('POST', { ...validCreateBody(), isPublic: false }))
 
     expect(response.status).toBe(201)
     expect(insert).toHaveBeenCalledWith(
@@ -184,6 +184,7 @@ describe('Admin Promotions collection API', () => {
         code: 'SAVE10',
         applicable_product_types: ['ACCESSORY'],
         applicable_product_type: 'ACCESSORY',
+        is_public: false,
       }),
     )
   })
