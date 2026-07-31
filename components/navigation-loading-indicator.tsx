@@ -140,36 +140,38 @@ export function NavigationLoadingIndicator() {
       aria-label="Đang tải trang"
       className="fixed bottom-6 right-6 z-[100] flex items-center gap-4 rounded-full border border-slate-900/10 bg-white/95 px-6 py-4 shadow-[0_16px_48px_rgba(15,23,42,0.2)] backdrop-blur-md"
     >
-      <svg
-        viewBox="0 0 72 48"
-        className="h-11 w-[4.125rem] shrink-0 overflow-visible"
-        aria-hidden="true"
-      >
-        <path
-          d="M20 40 27.8 8H57l-2.1 8.2H36.7l-1.4 5.7h15.1L48.3 30H33.4L31 40Z"
-          fill="#0f172a"
+      <span className="navigation-loading-image relative flex h-11 w-[4.125rem] shrink-0 items-center justify-center overflow-hidden" aria-hidden="true">
+        <img
+          src="/images/fastlane-loading.png"
+          alt=""
+          className="h-9 w-[3.375rem] translate-x-[9px] object-contain"
         />
-        <path
-          d="M11 45c5.3-1.1 8.5-4.2 9.8-9.4L27.2 10c.8-3.3 3.1-5 6.8-5h19.4c5.4 0 10.3-1.4 17.6-4"
-          pathLength="100"
-          fill="none"
-          stroke="#9b7200"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2.8"
-          className="navigation-speed-trace"
-        />
-        <path
-          d="M8 42.2c4.7-1 7.4-3.6 8.6-8.2L22.9 8.4C24.3 2.8 28 .2 34.1.2h18.7c5.7 0 11.2-1.4 18.8-4.1"
-          pathLength="100"
-          fill="none"
-          stroke="#d8a313"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.35"
-          className="navigation-speed-trace navigation-speed-trace-secondary"
-        />
-      </svg>
+        <svg
+          viewBox="0 0 72 48"
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+        >
+          <path
+            d="M11 45c5.3-1.1 8.5-4.2 9.8-9.4L27.2 10c.8-3.3 3.1-5 6.8-5h19.4c5.4 0 10.3-1.4 17.6-4"
+            pathLength="100"
+            fill="none"
+            stroke="#9b7200"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2.8"
+            className="navigation-speed-trace"
+          />
+          <path
+            d="M8 42.2c4.7-1 7.4-3.6 8.6-8.2L22.9 8.4C24.3 2.8 28 .2 34.1.2h18.7c5.7 0 11.2-1.4 18.8-4.1"
+            pathLength="100"
+            fill="none"
+            stroke="#d8a313"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.35"
+            className="navigation-speed-trace navigation-speed-trace-secondary"
+          />
+        </svg>
+      </span>
       <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-900">
         Đang tải
       </span>

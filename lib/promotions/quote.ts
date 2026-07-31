@@ -269,6 +269,9 @@ export async function quoteProductPromotion(
     description: promotion.description,
     type: promotion.type,
     value: Number(promotion.value),
+    maxDiscountAmount: promotion.max_discount_amount === null
+      ? null
+      : Number(promotion.max_discount_amount),
     discountAmount: evaluation.discountAmount,
     subtotal: evaluation.subtotal,
     grandTotal: evaluation.grandTotal,
