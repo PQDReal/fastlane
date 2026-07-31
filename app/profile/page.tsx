@@ -331,34 +331,24 @@ function ProfileContent() {
 
                       switch (status) {
                         case 'PENDING_DEPOSIT':
-                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-yellow-500" />;
-                          stateText = 'Đang chờ thanh toán cọc. Vui lòng hoàn tất để giữ ưu đãi!';
-                          actionBtn = (
-                            <button onClick={() => setSelectedOrder(order)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all">
-                              Thanh toán ngay
-                            </button>
-                          );
-                          break;
                         case 'PENDING_CONFIRMATION':
+                        case 'PENDING':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-blue-500" />;
-                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast.';
+                          stateText = 'Chờ xét duyệt: Đã gửi yêu cầu đặt cọc. Đang chờ VinFast xét duyệt & xác nhận đơn cọc.';
                           break;
                         case 'CONFIRMED':
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
-                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast, bạn có thể tải lên CCCD.';
+                          stateText = 'Xác thực KYC: Đã xét duyệt đơn cọc. Vui lòng tải lên CCCD/CMND để xác thực KYC & hoàn thiện hồ sơ.';
                           actionBtn = (
-                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-[#836100] text-[#836100] hover:bg-[#836100] hover:text-white transition-all">
-                              Tải lên CCCD
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md">
+                              Tải lên CCCD (KYC)
                             </button>
                           );
                           break;
                         case 'PENDING_CONTRACT':
-                          stateIcon = <FileText className="w-5 h-5 shrink-0 text-blue-500" />;
-                          stateText = 'VinFast đang tạo Hợp đồng điện tử. Sẽ mất một chút thời gian.';
-                          break;
                         case 'CONTRACT_SIGNED':
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
-                          stateText = 'Đã có Hợp đồng điện tử. Vui lòng xem và ký xác nhận.';
+                          stateText = 'Ký hợp đồng: Hợp đồng mua xe điện tử đã sẵn sàng. Vui lòng xem & ký hợp đồng.';
                           actionBtn = (
                             <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
                               Xem & Ký HĐ
@@ -367,20 +357,17 @@ function ProfileContent() {
                           break;
                         case 'PENDING_PAYMENT':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
-                          stateText = 'Đang chờ thanh toán phần còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
+                          stateText = 'Thanh toán phần còn lại: Đang chờ thanh toán số tiền còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
                           actionBtn = (
                             <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all">
-                              Thanh toán
+                              Thanh toán phần còn lại
                             </button>
                           );
                           break;
                         case 'PAID':
-                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />;
-                          stateText = 'Đã thanh toán thành công. Đang sắp xếp lịch giao xe.';
-                          break;
                         case 'PREPARING_DELIVERY':
                           stateIcon = <Package className="w-5 h-5 shrink-0 text-purple-500" />;
-                          stateText = 'Xe đang được chuẩn bị bàn giao. Vui lòng chờ liên hệ!';
+                          stateText = 'Đã thanh toán thành công. Xe đang được chuẩn bị bàn giao!';
                           break;
                         case 'DELIVERED':
                         case 'COMPLETED':
@@ -393,10 +380,48 @@ function ProfileContent() {
                           break;
                       }
 
+                      const currentStepIdx = (() => {
+                        if (['PENDING_CONFIRMATION', 'PENDING_DEPOSIT', 'PENDING'].includes(status)) return 1;
+                        if (['CONFIRMED'].includes(status)) return 2;
+                        if (['PENDING_CONTRACT', 'CONTRACT_SIGNED'].includes(status)) return 3;
+                        if (['PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 4;
+                        return 1;
+                      })();
+
+                      const stepsList = [
+                        { step: 1, label: '1. Chờ xét duyệt' },
+                        { step: 2, label: '2. Xác thực KYC' },
+                        { step: 3, label: '3. Ký hợp đồng' },
+                        { step: 4, label: '4. Thanh toán' },
+                      ];
+
                       const stateBox = (
-                        <div className="flex items-start gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
-                          {stateIcon}
-                          <span className="text-sm font-medium text-gray-700 leading-snug">{stateText}</span>
+                        <div className="w-full space-y-3">
+                          {status !== 'CANCELLED' && (
+                            <div className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                              <div className="grid grid-cols-4 gap-1 text-[11px] font-bold text-center mb-1.5">
+                                {stepsList.map(s => (
+                                  <span key={s.step} className={s.step === currentStepIdx ? 'text-[#836100]' : s.step < currentStepIdx ? 'text-green-600' : 'text-gray-400'}>
+                                    {s.label}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                {stepsList.map(s => (
+                                  <div 
+                                    key={s.step} 
+                                    className={`flex-1 border-r last:border-r-0 border-white transition-all ${
+                                      s.step < currentStepIdx ? 'bg-green-500' : s.step === currentStepIdx ? 'bg-[#836100]' : 'bg-gray-200'
+                                    }`} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-start gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
+                            {stateIcon}
+                            <span className="text-sm font-medium text-gray-700 leading-snug">{stateText}</span>
+                          </div>
                         </div>
                       );
 

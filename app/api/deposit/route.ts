@@ -192,7 +192,7 @@ export async function POST(request: Request) {
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
         total_estimated_price: quote.totalEstimatedPrice,
-        status: 'PENDING_PAYMENT',
+        status: 'PENDING_CONFIRMATION',
         terms_accepted_at: now,
       })
       .select(RESPONSE_COLUMNS)
