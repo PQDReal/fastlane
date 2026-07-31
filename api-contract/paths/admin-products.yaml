@@ -95,6 +95,34 @@
       '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/catalog-collections:
+  get:
+    tags: [Admin Catalog]
+    operationId: listAdminCatalogCollections
+    x-prd-references: [US-A02, FR-ADMN-02]
+    summary: List active taxonomy collections for a root product category
+    description: Returns parent IDs so the product editor can preserve CATEGORY-to-MODEL hierarchy.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - in: query
+        name: rootCategoryId
+        required: true
+        schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' }
+    responses:
+      '200':
+        description: Active taxonomy collections ordered for administration
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../openapi.yaml#/components/schemas/AdminCatalogCollection' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
 /admin/products:
   get:
     tags: [Admin Catalog]
@@ -123,11 +151,11 @@
     tags: [Admin Catalog]
     operationId: createProduct
     x-prd-references: [US-A02, FR-ADMN-02, BR-05, BR-07]
-    summary: Create a product and its initial variants
+    summary: Create a complete accessory product aggregate
     description: |
-      Initial variants start with zero inventory. Inventory is changed only through the inventory endpoint.
-      An active product requires at least one active variant and exactly one thumbnail image; the request schema rejects violations with 400 VALIDATION_FAILED.
-      At most one image may be the thumbnail. Setting isThumbnail=true atomically demotes the previous thumbnail.
+      The currently implemented authoring workflow accepts ACCESSORY products. The backend validates the complete body before calling the database.
+      Product, taxonomy memberships, service labels, option groups/values, SKU mappings and media are then written atomically.
+      Prices belong to SKU variants; option values cannot add price. Existing inventory is never changed here and every new SKU starts at zero.
     security: [{ bearerAuth: [] }]
     x-required-roles: [admin]
     x-required-permissions: [catalog:manage]
@@ -135,9 +163,13 @@
       required: true
       content:
         application/json:
-          schema: { $ref: '../openapi.yaml#/components/schemas/ProductCreateRequest' }
+          schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryWriteRequest' }
     responses:
-      '201': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '201':
+        description: Accessory aggregate created
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessorySaveResponse' }
       '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
@@ -145,19 +177,25 @@
       '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+      '503': { $ref: '../openapi.yaml#/components/responses/ServiceUnavailable' }
 /admin/products/{productId}:
   get:
     tags: [Admin Catalog]
     operationId: getAdminProduct
     x-prd-references: [US-A02, FR-ADMN-02, FR-ADMN-03]
-    summary: Get any product for administration, including inactive products
+    summary: Get an accessory as an editable admin draft
+    description: Returns the active normalized relations of an existing ACCESSORY product, including inactive products, in the same editor model used for creation.
     security: [{ bearerAuth: [] }]
     x-required-roles: [admin]
     x-required-permissions: [catalog:manage]
     parameters:
       - { $ref: '../openapi.yaml#/components/parameters/ProductId' }
     responses:
-      '200': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '200':
+        description: Editable accessory aggregate
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryEditorResponse' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
@@ -167,8 +205,10 @@
     tags: [Admin Catalog]
     operationId: updateProduct
     x-prd-references: [US-A02, FR-ADMN-03, BR-05, BR-07]
-    summary: Update product metadata or publication status
-    description: Variants, images, and inventory are managed by their dedicated endpoints. Activating a product requires at least one active variant and exactly one thumbnail image.
+    summary: Atomically replace an accessory product aggregate
+    description: |
+      Requires expectedUpdatedAt from the GET response. A stale timestamp returns 409 instead of overwriting another admin's work.
+      Existing relation IDs are preserved when supplied, removed groups/values/SKUs are archived, new SKU inventory starts at zero, and existing SKU inventory is untouched.
     security: [{ bearerAuth: [] }]
     x-required-roles: [admin]
     x-required-permissions: [catalog:manage]
@@ -178,9 +218,16 @@
       required: true
       content:
         application/json:
-          schema: { $ref: '../openapi.yaml#/components/schemas/ProductPatchRequest' }
+          schema:
+            allOf:
+              - { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryWriteRequest' }
+              - required: [expectedUpdatedAt]
     responses:
-      '200': { $ref: '../openapi.yaml#/components/responses/ProductDetail' }
+      '200':
+        description: Accessory aggregate updated
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessorySaveResponse' }
       '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
@@ -189,6 +236,7 @@
       '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+      '503': { $ref: '../openapi.yaml#/components/responses/ServiceUnavailable' }
   delete:
     tags: [Admin Catalog]
     operationId: archiveProduct

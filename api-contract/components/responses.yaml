@@ -310,3 +310,10 @@ InternalServerError:
     application/json:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
       example: { error: { code: INTERNAL_ERROR, message: Unexpected server error., requestId: req_01J00000000000000000000000 } }
+ServiceUnavailable:
+  description: A required database capability has not been deployed or is temporarily unavailable.
+  x-error-codes: [INTERNAL_ERROR]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INTERNAL_ERROR, message: Required catalog persistence capability is unavailable., requestId: req_01J00000000000000000000000 } }
