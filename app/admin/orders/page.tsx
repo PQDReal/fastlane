@@ -50,7 +50,7 @@ export default function AdminOrdersPage() {
     if (isCar) {
       return {
         'PENDING_DEPOSIT': 'Chờ cọc',
-        'PENDING_CONFIRMATION': 'Chờ xác nhận cọc',
+        'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
         'CONFIRMED': 'Đã xác nhận',
         'PENDING_CONTRACT': 'Chờ tạo HĐ',
         'CONTRACT_SIGNED': 'Đã ký HĐ',
@@ -146,7 +146,7 @@ export default function AdminOrdersPage() {
                 <option value="All">Tất cả trạng thái</option>
                 <optgroup label="Đơn Xe Ô tô">
                   <option value="PENDING_DEPOSIT">Chờ cọc</option>
-                  <option value="PENDING_CONFIRMATION">Chờ xác nhận cọc</option>
+                  <option value="PENDING_CONFIRMATION">Chờ xét duyệt cọc</option>
                   <option value="CONFIRMED">Đã xác nhận</option>
                   <option value="PENDING_CONTRACT">Chờ tạo HĐ</option>
                   <option value="CONTRACT_SIGNED">Đã ký HĐ</option>

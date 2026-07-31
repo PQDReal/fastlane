@@ -171,7 +171,7 @@ function ProfileContent() {
     if (isCar) {
       return {
         'PENDING_DEPOSIT': 'Chờ cọc',
-        'PENDING_CONFIRMATION': 'Chờ xác nhận cọc',
+        'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
         'CONFIRMED': 'Đã xác nhận',
         'PENDING_CONTRACT': 'Chờ tạo HĐ',
         'CONTRACT_SIGNED': 'Đã ký HĐ',
