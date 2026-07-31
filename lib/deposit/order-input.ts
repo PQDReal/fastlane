@@ -101,10 +101,16 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
     required: customerType === 'corporate',
     max: 180,
   })
-  const phoneNumber = text(input, 'phone_number', 'Số điện thoại', {
+  let phoneNumber = text(input, 'phone_number', 'Số điện thoại', {
     required: true,
     max: 20,
   }).replace(/[\s.-]/g, '')
+
+  if (phoneNumber.startsWith('+84')) {
+    phoneNumber = '0' + phoneNumber.slice(3)
+  } else if (phoneNumber.startsWith('84') && phoneNumber.length > 9) {
+    phoneNumber = '0' + phoneNumber.slice(2)
+  }
   const email = text(input, 'email', 'Email', { required: true, max: 254 }).toLowerCase()
   const idCardNumber = text(input, 'id_card_number', 'Số giấy tờ', {
     required: true,

@@ -87,35 +87,37 @@ function isDepositSchemaOutdated(error: unknown): boolean {
 
 async function vehicleQuote(input: DepositOrderInput): Promise<VehicleQuote> {
   const supabase = getSupabaseAdmin()
-  const productResult = await supabase
+  const targetTypes = input.vehicleType === 'motorbike'
+    ? ['BIKE', 'MOTORBIKE']
+    : ['CAR']
+
+  const productsResult = await supabase
     .from('products')
     .select('id,name,displayed_price,product_type')
-    .eq('name', input.vehicleModel)
     .eq('is_active', true)
-    .maybeSingle()
+    .in('product_type', targetTypes)
 
-  if (productResult.error) throw productResult.error
-  if (!productResult.data) {
+  if (productsResult.error) throw productsResult.error
+
+  const compactModel = compact(input.vehicleModel)
+  const productData = (productsResult.data ?? []).find((p) => {
+    const pKey = compact(p.name)
+    return pKey === compactModel || pKey.endsWith(compactModel) || compactModel.endsWith(pKey)
+  })
+
+  if (!productData) {
     throw new DepositInputError('Mẫu xe không tồn tại hoặc đã ngừng hoạt động.')
-  }
-
-  const productType = String(productResult.data.product_type ?? '').toUpperCase()
-  const typeMatches = input.vehicleType === 'motorbike'
-    ? productType === 'BIKE' || productType === 'MOTORBIKE'
-    : productType === 'CAR'
-  if (!typeMatches) {
-    throw new DepositInputError('Loại xe không khớp với mẫu xe đã chọn.')
   }
 
   const variantsResult = await supabase
     .from('product_variants')
     .select('id,name,original_price,sale_price,deposit_amount')
-    .eq('product_id', productResult.data.id)
+    .eq('product_id', productData.id)
     .eq('is_active', true)
 
   if (variantsResult.error) throw variantsResult.error
   const variantKey = compact(input.vehicleVariant)
-  const productKey = compact(productResult.data.name)
+  const productKey = compact(productData.name)
   const selectedVariant = (variantsResult.data ?? []).find((variant) => {
     const key = compact(variant.name)
     return key === variantKey
@@ -130,7 +132,7 @@ async function vehicleQuote(input: DepositOrderInput): Promise<VehicleQuote> {
   const optionResult = await supabase
     .from('product_option_values')
     .select('id,code,name,price_adjustment')
-    .eq('product_id', productResult.data.id)
+    .eq('product_id', productData.id)
     .eq('is_active', true)
 
   const selectedNames = new Set(
@@ -151,7 +153,7 @@ async function vehicleQuote(input: DepositOrderInput): Promise<VehicleQuote> {
   const basePrice = money(
     selectedVariant?.sale_price
       ?? selectedVariant?.original_price
-      ?? productResult.data.displayed_price,
+      ?? productData.displayed_price,
   )
   if (basePrice <= 0) {
     throw new DepositInputError('Mẫu xe chưa có giá bán hợp lệ để đặt cọc.')
@@ -161,7 +163,7 @@ async function vehicleQuote(input: DepositOrderInput): Promise<VehicleQuote> {
   const defaultDeposit = input.vehicleType === 'motorbike' ? 2_000_000 : 10_000_000
 
   return {
-    productId: productResult.data.id,
+    productId: productData.id,
     variantId: selectedVariant?.id ?? null,
     depositAmount: Math.min(configuredDeposit || defaultDeposit, basePrice + optionAdjustment),
     totalEstimatedPrice: basePrice + optionAdjustment,
@@ -247,7 +249,7 @@ export async function POST(request: Request) {
         deposit_amount: quote.depositAmount,
         total_estimated_price: Math.max(0, quote.totalEstimatedPrice - discountAmount),
         promotion_code: input.promotionCode || null,
-        discount_amount: discountAmount > 0 ? discountAmount : null,
+        discount_amount: Math.max(0, discountAmount),
         status: 'PENDING_PAYMENT',
         terms_accepted_at: now,
       })
@@ -258,6 +260,13 @@ export async function POST(request: Request) {
       if (insertResult.error.code === '23505') {
         const replay = await existingOrder(idempotencyKey)
         if (replay) return NextResponse.json(responseData(replay, true))
+      }
+      if (insertResult.error.code === '23514') {
+        return errorResponse(
+          400,
+          'DEPOSIT_CONSTRAINT_VIOLATION',
+          'Số điện thoại hoặc thông tin đặt cọc không đúng định dạng.',
+        )
       }
       if (isDepositSchemaOutdated(insertResult.error)) {
         return errorResponse(
