@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 
+import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import { accessoryCatalogHref } from '@/lib/catalog/accessory-filters'
 import type { AccessoryCatalogFilters } from '@/lib/catalog/types'
 
@@ -31,6 +32,7 @@ export function AccessorySearchInput({
 
     const timeout = window.setTimeout(() => {
       lastNavigatedQuery.current = nextQuery
+      startNavigationLoading()
       startTransition(() => {
         router.replace(accessoryCatalogHref(filters, {
           q: nextQuery || null,

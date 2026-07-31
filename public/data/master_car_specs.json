@@ -2019,6 +2019,15 @@
           },
           "seats": "4",
           "urlPdp": "https://shop.vinfastauto.com/vn_vi/dat-coc-xe-dien-vf3.html"
+        },
+        "images_by_color": {
+          "Summer Yellow": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png",
+          "Rose Pink": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/1821/F1.png",
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE1V/F1.png",
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE2Q/F1.png",
+          "Sky Blue": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181Y/F1.png",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE1W/F1.png",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE18/F1.png"
         }
       },
       "Plus": {
@@ -2126,6 +2135,15 @@
           },
           "seats": "4",
           "urlPdp": "https://shop.vinfastauto.com/vn_vi/dat-coc-xe-dien-vf3.html"
+        },
+        "images_by_color": {
+          "Summer Yellow": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/181U.webp",
+          "Rose Pink": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/1821.webp",
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE1V.webp",
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE2Q.webp",
+          "Sky Blue": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/181Y.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE1W.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/CE18.webp"
         }
       }
     },
@@ -2283,6 +2301,14 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw32aad97c/reserves/VF5/2025/12.webp",
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw13fe4022/reserves/VF5/2025/15.webp",
+          "Summer Yellow Body - Jet Black Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwba68e5c8/reserves/VF5/2025/11.webp",
+          "Sky Blue - Infinity Blanc Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6a8286c7/images/VF5/GA12V/181Y.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfa8dfe57/images/VF5/GA12V/CE1W.webp"
         }
       }
     },
@@ -2508,6 +2534,13 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwda2b25f0/images/VF6/JB10V/CE11.webp",
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e7f4a29/images/VF6/JB10V/CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwdcc781de/images/VF6/JB10V/CE1W.webp",
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw878c933f/images/VF6/JB10V/CE2Q.webp"
         }
       },
       "Plus": {
@@ -2619,6 +2652,13 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/CE18.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/CE11.webp",
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/CE1W.webp",
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw878c933f/images/VF6/JB10V/CE2Q.webp"
         }
       }
     },
@@ -2792,6 +2832,13 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp",
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfee77d40/reserves/VF7/exterior/product-CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw613293fe/reserves/VF7/exterior/product-CE1W.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0c109403/reserves/VF7/exterior/product-CE18.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbe2e95be/reserves/VF7/exterior/product-CE11.webp"
         }
       },
       "Plus": {
@@ -2903,6 +2950,13 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Solar Ruby": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp",
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfee77d40/reserves/VF7/exterior/product-CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw613293fe/reserves/VF7/exterior/product-CE1W.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0c109403/reserves/VF7/exterior/product-CE18.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbe2e95be/reserves/VF7/exterior/product-CE11.webp"
         }
       }
     },
@@ -3096,6 +3150,16 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/CE11.webp",
+          "Ivy Green": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/CE22.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/CE18.webp",
+          "Crimson Red": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/CE1M.webp",
+          "Zenith Grey - Desat Silver Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/171V.webp",
+          "Infinity Blanc - Zenith Grey Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/1V18.webp",
+          "Crimson Velvet - Mystery Bronze Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/2927.webp",
+          "Jet Black - Mystery Bronze Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND31V/2911.webp"
         }
       },
       "Plus": {
@@ -3207,6 +3271,16 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/CE11.webp",
+          "Ivy Green": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/CE22.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/CE18.webp",
+          "Crimson Red": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/CE1M.webp",
+          "Zenith Grey - Desat Silver Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/171V.webp",
+          "Infinity Blanc - Zenith Grey Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/1V18.webp",
+          "Crimson Velvet - Mystery Bronze Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/2927.webp",
+          "Jet Black - Mystery Bronze Roof": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/ND32V/2911.webp"
         }
       }
     },
@@ -3407,6 +3481,15 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE1W.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE11.webp",
+          "Ivy Green": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE22.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE18.webp",
+          "Desat Silver": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE17.webp",
+          "Crimson Red": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3LV/CE1M.webp"
         }
       },
       "Plus tùy chọn 7 chỗ": {
@@ -3518,6 +3601,15 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE1W.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE11.webp",
+          "Ivy Green": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE22.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE18.webp",
+          "Desat Silver": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE17.webp",
+          "Crimson Red": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE1M.webp"
         }
       },
       "Plus tùy chọn ghế cơ trưởng": {
@@ -3629,6 +3721,15 @@
             "value": "personal",
             "displayValue": "Xe cá nhân"
           }
+        },
+        "images_by_color": {
+          "Zenith Grey": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE1V.webp",
+          "Urban Mint": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE1W.webp",
+          "Jet Black": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE11.webp",
+          "Ivy Green": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE22.webp",
+          "Infinity Blanc": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE18.webp",
+          "Desat Silver": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE17.webp",
+          "Crimson Red": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/NE3MV/CE1M.webp"
         }
       }
     },

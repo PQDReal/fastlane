@@ -1,9 +1,19 @@
 import { Auth0Client } from '@auth0/nextjs-auth0/server'
 import { NextResponse } from 'next/server'
 
-import { syncAuth0User } from '@/lib/services/user-service'
+import { Auth0EmailUnverifiedError, syncAuth0User } from '@/lib/services/user-service'
 
 const POPUP_COMPLETE_PATH = '/auth/popup-complete'
+
+function isAuthorizationDenied(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as {
+    code?: unknown
+    cause?: { code?: unknown }
+  }
+  return candidate.code === 'access_denied'
+    || candidate.cause?.code === 'access_denied'
+}
 
 export const auth0 = new Auth0Client({
   authorizationParameters: {
@@ -18,14 +28,23 @@ export const auth0 = new Auth0Client({
 
     const isWindowPopup = context.returnTo?.startsWith(POPUP_COMPLETE_PATH) === true
     const errorDestination = (code: string) => {
-      const destination = new URL(isWindowPopup ? '/auth/popup-error' : '/', baseUrl)
-      destination.searchParams.set(isWindowPopup ? 'code' : 'auth_error', code)
+      const destination = new URL(
+        isWindowPopup ? '/auth/popup-error' : '/auth/error',
+        baseUrl,
+      )
+      destination.searchParams.set('code', code)
       return destination
     }
 
     if (error || !session) {
       console.error('Auth0 callback failed', { error: error?.message ?? 'Session was not created' })
-      return NextResponse.redirect(errorDestination('callback_failed'))
+      return NextResponse.redirect(
+        errorDestination(
+          isAuthorizationDenied(error)
+            ? 'authorization_denied'
+            : 'callback_failed',
+        ),
+      )
     }
 
     let localUser
@@ -34,6 +53,7 @@ export const auth0 = new Auth0Client({
       localUser = await syncAuth0User({
         sub: session.user.sub,
         email: session.user.email,
+        email_verified: session.user.email_verified,
         name: session.user.name,
         phone_number: typeof phoneNumber === 'string' ? phoneNumber : null,
       })
@@ -42,7 +62,16 @@ export const auth0 = new Auth0Client({
         subject: session.user.sub,
         error: syncError instanceof Error ? syncError.message : 'Unknown sync error',
       })
-      return NextResponse.redirect(errorDestination('sync_failed'))
+      const code = syncError instanceof Auth0EmailUnverifiedError
+        ? 'email_unverified'
+        : 'sync_failed'
+      if (code === 'email_unverified') {
+        const cleanup = new URL('/auth/email-unverified', baseUrl)
+        if (isWindowPopup) cleanup.searchParams.set('popup', '1')
+        return NextResponse.redirect(cleanup)
+      }
+
+      return NextResponse.redirect(errorDestination(code))
     }
 
     if (localUser.status === 'INACTIVE') {

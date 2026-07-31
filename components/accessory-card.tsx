@@ -11,6 +11,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import {
   filterCompatibleVariants,
   resolveCatalogImageUrl,
@@ -547,7 +548,9 @@ export function AccessoryCard({
     && variant?.salePrice !== undefined
     && variant.salePrice < variant.originalPrice
   const openDetail = () => {
-    if (!previewMode) router.push(detailHref)
+    if (previewMode) return
+    startNavigationLoading()
+    router.push(detailHref)
   }
 
   return (

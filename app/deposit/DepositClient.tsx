@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
@@ -8,6 +9,164 @@ import {
   findDepositVehicle,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
+import {
+  validateDepositCustomerDetails,
+  type DepositCustomerField,
+} from '../../lib/deposit/order-input'
+
+type LocationOption = { code: number; name: string }
+type DepositQuote = {
+  depositAmount: number
+  subtotal: number
+  discountAmount: number
+  totalEstimatedPrice: number
+  promotion: { id: string; code: string; name: string } | null
+}
+
+const DEPOSIT_STEPS = [
+  { number: 1, label: 'Lựa chọn xe' },
+  { number: 2, label: 'Nhập thông tin' },
+  { number: 3, label: 'Thanh toán' },
+] as const
+
+function DepositStepper({ currentStep }: { currentStep: number }) {
+  const [isExploring, setIsExploring] = useState(false)
+  const shouldReduceMotion = useReducedMotion()
+  const visibleSteps = DEPOSIT_STEPS
+
+  return (
+    <div className="-mx-8 mb-10 mt-2 overflow-hidden px-8">
+      <motion.ol
+        layout
+        aria-label={`Tiến trình đặt cọc, bước ${currentStep} trên 3`}
+        className="flex h-14 w-full items-stretch gap-1.5"
+        onHoverStart={() => setIsExploring(true)}
+        onHoverEnd={() => setIsExploring(false)}
+      >
+        <AnimatePresence mode="popLayout">
+          {visibleSteps.map((step, index) => {
+            const isCurrent = step.number === currentStep
+            const isCompleted = step.number < currentStep
+            const showFullLabel = isCurrent || isExploring
+
+            return (
+              <motion.li
+                layout
+                key={step.number}
+                aria-current={isCurrent ? 'step' : undefined}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: -120, scaleX: 0.82 }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scaleX: 1,
+                  flexGrow: showFullLabel ? 1 : 0,
+                  flexBasis: showFullLabel ? 0 : 52,
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: -180, scaleX: 0.72 }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        layout: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        opacity: { duration: 0.18 },
+                        x: {
+                          duration: 0.34,
+                          ease: [0.7, 0, 0.2, 1],
+                        },
+                        scaleX: {
+                          duration: 0.3,
+                          ease: [0.7, 0, 0.2, 1],
+                        },
+                        flexGrow: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        flexBasis: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                      }
+                }
+                className={`relative min-w-[52px] origin-left overflow-hidden ${
+                  isCurrent
+                    ? 'bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.2)]'
+                    : isCompleted
+                      ? 'bg-brand-100 text-brand-800'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+                style={{
+                  clipPath:
+                    index === 0
+                      ? 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%)'
+                      : 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%)',
+                }}
+              >
+                <div
+                  className={`flex h-full items-center gap-2.5 ${
+                    index === 0 ? 'pl-3' : 'pl-5'
+                  } pr-6`}
+                >
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                      isCurrent
+                        ? 'bg-white text-slate-950'
+                        : isCompleted
+                          ? 'border border-brand-300 bg-brand-600 text-white'
+                        : 'border border-slate-300 bg-white text-slate-500'
+                    }`}
+                  >
+                    {step.number}
+                  </span>
+
+                  <AnimatePresence initial={false}>
+                    {showFullLabel && (
+                      <motion.span
+                        initial={
+                          shouldReduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, x: -8 }
+                        }
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={
+                          shouldReduceMotion
+                            ? { duration: 0.01 }
+                            : {
+                                duration: 0.22,
+                                ease: [0.16, 1, 0.3, 1],
+                              }
+                        }
+                        className={`truncate text-[11px] font-extrabold uppercase tracking-[0.08em] sm:text-xs ${
+                          !isCurrent ? 'hidden sm:block' : ''
+                        }`}
+                      >
+                        {step.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {!showFullLabel && (
+                    <span className="sr-only">{step.label}</span>
+                  )}
+                </div>
+              </motion.li>
+            )
+          })}
+        </AnimatePresence>
+      </motion.ol>
+    </div>
+  )
+}
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -55,12 +214,39 @@ export function DepositClient({
   const [interiorImageIndex, setInteriorImageIndex] = useState(0)
   const [selectedPackages, setSelectedPackages] = useState<string[]>([])
   const [currentStep, setCurrentStep] = useState(1)
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1)
   const [customerType, setCustomerType] = useState<'personal' | 'corporate'>('personal')
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', district: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', idCard: '', companyName: '', province: '', ward: '' })
+  const [provinces, setProvinces] = useState<LocationOption[]>([])
+  const [wards, setWards] = useState<LocationOption[]>([])
+  const [provinceCode, setProvinceCode] = useState('')
+  const [wardCode, setWardCode] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<DepositCustomerField, string>>
+  >({})
+  const [locationsLoading, setLocationsLoading] = useState(true)
+  const [wardsLoading, setWardsLoading] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [promotionCode, setPromotionCode] = useState('')
+  const [promotionQuote, setPromotionQuote] = useState<DepositQuote | null>(null)
+  const [promotionLoading, setPromotionLoading] = useState(false)
+  const [promotionError, setPromotionError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderNumber: string
+    depositAmount: number
+    totalEstimatedPrice: number
+    subtotal: number
+    discountAmount: number
+    promotionCode: string | null
+    createdAt: string
+    status: string
+  } | null>(null)
+  const depositIdempotencyKey = useRef<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const shouldReduceMotion = useReducedMotion()
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
@@ -68,6 +254,97 @@ export function DepositClient({
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
+  }
+
+  const clearFieldError = (field: DepositCustomerField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+  const validateCustomerField = (field: DepositCustomerField) => {
+    const errors = validateDepositCustomerDetails({
+      customerType,
+      fullName: formData.name,
+      companyName: formData.companyName,
+      phoneNumber: formData.phone,
+      email: formData.email,
+      idCardNumber: formData.idCard,
+      provinceCode,
+      wardCode,
+    })
+    setFieldErrors((current) => {
+      const next = { ...current }
+      if (errors[field]) next[field] = errors[field]
+      else delete next[field]
+      return next
+    })
+  }
+  const inputClass = (field: DepositCustomerField) =>
+    `w-full rounded-xl border px-4 py-3 transition-all focus:bg-white focus:outline-none focus:ring-1 ${
+      fieldErrors[field]
+        ? 'border-red-400 bg-red-50/40 focus:border-red-500 focus:ring-red-500'
+        : 'border-slate-200 bg-slate-50 focus:border-slate-900 focus:ring-slate-900'
+    }`
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLocationsLoading(true)
+    fetch('/api/v1/locations', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải tỉnh/thành phố.')
+        setProvinces(payload.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLocationError(error instanceof Error ? error.message : 'Không thể tải tỉnh/thành phố.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLocationsLoading(false)
+      })
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (!provinceCode) {
+      setWards([])
+      setWardCode('')
+      return
+    }
+
+    const controller = new AbortController()
+    setWardsLoading(true)
+    setLocationError(null)
+    fetch(`/api/v1/locations?provinceCode=${provinceCode}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải xã/phường.')
+        setWards(payload.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setLocationError(error instanceof Error ? error.message : 'Không thể tải xã/phường.')
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setWardsLoading(false)
+      })
+    return () => controller.abort()
+  }, [provinceCode])
+  const goToStep = (nextStep: number) => {
+    if (nextStep < 3) depositIdempotencyKey.current = null
+    setStepDirection(nextStep >= currentStep ? 1 : -1)
+    setCurrentStep(nextStep)
   }
 
   useEffect(() => {
@@ -115,6 +392,8 @@ export function DepositClient({
     setViewMode('exterior')
     setInteriorImageIndex(0)
     setSelectedInteriorColor(nextType === 'motorbike' ? '' : 'Granite Black')
+    setPromotionQuote(null)
+    setPromotionError(null)
   }
 
   const handleExteriorColorChange = (newColor: string) => {
@@ -173,87 +452,99 @@ export function DepositClient({
     }
   }
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (currentStep === 1) {
-      setCurrentStep(2)
+      goToStep(2)
     } else if (currentStep === 2) {
-      const isMissingPersonal = customerType === 'personal' && !formData.name;
-      const isMissingCorporate = customerType === 'corporate' && !formData.companyName;
-      
-      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.district) {
-        addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
-        return;
+      const errors = validateDepositCustomerDetails({
+        customerType,
+        fullName: formData.name,
+        companyName: formData.companyName,
+        phoneNumber: formData.phone,
+        email: formData.email,
+        idCardNumber: formData.idCard,
+        provinceCode,
+        wardCode,
+      })
+      setFieldErrors(errors)
+      if (Object.keys(errors).length > 0) {
+        addToast({
+          kind: 'warning',
+          title: 'Thông tin chưa hợp lệ',
+          message: Object.values(errors)[0],
+        })
+        return
       }
-      setCurrentStep(3)
+      goToStep(3)
     } else if (currentStep === 3) {
       if (!termsAccepted) {
         addToast({ kind: 'warning', title: 'Vui lòng xác nhận đồng ý với các Điều kiện & Điều khoản' });
         return;
       }
 
-      setIsSubmitting(true);
-      
-      const order_number = 'VF' + Math.floor(Math.random() * 1000000)
+      setIsSubmitting(true)
 
       const currentCarObj =
         availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
-      const currentSpecsObj = specsData[currentCarObj.name] || {}
-      
-      const selectedVariantName = selectedVariant.replace(currentCarObj.name + ' ', '')
-      const variantData = currentSpecsObj.variants?.[selectedVariantName]
-      const basePrice = variantData?.price || currentCarObj.displayed_price || 0
-      
-      const advancedColorsList = (currentCarObj.colors || []).slice(4)
-      const isAdvancedColor = advancedColorsList.some((c: any) => c.name === selectedColor)
-      const colorPrice = isAdvancedColor ? (currentCarObj.name.includes('MPV') ? 10000000 : (['VF 7', 'VF 9'].includes(currentCarObj.name) || currentCarObj.name.includes('VF 8') ? 12000000 : 8000000)) : 0
-      
-      let packagesPrice = 0
-      const availablePackages = currentCarObj.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
-      selectedPackages.forEach(id => {
-        const pkg = availablePackages.find((p: any) => p.id === id)
-        if (pkg) packagesPrice += pkg.price
-      })
-      const totalPrice = basePrice + colorPrice + packagesPrice
 
-      fetch('/api/deposit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_number,
-          customer_type: customerType,
-          full_name: formData.name,
-          company_name: formData.companyName,
-          phone_number: formData.phone,
-          email: formData.email,
-          id_card_number: formData.idCard,
-          province: formData.province,
-          district: formData.district,
-          car_model: currentCarObj.name,
-          car_variant: selectedVariant,
-          exterior_color: selectedColor,
-          interior_color:
-            currentCarObj.product_type === 'motorbike'
-              ? ''
-              : selectedInteriorColor,
-          optional_packages: selectedPackages,
-          showroom: 'VinFast Landmark 81',
-          payment_method: paymentMethod,
-          deposit_amount:
-            currentCarObj.deposit_value ||
-            (currentCarObj.product_type === 'motorbike' ? 2000000 : 10000000),
-          total_estimated_price: totalPrice
+      if (!depositIdempotencyKey.current) {
+        depositIdempotencyKey.current = crypto.randomUUID()
+      }
+
+      try {
+        const response = await fetch('/api/deposit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': depositIdempotencyKey.current,
+          },
+          body: JSON.stringify({
+            customer_type: customerType,
+            full_name: formData.name,
+            company_name: formData.companyName,
+            phone_number: formData.phone,
+            email: formData.email,
+            id_card_number: formData.idCard,
+            province: formData.province,
+            province_code: provinceCode,
+            ward: formData.ward,
+            ward_code: wardCode,
+            vehicle_type: currentCarObj.product_type === 'motorbike' ? 'motorbike' : 'car',
+            car_model: currentCarObj.name,
+            car_variant: selectedVariant,
+            exterior_color: selectedColor,
+            interior_color:
+              currentCarObj.product_type === 'motorbike'
+                ? ''
+                : selectedInteriorColor,
+            optional_packages: selectedPackages,
+            promotion_code: promotionQuote?.promotion?.code ?? null,
+            payment_method: paymentMethod,
+            terms_accepted: true,
+          }),
         })
-      }).then(res => res.json()).then(res => {
-        setIsSubmitting(false)
-        if (res.error) {
-          addToast({ kind: 'error', title: 'Lỗi', message: res.error })
-        } else {
-          setCurrentStep(4)
+        const result = await response.json().catch(() => null)
+
+        if (!response.ok || !result?.data) {
+          addToast({
+            kind: 'error',
+            title: 'Không thể tạo đơn đặt cọc',
+            message: result?.error?.message || 'Vui lòng thử lại sau.',
+          })
+          return
         }
-      }).catch(err => {
+
+        setCompletedOrder(result.data)
+        goToStep(4)
+      } catch {
+        addToast({
+          kind: 'error',
+          title: 'Lỗi kết nối',
+          message: 'Không thể kết nối máy chủ. Bạn có thể thử gửi lại mà không tạo trùng đơn.',
+        })
+      } finally {
         setIsSubmitting(false)
-        addToast({ kind: 'error', title: 'Lỗi hệ thống', message: 'Không thể kết nối máy chủ' })
-      })
+      }
     }
   }
   
@@ -320,6 +611,101 @@ export function DepositClient({
     const vf9Advanced = ['Ivy Green', 'Desat Silver']
     baseColors = colors.filter((c: any) => !vf9Advanced.includes(c.name))
     advancedColors = colors.filter((c: any) => vf9Advanced.includes(c.name))
+  }
+
+  const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
+  const selectedVariantData = currentSpecs.variants?.[selectedVariantName]
+  const basePrice =
+    selectedVariantData?.price || currentCar.displayed_price || 0
+  const isAdvancedColor = advancedColors.some(
+    (color: any) => color.name === selectedColor,
+  )
+  const colorPrice = isAdvancedColor
+    ? currentCar.name.includes('MPV')
+      ? 10_000_000
+      : ['VF 7', 'VF 9'].includes(currentCar.name) ||
+          currentCar.name.includes('VF 8')
+        ? 12_000_000
+        : 8_000_000
+    : 0
+  const availablePackages =
+    currentCar.optional_packages?.filter(
+      (pkg: any) =>
+        !pkg.variants ||
+        pkg.variants.some((variant: string) => selectedVariant.includes(variant)),
+    ) || []
+  const packagesPrice = selectedPackages.reduce((total, id) => {
+    const selectedPackage = availablePackages.find((pkg: any) => pkg.id === id)
+    return total + (selectedPackage?.price || 0)
+  }, 0)
+  const localSubtotal = basePrice + colorPrice + packagesPrice
+  const displayedTotal =
+    promotionQuote?.totalEstimatedPrice ?? localSubtotal
+
+  useEffect(() => {
+    setPromotionQuote(null)
+    setPromotionError(null)
+  }, [
+    vehicleType,
+    selectedCarId,
+    selectedVariant,
+    selectedColor,
+    selectedInteriorColor,
+    selectedPackages,
+  ])
+
+  const depositSelectionPayload = () => ({
+    vehicle_type: currentCar.product_type === 'motorbike' ? 'motorbike' : 'car',
+    car_model: currentCar.name,
+    car_variant: selectedVariant,
+    exterior_color: selectedColor,
+    interior_color:
+      currentCar.product_type === 'motorbike' ? '' : selectedInteriorColor,
+    optional_packages: selectedPackages,
+    promotion_code: promotionCode.trim().toUpperCase(),
+  })
+
+  const handleApplyPromotion = async () => {
+    const code = promotionCode.trim().toUpperCase()
+    if (!code) {
+      setPromotionError('Vui lòng nhập mã ưu đãi.')
+      return
+    }
+    if (!/^[A-Z0-9_-]{3,64}$/.test(code)) {
+      setPromotionError('Mã ưu đãi chỉ gồm 3–64 chữ in hoa, số, dấu gạch ngang hoặc gạch dưới.')
+      return
+    }
+    setPromotionLoading(true)
+    setPromotionError(null)
+    try {
+      const response = await fetch('/api/deposit/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(depositSelectionPayload()),
+      })
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !result?.data) {
+        setPromotionQuote(null)
+        setPromotionError(
+          result?.error?.message || 'Không thể áp dụng mã ưu đãi.',
+        )
+        return
+      }
+      setPromotionCode(code)
+      setPromotionQuote(result.data)
+      addToast({
+        kind: 'success',
+        title: 'Đã áp dụng mã ưu đãi',
+        message: `Bạn được giảm ${new Intl.NumberFormat('vi-VN').format(
+          result.data.discountAmount,
+        )} ₫.`,
+      })
+    } catch {
+      setPromotionQuote(null)
+      setPromotionError('Không thể kết nối máy chủ để kiểm tra mã ưu đãi.')
+    } finally {
+      setPromotionLoading(false)
+    }
   }
 
   const activeColorObj = colors.find((c: any) => c.name === selectedColor)
@@ -559,7 +945,7 @@ export function DepositClient({
         />
 
         {/* LEFT COLUMN: CAR SHOWCASE */}
-        <div className="flex-1 flex flex-col relative z-10">
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col">
           
           {/* SLEEK TOP BAR */}
           <div className="w-full px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 z-50 relative">
@@ -596,7 +982,20 @@ export function DepositClient({
               </div>
 
               {/* VEHICLE SELECTOR */}
-              <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar">
+              <div
+                className={
+                  isMotorbike
+                    ? 'grid max-w-full grid-rows-2 gap-2 overflow-x-auto rounded-[26px] border border-slate-200 bg-white/75 p-2 shadow-sm backdrop-blur-md hide-scrollbar'
+                    : 'inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar'
+                }
+                style={
+                  isMotorbike
+                    ? {
+                        gridTemplateColumns: `repeat(${Math.ceil(availableCars.length / 2)}, minmax(112px, max-content))`,
+                      }
+                    : undefined
+                }
+              >
                 {availableCars.map((car, idx) => {
                 const allImages = [
                   ...(car.gallery?.exterior_images || []),
@@ -624,10 +1023,14 @@ export function DepositClient({
                   <button
                     key={idx}
                     onClick={() => setSelectedCarId(car.name)}
-                    className={`px-6 py-2.5 rounded-full text-sm font-medium tracking-wider transition-all duration-300 whitespace-nowrap flex items-center justify-center min-w-[80px] h-10 ${
+                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 ${
+                      isMotorbike
+                        ? 'h-11 min-w-[112px] px-5 py-2.5 text-[15px] font-bold tracking-[0.04em]'
+                        : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
+                    } ${
                       isSelected 
                         ? 'bg-slate-900 text-white shadow-lg scale-105' 
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 group'
+                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group'
                     }`}
                   >
                     {logo ? (
@@ -733,28 +1136,73 @@ export function DepositClient({
         </div>
 
         {/* RIGHT COLUMN: PREMIUM CONFIGURATOR */}
-        <div className="w-full lg:w-[540px] xl:w-[600px] bg-white text-slate-900 shadow-2xl z-20 flex flex-col relative rounded-t-[40px] lg:rounded-t-none lg:rounded-l-[40px] overflow-hidden">
+        <div className="relative z-20 flex w-full shrink-0 flex-col overflow-hidden rounded-t-[40px] bg-white text-slate-900 shadow-2xl lg:w-[540px] lg:rounded-l-[40px] lg:rounded-t-none xl:w-[600px]">
           
           <div className="flex-1 overflow-y-auto hide-scrollbar p-8 pb-48">
             
-            {/* MODERN STEPPER */}
-            <div className="flex items-center gap-4 mb-10 mt-2">
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 1 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>1</div>
-                 {currentStep === 1 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Lựa chọn xe</span>}
-               </div>
-               <div className={`h-px flex-1 ${currentStep >= 2 ? 'bg-slate-900' : 'bg-slate-200'}`}></div>
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 2 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>2</div>
-                 {currentStep === 2 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Nhập thông tin</span>}
-               </div>
-               <div className={`h-px flex-1 ${currentStep >= 3 ? 'bg-slate-900' : 'bg-slate-200'}`}></div>
-               <div className="flex items-center gap-3">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${currentStep >= 3 ? 'bg-slate-900 text-white' : 'border-2 border-slate-200 text-slate-300'}`}>3</div>
-                 {currentStep === 3 && <span className="font-bold tracking-wide text-sm uppercase text-slate-900 whitespace-nowrap shrink-0">Đặt cọc xe</span>}
-               </div>
-            </div>
+            {/* SPEED-INSPIRED STEPPER */}
+            <AnimatePresence>
+              {currentStep <= 3 && (
+                <motion.div
+                  key="deposit-stepper"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={
+                    shouldReduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, x: -140 }
+                  }
+                  transition={
+                    shouldReduceMotion
+                      ? { duration: 0.01 }
+                      : { duration: 0.3, ease: [0.7, 0, 0.2, 1] }
+                  }
+                >
+                  <DepositStepper currentStep={currentStep} />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
+            <AnimatePresence mode="popLayout" custom={stepDirection}>
+              <motion.div
+                key={currentStep}
+                custom={stepDirection}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x: stepDirection > 0 ? 72 : -72,
+                        filter: 'blur(3px)',
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  filter: 'blur(0px)',
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x: stepDirection > 0 ? -110 : 110,
+                        filter: 'blur(3px)',
+                      }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.01 }
+                    : {
+                        x: {
+                          duration: 0.38,
+                          ease: [0.16, 1, 0.3, 1],
+                        },
+                        opacity: { duration: 0.2 },
+                        filter: { duration: 0.22 },
+                      }
+                }
+              >
             {currentStep === 1 && (
               <>
 
@@ -969,7 +1417,7 @@ export function DepositClient({
             )}
             
             {currentStep === 2 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
                 <h3 className="text-2xl font-bold tracking-tight mb-8">Thông tin người đặt cọc</h3>
                 
                 <div className="space-y-6">
@@ -981,7 +1429,11 @@ export function DepositClient({
                         name="customerType" 
                         value="personal" 
                         checked={customerType === 'personal'} 
-                        onChange={() => setCustomerType('personal')}
+                        onChange={() => {
+                          setCustomerType('personal')
+                          setFormData((current) => ({ ...current, companyName: '' }))
+                          setFieldErrors({})
+                        }}
                         className="w-4 h-4 text-slate-900 focus:ring-slate-900"
                       />
                       <span className="text-sm font-semibold text-slate-700">Cá nhân</span>
@@ -992,7 +1444,11 @@ export function DepositClient({
                         name="customerType" 
                         value="corporate" 
                         checked={customerType === 'corporate'} 
-                        onChange={() => setCustomerType('corporate')}
+                        onChange={() => {
+                          setCustomerType('corporate')
+                          setFormData((current) => ({ ...current, name: '' }))
+                          setFieldErrors({})
+                        }}
                         className="w-4 h-4 text-slate-900 focus:ring-slate-900"
                       />
                       <span className="text-sm font-semibold text-slate-700">Doanh nghiệp</span>
@@ -1002,60 +1458,99 @@ export function DepositClient({
                   {customerType === 'corporate' ? (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tên doanh nghiệp <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập tên doanh nghiệp đầy đủ" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} />
+                      <input type="text" required autoComplete="organization" minLength={2} maxLength={180} aria-invalid={Boolean(fieldErrors.companyName)} placeholder="Nhập tên doanh nghiệp đầy đủ" className={inputClass('companyName')} value={formData.companyName} onBlur={() => validateCustomerField('companyName')} onChange={e => { setFormData({...formData, companyName: e.target.value}); clearFieldError('companyName') }} />
+                      {fieldErrors.companyName && <p className="text-xs font-medium text-red-600">{fieldErrors.companyName}</p>}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Họ và tên <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập họ và tên đầy đủ" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                      <input type="text" required autoComplete="name" autoCapitalize="words" minLength={2} maxLength={120} aria-invalid={Boolean(fieldErrors.fullName)} placeholder="Nhập họ và tên đầy đủ" className={inputClass('fullName')} value={formData.name} onBlur={() => validateCustomerField('fullName')} onChange={e => { setFormData({...formData, name: e.target.value}); clearFieldError('fullName') }} />
+                      {fieldErrors.fullName && <p className="text-xs font-medium text-red-600">{fieldErrors.fullName}</p>}
                     </div>
                   )}
                   
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Số điện thoại <span className="text-red-500">*</span></label>
-                    <input type="tel" placeholder="Nhập số điện thoại" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <input type="tel" required autoComplete="tel" inputMode="tel" minLength={10} maxLength={20} pattern="(?:0|\\+84)(?:3|5|7|8|9)[0-9 .()\\-]{8,14}" aria-invalid={Boolean(fieldErrors.phoneNumber)} placeholder="Ví dụ: 0901234567 hoặc +84901234567" className={inputClass('phoneNumber')} value={formData.phone} onBlur={() => validateCustomerField('phoneNumber')} onChange={e => { setFormData({...formData, phone: e.target.value}); clearFieldError('phoneNumber') }} />
+                    {fieldErrors.phoneNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.phoneNumber}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Email <span className="text-red-500">*</span></label>
-                    <input type="email" placeholder="Nhập địa chỉ email" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                    <input type="email" required autoComplete="email" inputMode="email" maxLength={254} spellCheck={false} aria-invalid={Boolean(fieldErrors.email)} placeholder="Ví dụ: ten@example.com" className={inputClass('email')} value={formData.email} onBlur={() => validateCustomerField('email')} onChange={e => { setFormData({...formData, email: e.target.value}); clearFieldError('email') }} />
+                    {fieldErrors.email && <p className="text-xs font-medium text-red-600">{fieldErrors.email}</p>}
                   </div>
 
                   {customerType === 'corporate' ? (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Số đăng ký kinh doanh / Mã số thuế <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập số ĐKKD hoặc MST" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.idCard} onChange={e => setFormData({...formData, idCard: e.target.value})} />
+                      <input type="text" required inputMode="numeric" minLength={10} maxLength={14} pattern="[0-9]{10}(?:-[0-9]{3})?" spellCheck={false} aria-invalid={Boolean(fieldErrors.idCardNumber)} placeholder="Ví dụ: 0100109106" className={inputClass('idCardNumber')} value={formData.idCard} onBlur={() => validateCustomerField('idCardNumber')} onChange={e => { setFormData({...formData, idCard: e.target.value.replace(/[^0-9-]/g, '')}); clearFieldError('idCardNumber') }} />
+                      {fieldErrors.idCardNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.idCardNumber}</p>}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Số CCCD / CMND / Hộ chiếu <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập số giấy tờ tùy thân" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.idCard} onChange={e => setFormData({...formData, idCard: e.target.value})} />
+                      <input type="text" required inputMode="text" minLength={8} maxLength={12} pattern="(?:[0-9]{9}|[0-9]{12}|[A-Za-z][0-9]{7})" autoCapitalize="characters" spellCheck={false} aria-invalid={Boolean(fieldErrors.idCardNumber)} placeholder="CCCD 12 số, CMND 9 số hoặc hộ chiếu" className={inputClass('idCardNumber')} value={formData.idCard} onBlur={() => validateCustomerField('idCardNumber')} onChange={e => { setFormData({...formData, idCard: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')}); clearFieldError('idCardNumber') }} />
+                      {fieldErrors.idCardNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.idCardNumber}</p>}
                     </div>
                   )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, district: ''})}>
-                        <option value="">Chọn Tỉnh/Thành</option>
-                        <option value="HN">Hà Nội</option>
-                        <option value="HCM">TP. Hồ Chí Minh</option>
-                        <option value="DN">Đà Nẵng</option>
-                        <option value="HP">Hải Phòng</option>
+                      <select
+                        required
+                        className={`${inputClass('provinceCode')} appearance-none disabled:cursor-not-allowed disabled:opacity-60`}
+                        value={provinceCode}
+                        aria-invalid={Boolean(fieldErrors.provinceCode)}
+                        disabled={locationsLoading}
+                        onChange={e => {
+                          const nextCode = e.target.value
+                          const selectedProvince = provinces.find(province => String(province.code) === nextCode)
+                          setProvinceCode(nextCode)
+                          setWardCode('')
+                          setFormData({...formData, province: selectedProvince?.name ?? '', ward: ''})
+                          clearFieldError('provinceCode')
+                          clearFieldError('wardCode')
+                        }}
+                      >
+                        <option value="">{locationsLoading ? 'Đang tải Tỉnh/Thành...' : 'Chọn Tỉnh/Thành'}</option>
+                        {provinces.map(province => (
+                          <option key={province.code} value={province.code}>{province.name}</option>
+                        ))}
                       </select>
+                      {fieldErrors.provinceCode && <p className="text-xs font-medium text-red-600">{fieldErrors.provinceCode}</p>}
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Quận / Huyện <span className="text-red-500">*</span></label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white appearance-none" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})}>
-                        <option value="">Chọn Quận/Huyện</option>
-                        {formData.province === 'HN' && <><option value="Ba Đình">Ba Đình</option><option value="Hoàn Kiếm">Hoàn Kiếm</option><option value="Cầu Giấy">Cầu Giấy</option></>}
-                        {formData.province === 'HCM' && <><option value="Q1">Quận 1</option><option value="Q3">Quận 3</option><option value="QTD">Thủ Đức</option></>}
-                        {formData.province === 'DN' && <><option value="HC">Hải Châu</option><option value="TK">Thanh Khê</option></>}
-                        {formData.province === 'HP' && <><option value="HB">Hồng Bàng</option><option value="LC">Lê Chân</option></>}
+                      <label className="text-sm font-semibold text-slate-700">Xã / Phường <span className="text-red-500">*</span></label>
+                      <select
+                        required
+                        className={`${inputClass('wardCode')} appearance-none disabled:cursor-not-allowed disabled:opacity-60`}
+                        value={wardCode}
+                        aria-invalid={Boolean(fieldErrors.wardCode)}
+                        disabled={!provinceCode || wardsLoading}
+                        onChange={e => {
+                          const nextCode = e.target.value
+                          const selectedWard = wards.find(ward => String(ward.code) === nextCode)
+                          setWardCode(nextCode)
+                          setFormData({...formData, ward: selectedWard?.name ?? ''})
+                          clearFieldError('wardCode')
+                        }}
+                      >
+                        <option value="">
+                          {wardsLoading ? 'Đang tải Xã/Phường...' : provinceCode ? 'Chọn Xã/Phường' : 'Chọn Tỉnh/Thành trước'}
+                        </option>
+                        {wards.map(ward => (
+                          <option key={ward.code} value={ward.code}>{ward.name}</option>
+                        ))}
                       </select>
+                      {fieldErrors.wardCode && <p className="text-xs font-medium text-red-600">{fieldErrors.wardCode}</p>}
                     </div>
                   </div>
 
+                  {locationError && (
+                    <p className="text-sm text-red-600" role="status">{locationError}</p>
+                  )}
                   <div className="space-y-2 pt-4">
                     <label className="text-sm font-semibold text-slate-700">Showroom nhận xe <span className="text-red-500">*</span></label>
                     <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-medium">
@@ -1066,18 +1561,62 @@ export function DepositClient({
                   <div className="space-y-2 pt-4">
                     <label className="text-sm font-semibold text-slate-700">Mã ưu đãi / E-voucher</label>
                     <div className="flex gap-3">
-                      <input type="text" placeholder="Nhập mã ưu đãi" className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white uppercase" />
-                      <button className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors whitespace-nowrap">
-                        Áp dụng
+                      <input
+                        type="text"
+                        minLength={3}
+                        maxLength={64}
+                        pattern="[A-Z0-9_-]{3,64}"
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        value={promotionCode}
+                        onChange={(event) => {
+                          setPromotionCode(
+                            event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+                          )
+                          setPromotionQuote(null)
+                          setPromotionError(null)
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            void handleApplyPromotion()
+                          }
+                        }}
+                        aria-invalid={Boolean(promotionError)}
+                        placeholder="Nhập mã ưu đãi"
+                        className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 uppercase transition-all focus:border-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleApplyPromotion()}
+                        disabled={promotionLoading}
+                        className="whitespace-nowrap rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {promotionLoading ? 'Đang kiểm tra...' : 'Áp dụng'}
                       </button>
                     </div>
+                    {promotionError && (
+                      <p className="text-sm font-medium text-red-600" role="status">
+                        {promotionError}
+                      </p>
+                    )}
+                    {promotionQuote?.promotion && (
+                      <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+                        <span className="font-semibold text-emerald-800">
+                          {promotionQuote.promotion.name}
+                        </span>
+                        <span className="font-bold text-emerald-700">
+                          -{new Intl.NumberFormat('vi-VN').format(promotionQuote.discountAmount)} ₫
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )}
             
             {currentStep === 3 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div>
                 <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-6">
                   <h3 className="text-xl font-bold tracking-tight text-slate-800">Thông tin đơn hàng</h3>
                   <svg className="w-5 h-5 text-slate-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -1108,6 +1647,24 @@ export function DepositClient({
                         <span className="text-slate-600">Nội thất</span>
                         <span className="font-medium text-slate-800">{selectedInteriorColor}</span>
                       </div>
+                    )}
+                    {promotionQuote?.promotion && (
+                      <>
+                        <div className="flex items-center justify-between border-t border-slate-100 py-3">
+                          <span className="text-slate-600">
+                            Mã ưu đãi {promotionQuote.promotion.code}
+                          </span>
+                          <span className="font-semibold text-emerald-700">
+                            -{new Intl.NumberFormat('vi-VN').format(promotionQuote.discountAmount)} ₫
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-slate-100 py-3">
+                          <span className="font-semibold text-slate-800">Tổng sau ưu đãi</span>
+                          <span className="font-bold text-slate-950">
+                            {new Intl.NumberFormat('vi-VN').format(promotionQuote.totalEstimatedPrice)} ₫
+                          </span>
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -1176,16 +1733,16 @@ export function DepositClient({
             )}
             
             {currentStep === 4 && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500 text-center py-12">
+              <div className="py-12 text-center">
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Check size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-3xl font-bold tracking-tight mb-4">Hoàn tất đặt cọc!</h3>
-                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Cảm ơn bạn đã tin tưởng VinFast. Nhân viên của chúng tôi sẽ liên hệ trong thời gian sớm nhất để xác nhận.</p>
+                <h3 className="text-3xl font-bold tracking-tight mb-4">Đã tạo đơn đặt cọc</h3>
+                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Đơn đang chờ hoàn tất thanh toán. Nhân viên của chúng tôi sẽ liên hệ để xác nhận và hướng dẫn bước tiếp theo.</p>
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8 text-left">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-sm text-slate-500">Mã đơn hàng</span>
-                    <span className="font-bold">VF{Math.floor(Math.random() * 1000000)}</span>
+                    <span className="font-bold">{completedOrder?.orderNumber || '\u0110ang c\u1eadp nh\u1eadt'}</span>
                   </div>
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-sm text-slate-500">Xe đặt cọc</span>
@@ -1197,16 +1754,35 @@ export function DepositClient({
                       {new Intl.NumberFormat('vi-VN', {
                         style: 'currency',
                         currency: 'VND',
-                      }).format(
-                        currentCar.deposit_value ||
-                          (isMotorbike ? 2_000_000 : 10_000_000),
-                      )}
+                      }).format(completedOrder?.depositAmount || 0)}
                     </span>
                   </div>
+                  {(completedOrder?.discountAmount ?? 0) > 0 && (
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Ưu đãi</span>
+                      <span className="font-bold text-emerald-700">
+                        -{new Intl.NumberFormat('vi-VN').format(completedOrder?.discountAmount ?? 0)} ₫
+                      </span>
+                    </div>
+                  )}
+                  {completedOrder?.createdAt && (
+                    <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3">
+                      <span className="text-sm text-slate-500">Thời gian tạo</span>
+                      <span className="text-sm font-semibold text-slate-700">
+                        {new Intl.DateTimeFormat('vi-VN', {
+                          timeZone: 'Asia/Ho_Chi_Minh',
+                          dateStyle: 'short',
+                          timeStyle: 'medium',
+                        }).format(new Date(completedOrder.createdAt))} (GMT+7)
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-            
+              </motion.div>
+            </AnimatePresence>
+
           </div>
 
            {/* BOTTOM CHECKOUT BAR */}
@@ -1217,31 +1793,19 @@ export function DepositClient({
                    <div>
                      <div className="text-xs sm:text-sm font-medium text-slate-500 mb-0.5 whitespace-nowrap">Tổng dự tính</div>
                      <div className="text-lg sm:text-xl font-black text-slate-900 whitespace-nowrap">
-                       {(() => {
-                          const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
-                          const variantData = currentSpecs.variants?.[selectedVariantName]
-                          const basePrice = variantData?.price || currentCar.displayed_price || 0
-                          
-                          const isAdvancedColor = advancedColors.some((c: any) => c.name === selectedColor)
-                          const colorPrice = isAdvancedColor ? (currentCar.name.includes('MPV') ? 10000000 : (['VF 7', 'VF 9'].includes(currentCar.name) || currentCar.name.includes('VF 8') ? 12000000 : 8000000)) : 0
-                          
-                          let packagesPrice = 0
-                          const availablePackages = currentCar.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
-                          selectedPackages.forEach(id => {
-                            const pkg = availablePackages.find((p: any) => p.id === id)
-                            if (pkg) packagesPrice += pkg.price
-                          })
-                          
-                          const totalPrice = basePrice + colorPrice + packagesPrice
-                          return totalPrice > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice) : 'Liên hệ'
-                       })()}
+                       {displayedTotal > 0
+                         ? new Intl.NumberFormat('vi-VN', {
+                             style: 'currency',
+                             currency: 'VND',
+                           }).format(displayedTotal)
+                         : 'Liên hệ'}
                      </div>
                    </div>
                    
                    <div className="flex gap-2 sm:gap-3 shrink-0">
                      {currentStep > 1 && (
                        <button 
-                         onClick={() => setCurrentStep(currentStep - 1)}
+                         onClick={() => goToStep(currentStep - 1)}
                          className="flex items-center justify-center bg-slate-100 text-slate-600 px-3 sm:px-6 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap shrink-0 hover:bg-slate-200 transition-all active:scale-95"
                        >
                          Quay lại

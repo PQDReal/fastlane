@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { ArrowLeft, Check, Loader2, LockKeyhole, MapPin, ShoppingBag, Star } from 'lucide-react'
-import { AnimatePresence } from 'framer-motion'
+import { ArrowLeft, Check, ChevronDown, Loader2, LockKeyhole, MapPin, ShoppingBag, Star } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -26,6 +26,7 @@ type PromotionQuote = {
   description: string | null
   type: 'PERCENT' | 'FIXED'
   value: number
+  maxDiscountAmount: number | null
   discountAmount: number
   subtotal: number
   grandTotal: number
@@ -74,6 +75,7 @@ export default function CheckoutPage() {
   const [applyingPromotion, setApplyingPromotion] = useState(false)
   const [availablePromotions, setAvailablePromotions] = useState<PromotionQuote[]>([])
   const [promotionsLoading, setPromotionsLoading] = useState(false)
+  const [promotionListOpen, setPromotionListOpen] = useState(false)
   const [recipientName, setRecipientName] = useState('')
   const [profilePhone, setProfilePhone] = useState('')
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([])
@@ -81,6 +83,7 @@ export default function CheckoutPage() {
   const [addressesLoading, setAddressesLoading] = useState(false)
   const [addressesError, setAddressesError] = useState<string | null>(null)
   const [addressModalOpen, setAddressModalOpen] = useState(false)
+  const [addressListOpen, setAddressListOpen] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const idempotencyKey = useRef<string | null>(null)
 
@@ -182,6 +185,18 @@ export default function CheckoutPage() {
   const grandTotal = appliedPromotion?.grandTotal ?? selectedTotal
   const selectedAddress =
     savedAddresses.find((address) => address.id === selectedAddressId) ?? null
+  const promotionOptions = useMemo(() => {
+    if (!appliedPromotion || availablePromotions.some((item) => item.promotionId === appliedPromotion.promotionId)) {
+      return availablePromotions
+    }
+    return [appliedPromotion, ...availablePromotions]
+  }, [appliedPromotion, availablePromotions])
+  const selectedPromotion = promotionOptions.find((item) =>
+    item.promotionId === appliedPromotion?.promotionId,
+  ) ?? promotionOptions[0] ?? null
+  const visiblePromotions = promotionListOpen
+    ? promotionOptions
+    : selectedPromotion ? [selectedPromotion] : []
   const showToast = (
     kind: ToastMessage['kind'],
     title: string,
@@ -210,6 +225,7 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
+    setPromotionListOpen(false)
     setAppliedPromotion(null)
     setPromotionError(null)
     if (!selectionIsValid || !selectedCartItemIds) {
@@ -247,7 +263,10 @@ export default function CheckoutPage() {
     return () => controller.abort()
   }, [selectedTotal, selectedCartItemIds, selectionIsValid])
 
-  const handleApplyPromotion = async (selectedCode: string) => {
+  const handleApplyPromotion = async (
+    selectedCode: string,
+    source: 'manual' | 'suggested' = 'manual',
+  ) => {
     const code = selectedCode.trim().toUpperCase()
     if (!code || applyingPromotion || !selectionIsValid) return
 
@@ -265,7 +284,13 @@ export default function CheckoutPage() {
         throw new Error(payload?.error?.message || 'Không thể áp dụng mã giảm giá.')
       }
       setPromotionCode(payload.data.code)
-      setAppliedPromotion(payload.data as PromotionQuote)
+      setPromotionListOpen(false)
+      setAppliedPromotion({
+        ...(payload.data as PromotionQuote),
+        isBest: source === 'suggested'
+          ? availablePromotions.find((promotion) => promotion.code === code)?.isBest
+          : false,
+      })
     } catch (error) {
       setPromotionError(error instanceof Error ? error.message : 'Không thể áp dụng mã giảm giá.')
     } finally {
@@ -383,8 +408,8 @@ export default function CheckoutPage() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr_420px]">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_390px]">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7 lg:order-2 lg:sticky lg:top-28 lg:self-start">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Địa chỉ nhận hàng</h2>
@@ -419,20 +444,31 @@ export default function CheckoutPage() {
                   </button>
                 </div>
               ) : (
-                <div role="radiogroup" aria-label="Địa chỉ nhận hàng đã lưu" className="mt-6 max-h-[430px] space-y-3 overflow-y-auto pr-1">
-                  {savedAddresses.map((address) => {
+                <div role="radiogroup" aria-label="Địa chỉ nhận hàng đã lưu" className="mt-6 -mr-3 max-h-[430px] space-y-3 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
+                  <AnimatePresence initial={false}>
+                    {(addressListOpen ? savedAddresses : selectedAddress ? [selectedAddress] : savedAddresses.slice(0, 1)).map((address) => {
                     const selected = address.id === selectedAddressId
                     return (
-                      <button
+                      <motion.button
                         key={address.id}
+                        initial={{ opacity: 0, height: 0, y: -6 }}
+                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -6 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                         type="button"
                         role="radio"
                         aria-checked={selected}
+                        aria-expanded={selected ? addressListOpen : undefined}
                         onClick={() => {
+                          if (!addressListOpen) {
+                            setAddressListOpen(true)
+                            return
+                          }
                           setSelectedAddressId(address.id)
+                          setAddressListOpen(false)
                           setSubmitError(null)
                         }}
-                        className={`w-full rounded-2xl border p-5 text-left transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] ${
+                        className={`w-full overflow-hidden rounded-2xl border p-5 text-left transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] ${
                           selected
                             ? 'border-[#836100] bg-[#836100]/5 shadow-sm'
                             : 'border-slate-200 hover:border-slate-300'
@@ -468,16 +504,25 @@ export default function CheckoutPage() {
                                 Địa chỉ này thiếu phường/xã. Vui lòng cập nhật trước khi đặt hàng.
                               </p>
                             )}
+                            {!addressListOpen && savedAddresses.length > 1 && (
+                              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#836100]">
+                                Chọn địa chỉ khác
+                                <motion.span animate={{ rotate: addressListOpen ? 180 : 0 }} transition={{ duration: 0.18 }}>
+                                  <ChevronDown className="h-4 w-4" />
+                                </motion.span>
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </button>
+                      </motion.button>
                     )
-                  })}
+                    })}
+                  </AnimatePresence>
                 </div>
               )}
             </section>
 
-            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
+            <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:order-1">
               <h2 className="text-xl font-bold text-slate-900">Đơn hàng</h2>
               <ul className="mt-6 max-h-80 space-y-5 overflow-y-auto pr-1">
                 {selectedItems.map((item) => (
@@ -497,51 +542,115 @@ export default function CheckoutPage() {
               <div className="mt-6 border-t border-slate-100 pt-5">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-slate-700">Chọn mã giảm giá</p>
-                  {availablePromotions[0]?.isBest && (
+                  {appliedPromotion?.isBest && (
                     <span className="text-xs font-semibold text-emerald-700">Đã chọn voucher tốt nhất</span>
                   )}
                 </div>
 
+                <div className="mt-3 flex gap-2">
+                  <label htmlFor="promotion-code" className="sr-only">Mã giảm giá</label>
+                  <input
+                    id="promotion-code"
+                    type="text"
+                    value={promotionCode}
+                    onChange={(event) => {
+                      setPromotionCode(event.target.value.toUpperCase())
+                      setPromotionListOpen(false)
+                      setAppliedPromotion(null)
+                      setPromotionError(null)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return
+                      event.preventDefault()
+                      void handleApplyPromotion(promotionCode)
+                    }}
+                    placeholder="Nhập mã giảm giá"
+                    autoComplete="off"
+                    aria-invalid={Boolean(promotionError)}
+                    aria-describedby={promotionError ? 'promotion-code-error' : undefined}
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-4 text-sm font-semibold uppercase outline-none transition placeholder:font-normal placeholder:normal-case focus:border-[#836100] focus:ring-2 focus:ring-[#836100]/15"
+                  />
+                  <button
+                    type="button"
+                    disabled={applyingPromotion || promotionsLoading || !promotionCode.trim()}
+                    onClick={() => void handleApplyPromotion(promotionCode)}
+                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#836100] px-4 text-sm font-bold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {applyingPromotion && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Áp dụng
+                  </button>
+                </div>
                 {promotionsLoading ? (
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" /> Đang tìm mã phù hợp...
                   </div>
-                ) : availablePromotions.length > 0 ? (
+                ) : promotionOptions.length > 0 ? (
                   <div role="radiogroup" aria-label="Danh sách mã giảm giá" className="mt-3 space-y-2">
-                    {availablePromotions.map((promotion) => {
+                    <AnimatePresence initial={false}>
+                    {visiblePromotions.map((promotion) => {
                       const selected = promotionCode === promotion.code
+                      const applied = appliedPromotion?.promotionId === promotion.promotionId
                       return (
-                        <button
+                        <motion.button
                           key={promotion.promotionId}
+                          initial={{ opacity: 0, height: 0, y: -6 }}
+                          animate={{ opacity: 1, height: 116, y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -6 }}
+                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                           type="button"
                           role="radio"
                           aria-checked={selected}
                           disabled={applyingPromotion}
+                          aria-expanded={selected ? promotionListOpen : undefined}
                           onClick={() => {
+                            if (!promotionListOpen && promotionOptions.length > 1) {
+                              setPromotionListOpen(true)
+                              return
+                            }
                             setPromotionCode(promotion.code)
-                            void handleApplyPromotion(promotion.code)
+                            void handleApplyPromotion(promotion.code, 'suggested')
                           }}
-                          className={`w-full rounded-xl border p-4 text-left transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] disabled:cursor-wait disabled:opacity-70 ${selected ? 'border-[#836100] bg-[#836100]/5' : 'border-slate-200 hover:border-slate-300'}`}
+                          className={`group relative flex h-[116px] w-full overflow-hidden rounded-r-2xl border border-l-0 bg-white text-left shadow-sm transition active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] disabled:cursor-wait disabled:opacity-70 ${selected ? 'border-[#836100]' : 'border-slate-200 hover:border-[#836100]/50'}`}
                         >
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="relative flex w-[31%] min-w-[112px] max-w-[180px] shrink-0 items-center justify-center overflow-hidden sm:w-[26%]">
+                            <img src="/images/promotion-tag.png" alt="" className="absolute inset-0 h-full w-full object-fill" />
+                            {promotion.isBest && (
+                              <span className="absolute right-0 top-2 rounded-l-full bg-amber-100 py-1 pl-3 pr-2 text-[9px] font-black uppercase tracking-wide text-amber-900 shadow-sm">Tốt nhất</span>
+                            )}
+                            <span className="relative block w-full truncate whitespace-nowrap pl-4 pr-2 text-center text-[11px] font-black tracking-normal text-white drop-shadow-sm sm:text-xs">{promotion.code}</span>
+                          </div>
+                          <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-2 sm:px-5">
                             <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-slate-900">{promotion.code}</span>
-                                {promotion.isBest && (
-                                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Tốt nhất</span>
-                                )}
-                              </div>
-                              <p className="mt-1 text-sm text-slate-600">{promotion.name}</p>
-                              {promotion.description && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{promotion.description}</p>}
+                              <p className="text-xl font-black leading-none text-[rgb(255_190_39)] sm:text-2xl">
+                                Giảm {promotion.type === 'PERCENT' ? `${promotion.value}%` : formatPrice(promotion.value)}
+                              </p>
+                              <p className="mt-1.5 line-clamp-2 min-h-8 text-sm font-medium leading-4 text-slate-900 sm:text-base">{promotion.name}</p>
+                              <p className="mt-1.5 text-xs font-medium text-emerald-700 sm:text-sm">
+                                Giảm tối đa: {promotion.maxDiscountAmount === null ? 'Không giới hạn' : formatPrice(promotion.maxDiscountAmount)}
+                              </p>
                             </div>
-                            <span className="flex shrink-0 items-center gap-2 text-sm font-bold text-emerald-700">
-                              {applyingPromotion && selected && <Loader2 className="h-4 w-4 animate-spin" />}
-                              −{formatPrice(promotion.discountAmount)}
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center self-center">
+                              {applyingPromotion && selected ? (
+                                <Loader2 className="h-5 w-5 animate-spin text-[#836100]" />
+                              ) : applied ? (
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#967000] text-white shadow-sm">
+                                  <Check className="h-5 w-5" strokeWidth={3} />
+                                </span>
+                              ) : null}
                             </span>
                           </div>
-                        </button>
+                        </motion.button>
                       )
                     })}
+                    </AnimatePresence>
+                    {promotionOptions.length > 1 && (
+                      <button type="button" onClick={() => setPromotionListOpen((open) => !open)} className="inline-flex items-center gap-1.5 px-1 pt-1 text-xs font-bold text-[#836100]">
+                        {promotionListOpen ? 'Thu gọn mã giảm giá' : 'Xem thêm mã giảm giá'}
+                        <motion.span animate={{ rotate: promotionListOpen ? 180 : 0 }} transition={{ duration: 0.18 }}>
+                          <ChevronDown className="h-4 w-4" />
+                        </motion.span>
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <p className="mt-3 rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">

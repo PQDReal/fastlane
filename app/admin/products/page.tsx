@@ -1,5 +1,6 @@
 'use client'
 
+import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { useCallback, useState, useEffect, useRef } from 'react'
 import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Wrench, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -312,24 +313,26 @@ export default function AdminProductsPage() {
           </div>
         )}      </div>
 
-      <ProductCreateDialog
-        open={isCreateOpen}
-        categories={categories}
-        serviceLabels={serviceLabels}
-        initialAccessory={editingAccessory}
-        onClose={() => {
-          setIsCreateOpen(false)
-        }}
-        onAfterClose={() => setEditingAccessory(undefined)}
-        onSaved={() => {
-          const wasEditing = Boolean(editingAccessory)
-          setIsCreateOpen(false)
-          setProductsReloadKey((value) => value + 1)
-          notify('success', wasEditing ? 'Đã cập nhật sản phẩm phụ kiện' : 'Đã tạo sản phẩm phụ kiện')
-        }}
-      />
+      <AdminModalPortal>
+        <ProductCreateDialog
+          open={isCreateOpen}
+          categories={categories}
+          serviceLabels={serviceLabels}
+          initialAccessory={editingAccessory}
+          onClose={() => {
+            setIsCreateOpen(false)
+          }}
+          onAfterClose={() => setEditingAccessory(undefined)}
+          onSaved={() => {
+            const wasEditing = Boolean(editingAccessory)
+            setIsCreateOpen(false)
+            setProductsReloadKey((value) => value + 1)
+            notify('success', wasEditing ? 'Đã cập nhật sản phẩm phụ kiện' : 'Đã tạo sản phẩm phụ kiện')
+          }}
+        />
+      </AdminModalPortal>
 
-      <AnimatePresence>
+      <AdminModalPortal><AnimatePresence>
         {assignmentProduct && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !savingLabels) setAssignmentProduct(null) }}>
             <motion.div role="dialog" aria-modal="true" aria-labelledby="product-service-label-dialog-title" className="w-full max-w-lg rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
@@ -342,7 +345,7 @@ export default function AdminProductsPage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></AdminModalPortal>
     </div>
   )
 }

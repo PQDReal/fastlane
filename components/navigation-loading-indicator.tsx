@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
+export function startNavigationLoading() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event('fastlane:navigation-start'))
+}
+
 export function NavigationLoadingIndicator() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -30,7 +35,6 @@ export function NavigationLoadingIndicator() {
   useEffect(() => {
     function handleClick(event: MouseEvent) {
       if (
-        event.defaultPrevented ||
         event.button !== 0 ||
         event.metaKey ||
         event.ctrlKey ||
@@ -72,6 +76,20 @@ export function NavigationLoadingIndicator() {
       if (
         destination.pathname === current.pathname &&
         destination.search === current.search
+      ) {
+        return
+      }
+
+      // Next.js prevents the browser's native navigation for <Link>, so
+      // defaultPrevented does not mean the route change was cancelled.
+      // Page-level guards can explicitly defer the indicator until the user
+      // confirms the navigation.
+      if (
+        (
+          event as MouseEvent & {
+            fastlaneNavigationDeferred?: boolean
+          }
+        ).fastlaneNavigationDeferred
       ) {
         return
       }
@@ -120,17 +138,41 @@ export function NavigationLoadingIndicator() {
       role="status"
       aria-live="polite"
       aria-label="Đang tải trang"
-      className="fixed bottom-5 right-5 z-[100] flex items-center gap-3 rounded-full border border-slate-900/10 bg-white/95 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.18)] backdrop-blur-md"
+      className="fixed bottom-6 right-6 z-[100] flex items-center gap-4 rounded-full border border-slate-900/10 bg-white/95 px-6 py-4 shadow-[0_16px_48px_rgba(15,23,42,0.2)] backdrop-blur-md"
     >
-      <span
-        className="relative block h-7 w-7"
-        aria-hidden="true"
-      >
-        <span className="absolute inset-0 rounded-full border-[3px] border-slate-200" />
-        <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-r-[#9b7200] border-t-slate-900 motion-reduce:animate-pulse" />
-        <span className="absolute inset-[9px] rounded-full bg-[#9b7200]" />
+      <span className="navigation-loading-image relative flex h-11 w-[4.125rem] shrink-0 items-center justify-center overflow-hidden" aria-hidden="true">
+        <img
+          src="/images/fastlane-loading.png"
+          alt=""
+          className="h-9 w-[3.375rem] translate-x-[9px] object-contain"
+        />
+        <svg
+          viewBox="0 0 72 48"
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+        >
+          <path
+            d="M11 45c5.3-1.1 8.5-4.2 9.8-9.4L27.2 10c.8-3.3 3.1-5 6.8-5h19.4c5.4 0 10.3-1.4 17.6-4"
+            pathLength="100"
+            fill="none"
+            stroke="#9b7200"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2.8"
+            className="navigation-speed-trace"
+          />
+          <path
+            d="M8 42.2c4.7-1 7.4-3.6 8.6-8.2L22.9 8.4C24.3 2.8 28 .2 34.1.2h18.7c5.7 0 11.2-1.4 18.8-4.1"
+            pathLength="100"
+            fill="none"
+            stroke="#d8a313"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.35"
+            className="navigation-speed-trace navigation-speed-trace-secondary"
+          />
+        </svg>
       </span>
-      <span className="pr-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-900">
+      <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-900">
         Đang tải
       </span>
       <span className="sr-only">

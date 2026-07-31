@@ -22,6 +22,7 @@ type PromotionRow = {
   usage_limit: number | null
   used_count: number
   ends_at: string
+  is_public?: boolean
 }
 
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
@@ -41,8 +42,8 @@ async function loadPromotions(): Promise<PromotionRow[]> {
   const supabase = getSupabaseAdmin()
   const now = new Date().toISOString()
   const current = await supabase.from('promotions')
-    .select('id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,ends_at')
-    .eq('is_active', true).lte('starts_at', now).gte('ends_at', now).order('ends_at')
+    .select('id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,ends_at,is_public')
+    .eq('is_active', true).eq('is_public', true).lte('starts_at', now).gte('ends_at', now).order('ends_at')
   if (!current.error) return ((current.data ?? []) as PromotionRow[])
     .filter((item) => item.usage_limit === null || item.used_count < item.usage_limit)
 
@@ -53,6 +54,7 @@ async function loadPromotions(): Promise<PromotionRow[]> {
   return (legacy.data ?? []).filter((item) => item.usage_limit === null || item.used_count < item.usage_limit).map(({ applicable_product_type, ...item }) => ({
     ...item,
     applicable_product_types: productTypesFromLegacy(applicable_product_type),
+    is_public: true,
   })) as PromotionRow[]
 }
 

@@ -160,3 +160,37 @@ body {
     transform: translateY(1.5rem);
   }
 }
+
+.navigation-speed-trace {
+  stroke-dasharray: 27 73;
+  stroke-dashoffset: 100;
+  animation: navigation-speed-trace 0.72s linear infinite;
+  filter: drop-shadow(0 0 2px rgb(155 114 0 / 0.45));
+}
+
+.navigation-speed-trace-secondary {
+  stroke-dasharray: 16 84;
+  animation-duration: 0.72s;
+  animation-delay: 0.045s;
+  opacity: 0.9;
+}
+
+@keyframes navigation-speed-trace {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dashoffset: 100;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-speed-trace {
+    animation: none;
+    stroke-dasharray: 100 0;
+    opacity: 0.8;
+  }
+}

@@ -1,93 +1,57 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  getBikeColorFallbacks,
-  getBikeColorImage,
-  isRenderableBikeImage,
+  getBikeListingImage,
+  parseBikeImageUrls,
 } from './bike-images'
 
-describe('bike color images', () => {
-  it.each([
-    ['amio', 5],
-    ['amio-s', 5],
-    ['amio-s2', 5],
-    ['zgoo', 4],
-    ['evo', 4],
-    ['evo-lite', 4],
-    ['evo-grand', 5],
-    ['evo-grand-lite', 4],
-    ['evo-lite-neo', 5],
-    ['evo-neo', 5],
-    ['feliz-2025', 5],
-    ['feliz-ii', 4],
-    ['kinet', 5],
-    ['kyo', 5],
-    ['flazz', 4],
-    ['flazz-max', 4],
-    ['vero-x', 4],
-    ['viper', 5],
-  ])(
-    'provides a complete and distinct color-image set for %s',
-    (slug, expectedCount) => {
-      const colors = getBikeColorFallbacks(slug)
-      const imageUrls = colors.map((color) => color.imageUrl)
+const image = (name: string) => `https://cdn.example.com/${name}.webp`
 
-      expect(colors).toHaveLength(expectedCount)
-      expect(new Set(imageUrls)).toHaveLength(expectedCount)
-      expect(imageUrls.every(isRenderableBikeImage)).toBe(true)
-    },
-  )
+describe('Supabase motorbike image contract', () => {
+  it('maps listing, hero, ordered color pairs and three details', () => {
+    const imageUrls = [
+      image('listing'),
+      image('hero'),
+      image('red-bike'),
+      image('red-swatch'),
+      image('white-bike'),
+      image('white-swatch'),
+      image('detail-1'),
+      image('detail-2'),
+      image('detail-3'),
+    ]
 
-  it('provides four distinct renderable Flazz Max color images', () => {
-    const colors = getBikeColorFallbacks('flazz-max')
-    const imageUrls = colors.map((color) => color.imageUrl)
-
-    expect(colors.map((color) => color.colorName)).toEqual([
-      'Đỏ Đen',
-      'Trắng Cam',
-      'Xanh',
-      'Đen',
-    ])
-    expect(new Set(imageUrls)).toHaveLength(4)
-    expect(imageUrls.every(isRenderableBikeImage)).toBe(true)
-    expect(colors.every((color) => isRenderableBikeImage(color.swatchUrl))).toBe(
-      true,
-    )
+    expect(parseBikeImageUrls(imageUrls, ['Đỏ', 'Trắng'])).toEqual({
+      listingImage: image('listing'),
+      heroImage: image('hero'),
+      colorImages: [
+        { colorName: 'Đỏ', imageUrl: image('red-bike'), swatchUrl: image('red-swatch') },
+        { colorName: 'Trắng', imageUrl: image('white-bike'), swatchUrl: image('white-swatch') },
+      ],
+      detailImages: [image('detail-1'), image('detail-2'), image('detail-3')],
+      followsOrderedContract: true,
+    })
   })
 
-  it('maps a selected Flazz Max color to its matching full-bike image', () => {
-    expect(getBikeColorImage('flazz-max', 'Xanh', '')).toContain(
-      '/FLAZZMAX/BUZVN.png',
+  it('rejects a shifted or incomplete ordered contract', () => {
+    const result = parseBikeImageUrls(
+      [image('listing'), image('hero'), image('red-bike')],
+      ['Đỏ'],
     )
-    expect(getBikeColorImage('flazz-max', 'Đỏ Đen', '')).toContain(
-      '/FLAZZMAX/REQVN.png',
-    )
+
+    expect(result.followsOrderedContract).toBe(false)
+    expect(result.colorImages).toEqual([])
   })
 
-  it.each([
-    ['amio', 'Đỏ Tươi', '/AMIO/REQ.png'],
-    ['viper', 'Đỏ Tươi', '/VIPER/REQ.png'],
-    ['evo', 'Đỏ Tươi', '/EVO/REQ1.png'],
-    ['flazz-max', 'Xanh', '/FLAZZMAX/BUZVN.png'],
-  ])('maps %s %s to the matching official vehicle image', (slug, color, path) => {
-    const option = getBikeColorFallbacks(slug).find(
-      (item) => item.colorName === color,
-    )
-
-    expect(option?.imageUrl).toContain(path)
-    expect(isRenderableBikeImage(option?.swatchUrl)).toBe(true)
-  })
-
-  it('does not reuse Evo Lite Neo vehicle images for Evo Neo', () => {
-    const colors = getBikeColorFallbacks('evo-neo')
-
-    expect(colors).toHaveLength(5)
+  it('always uses the first Supabase image for a catalog card', () => {
     expect(
-      colors.every(
-        (color) =>
-          color.imageUrl.includes('/EVONEO/') &&
-          !color.imageUrl.includes('/evoliteneo/'),
-      ),
-    ).toBe(true)
+      getBikeListingImage('amio', [image('database-listing')], image('fallback')),
+    ).toBe(image('database-listing'))
+  })
+
+  it('uses a local fallback only when Supabase has no renderable image', () => {
+    expect(getBikeListingImage('amio', ['', null], '/images/vento.png')).toBe(
+      '/images/vento.png',
+    )
   })
 })

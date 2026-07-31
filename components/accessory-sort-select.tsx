@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 
+import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import { accessoryCatalogHref } from '@/lib/catalog/accessory-filters'
 import type {
   AccessoryCatalogFilters,
@@ -26,6 +27,7 @@ export function AccessorySortSelect({
         aria-busy={pending}
         onChange={(event) => {
           const sort = event.target.value as AccessoryCatalogSort
+          startNavigationLoading()
           startTransition(() => {
             router.push(accessoryCatalogHref(filters, { sort, page: null }), {
               scroll: false,

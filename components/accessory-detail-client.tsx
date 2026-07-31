@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { type MouseEvent, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { AccessoryCard } from '@/components/accessory-card'
+import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
 import {
   accessoryFitmentStatus,
@@ -37,6 +38,11 @@ import type {
   CatalogSelection,
   CatalogVariant,
 } from '@/lib/catalog/types'
+import {
+  cancelCartAnimation,
+  launchCartAnimation,
+  prepareCartAnimation,
+} from '@/lib/cart/animation'
 import { useAppStore } from '@/lib/store'
 
 const formatPrice = (price: number) =>
@@ -296,8 +302,14 @@ export function AccessoryDetailClient({
     setFeedback(null)
   }
 
-  const handlePurchase = async (destination: 'cart' | 'checkout') => {
+  const handlePurchase = async (
+    destination: 'cart' | 'checkout',
+    sourceElement?: HTMLButtonElement,
+  ) => {
     if (previewMode || !selectedVariant || !inStock || submitting) return
+    const animationId = destination === 'cart' && sourceElement
+      ? prepareCartAnimation(sourceElement)
+      : ''
     setSubmittingAction(destination)
     setFeedback(null)
     const result = await addToCart(
@@ -307,11 +319,13 @@ export function AccessoryDetailClient({
     setSubmittingAction(null)
 
     if (!result.ok) {
+      if (animationId) cancelCartAnimation(animationId)
       if (result.code === 'AUTHENTICATION_REQUIRED') {
         const detailParams = new URLSearchParams()
         if (selectedVehicle) detailParams.set('vehicle', selectedVehicle)
         const detailQuery = detailParams.toString()
         const returnTo = `/accessories/${product.slug}${detailQuery ? `?${detailQuery}` : ''}`
+        startNavigationLoading()
         window.location.assign(
           `/auth/login?returnTo=${encodeURIComponent(returnTo)}`,
         )
@@ -329,14 +343,18 @@ export function AccessoryDetailClient({
         setFeedback({ type: 'error', message: 'Không thể mở trang thanh toán. Vui lòng thử lại.' })
         return
       }
+      startNavigationLoading()
       router.push(`/checkout?item=${encodeURIComponent(checkoutItem.id)}`)
       return
     }
 
+    launchCartAnimation(animationId, quantity)
     setFeedback({ type: 'success', message: 'Đã thêm sản phẩm vào giỏ hàng.' })
   }
 
-  const handleAdd = () => handlePurchase('cart')
+  const handleAdd = (event: MouseEvent<HTMLButtonElement>) => (
+    handlePurchase('cart', event.currentTarget)
+  )
   const handleBuyNow = () => handlePurchase('checkout')
 
   const showPreviousMedia = () => {

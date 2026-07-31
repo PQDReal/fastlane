@@ -32,9 +32,10 @@
     "bundle:openapi": "npm --prefix api-contract run bundle",
     "preview:openapi": "npm --prefix api-contract run preview",
     "normalize:motorbike-specs": "node scripts/normalize-motorbike-specs.mjs",
-    "sync:motorbike-images": "node scripts/sync-motorbike-images.mjs",
+    "sync:motorbike-images": "node --env-file=.env.local scripts/sync-motorbike-images.mjs",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
-    "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build"
+    "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build",
+    "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "4.25.0",

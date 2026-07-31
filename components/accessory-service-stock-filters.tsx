@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 
+import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import { accessoryCatalogHref } from '@/lib/catalog/accessory-filters'
 import type {
   AccessoryCatalogFacets,
@@ -32,6 +33,7 @@ export function AccessoryServiceStockFilters({
   }, [filters.stock])
 
   const navigate = (nextFilters: AccessoryCatalogFilters) => {
+    startNavigationLoading()
     startTransition(() => {
       router.push(accessoryCatalogHref(nextFilters, { page: null }), {
         scroll: false,

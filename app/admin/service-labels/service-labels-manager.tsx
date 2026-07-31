@@ -1,5 +1,6 @@
 'use client'
 
+import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Edit, Loader2, Plus, Tags, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -233,7 +234,7 @@ export function ServiceLabelsManager() {
         </div>
       </section>
 
-      <AnimatePresence>
+      <AdminModalPortal><AnimatePresence>
         {open && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal() }}>
             <motion.div role="dialog" aria-modal="true" aria-labelledby="service-label-dialog-title" className="w-full max-w-lg rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
@@ -249,7 +250,7 @@ export function ServiceLabelsManager() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></AdminModalPortal>
     </div>
   )
 }
