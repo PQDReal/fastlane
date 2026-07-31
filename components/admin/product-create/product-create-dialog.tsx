@@ -8,6 +8,10 @@ import { AccessoryProductCreateDialog } from '@/components/admin/accessory-produ
 import { ToastViewport, type ToastKind, type ToastMessage } from '@/components/ui/toast'
 import type { AdminRootCategory } from '@/lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
+import type {
+  AdminAccessoryEditorData,
+  AdminAccessorySaveResult,
+} from '@/lib/catalog/admin-accessory-write'
 import { ProductTypePicker } from './product-type-picker'
 import { productWorkflowCapability } from './workflow-contract'
 
@@ -16,18 +20,32 @@ export function ProductCreateDialog({
   categories,
   serviceLabels,
   onClose,
-  onPrototypeComplete,
+  onAfterClose,
+  onSaved,
+  initialAccessory,
 }: {
   open: boolean
   categories: AdminRootCategory[]
   serviceLabels: CatalogServiceLabel[]
   onClose: () => void
-  onPrototypeComplete: () => void
+  onAfterClose?: () => void
+  onSaved: (result: AdminAccessorySaveResult) => void
+  initialAccessory?: AdminAccessoryEditorData
 }) {
   const [selectedCategory, setSelectedCategory] = useState<AdminRootCategory | null>(null)
   const [workflowDirty, setWorkflowDirty] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const closeRef = useRef<HTMLButtonElement>(null)
+  const openRef = useRef(open)
+  const editingCategory = initialAccessory
+    ? categories.find((category) => category.id === initialAccessory.draft.rootCategoryId) ?? {
+      id: initialAccessory.draft.rootCategoryId,
+      name: 'Phụ kiện',
+      slug: 'phu-kien',
+      isActive: true,
+    }
+    : null
+  const activeCategory = editingCategory ?? selectedCategory
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id))
@@ -86,14 +104,19 @@ export function ProductCreateDialog({
   }, [open])
 
   useEffect(() => {
-    if (open || selectedCategory === null) return
+    openRef.current = open
+  }, [open])
+
+  const finishClose = useCallback(() => {
+    if (openRef.current) return
     setSelectedCategory(null)
     setWorkflowDirty(false)
     setToasts([])
-  }, [open, selectedCategory])
+    onAfterClose?.()
+  }, [onAfterClose])
 
   useEffect(() => {
-    if (!open || selectedCategory) return
+    if (!open || activeCategory) return
     const timer = window.setTimeout(() => closeRef.current?.focus(), 80)
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -103,7 +126,7 @@ export function ProductCreateDialog({
       window.clearTimeout(timer)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onClose, open, selectedCategory])
+  }, [activeCategory, onClose, open])
 
   function selectCategory(category: AdminRootCategory) {
     if (productWorkflowCapability(category).workflow !== 'accessory') return
@@ -148,8 +171,8 @@ export function ProductCreateDialog({
     <>
       <ToastViewport toasts={toasts} onClose={dismissToast} />
 
-      <AnimatePresence>
-        {open && !selectedCategory && (
+      <AnimatePresence onExitComplete={finishClose}>
+        {open && !activeCategory && (
           <motion.div className="fixed inset-0 z-50 !m-0 flex overscroll-none bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
             <motion.div role="dialog" aria-modal="true" aria-labelledby="create-product-title" className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
               <header className="flex items-center gap-4 border-b border-slate-200 px-4 py-3 sm:px-6">
@@ -163,17 +186,21 @@ export function ProductCreateDialog({
         )}
       </AnimatePresence>
 
-      {selectedCategory && productWorkflowCapability(selectedCategory).workflow === 'accessory' && (
+      {activeCategory && productWorkflowCapability(activeCategory).workflow === 'accessory' && (
         <AccessoryProductCreateDialog
           open={open}
-          rootCategoryId={selectedCategory.id}
+          rootCategoryId={activeCategory.id}
           serviceLabels={serviceLabels}
           onClose={onClose}
           onChangeType={requestChangeType}
           onDirtyChange={setWorkflowDirty}
-          onPrototypeComplete={onPrototypeComplete}
+          onSaved={onSaved}
           onNotify={notifyWorkflow}
           onConfirmDestructive={confirmWorkflow}
+          onAfterExit={finishClose}
+          initialDraft={initialAccessory?.draft}
+          productId={initialAccessory?.id}
+          expectedUpdatedAt={initialAccessory?.updatedAt}
         />
       )}
     </>

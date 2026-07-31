@@ -8,6 +8,7 @@ import { Button } from '../../../components/ui/button'
 import { ToastViewport, type ToastMessage } from '../../../components/ui/toast'
 import type { AdminRootCategory } from '../../../lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '../../../lib/catalog/service-labels'
+import type { AdminAccessoryEditorData } from '../../../lib/catalog/admin-accessory-write'
 
 type AdminProduct = {
   id: string
@@ -25,7 +26,11 @@ type AdminProduct = {
 async function responseError(response: Response) {
   try {
     const body = await response.json()
-    return typeof body.error === 'string' ? body.error : 'Có lỗi xảy ra.'
+    if (typeof body.error === 'string') return body.error
+    if (body.error && typeof body.error === 'object' && typeof body.error.message === 'string') {
+      return body.error.message
+    }
+    return 'Có lỗi xảy ra.'
   } catch {
     return 'Có lỗi xảy ra.'
   }
@@ -45,6 +50,9 @@ export default function AdminProductsPage() {
   const [selectedServiceLabelIds, setSelectedServiceLabelIds] = useState<string[]>([])
   const [savingLabels, setSavingLabels] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [editingAccessory, setEditingAccessory] = useState<AdminAccessoryEditorData | undefined>()
+  const [loadingEditProductId, setLoadingEditProductId] = useState<string | null>(null)
+  const [productsReloadKey, setProductsReloadKey] = useState(0)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const assignmentCloseRef = useRef<HTMLButtonElement>(null)
 
@@ -113,7 +121,7 @@ export default function AdminProductsPage() {
     }
     void fetchProducts()
     return () => controller.abort()
-  }, [categoryFilter, debouncedSearch, page])
+  }, [categoryFilter, debouncedSearch, page, productsReloadKey])
   const formatMoney = (val: number | null) => val === null ? '—' : new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN')
 
@@ -152,6 +160,33 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function openProductEditor(product: AdminProduct) {
+    if (product.product_type !== 'ACCESSORY') {
+      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện.')
+      return
+    }
+    setLoadingEditProductId(product.id)
+    try {
+      const response = await fetch(`/api/v1/admin/products/${encodeURIComponent(product.id)}`, {
+        cache: 'no-store',
+      })
+      if (!response.ok) throw new Error(await responseError(response))
+      const payload: unknown = await response.json()
+      const data = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>).data
+        : null
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error('Dữ liệu chỉnh sửa sản phẩm không hợp lệ.')
+      }
+      setEditingAccessory(data as AdminAccessoryEditorData)
+      setIsCreateOpen(true)
+    } catch (error) {
+      notify('error', 'Tải phụ kiện thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setLoadingEditProductId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
@@ -160,7 +195,7 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sản phẩm</h1>
           <p className="text-sm text-slate-500 mt-1">Quản lý xe, phụ kiện và bảng giá.</p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-slate-900 text-white hover:bg-slate-800 shrink-0">
+        <Button onClick={() => { setEditingAccessory(undefined); setIsCreateOpen(true) }} className="bg-slate-900 text-white hover:bg-slate-800 shrink-0">
           <Plus size={16} className="mr-2" /> Thêm sản phẩm
         </Button>
       </div>
@@ -248,7 +283,7 @@ export default function AdminProductsPage() {
                   <td className="relative w-28 px-6 py-4 text-right">
                     <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       {product.product_type === 'ACCESSORY' && <button type="button" onClick={() => openServiceLabels(product)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-brand-50 hover:text-brand-600" aria-label={`Gán nhãn dịch vụ cho ${product.name}`}><Wrench size={16}/></button>}
-                      <button type="button" className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded" aria-label={`Sửa ${product.name}`}><Edit size={16}/></button>
+                      <button type="button" disabled={loadingEditProductId === product.id} onClick={() => void openProductEditor(product)} className="rounded p-2 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50" aria-label={`Sửa ${product.name}`}>{loadingEditProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Edit size={16}/>}</button>
                       <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
                     </div>
                     <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
@@ -281,10 +316,16 @@ export default function AdminProductsPage() {
         open={isCreateOpen}
         categories={categories}
         serviceLabels={serviceLabels}
-        onClose={() => setIsCreateOpen(false)}
-        onPrototypeComplete={() => {
+        initialAccessory={editingAccessory}
+        onClose={() => {
           setIsCreateOpen(false)
-          notify('warning', 'Đã hoàn tất bản mẫu', 'Bản mẫu chỉ được lưu trong phiên trình duyệt, chưa ghi vào hệ thống.')
+        }}
+        onAfterClose={() => setEditingAccessory(undefined)}
+        onSaved={() => {
+          const wasEditing = Boolean(editingAccessory)
+          setIsCreateOpen(false)
+          setProductsReloadKey((value) => value + 1)
+          notify('success', wasEditing ? 'Đã cập nhật sản phẩm phụ kiện' : 'Đã tạo sản phẩm phụ kiện')
         }}
       />
 

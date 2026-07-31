@@ -1020,11 +1020,11 @@ paths:
         - FR-ADMN-02
         - BR-05
         - BR-07
-      summary: Create a product and its initial variants
+      summary: Create a complete accessory product aggregate
       description: |
-        Initial variants start with zero inventory. Inventory is changed only through the inventory endpoint.
-        An active product requires at least one active variant and exactly one thumbnail image; the request schema rejects violations with 400 VALIDATION_FAILED.
-        At most one image may be the thumbnail. Setting isThumbnail=true atomically demotes the previous thumbnail.
+        The currently implemented authoring workflow accepts ACCESSORY products. The backend validates the complete body before calling the database.
+        Product, taxonomy memberships, service labels, option groups/values, SKU mappings and media are then written atomically.
+        Prices belong to SKU variants; option values cannot add price. Existing inventory is never changed here and every new SKU starts at zero.
       security:
         - bearerAuth: []
       x-required-roles:
@@ -1036,10 +1036,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProductCreateRequest'
+              $ref: '#/components/schemas/AdminAccessoryWriteRequest'
       responses:
         '201':
-          $ref: '#/components/responses/ProductDetail'
+          description: Accessory aggregate created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessorySaveResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -1054,6 +1058,8 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /admin/products/{productId}:
     get:
       tags:
@@ -1063,7 +1069,8 @@ paths:
         - US-A02
         - FR-ADMN-02
         - FR-ADMN-03
-      summary: Get any product for administration, including inactive products
+      summary: Get an accessory as an editable admin draft
+      description: Returns the active normalized relations of an existing ACCESSORY product, including inactive products, in the same editor model used for creation.
       security:
         - bearerAuth: []
       x-required-roles:
@@ -1074,7 +1081,11 @@ paths:
         - $ref: '#/components/parameters/ProductId'
       responses:
         '200':
-          $ref: '#/components/responses/ProductDetail'
+          description: Editable accessory aggregate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryEditorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1094,8 +1105,10 @@ paths:
         - FR-ADMN-03
         - BR-05
         - BR-07
-      summary: Update product metadata or publication status
-      description: Variants, images, and inventory are managed by their dedicated endpoints. Activating a product requires at least one active variant and exactly one thumbnail image.
+      summary: Atomically replace an accessory product aggregate
+      description: |
+        Requires expectedUpdatedAt from the GET response. A stale timestamp returns 409 instead of overwriting another admin's work.
+        Existing relation IDs are preserved when supplied, removed groups/values/SKUs are archived, new SKU inventory starts at zero, and existing SKU inventory is untouched.
       security:
         - bearerAuth: []
       x-required-roles:
@@ -1109,10 +1122,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProductPatchRequest'
+              allOf:
+                - $ref: '#/components/schemas/AdminAccessoryWriteRequest'
+                - required:
+                    - expectedUpdatedAt
       responses:
         '200':
-          $ref: '#/components/responses/ProductDetail'
+          description: Accessory aggregate updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessorySaveResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -1129,6 +1149,8 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     delete:
       tags:
         - Admin Catalog
@@ -3027,6 +3049,19 @@ components:
             error:
               code: CONFLICT
               message: Request conflicts with current state.
+              requestId: req_01J00000000000000000000000
+    ServiceUnavailable:
+      description: A required database capability has not been deployed or is temporarily unavailable.
+      x-error-codes:
+        - INTERNAL_ERROR
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: Required catalog persistence capability is unavailable.
               requestId: req_01J00000000000000000000000
     Variant:
       description: Variant
@@ -5873,217 +5908,261 @@ components:
         displayOrder:
           type: integer
           minimum: 0
-    ProductOptionValueInput:
+    AdminAccessoryContentSectionInput:
       type: object
       additionalProperties: false
       required:
-        - code
-        - name
-        - priceAdjustment
-        - compatibleVariantSkus
-        - isActive
+        - key
+        - type
+        - title
+        - displayOrder
+        - body
+        - items
+        - attributes
+      anyOf:
+        - properties:
+            body:
+              type: string
+              minLength: 1
+        - properties:
+            items:
+              type: array
+              minItems: 1
+        - properties:
+            attributes:
+              type: array
+              minItems: 1
       properties:
-        code:
+        key:
           type: string
           minLength: 1
           maxLength: 80
-          pattern: ^[A-Z0-9_]+$
-        name:
+          pattern: ^[a-z0-9_]+$
+        type:
+          $ref: '#/components/schemas/AccessoryContentSectionType'
+        title:
           type: string
           minLength: 1
-          maxLength: 160
-        priceAdjustment:
-          $ref: '#/components/schemas/Money'
-        compatibleVariantSkus:
+          maxLength: 200
+        displayOrder:
+          type: integer
+          minimum: 10
+          maximum: 300
+          multipleOf: 10
+        body:
+          type:
+            - string
+            - 'null'
+          minLength: 1
+          maxLength: 20000
+        items:
           type: array
-          uniqueItems: true
+          maxItems: 100
           items:
             type: string
             minLength: 1
-            maxLength: 80
-          description: Empty means compatible with every variant in the same product request or persisted product.
-        isActive:
-          type: boolean
-    ProductOptionGroupInput:
+            maxLength: 2000
+        attributes:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AccessoryContentAttribute'
+    AdminAccessoryContentInput:
+      type: object
+      additionalProperties: false
+      required:
+        - schema
+        - sections
+      properties:
+        schema:
+          type: string
+          const: accessory_content_v1
+        sections:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/AdminAccessoryContentSectionInput'
+    AdminAccessoryOptionValueInput:
+      type: object
+      additionalProperties: false
+      description: An option value identifies a SKU selection. It never adds price; price is stored on the resulting SKU variant.
+      required:
+        - code
+        - name
+        - colorHex
+        - swatchUrl
+        - displayOrder
+        - imageUrls
+      properties:
+        existingId:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        colorHex:
+          type:
+            - string
+            - 'null'
+          pattern: ^#[0-9A-Fa-f]{6}$
+        swatchUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+          maxLength: 2048
+        displayOrder:
+          type: integer
+          minimum: 0
+        imageUrls:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+    AdminAccessoryOptionGroupInput:
       type: object
       additionalProperties: false
       required:
         - code
         - name
+        - displayType
         - minimumSelections
         - maximumSelections
-        - isActive
+        - displayOrder
+        - drivesMedia
         - values
       properties:
+        existingId:
+          $ref: '#/components/schemas/Uuid'
         code:
           type: string
           minLength: 1
           maxLength: 80
-          pattern: ^[A-Z0-9_]+$
+          pattern: ^[a-z][a-z0-9_]*$
         name:
           type: string
           minLength: 1
           maxLength: 160
+        displayType:
+          type: string
+          enum:
+            - BUTTON
+            - SWATCH
+            - SELECT
         minimumSelections:
           type: integer
-          minimum: 0
-          maximum: 20
+          enum:
+            - 0
+            - 1
         maximumSelections:
           type: integer
-          minimum: 1
-          maximum: 20
-          description: Must be greater than or equal to minimumSelections.
-        isActive:
+          const: 1
+        displayOrder:
+          type: integer
+          minimum: 0
+        drivesMedia:
           type: boolean
+          description: At most one group may drive option-scoped media.
         values:
           type: array
           minItems: 1
           maxItems: 100
           items:
-            $ref: '#/components/schemas/ProductOptionValueInput'
-    ProductImageCreateRequest:
+            $ref: '#/components/schemas/AdminAccessoryOptionValueInput'
+    AdminAccessoryVariantInput:
       type: object
       additionalProperties: false
+      description: The sellable and inventory-owned SKU. originalPrice and salePrice are whole-VND JSON integers.
       required:
-        - url
-        - altText
-        - sortOrder
-        - isThumbnail
+        - name
+        - sku
+        - originalPrice
+        - salePrice
+        - isActive
+        - optionValues
+        - imageUrls
       properties:
-        url:
-          type: string
-          format: uri
-          maxLength: 2048
-        altText:
+        existingId:
+          $ref: '#/components/schemas/Uuid'
+        name:
           type: string
           minLength: 1
-          maxLength: 255
-        sortOrder:
-          type: integer
-          minimum: 0
-        isThumbnail:
-          type: boolean
-    VariantCreateRequest:
-      type: object
-      additionalProperties: false
-      description: salePrice, when present, must be lower than listPrice; otherwise the request violates BR-07.
-      required:
-        - sku
-        - attributes
-        - batteryOption
-        - listPrice
-        - isActive
-      properties:
+          maxLength: 200
         sku:
           type: string
           minLength: 1
           maxLength: 80
-        attributes:
-          type: object
-          minProperties: 1
-          additionalProperties:
-            type: string
-        batteryOption:
-          oneOf:
-            - $ref: '#/components/schemas/BatteryOption'
-            - type: 'null'
-        listPrice:
-          $ref: '#/components/schemas/PositiveMoney'
+        originalPrice:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
         salePrice:
-          oneOf:
-            - $ref: '#/components/schemas/PositiveMoney'
-            - type: 'null'
-          description: Must be lower than listPrice when present.
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 9007199254740991
+          description: Must be lower than originalPrice when present.
         isActive:
           type: boolean
-    ProductCreateRequest:
+        optionValues:
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 80
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          description: Exact group-code to value-code selections for this SKU. Every required group must be represented.
+        imageUrls:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+    AdminAccessoryWriteRequest:
       type: object
       additionalProperties: false
-      description: Active products require at least one active variant and exactly one thumbnail image; every product permits at most one thumbnail.
+      description: |
+        Complete ACCESSORY aggregate replacement. The backend validates the entire body before opening the database write and then persists product, taxonomy, service labels, options, SKUs, mappings, inventory initialization and media in one transaction.
+        Option values never add price. Existing variant IDs preserve inventory; new variants start at zero inventory. PATCH requires expectedUpdatedAt.
       required:
         - categoryId
+        - primaryCollectionId
+        - modelCollectionIds
         - name
         - slug
-        - productKind
-        - purchaseTerms
         - description
-        - specifications
-        - optionGroups
         - isActive
+        - serviceLabelIds
+        - content
+        - optionGroups
         - variants
-      if:
-        properties:
-          isActive:
-            const: true
-        required:
-          - isActive
-      then:
-        required:
-          - images
-        properties:
-          images:
-            minItems: 1
-            contains:
-              type: object
-              required:
-                - isThumbnail
-              properties:
-                isThumbnail:
-                  const: true
-            minContains: 1
-            maxContains: 1
-          variants:
-            contains:
-              type: object
-              required:
-                - isActive
-              properties:
-                isActive:
-                  const: true
-            minContains: 1
-      examples:
-        - categoryId: 123e4567-e89b-12d3-a456-426614174001
-          name: VinFast VF 8
-          slug: vinfast-vf-8
-          productKind: car
-          purchaseTerms:
-            paymentMode: deposit
-            depositAmount: '30000000'
-            initialPaymentWindowMinutes: 30
-            balancePaymentWindowDays: 7
-            gracePeriodHours: 48
-            cancellationPolicy:
-              customerCancellationAllowed: true
-              customerCancellationCutoff: before_balance_due
-              refundPercentage: 100
-              overdueRefundPercentage: 0
-              cancellationFeeAmount: '0'
-          description: Mẫu SUV điện cỡ D.
-          specifications:
-            - name: Công suất tối đa
-              value: '300'
-              unit: kW
-              group: Động cơ
-              sortOrder: 0
-          images:
-            - url: https://cdn.example.org/vf8/front.jpg
-              altText: VinFast VF 8 nhìn từ phía trước
-              sortOrder: 0
-              isThumbnail: true
-          isActive: false
-          optionGroups: []
-          variants:
-            - sku: VF8-ECO-BLACK
-              attributes:
-                trim: Eco
-                color: Black
-              batteryOption: included
-              listPrice: '1200000000'
-              salePrice: null
-              isActive: true
+        - productImageUrls
       properties:
+        expectedUpdatedAt:
+          type: string
+          format: date-time
+          description: Required by PATCH for optimistic concurrency and omitted by POST.
         categoryId:
           $ref: '#/components/schemas/Uuid'
+        primaryCollectionId:
+          $ref: '#/components/schemas/Uuid'
+        modelCollectionIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
         name:
           type: string
           minLength: 1
@@ -6092,92 +6171,305 @@ components:
           type: string
           minLength: 1
           maxLength: 220
-          pattern: ^[a-z0-9-]+$
-        productKind:
-          $ref: '#/components/schemas/ProductKind'
-        purchaseTerms:
-          $ref: '#/components/schemas/PurchaseTerms'
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         description:
           type: string
           minLength: 1
           maxLength: 10000
-        specifications:
-          oneOf:
-            - type: array
-              items:
-                $ref: '#/components/schemas/ProductSpecification'
-            - $ref: '#/components/schemas/AccessoryContentV1'
-          description: Required to be AccessoryContentV1 when productKind is accessory; vehicle products use the specification array.
+        isActive:
+          type: boolean
+        serviceLabelIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+        content:
+          $ref: '#/components/schemas/AdminAccessoryContentInput'
         optionGroups:
           type: array
           maxItems: 20
           items:
-            $ref: '#/components/schemas/ProductOptionGroupInput'
-          description: Full initial set of non-inventory option groups. Option/group codes must be unique within the product.
-        images:
-          type: array
-          maxItems: 20
-          items:
-            $ref: '#/components/schemas/ProductImageCreateRequest'
-          contains:
-            type: object
-            required:
-              - isThumbnail
-            properties:
-              isThumbnail:
-                const: true
-          minContains: 0
-          maxContains: 1
-          description: Zero or one item may be the thumbnail; an active product requires exactly one.
-        isActive:
-          type: boolean
-          description: When true, this request must contain at least one active variant and exactly one thumbnail; otherwise schema validation returns 400.
+            $ref: '#/components/schemas/AdminAccessoryOptionGroupInput'
         variants:
           type: array
           minItems: 1
+          maxItems: 500
           items:
-            $ref: '#/components/schemas/VariantCreateRequest'
-    ProductPatchRequest:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      description: Setting isActive=true requires at least one persisted active variant and exactly one persisted thumbnail image.
-      properties:
-        categoryId:
-          $ref: '#/components/schemas/Uuid'
-        name:
-          type: string
-          minLength: 1
-          maxLength: 200
-        slug:
-          type: string
-          minLength: 1
-          maxLength: 220
-          pattern: ^[a-z0-9-]+$
-        productKind:
-          $ref: '#/components/schemas/ProductKind'
-        purchaseTerms:
-          $ref: '#/components/schemas/PurchaseTerms'
-        description:
-          type: string
-          minLength: 1
-          maxLength: 10000
-        specifications:
-          oneOf:
-            - type: array
-              items:
-                $ref: '#/components/schemas/ProductSpecification'
-            - $ref: '#/components/schemas/AccessoryContentV1'
-          description: When supplied, replaces the full specification document. Accessories require AccessoryContentV1; vehicle products use the specification array.
-        optionGroups:
+            $ref: '#/components/schemas/AdminAccessoryVariantInput'
+        productImageUrls:
           type: array
           maxItems: 20
+          uniqueItems: true
           items:
-            $ref: '#/components/schemas/ProductOptionGroupInput'
-          description: When supplied, replaces the full non-inventory option-group set. Existing group/value codes are upsert keys and retain their IDs; removed codes are archived. Persisted cart/order snapshots remain unchanged.
+            type: string
+            format: uri
+            maxLength: 2048
+    AdminAccessorySaveResult:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - productType
+        - isActive
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        productType:
+          type: string
+          const: ACCESSORY
         isActive:
           type: boolean
-          description: Activating a product that fails the publication policy returns BUSINESS_RULE_VIOLATION.
+        updatedAt:
+          type: string
+          format: date-time
+    AdminAccessorySaveResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminAccessorySaveResult'
+    AdminAccessoryDraftAttribute:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - label
+        - value
+      properties:
+        id:
+          type: string
+          minLength: 1
+        label:
+          type: string
+        value:
+          type: string
+    AdminAccessoryDraftSection:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - type
+        - title
+        - body
+        - itemsText
+        - attributes
+      properties:
+        id:
+          type: string
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/AccessoryContentSectionType'
+        title:
+          type: string
+        body:
+          type: string
+        itemsText:
+          type: string
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryDraftAttribute'
+    AdminAccessoryDraftOptionValue:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - colorHex
+        - swatchUrl
+        - imageUrls
+      properties:
+        id:
+          type: string
+          minLength: 1
+        code:
+          type: string
+        name:
+          type: string
+        colorHex:
+          type: string
+        swatchUrl:
+          type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+    AdminAccessoryDraftOptionGroup:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - presetCode
+        - code
+        - name
+        - displayType
+        - minimumSelections
+        - maximumSelections
+        - mediaEnabled
+        - values
+      properties:
+        id:
+          type: string
+          minLength: 1
+        presetCode:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        displayType:
+          type: string
+          enum:
+            - BUTTON
+            - SWATCH
+            - SELECT
+        minimumSelections:
+          type: integer
+          enum:
+            - 0
+            - 1
+        maximumSelections:
+          type: integer
+          const: 1
+        mediaEnabled:
+          type: boolean
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryDraftOptionValue'
+    AdminAccessoryDraftVariant:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - sku
+        - originalPrice
+        - salePrice
+        - isActive
+        - isIncluded
+        - selections
+        - imageUrls
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+        sku:
+          type: string
+        originalPrice:
+          type: string
+          pattern: ^[0-9]+$
+        salePrice:
+          type: string
+          pattern: ^(?:[0-9]+)?$
+        isActive:
+          type: boolean
+        isIncluded:
+          type: boolean
+        selections:
+          type: object
+          additionalProperties:
+            type:
+              - string
+              - 'null'
+        imageUrls:
+          type: array
+          items:
+            type: string
+    AdminAccessoryDraft:
+      type: object
+      additionalProperties: false
+      required:
+        - rootCategoryId
+        - primaryCollectionSlug
+        - modelCollectionSlugs
+        - name
+        - slug
+        - description
+        - isActive
+        - serviceLabelIds
+        - sections
+        - optionGroups
+        - variants
+        - productImageUrls
+      properties:
+        rootCategoryId:
+          $ref: '#/components/schemas/Uuid'
+        primaryCollectionSlug:
+          type: string
+        modelCollectionSlugs:
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+        serviceLabelIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryDraftSection'
+        optionGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryDraftOptionGroup'
+        mediaOptionGroupId:
+          type:
+            - string
+            - 'null'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryDraftVariant'
+        productImageUrls:
+          type: array
+          items:
+            type: string
+    AdminAccessoryEditorData:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - productType
+        - isActive
+        - updatedAt
+        - draft
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        productType:
+          type: string
+          const: ACCESSORY
+        isActive:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+        draft:
+          $ref: '#/components/schemas/AdminAccessoryDraft'
+    AdminAccessoryEditorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminAccessoryEditorData'
     ReplaceProductServiceLabelsRequest:
       type: object
       additionalProperties: false
@@ -6296,6 +6588,39 @@ components:
           minimum: 0
         isActive:
           type: boolean
+    VariantCreateRequest:
+      type: object
+      additionalProperties: false
+      description: salePrice, when present, must be lower than listPrice; otherwise the request violates BR-07.
+      required:
+        - sku
+        - attributes
+        - batteryOption
+        - listPrice
+        - isActive
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 80
+        attributes:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+        batteryOption:
+          oneOf:
+            - $ref: '#/components/schemas/BatteryOption'
+            - type: 'null'
+        listPrice:
+          $ref: '#/components/schemas/PositiveMoney'
+        salePrice:
+          oneOf:
+            - $ref: '#/components/schemas/PositiveMoney'
+            - type: 'null'
+          description: Must be lower than listPrice when present.
+        isActive:
+          type: boolean
     VariantResponse:
       type: object
       required:
@@ -6330,6 +6655,28 @@ components:
             - type: 'null'
           description: Must be lower than the resulting listPrice when present.
         isActive:
+          type: boolean
+    ProductImageCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+        - altText
+        - sortOrder
+        - isThumbnail
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        altText:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sortOrder:
+          type: integer
+          minimum: 0
+        isThumbnail:
           type: boolean
     ProductImageResponse:
       type: object

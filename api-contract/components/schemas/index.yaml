@@ -67,10 +67,6 @@ ProductOptionValue:
   $ref: './product.yaml#/ProductOptionValue'
 ProductOptionGroup:
   $ref: './product.yaml#/ProductOptionGroup'
-ProductOptionValueInput:
-  $ref: './product.yaml#/ProductOptionValueInput'
-ProductOptionGroupInput:
-  $ref: './product.yaml#/ProductOptionGroupInput'
 ProductSpecification:
   $ref: './product.yaml#/ProductSpecification'
 AccessoryContentSectionType:
@@ -115,10 +111,38 @@ VariantPatchRequest:
   $ref: './product.yaml#/VariantPatchRequest'
 InventoryUpdateRequest:
   $ref: './product.yaml#/InventoryUpdateRequest'
-ProductCreateRequest:
-  $ref: './product.yaml#/ProductCreateRequest'
-ProductPatchRequest:
-  $ref: './product.yaml#/ProductPatchRequest'
+AdminAccessoryContentSectionInput:
+  $ref: './product.yaml#/AdminAccessoryContentSectionInput'
+AdminAccessoryContentInput:
+  $ref: './product.yaml#/AdminAccessoryContentInput'
+AdminAccessoryOptionValueInput:
+  $ref: './product.yaml#/AdminAccessoryOptionValueInput'
+AdminAccessoryOptionGroupInput:
+  $ref: './product.yaml#/AdminAccessoryOptionGroupInput'
+AdminAccessoryVariantInput:
+  $ref: './product.yaml#/AdminAccessoryVariantInput'
+AdminAccessoryWriteRequest:
+  $ref: './product.yaml#/AdminAccessoryWriteRequest'
+AdminAccessorySaveResult:
+  $ref: './product.yaml#/AdminAccessorySaveResult'
+AdminAccessorySaveResponse:
+  $ref: './product.yaml#/AdminAccessorySaveResponse'
+AdminAccessoryDraftAttribute:
+  $ref: './product.yaml#/AdminAccessoryDraftAttribute'
+AdminAccessoryDraftSection:
+  $ref: './product.yaml#/AdminAccessoryDraftSection'
+AdminAccessoryDraftOptionValue:
+  $ref: './product.yaml#/AdminAccessoryDraftOptionValue'
+AdminAccessoryDraftOptionGroup:
+  $ref: './product.yaml#/AdminAccessoryDraftOptionGroup'
+AdminAccessoryDraftVariant:
+  $ref: './product.yaml#/AdminAccessoryDraftVariant'
+AdminAccessoryDraft:
+  $ref: './product.yaml#/AdminAccessoryDraft'
+AdminAccessoryEditorData:
+  $ref: './product.yaml#/AdminAccessoryEditorData'
+AdminAccessoryEditorResponse:
+  $ref: './product.yaml#/AdminAccessoryEditorResponse'
 ServiceLabel:
   $ref: './product.yaml#/ServiceLabel'
 ServiceLabelListResponse:

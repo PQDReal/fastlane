@@ -57,6 +57,10 @@ import {
   serializeAdminAccessoryDraft,
 } from '@/lib/catalog/admin-accessory-session'
 import { validateAdminAccessoryDraft } from '@/lib/catalog/admin-accessory-validation'
+import {
+  adminAccessoryDraftToWriteRequest,
+  type AdminAccessorySaveResult,
+} from '@/lib/catalog/admin-accessory-write'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 
 const inputClass = 'mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400'
@@ -832,6 +836,23 @@ function accessoryDraftWithRootCategory(rootCategoryId: string) {
   return { ...createAdminAccessoryDraft(), rootCategoryId }
 }
 
+function cloneAccessoryDraft(draft: AdminAccessoryDraft) {
+  return JSON.parse(JSON.stringify(draft)) as AdminAccessoryDraft
+}
+
+async function persistenceResponseError(response: Response) {
+  const body: unknown = await response.json().catch(() => null)
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const error = (body as Record<string, unknown>).error
+    if (typeof error === 'string') return error
+    if (error && typeof error === 'object' && !Array.isArray(error)) {
+      const message = (error as Record<string, unknown>).message
+      if (typeof message === 'string') return message
+    }
+  }
+  return 'Không thể lưu sản phẩm phụ kiện.'
+}
+
 export function AccessoryProductCreateDialog({
   open,
   rootCategoryId,
@@ -839,9 +860,13 @@ export function AccessoryProductCreateDialog({
   onClose,
   onChangeType,
   onDirtyChange,
-  onPrototypeComplete,
+  onSaved,
   onNotify,
   onConfirmDestructive,
+  onAfterExit,
+  initialDraft,
+  productId,
+  expectedUpdatedAt,
 }: {
   open: boolean
   rootCategoryId: string
@@ -849,11 +874,18 @@ export function AccessoryProductCreateDialog({
   onClose: () => void
   onChangeType: () => void
   onDirtyChange: (dirty: boolean) => void
-  onPrototypeComplete: () => void
+  onSaved: (result: AdminAccessorySaveResult) => void
   onNotify: (kind: ToastKind, title: string, message?: string) => void
   onConfirmDestructive: (title: string, message: string, onConfirm: () => void) => void
+  onAfterExit: () => void
+  initialDraft?: AdminAccessoryDraft
+  productId?: string
+  expectedUpdatedAt?: string
 }) {
-  const [draft, setDraft] = useState<AdminAccessoryDraft>(() => accessoryDraftWithRootCategory(rootCategoryId))
+  const isEditing = Boolean(productId && initialDraft && expectedUpdatedAt)
+  const [draft, setDraft] = useState<AdminAccessoryDraft>(() => initialDraft
+    ? cloneAccessoryDraft(initialDraft)
+    : accessoryDraftWithRootCategory(rootCategoryId))
   const [view, setView] = useState<AccessoryEditorView>('edit')
   const [slugEdited, setSlugEdited] = useState(false)
   const [reviewDecisionOpen, setReviewDecisionOpen] = useState(false)
@@ -862,8 +894,18 @@ export function AccessoryProductCreateDialog({
   const [taxonomyError, setTaxonomyError] = useState<string | null>(null)
   const [taxonomyReloadKey, setTaxonomyReloadKey] = useState(0)
   const [hasLocalDraft, setHasLocalDraft] = useState(false)
+  const [saving, setSaving] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
   const reviewTriggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setDraft(initialDraft ? cloneAccessoryDraft(initialDraft) : accessoryDraftWithRootCategory(rootCategoryId))
+    setView('edit')
+    setSlugEdited(Boolean(initialDraft))
+    setReviewDecisionOpen(false)
+    setSaving(false)
+  }, [expectedUpdatedAt, open, productId, rootCategoryId])
 
   useEffect(() => {
     if (!open || !rootCategoryId) return
@@ -920,8 +962,8 @@ export function AccessoryProductCreateDialog({
 
   useEffect(() => {
     if (!open) return
-    setHasLocalDraft(Boolean(window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)))
-  }, [open])
+    setHasLocalDraft(!isEditing && Boolean(window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)))
+  }, [isEditing, open])
 
   useEffect(() => {
     if (!open) return
@@ -932,21 +974,26 @@ export function AccessoryProductCreateDialog({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !reviewDecisionOpen) onClose()
+      if (event.key === 'Escape' && !reviewDecisionOpen && !saving) onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, open, reviewDecisionOpen])
+  }, [onClose, open, reviewDecisionOpen, saving])
 
   useEffect(() => {
-    onDirtyChange(JSON.stringify(draft) !== JSON.stringify(accessoryDraftWithRootCategory(rootCategoryId)))
-  }, [draft, onDirtyChange, rootCategoryId])
+    const baseline = initialDraft ? initialDraft : accessoryDraftWithRootCategory(rootCategoryId)
+    onDirtyChange(JSON.stringify(draft) !== JSON.stringify(baseline))
+  }, [draft, initialDraft, onDirtyChange, rootCategoryId])
 
   const validationIssues = useMemo(() => validateAdminAccessoryDraft(draft), [draft])
   const optionErrors = validationIssues.filter((issue) => issue.section === 'options' && issue.severity === 'error')
   const variantErrors = validationIssues.filter((issue) => issue.section === 'variants' && issue.severity === 'error')
   const commerceComplete = optionErrors.length === 0 && variantErrors.length === 0
-  const hasMedia = Boolean(nonEmptyUrls(draft.productImageUrls).length || draft.variants.some((variant) => nonEmptyUrls(variant.imageUrls).length))
+  const hasMedia = Boolean(
+    nonEmptyUrls(draft.productImageUrls).length
+    || draft.optionGroups.some((group) => group.values.some((option) => nonEmptyUrls(option.imageUrls).length))
+    || draft.variants.some((variant) => nonEmptyUrls(variant.imageUrls).length),
+  )
   const primaryCollectionValid = accessoryCategoryCollections(taxonomyCollections)
     .some((collection) => collection.slug === draft.primaryCollectionSlug)
   const optionMatrixKey = useMemo(() => JSON.stringify(draft.optionGroups.map((group) => ({
@@ -967,7 +1014,7 @@ export function AccessoryProductCreateDialog({
   }, [optionMatrixKey])
 
   function reset() {
-    setDraft(accessoryDraftWithRootCategory(rootCategoryId))
+    setDraft(initialDraft ? cloneAccessoryDraft(initialDraft) : accessoryDraftWithRootCategory(rootCategoryId))
     setView('edit')
     setSlugEdited(false)
     setReviewDecisionOpen(false)
@@ -1010,12 +1057,53 @@ export function AccessoryProductCreateDialog({
     })
   }
 
-  function completeReview(isActive: boolean) {
-    const nextDraft = { ...draft, isActive }
+  async function persistReview() {
+    if (saving) return
+    const nextDraft = { ...draft, isActive: isEditing ? draft.isActive : true }
     setDraft(nextDraft)
-    saveLocalDraft(nextDraft, !isActive)
-    setReviewDecisionOpen(false)
-    if (isActive) onPrototypeComplete()
+    setSaving(true)
+    try {
+      const payload = adminAccessoryDraftToWriteRequest(
+        nextDraft,
+        taxonomyCollections,
+        isEditing ? expectedUpdatedAt : undefined,
+      )
+      const response = await fetch(productId
+        ? `/api/v1/admin/products/${encodeURIComponent(productId)}`
+        : '/api/v1/admin/products', {
+        method: productId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) throw new Error(await persistenceResponseError(response))
+      const body: unknown = await response.json()
+      const result = body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as Record<string, unknown>).data
+        : null
+      if (!result || typeof result !== 'object' || Array.isArray(result)) {
+        throw new Error('Kết quả lưu sản phẩm không hợp lệ.')
+      }
+      const saved = result as Record<string, unknown>
+      if (typeof saved.id !== 'string' || typeof saved.updatedAt !== 'string' || typeof saved.isActive !== 'boolean') {
+        throw new Error('Kết quả lưu sản phẩm không hợp lệ.')
+      }
+      if (!isEditing) window.sessionStorage.removeItem(ADMIN_ACCESSORY_SESSION_KEY)
+      setReviewDecisionOpen(false)
+      onSaved({
+        id: saved.id,
+        productType: 'ACCESSORY',
+        isActive: saved.isActive,
+        updatedAt: saved.updatedAt,
+      })
+    } catch (error) {
+      onNotify(
+        'error',
+        isEditing ? 'Cập nhật phụ kiện thất bại' : 'Tạo phụ kiện thất bại',
+        error instanceof Error ? error.message : undefined,
+      )
+    } finally {
+      setSaving(false)
+    }
   }
 
   function statusForSection(sectionId: AccessorySectionId): AccessorySectionStatus {
@@ -1042,11 +1130,14 @@ export function AccessoryProductCreateDialog({
   }, [draft.description, draft.name, draft.sections, draft.slug, hasMedia, optionErrors, primaryCollectionValid, variantErrors])
 
   return (
-    <AnimatePresence onExitComplete={reset}>
+    <AnimatePresence onExitComplete={() => {
+      reset()
+      onAfterExit()
+    }}>
       {open && (
         <motion.div className="fixed inset-0 z-50 !m-0 flex overscroll-none bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
           <motion.div role="dialog" aria-modal="true" aria-labelledby="create-accessory-title" className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
-            <header className="flex items-center gap-4 border-b border-slate-200 px-4 py-3 sm:px-6"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white"><PackagePlus size={19} /></div><div className="min-w-0 flex-1"><h2 id="create-accessory-title" className="text-lg font-bold text-slate-950">Thêm sản phẩm · Phụ kiện</h2><p className="text-xs text-slate-500">Bản mẫu cục bộ · chưa ghi vào hệ thống</p></div><button type="button" onClick={onChangeType} className="hidden rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:inline-flex">Đổi loại</button><button ref={closeRef} type="button" onClick={onClose} aria-label="Đóng" className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><X size={20} /></button></header>
+            <header className="flex items-center gap-4 border-b border-slate-200 px-4 py-3 sm:px-6"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white"><PackagePlus size={19} /></div><div className="min-w-0 flex-1"><h2 id="create-accessory-title" className="text-lg font-bold text-slate-950">{isEditing ? 'Sửa sản phẩm · Phụ kiện' : 'Thêm sản phẩm · Phụ kiện'}</h2><p className="text-xs text-slate-500">{isEditing ? 'Đang chỉnh sửa dữ liệu hiện có' : 'Sẽ ghi đồng bộ sản phẩm, SKU và quan hệ'}</p></div>{!isEditing && <button type="button" onClick={onChangeType} disabled={saving} className="hidden rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 sm:inline-flex">Đổi loại</button>}<button ref={closeRef} type="button" onClick={onClose} disabled={saving} aria-label="Đóng" className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"><X size={20} /></button></header>
 
             <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/60">
               <AnimatePresence mode="wait" initial={false}>
@@ -1114,18 +1205,23 @@ export function AccessoryProductCreateDialog({
             </main>
 
             <footer className="flex items-center gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-              <div className="min-w-0 flex-1">{view === 'preview' ? <Button type="button" variant="outline" onClick={() => setView('edit')}><ChevronLeft size={16} className="mr-2" />Quay lại chỉnh sửa</Button> : <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={onChangeType} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 sm:hidden">Đổi loại</button><Button type="button" variant="outline" onClick={() => saveLocalDraft()}><Save size={15} className="mr-2" />Lưu cục bộ</Button><Button type="button" variant="outline" disabled={!hasLocalDraft} onClick={restoreLocalDraft}><RotateCcw size={15} className="mr-2" />Khôi phục</Button>{hasLocalDraft && <button type="button" onClick={clearLocalDraft} className="px-2 py-2 text-xs font-semibold text-slate-500 transition hover:text-red-600">Xóa nháp</button>}</div>}</div>
+              <div className="min-w-0 flex-1">{view === 'preview' ? <Button type="button" variant="outline" disabled={saving} onClick={() => setView('edit')}><ChevronLeft size={16} className="mr-2" />Quay lại chỉnh sửa</Button> : !isEditing ? <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50 sm:hidden">Đổi loại</button><Button type="button" variant="outline" disabled={saving} onClick={() => saveLocalDraft()}><Save size={15} className="mr-2" />Lưu cục bộ</Button><Button type="button" variant="outline" disabled={!hasLocalDraft || saving} onClick={restoreLocalDraft}><RotateCcw size={15} className="mr-2" />Khôi phục</Button>{hasLocalDraft && <button type="button" disabled={saving} onClick={clearLocalDraft} className="px-2 py-2 text-xs font-semibold text-slate-500 transition hover:text-red-600 disabled:opacity-50">Xóa nháp</button>}</div> : <span className="text-xs font-semibold text-slate-500">Mọi thay đổi sẽ được kiểm tra lại trước khi lưu.</span>}</div>
               <span className="hidden text-xs font-semibold text-slate-500 md:inline">{reviewBlockers.length === 0 ? 'Đã đủ thông tin bắt buộc' : `Còn ${reviewBlockers.length} mục trước khi hiển thị`}</span>
-              {view === 'preview' ? <button ref={reviewTriggerRef} type="button" onClick={() => setReviewDecisionOpen(true)} className="inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"><Check size={16} className="mr-2" />Duyệt</button> : <Button type="button" onClick={() => setView('preview')}><Eye size={16} className="mr-2" />Xem trước</Button>}
+              {view === 'preview' ? <button ref={reviewTriggerRef} type="button" disabled={saving} onClick={() => setReviewDecisionOpen(true)} className="inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:opacity-50"><Check size={16} className="mr-2" />{isEditing ? 'Lưu' : 'Duyệt'}</button> : <Button type="button" disabled={saving} onClick={() => setView('preview')}><Eye size={16} className="mr-2" />Xem trước</Button>}
             </footer>
 
             <ProductReviewDecisionDialog
               open={reviewDecisionOpen}
               blockers={reviewBlockers}
               triggerRef={reviewTriggerRef}
-              onClose={() => setReviewDecisionOpen(false)}
-              onSaveDraft={() => completeReview(false)}
-              onPublish={() => completeReview(true)}
+              onClose={() => { if (!saving) setReviewDecisionOpen(false) }}
+              onSaveDraft={isEditing ? undefined : () => {
+                saveLocalDraft()
+                setReviewDecisionOpen(false)
+              }}
+              onPublish={() => void persistReview()}
+              mode={isEditing ? 'edit' : 'create'}
+              saving={saving}
             />
           </motion.div>
         </motion.div>
