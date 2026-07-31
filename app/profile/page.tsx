@@ -310,8 +310,8 @@ function ProfileContent() {
                       const getVehicleImage = (model: string, variantImg?: string) => {
                         if (variantImg) return variantImg;
                         const m = (model || '').toLowerCase().trim();
-                        if (m.includes('vf 9') || m.includes('vf9')) return '/images/vf9.png';
-                        if (m.includes('vf 8') || m.includes('vf8')) return '/images/vf8.png';
+                        if (m.includes('vf 9') || m.includes('vf9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp';
+                        if (m.includes('vf 8') || m.includes('vf8')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
                         if (m.includes('vf 7') || m.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
                         if (m.includes('vf 6') || m.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
                         if (m.includes('vf 5') || m.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
@@ -414,7 +414,7 @@ function ProfileContent() {
                                 alt={carName} 
                                 className="w-full h-full object-contain mix-blend-multiply" 
                                 onError={(e) => {
-                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
                                   e.currentTarget.onerror = null;
                                 }}
                               />
@@ -560,8 +560,8 @@ function ProfileContent() {
                         const img = selectedOrder.depositDetails.vehicleVariant?.image_car_url;
                         if (img) return img;
                         const lower = m.toLowerCase();
-                        if (lower.includes('vf 9') || lower.includes('vf9')) return '/images/vf9.png';
-                        if (lower.includes('vf 8') || lower.includes('vf8')) return '/images/vf8.png';
+                        if (lower.includes('vf 9') || lower.includes('vf9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp';
+                        if (lower.includes('vf 8') || lower.includes('vf8')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
                         if (lower.includes('vf 7') || lower.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
                         if (lower.includes('vf 6') || lower.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
                         if (lower.includes('vf 5') || lower.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
