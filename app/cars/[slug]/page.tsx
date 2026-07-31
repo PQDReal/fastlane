@@ -121,8 +121,10 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
   
   const { data: product } = await supabase
     .from('products')
-    .select(`*`)
+    .select('*, category:categories!inner(name)')
     .eq('slug', params.slug)
+    .eq('is_active', true)
+    .eq('categories.name', 'Ô tô điện')
     .single()
 
   if (!product) {
