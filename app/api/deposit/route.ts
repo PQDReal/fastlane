@@ -158,6 +158,32 @@ export async function POST(request: Request) {
     }
     const currentUser = await getCurrentUser().catch(() => null)
     const now = new Date().toISOString()
+
+    // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
+    let vehicleVariantId: string | null = null
+    try {
+      const { data: vVariants } = await getSupabaseAdmin()
+        .from('vehicle_variants')
+        .select('id, product_name, variant_name, version, color')
+      
+      const model = input.vehicleModel
+      const color = input.exteriorColor
+      const variant = input.vehicleVariant
+
+      const matchingVv = (vVariants || []).find((vv: any) => {
+        const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
+        const colorMatch = !color || !vv.color || vv.color.toLowerCase() === color.toLowerCase()
+        const versionMatch = !vv.version || variant.toLowerCase().includes(vv.version.toLowerCase())
+        return pNameMatch && (colorMatch || versionMatch)
+      })
+
+      if (matchingVv) {
+        vehicleVariantId = matchingVv.id
+      }
+    } catch {
+      vehicleVariantId = quote.variantId
+    }
+
     const insertResult = await getSupabaseAdmin()
       .from('deposit_orders')
       .insert({
@@ -177,6 +203,7 @@ export async function POST(request: Request) {
         ward_code: input.wardCode,
         product_id: quote.productId,
         variant_id: quote.variantId,
+        vehicle_variant_id: vehicleVariantId,
         vehicle_type: input.vehicleType,
         car_model: input.vehicleModel,
         car_variant: input.vehicleVariant,
