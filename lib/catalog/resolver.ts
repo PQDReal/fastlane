@@ -129,6 +129,8 @@ function primarySelectedOptionValueId(
     validSelection(group, selection[group.code])
   ))
   const primaryGroup = selectedGroups.find((group) => (
+    group.metadata.drivesMedia === true
+  )) ?? selectedGroups.find((group) => (
     group.metadata.primary === true
   )) ?? selectedGroups.find((group) => (
     group.code === 'color'

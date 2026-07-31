@@ -118,6 +118,8 @@ Các bảng chính đang được sử dụng:
 
 `SUPABASE_SERVICE_ROLE_KEY` có quyền cao và chỉ được đọc trong server code. Không đặt key này trong biến có tiền tố `NEXT_PUBLIC_`.
 
+Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 016](migrations/016_admin_accessory_aggregate_write.sql). Migration cài RPC service-role-only `save_admin_accessory_product`; ứng dụng không tự động chạy DDL khi khởi động. Nếu runtime trả `503`, hãy áp dụng migration vào đúng Supabase project trước khi thử lại.
+
 ## API đang triển khai
 
 | Method | Endpoint | Mục đích |
@@ -128,6 +130,9 @@ Các bảng chính đang được sử dụng:
 | `GET`, `PATCH` | `/api/v1/users/me` | Xem và cập nhật hồ sơ |
 | `POST` | `/api/v1/test-drive/requests` | Tạo yêu cầu lái thử |
 | `GET` | `/api/v1/admin/products` | Lấy sản phẩm cho Admin |
+| `POST` | `/api/v1/admin/products` | Kiểm tra và tạo toàn bộ aggregate phụ kiện trong một transaction |
+| `GET` | `/api/v1/admin/products/{productId}` | Nạp phụ kiện cũ vào model chỉnh sửa Admin |
+| `PATCH` | `/api/v1/admin/products/{productId}` | Kiểm tra phiên bản và cập nhật toàn bộ aggregate phụ kiện |
 | `GET` | `/api/v1/admin/test-drive/requests` | Lấy danh sách lịch lái thử |
 | `POST` | `/api/v1/admin/test-drive/requests/{requestId}/transitions` | Chuyển trạng thái yêu cầu |
 

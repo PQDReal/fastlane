@@ -53,9 +53,9 @@ Các tính năng ngoài MVP theo PRD gồm real payment gateway, multi-currency,
 | Authentication | Không tạo `/auth`; login, register và logout đi qua Auth0 Universal Login | Tránh nhân đôi identity flow; issuer/audience/claim URI cấu hình sau |
 | Product workflow | `productKind` (`car`, `motorbike`, `accessory`) là discriminator nghiệp vụ ổn định; category tiếp tục là taxonomy merchandising | UI và backend không phụ thuộc tên/slug category có thể đổi |
 | Sellable unit | Variant là đơn vị bán cốt lõi, có SKU, attributes, `batteryOption`, giá và tồn kho | Lựa chọn ảnh hưởng SKU/tồn kho vẫn là variant; tránh làm mất kiểm soát inventory |
-| Dynamic option | `ProductOptionGroup/Value` chỉ mô hình tùy chọn không giữ tồn riêng, có giá cộng thêm và danh sách SKU tương thích | Giảm số tổ hợp variant cho sơn/trần/add-on nhưng giữ boundary inventory rõ ràng |
+| Tùy chọn phụ kiện | `ProductOptionGroup/Value` mô tả thuộc tính chọn (màu, kích thước, gói); mỗi tổ hợp đang bán phải ánh xạ tới một SKU | Bám schema hiện tại: option không giữ tồn và không cộng giá; giá/tồn nằm hoàn toàn trên `product_variants` |
 | Purchase terms | Product khai báo `full` hoặc `deposit`; deposit là số tiền cố định dương theo mỗi đơn vị | Phụ kiện trả đủ; ô tô/xe máy có thể thanh toán cọc |
-| Pricebook | Một pricebook `DEFAULT_VND`; tiền là chuỗi số nguyên VND; option adjustment cộng vào effective variant price | Tránh mất chính xác floating-point và giữ server-authoritative pricing |
+| Pricebook | Một pricebook `DEFAULT_VND`; tiền là số nguyên VND; giá hiệu lực của phụ kiện lấy trực tiếp từ SKU (`sale_price` nếu có, nếu không là `original_price`) | Tránh mất chính xác floating-point và không tạo cơ chế cộng giá ngoài cấu trúc DB hiện tại |
 | Sale price | `salePrice` phải nhỏ hơn `listPrice`; `effectivePrice` dùng sale nếu có | Backend phải kiểm tra invariant chéo |
 | Public catalog | Chỉ trả active product và active variant | Variant active hết hàng vẫn hiển thị với `isPurchasable=false` |
 | `priceRange` | Tính từ effective price của active variant, kể cả variant active đang hết hàng | Đồng nhất list, filter và sort |
@@ -186,7 +186,7 @@ Mỗi non-health operation còn có `x-prd-references` riêng. Bảng trên ch�
 | Thumbnail/publication invariant chưa kín | Bổ sung policy; create payload sai bị schema từ chối bằng `400`, còn activation trên persisted product vi phạm invariant trả `422` |
 | `PAYMENT_DECLINED` vừa là error vừa là kết quả `200` | Chuẩn hóa declined thành mock-payment result `200`, bỏ error code dư |
 | Category bị dùng như discriminator nghiệp vụ | Thêm `productKind`; category chỉ còn trách nhiệm merchandising taxonomy |
-| Variant phẳng cho mọi add-on | Thêm option group/value có price adjustment và SKU compatibility; giữ inventory-affecting choice trong Variant |
+| Variant phẳng cho mọi thuộc tính | Chuẩn hóa group/value và ánh xạ mỗi tổ hợp tới Variant; `price_adjustment` luôn bằng 0 trong luồng Admin phụ kiện |
 | Checkout chỉ biết tổng giá | Thêm `amountDueNow`, `balanceDue`, `acceptedAmountDueNow` và order payment snapshot |
 | Order không biểu diễn thanh toán cọc | Thêm `DepositPaid`, `PaymentStatus`, `OrderPayment` và transition xác nhận thanh toán phần dư |
 | `Created` giữ tồn vô hạn | Thêm initial-payment deadline, `Expired` terminal state và idempotent resource restoration |
@@ -338,7 +338,7 @@ Các mục này phải được kiểm tra ở node Backend, Frontend, QA và De
 | Scheduler exactly-once cho expiry/overdue/grace cancellation | Backend + DevOps + QA | Contract đã định nghĩa; cần persistence, retry, metrics và concurrency test |
 | Thu `balanceDue` và hoàn tiền qua payment gateway thật | Backend + Payment owner | Mock endpoint chỉ dành local/demo; cần webhook reconciliation trước production |
 | Callback payment/refund đến muộn sau Cancelled/Expired | Backend + Payment owner + QA | Không revive order; cần reconciliation queue và cảnh báo vận hành |
-| Giữ ID option ổn định khi Admin thay `optionGroups` | Backend + QA | Upsert theo group/value code; snapshot đơn không đổi; cần integration test |
+| Giữ ID option/SKU ổn định khi Admin sửa phụ kiện | Backend + QA | Đã có aggregate RPC: ưu tiên ID thuộc đúng sản phẩm, fallback theo code/SKU; archive phần bị bỏ, giữ inventory SKU cũ và snapshot đơn không đổi |
 | Migrate client từ contract 0.2 sang required field mới | FE + BE | Breaking draft change; regenerate types và cập nhật fixture trước tích hợp |
 | Công nghệ search PostgreSQL FTS hay Elasticsearch | Tech Lead | Chưa ảnh hưởng contract hiện tại |
 | Privacy/retention cho địa chỉ và số điện thoại | PO + Tech Lead | Chốt trước production |

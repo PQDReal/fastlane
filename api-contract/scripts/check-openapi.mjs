@@ -894,6 +894,55 @@ function checkSchemas(specPath) {
       attributes: [{ label: "Chất liệu", value: "Nhựa TPE" }],
     }],
   };
+  const adminAccessoryWrite = {
+    categoryId: u1,
+    primaryCollectionId: u2,
+    modelCollectionIds: [],
+    name: "Ốp gương",
+    slug: "op-guong",
+    description: "Phụ kiện chính hãng.",
+    isActive: true,
+    serviceLabelIds: [],
+    content: {
+      schema: "accessory_content_v1",
+      sections: [{
+        key: "features",
+        type: "FEATURES",
+        title: "Tính năng nổi bật",
+        displayOrder: 10,
+        body: null,
+        items: ["Bền và dễ vệ sinh."],
+        attributes: [],
+      }],
+    },
+    optionGroups: [{
+      code: "color",
+      name: "Màu sắc",
+      displayType: "SWATCH",
+      minimumSelections: 1,
+      maximumSelections: 1,
+      displayOrder: 10,
+      drivesMedia: true,
+      values: [{
+        code: "black",
+        name: "Đen",
+        colorHex: "#000000",
+        swatchUrl: null,
+        displayOrder: 10,
+        imageUrls: ["https://example.com/black.webp"],
+      }],
+    }],
+    variants: [{
+      name: "Đen",
+      sku: "ACC-BLACK",
+      originalPrice: 500000,
+      salePrice: 450000,
+      isActive: true,
+      optionValues: { color: "black" },
+      imageUrls: [],
+    }],
+    productImageUrls: ["https://example.com/product.webp"],
+  };
   const testDriveLocation = {
     name: "FASTLANE Central",
     addressLine: "720A Điện Biên Phủ",
@@ -926,7 +975,7 @@ function checkSchemas(specPath) {
   const samples = new Map([
     ["HealthResponse", { data: { status: "ok" } }],
     ["ProductDetail", product],
-    ["ProductCreateRequest", productCreate],
+    ["AdminAccessoryWriteRequest", adminAccessoryWrite],
     ["AccessoryContentV1", accessoryContent],
     ["AddCartItemRequest", { variantId: u3, quantity: 1 }],
     ["Cart", { id: u1, version: 3, pricedAt: timestamp, items: [cartItem], promotion: applied, pricing }],
@@ -1005,7 +1054,7 @@ function checkSchemas(specPath) {
       activeProductCount: 8,
       lowStockVariantCount: 2,
     }],
-    ["ProductPatchRequest", { name: "VinFast VF 8 Plus" }],
+    ["AdminAccessorySaveResult", { id: u1, productType: "ACCESSORY", isActive: true, updatedAt: timestamp }],
     ["CancelOrderRequest", { expectedCurrentStatus: "DepositPaid", reasonCode: "changed_mind", note: "Thay đổi kế hoạch mua xe." }],
     ["CreateTestDriveRequest", testDriveCreate],
     ["TestDriveAvailability", {
@@ -1123,7 +1172,7 @@ function checkSchemas(specPath) {
   negative("PercentageDiscount", { type: "percentage", value: 101 });
   negative("FixedAmountDiscount", { type: "fixed_amount", value: "0" });
   negative("CategoryPatchRequest", {});
-  negative("ProductPatchRequest", { availableQuantity: 5 });
+  negative("AdminAccessoryWriteRequest", { ...adminAccessoryWrite, internalCost: 5 });
   negative("Money", "-1");
   negative("Money", 199000);
   negative("Money", "0199000");
@@ -1134,20 +1183,12 @@ function checkSchemas(specPath) {
   negative("CancellationPolicy", { ...cancellationPolicy, refundPercentage: 101 });
   negative("CancelOrderRequest", { expectedCurrentStatus: "Shipped", reasonCode: "changed_mind" });
   negative("AddCartItemRequest", { variantId: u3, selectedOptionValueIds: [], quantity: 1 });
-  const withoutImages = structuredClone(productCreate);
-  delete withoutImages.images;
-  negative("ProductCreateRequest", withoutImages);
-  const withoutActiveVariant = structuredClone(productCreate);
-  withoutActiveVariant.variants[0].isActive = false;
-  negative("ProductCreateRequest", withoutActiveVariant);
-  const duplicateThumbnail = structuredClone(productCreate);
-  duplicateThumbnail.images.push({
-    url: "https://example.com/vf8-side.jpg",
-    altText: "VinFast VF 8 nhìn ngang",
-    sortOrder: 1,
-    isThumbnail: true,
-  });
-  negative("ProductCreateRequest", duplicateThumbnail);
+  const accessoryWithOptionPrice = structuredClone(adminAccessoryWrite);
+  accessoryWithOptionPrice.optionGroups[0].values[0].priceAdjustment = 100000;
+  negative("AdminAccessoryWriteRequest", accessoryWithOptionPrice);
+  const accessoryWithSystemId = structuredClone(adminAccessoryWrite);
+  accessoryWithSystemId.variants[0].id = u3;
+  negative("AdminAccessoryWriteRequest", accessoryWithSystemId);
   const productWithExtraField = structuredClone(product);
   productWithExtraField.internalCost = "1";
   negative("ProductDetail", productWithExtraField);

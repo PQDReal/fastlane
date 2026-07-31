@@ -9,34 +9,54 @@ import {
   parseIdempotencyKey,
   type DepositOrderInput,
 } from '@/lib/deposit/order-input'
+import {
+  DepositLocationUnavailableError,
+  validateDepositLocation,
+} from '@/lib/deposit/location'
+import {
+  buildDepositVehicleQuote,
+  depositQuoteError,
+} from '@/lib/deposit/quote'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 const RESPONSE_COLUMNS =
-  'id,order_number,status,deposit_amount,total_estimated_price,car_model,car_variant,created_at'
-
-type VehicleQuote = {
-  productId: string
-  variantId: string | null
-  depositAmount: number
-  totalEstimatedPrice: number
-}
+  'id,order_number,status,deposit_amount,subtotal,discount_amount,total_estimated_price,promotion_code,car_model,car_variant,created_at,request_hash'
 
 type DepositOrderRow = {
   id: string
   order_number: string
   status: string
   deposit_amount: number | string
+  subtotal: number | string | null
+  discount_amount: number | string
   total_estimated_price: number | string
+  promotion_code: string | null
   car_model: string
   car_variant: string
   created_at: string
+  request_hash: string | null
 }
 
-function errorResponse(status: number, code: string, message: string) {
+function errorResponse(status: number, code: string, message: string, field?: string) {
   return NextResponse.json(
-    { error: { code, message, requestId: crypto.randomUUID() } },
+    {
+      error: {
+        code,
+        message,
+        requestId: crypto.randomUUID(),
+        ...(field ? { field } : {}),
+      },
+    },
     { status },
   )
+}
+
+function vietnamOffsetIso(value: string) {
+  const instant = new Date(value)
+  if (Number.isNaN(instant.getTime())) return value
+  return new Date(instant.getTime() + 7 * 60 * 60 * 1000)
+    .toISOString()
+    .replace('Z', '+07:00')
 }
 
 function responseData(row: DepositOrderRow, replayed = false) {
@@ -46,10 +66,13 @@ function responseData(row: DepositOrderRow, replayed = false) {
       orderNumber: row.order_number,
       status: row.status,
       depositAmount: Number(row.deposit_amount),
+      subtotal: Number(row.subtotal ?? row.total_estimated_price),
+      discountAmount: Number(row.discount_amount ?? 0),
       totalEstimatedPrice: Number(row.total_estimated_price),
+      promotionCode: row.promotion_code,
       vehicleModel: row.car_model,
       vehicleVariant: row.car_variant,
-      createdAt: row.created_at,
+      createdAt: vietnamOffsetIso(row.created_at),
       replayed,
     },
   }
@@ -59,20 +82,6 @@ function generateOrderNumber(): string {
   const date = new Date().toISOString().slice(2, 10).replaceAll('-', '')
   const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()
   return `FLD-${date}-${suffix}`
-}
-
-function compact(value: unknown): string {
-  return String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/đ/g, 'd')
-    .replace(/[^a-z0-9]/g, '')
-}
-
-function money(value: unknown): number {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : 0
 }
 
 function isDepositSchemaOutdated(error: unknown): boolean {
@@ -85,89 +94,12 @@ function isDepositSchemaOutdated(error: unknown): boolean {
     || /column deposit_orders\.[a-z_]+ does not exist/i.test(message)
 }
 
-async function vehicleQuote(input: DepositOrderInput): Promise<VehicleQuote> {
-  const supabase = getSupabaseAdmin()
-  const targetTypes = input.vehicleType === 'motorbike'
-    ? ['BIKE', 'MOTORBIKE']
-    : ['CAR']
-
-  const productsResult = await supabase
-    .from('products')
-    .select('id,name,displayed_price,product_type')
-    .eq('is_active', true)
-    .in('product_type', targetTypes)
-
-  if (productsResult.error) throw productsResult.error
-
-  const compactModel = compact(input.vehicleModel)
-  const productData = (productsResult.data ?? []).find((p) => {
-    const pKey = compact(p.name)
-    return pKey === compactModel || pKey.endsWith(compactModel) || compactModel.endsWith(pKey)
-  })
-
-  if (!productData) {
-    throw new DepositInputError('Mẫu xe không tồn tại hoặc đã ngừng hoạt động.')
-  }
-
-  const variantsResult = await supabase
-    .from('product_variants')
-    .select('id,name,original_price,sale_price,deposit_amount')
-    .eq('product_id', productData.id)
-    .eq('is_active', true)
-
-  if (variantsResult.error) throw variantsResult.error
-  const variantKey = compact(input.vehicleVariant)
-  const productKey = compact(productData.name)
-  const selectedVariant = (variantsResult.data ?? []).find((variant) => {
-    const key = compact(variant.name)
-    return key === variantKey
-      || `${productKey}${key}` === variantKey
-      || variantKey.endsWith(key)
-  })
-
-  if ((variantsResult.data ?? []).length > 0 && !selectedVariant) {
-    throw new DepositInputError('Phiên bản xe không còn khả dụng.')
-  }
-
-  const optionResult = await supabase
-    .from('product_option_values')
-    .select('id,code,name,price_adjustment')
-    .eq('product_id', productData.id)
-    .eq('is_active', true)
-
-  const selectedNames = new Set(
-    [input.exteriorColor, input.interiorColor]
-      .filter((value): value is string => Boolean(value))
-      .map(compact),
-  )
-  const selectedPackages = new Set(input.optionalPackages.map(compact))
-  const optionAdjustment = optionResult.error
-    ? 0
-    : (optionResult.data ?? []).reduce((total, option) => {
-        const isSelected = selectedNames.has(compact(option.name))
-          || selectedPackages.has(compact(option.id))
-          || selectedPackages.has(compact(option.code))
-        return total + (isSelected ? money(option.price_adjustment) : 0)
-      }, 0)
-
-  const basePrice = money(
-    selectedVariant?.sale_price
-      ?? selectedVariant?.original_price
-      ?? productData.displayed_price,
-  )
-  if (basePrice <= 0) {
-    throw new DepositInputError('Mẫu xe chưa có giá bán hợp lệ để đặt cọc.')
-  }
-
-  const configuredDeposit = money(selectedVariant?.deposit_amount)
-  const defaultDeposit = input.vehicleType === 'motorbike' ? 2_000_000 : 10_000_000
-
-  return {
-    productId: productData.id,
-    variantId: selectedVariant?.id ?? null,
-    depositAmount: Math.min(configuredDeposit || defaultDeposit, basePrice + optionAdjustment),
-    totalEstimatedPrice: basePrice + optionAdjustment,
-  }
+async function requestHash(input: DepositOrderInput) {
+  const bytes = new TextEncoder().encode(JSON.stringify(input))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 async function existingOrder(idempotencyKey: string): Promise<DepositOrderRow | null> {
@@ -195,37 +127,43 @@ export async function POST(request: Request) {
     idempotencyKey = parseIdempotencyKey(request.headers.get('Idempotency-Key'))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Dữ liệu đặt cọc không hợp lệ.'
-    return errorResponse(400, 'VALIDATION_FAILED', message)
+    return errorResponse(
+      400,
+      'VALIDATION_FAILED',
+      message,
+      error instanceof DepositInputError ? error.field : undefined,
+    )
   }
 
   try {
+    const hash = await requestHash(input)
     const replay = await existingOrder(idempotencyKey)
-    if (replay) return NextResponse.json(responseData(replay, true))
-
-    const [quote, currentUser] = await Promise.all([
-      vehicleQuote(input),
-      getCurrentUser().catch(() => null),
-    ])
-
-    let discountAmount = 0
-    if (input.promotionCode) {
-      try {
-        const vehicleType = input.vehicleType === 'motorbike' ? 'BIKE' : 'CAR'
-        const promoQuote = await quoteVehiclePromotion(input.promotionCode, quote.totalEstimatedPrice, vehicleType)
-        if (promoQuote) {
-          discountAmount = promoQuote.discountAmount
-        }
-      } catch (e) {
-        console.error('Invalid promotion code on deposit:', e)
+    if (replay) {
+      if (replay.request_hash && replay.request_hash !== hash) {
+        return errorResponse(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'Yêu cầu này đã được dùng cho một nội dung đặt cọc khác.',
+        )
       }
+      return NextResponse.json(responseData(replay, true))
     }
 
+    await validateDepositLocation(input)
+    let quote: Awaited<ReturnType<typeof buildDepositVehicleQuote>>
+    try {
+      quote = await buildDepositVehicleQuote(input)
+    } catch (error) {
+      depositQuoteError(error)
+    }
+    const currentUser = await getCurrentUser().catch(() => null)
     const now = new Date().toISOString()
     const insertResult = await getSupabaseAdmin()
       .from('deposit_orders')
       .insert({
         order_number: generateOrderNumber(),
         idempotency_key: idempotencyKey,
+        request_hash: hash,
         customer_id: currentUser?.id ?? null,
         customer_type: input.customerType,
         full_name: input.fullName || input.companyName || '',
@@ -234,7 +172,9 @@ export async function POST(request: Request) {
         email: input.email,
         id_card_number: input.idCardNumber,
         province: input.province,
+        province_code: input.provinceCode,
         ward: input.ward,
+        ward_code: input.wardCode,
         product_id: quote.productId,
         variant_id: quote.variantId,
         vehicle_type: input.vehicleType,
@@ -243,13 +183,15 @@ export async function POST(request: Request) {
         exterior_color: input.exteriorColor,
         interior_color: input.interiorColor ?? '',
         optional_packages: input.optionalPackages,
+        subtotal: quote.subtotal,
+        discount_amount: quote.discountAmount,
+        promotion_id: quote.promotion?.id ?? null,
+        promotion_code: quote.promotion?.code ?? null,
         showroom: input.showroom || 'VinFast Landmark 81',
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
-        total_estimated_price: Math.max(0, quote.totalEstimatedPrice - discountAmount),
-        promotion_code: input.promotionCode || null,
-        discount_amount: Math.max(0, discountAmount),
+        total_estimated_price: quote.totalEstimatedPrice,
         status: 'PENDING_PAYMENT',
         terms_accepted_at: now,
       })
@@ -272,13 +214,13 @@ export async function POST(request: Request) {
         return errorResponse(
           503,
           'DEPOSIT_SCHEMA_OUTDATED',
-          'Database chưa áp dụng migration 016_deposit_orders.sql.',
+          'Database chưa áp dụng migration 016 và 022 cho đơn đặt cọc.',
         )
       }
       throw insertResult.error
     }
 
-    if (input.promotionCode && discountAmount > 0) {
+    if (input.promotionCode && quote.discountAmount > 0) {
       const supabase = getSupabaseAdmin()
       const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
       if (promo) {
@@ -289,13 +231,27 @@ export async function POST(request: Request) {
     return NextResponse.json(responseData(insertResult.data), { status: 201 })
   } catch (error) {
     if (error instanceof DepositInputError) {
-      return errorResponse(409, 'DEPOSIT_SELECTION_INVALID', error.message)
+      return errorResponse(
+        error.field === 'promotion_code' ? 422 : 409,
+        error.field === 'promotion_code'
+          ? 'PROMOTION_NOT_APPLICABLE'
+          : 'DEPOSIT_SELECTION_INVALID',
+        error.message,
+        error.field,
+      )
+    }
+    if (error instanceof DepositLocationUnavailableError) {
+      return errorResponse(
+        503,
+        'LOCATION_SERVICE_UNAVAILABLE',
+        error.message,
+      )
     }
     if (isDepositSchemaOutdated(error)) {
       return errorResponse(
         503,
         'DEPOSIT_SCHEMA_OUTDATED',
-        'Database chưa áp dụng migration 016_deposit_orders.sql.',
+        'Database chưa áp dụng migration 016 và 022 cho đơn đặt cọc.',
       )
     }
     console.error('Unable to create deposit order:', error)

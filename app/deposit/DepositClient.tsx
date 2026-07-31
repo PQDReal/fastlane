@@ -10,8 +10,19 @@ import {
   findDepositVehicle,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
+import {
+  validateDepositCustomerDetails,
+  type DepositCustomerField,
+} from '../../lib/deposit/order-input'
 
 type LocationOption = { code: number; name: string }
+type DepositQuote = {
+  depositAmount: number
+  subtotal: number
+  discountAmount: number
+  totalEstimatedPrice: number
+  promotion: { id: string; code: string; name: string } | null
+}
 
 const DEPOSIT_STEPS = [
   { number: 1, label: 'Lựa chọn xe' },
@@ -254,17 +265,28 @@ export function DepositClient({
   const [wards, setWards] = useState<LocationOption[]>([])
   const [provinceCode, setProvinceCode] = useState('')
   const [wardCode, setWardCode] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<DepositCustomerField, string>>
+  >({})
   const [locationsLoading, setLocationsLoading] = useState(true)
   const [wardsLoading, setWardsLoading] = useState(false)
   const [autoOpenWard, setAutoOpenWard] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [promotionCode, setPromotionCode] = useState('')
+  const [promotionQuote, setPromotionQuote] = useState<DepositQuote | null>(null)
+  const [promotionLoading, setPromotionLoading] = useState(false)
+  const [promotionError, setPromotionError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [completedOrder, setCompletedOrder] = useState<{
     orderNumber: string
     depositAmount: number
     totalEstimatedPrice: number
+    subtotal: number
+    discountAmount: number
+    promotionCode: string | null
+    createdAt: string
     status: string
   } | null>(null)
   const depositIdempotencyKey = useRef<string | null>(null)
@@ -275,10 +297,8 @@ export function DepositClient({
   const [selectedShowroom, setSelectedShowroom] = useState<any>(null)
   const [openShowroom, setOpenShowroom] = useState(false)
   const [dbVariants, setDbVariants] = useState<any[]>([])
-  const [promotionCode, setPromotionCode] = useState('')
   const [applyingPromotion, setApplyingPromotion] = useState(false)
   const [appliedPromotion, setAppliedPromotion] = useState<any>(null)
-  const [promotionError, setPromotionError] = useState<string | null>(null)
   const [promotionSuccess, setPromotionSuccess] = useState<string | null>(null)
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
@@ -288,6 +308,39 @@ export function DepositClient({
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
   }
+
+  const clearFieldError = (field: DepositCustomerField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+  const validateCustomerField = (field: DepositCustomerField) => {
+    const errors = validateDepositCustomerDetails({
+      customerType,
+      fullName: formData.name,
+      companyName: formData.companyName,
+      phoneNumber: formData.phone,
+      email: formData.email,
+      idCardNumber: formData.idCard,
+      provinceCode,
+      wardCode,
+    })
+    setFieldErrors((current) => {
+      const next = { ...current }
+      if (errors[field]) next[field] = errors[field]
+      else delete next[field]
+      return next
+    })
+  }
+  const inputClass = (field: DepositCustomerField) =>
+    `w-full rounded-xl border px-4 py-3 transition-all focus:bg-white focus:outline-none focus:ring-1 ${
+      fieldErrors[field]
+        ? 'border-red-400 bg-red-50/40 focus:border-red-500 focus:ring-red-500'
+        : 'border-slate-200 bg-slate-50 focus:border-slate-900 focus:ring-slate-900'
+    }`
 
   useEffect(() => {
     const controller = new AbortController()
@@ -339,6 +392,7 @@ export function DepositClient({
   useEffect(() => {
     if (!provinceCode) {
       setWards([])
+      setWardCode('')
       return
     }
 
@@ -508,6 +562,8 @@ export function DepositClient({
     setViewMode('exterior')
     setInteriorImageIndex(0)
     setSelectedInteriorColor(nextType === 'motorbike' ? '' : 'Granite Black')
+    setPromotionQuote(null)
+    setPromotionError(null)
   }
 
   const handleExteriorColorChange = (newColor: string) => {
@@ -620,12 +676,24 @@ export function DepositClient({
     if (currentStep === 1) {
       goToStep(2)
     } else if (currentStep === 2) {
-      const isMissingPersonal = customerType === 'personal' && !formData.name;
-      const isMissingCorporate = customerType === 'corporate' && (!formData.companyName || !formData.name);
-      
-      if (isMissingPersonal || isMissingCorporate || !formData.phone || !formData.email || !formData.idCard || !formData.province || !formData.ward) {
-        addToast({ kind: 'warning', title: 'Vui lòng điền đầy đủ các thông tin bắt buộc' });
-        return;
+      const errors = validateDepositCustomerDetails({
+        customerType,
+        fullName: formData.name,
+        companyName: formData.companyName,
+        phoneNumber: formData.phone,
+        email: formData.email,
+        idCardNumber: formData.idCard,
+        provinceCode,
+        wardCode,
+      })
+      setFieldErrors(errors)
+      if (Object.keys(errors).length > 0 || !formData.province || !formData.ward) {
+        addToast({
+          kind: 'warning',
+          title: 'Thông tin chưa hợp lệ',
+          message: Object.values(errors)[0] || 'Vui lòng chọn Tỉnh/Thành phố và Xã/Phường.',
+        })
+        return
       }
       goToStep(3)
     } else if (currentStep === 3) {
@@ -658,7 +726,9 @@ export function DepositClient({
             email: formData.email,
             id_card_number: formData.idCard,
             province: formData.province,
+            province_code: provinceCode,
             ward: formData.ward,
+            ward_code: wardCode,
             vehicle_type: currentCarObj.product_type === 'motorbike' ? 'motorbike' : 'car',
             car_model: currentCarObj.name,
             car_variant: selectedVariant,
@@ -762,6 +832,60 @@ export function DepositClient({
     baseColors = colors.filter((c: any) => !vf9Advanced.includes(c.name))
     advancedColors = colors.filter((c: any) => vf9Advanced.includes(c.name))
   }
+
+  const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
+  const selectedVariantData = currentSpecs.variants?.[selectedVariantName]
+  const basePrice =
+    selectedVariantData?.price || currentCar.displayed_price || 0
+  const isAdvancedColor = advancedColors.some(
+    (color: any) => color.name === selectedColor,
+  )
+  const colorPrice = isAdvancedColor
+    ? currentCar.name.includes('MPV')
+      ? 10_000_000
+      : ['VF 7', 'VF 9'].includes(currentCar.name) ||
+          currentCar.name.includes('VF 8')
+        ? 12_000_000
+        : 8_000_000
+    : 0
+  const availablePackages =
+    currentCar.optional_packages?.filter(
+      (pkg: any) =>
+        !pkg.variants ||
+        pkg.variants.some((variant: string) => selectedVariant.includes(variant)),
+    ) || []
+  const packagesPrice = selectedPackages.reduce((total, id) => {
+    const selectedPackage = availablePackages.find((pkg: any) => pkg.id === id)
+    return total + (selectedPackage?.price || 0)
+  }, 0)
+  const localSubtotal = basePrice + colorPrice + packagesPrice
+  const displayedTotal =
+    promotionQuote?.totalEstimatedPrice ?? localSubtotal
+
+  useEffect(() => {
+    setPromotionQuote(null)
+    setPromotionError(null)
+  }, [
+    vehicleType,
+    selectedCarId,
+    selectedVariant,
+    selectedColor,
+    selectedInteriorColor,
+    selectedPackages,
+  ])
+
+  const depositSelectionPayload = () => ({
+    vehicle_type: currentCar.product_type === 'motorbike' ? 'motorbike' : 'car',
+    car_model: currentCar.name,
+    car_variant: selectedVariant,
+    exterior_color: selectedColor,
+    interior_color:
+      currentCar.product_type === 'motorbike' ? '' : selectedInteriorColor,
+    optional_packages: selectedPackages,
+    promotion_code: promotionCode.trim().toUpperCase(),
+  })
+
+
 
   const activeColorObj = colors.find((c: any) => c.name === selectedColor)
   
@@ -1500,7 +1624,11 @@ export function DepositClient({
                         name="customerType" 
                         value="personal" 
                         checked={customerType === 'personal'} 
-                        onChange={() => setCustomerType('personal')}
+                        onChange={() => {
+                          setCustomerType('personal')
+                          setFormData((current) => ({ ...current, companyName: '' }))
+                          setFieldErrors({})
+                        }}
                         className="w-4 h-4 text-slate-900 focus:ring-slate-900"
                       />
                       <span className="text-sm font-semibold text-slate-700">Cá nhân</span>
@@ -1511,7 +1639,11 @@ export function DepositClient({
                         name="customerType" 
                         value="corporate" 
                         checked={customerType === 'corporate'} 
-                        onChange={() => setCustomerType('corporate')}
+                        onChange={() => {
+                          setCustomerType('corporate')
+                          setFormData((current) => ({ ...current, name: '' }))
+                          setFieldErrors({})
+                        }}
                         className="w-4 h-4 text-slate-900 focus:ring-slate-900"
                       />
                       <span className="text-sm font-semibold text-slate-700">Doanh nghiệp</span>
@@ -1521,34 +1653,40 @@ export function DepositClient({
                   {customerType === 'corporate' ? (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Tên doanh nghiệp <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập tên doanh nghiệp đầy đủ" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} />
+                      <input type="text" required autoComplete="organization" minLength={2} maxLength={180} aria-invalid={Boolean(fieldErrors.companyName)} placeholder="Nhập tên doanh nghiệp đầy đủ" className={inputClass('companyName')} value={formData.companyName} onBlur={() => validateCustomerField('companyName')} onChange={e => { setFormData({...formData, companyName: e.target.value}); clearFieldError('companyName') }} />
+                      {fieldErrors.companyName && <p className="text-xs font-medium text-red-600">{fieldErrors.companyName}</p>}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Họ và tên <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập họ và tên đầy đủ" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                      <input type="text" required autoComplete="name" autoCapitalize="words" minLength={2} maxLength={120} aria-invalid={Boolean(fieldErrors.fullName)} placeholder="Nhập họ và tên đầy đủ" className={inputClass('fullName')} value={formData.name} onBlur={() => validateCustomerField('fullName')} onChange={e => { setFormData({...formData, name: e.target.value}); clearFieldError('fullName') }} />
+                      {fieldErrors.fullName && <p className="text-xs font-medium text-red-600">{fieldErrors.fullName}</p>}
                     </div>
                   )}
                   
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Số điện thoại <span className="text-red-500">*</span></label>
-                    <input type="tel" placeholder="Nhập số điện thoại" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    <input type="tel" required autoComplete="tel" inputMode="tel" minLength={10} maxLength={20} pattern="(?:0|\\+84)(?:3|5|7|8|9)[0-9 .()\\-]{8,14}" aria-invalid={Boolean(fieldErrors.phoneNumber)} placeholder="Ví dụ: 0901234567 hoặc +84901234567" className={inputClass('phoneNumber')} value={formData.phone} onBlur={() => validateCustomerField('phoneNumber')} onChange={e => { setFormData({...formData, phone: e.target.value}); clearFieldError('phoneNumber') }} />
+                    {fieldErrors.phoneNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.phoneNumber}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Email <span className="text-red-500">*</span></label>
-                    <input type="email" placeholder="Nhập địa chỉ email" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                    <input type="email" required autoComplete="email" inputMode="email" maxLength={254} spellCheck={false} aria-invalid={Boolean(fieldErrors.email)} placeholder="Ví dụ: ten@example.com" className={inputClass('email')} value={formData.email} onBlur={() => validateCustomerField('email')} onChange={e => { setFormData({...formData, email: e.target.value}); clearFieldError('email') }} />
+                    {fieldErrors.email && <p className="text-xs font-medium text-red-600">{fieldErrors.email}</p>}
                   </div>
 
                   {customerType === 'corporate' ? (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Số đăng ký kinh doanh / Mã số thuế <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập số ĐKKD hoặc MST" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.idCard} onChange={e => setFormData({...formData, idCard: e.target.value})} />
+                      <input type="text" required inputMode="numeric" minLength={10} maxLength={14} pattern="[0-9]{10}(?:-[0-9]{3})?" spellCheck={false} aria-invalid={Boolean(fieldErrors.idCardNumber)} placeholder="Ví dụ: 0100109106" className={inputClass('idCardNumber')} value={formData.idCard} onBlur={() => validateCustomerField('idCardNumber')} onChange={e => { setFormData({...formData, idCard: e.target.value.replace(/[^0-9-]/g, '')}); clearFieldError('idCardNumber') }} />
+                      {fieldErrors.idCardNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.idCardNumber}</p>}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">Số CCCD / CMND / Hộ chiếu <span className="text-red-500">*</span></label>
-                      <input type="text" placeholder="Nhập số giấy tờ tùy thân" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white" value={formData.idCard} onChange={e => setFormData({...formData, idCard: e.target.value})} />
+                      <input type="text" required inputMode="text" minLength={8} maxLength={12} pattern="(?:[0-9]{9}|[0-9]{12}|[A-Za-z][0-9]{7})" autoCapitalize="characters" spellCheck={false} aria-invalid={Boolean(fieldErrors.idCardNumber)} placeholder="CCCD 12 số, CMND 9 số hoặc hộ chiếu" className={inputClass('idCardNumber')} value={formData.idCard} onBlur={() => validateCustomerField('idCardNumber')} onChange={e => { setFormData({...formData, idCard: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')}); clearFieldError('idCardNumber') }} />
+                      {fieldErrors.idCardNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.idCardNumber}</p>}
                     </div>
                   )}
 
@@ -1568,6 +1706,8 @@ export function DepositClient({
                             setSelectedShowroom(null)
                             setOpenShowroom(false)
                             setAutoOpenWard(true)
+                            clearFieldError('provinceCode')
+                            clearFieldError('wardCode')
                           } else {
                             setProvinceCode('')
                             setWardCode('')
@@ -1578,6 +1718,7 @@ export function DepositClient({
                           }
                         }}
                       />
+                      {fieldErrors.provinceCode && <p className="text-xs font-medium text-red-600 mt-1">{fieldErrors.provinceCode}</p>}
                     </div>
                     <div>
                       <SearchableLocationSelect
@@ -1594,6 +1735,7 @@ export function DepositClient({
                             setWardCode(String(option.code))
                             setFormData(prev => ({ ...prev, ward: option.name }))
                             setOpenShowroom(false)
+                            clearFieldError('wardCode')
                           } else {
                             setWardCode('')
                             setFormData(prev => ({ ...prev, ward: '' }))
@@ -1602,6 +1744,7 @@ export function DepositClient({
                           }
                         }}
                       />
+                      {fieldErrors.wardCode && <p className="text-xs font-medium text-red-600 mt-1">{fieldErrors.wardCode}</p>}
                     </div>
                   </div>
 
@@ -1734,7 +1877,7 @@ export function DepositClient({
                       </span>
                     </div>
                     {!isMotorbike && <div className="text-slate-600 mb-4">Kèm pin</div>}
-                    
+
                     <div className="flex justify-between items-center py-3 border-t border-slate-100">
                       <span className="text-slate-600">Ngoại thất</span>
                       <span className="font-medium text-slate-800">{selectedColor}</span>
@@ -1846,6 +1989,26 @@ export function DepositClient({
                       }).format(completedOrder?.depositAmount || 0)}
                     </span>
                   </div>
+                  {(completedOrder?.discountAmount ?? 0) > 0 && (
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-sm text-slate-500">Ưu đãi</span>
+                      <span className="font-bold text-emerald-700">
+                        -{new Intl.NumberFormat('vi-VN').format(completedOrder?.discountAmount ?? 0)} ₫
+                      </span>
+                    </div>
+                  )}
+                  {completedOrder?.createdAt && (
+                    <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3">
+                      <span className="text-sm text-slate-500">Thời gian tạo</span>
+                      <span className="text-sm font-semibold text-slate-700">
+                        {new Intl.DateTimeFormat('vi-VN', {
+                          timeZone: 'Asia/Ho_Chi_Minh',
+                          dateStyle: 'short',
+                          timeStyle: 'medium',
+                        }).format(new Date(completedOrder.createdAt))} (GMT+7)
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

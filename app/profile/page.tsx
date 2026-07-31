@@ -146,6 +146,21 @@ function ProfileContent() {
   const displayName = profile?.fullName || user.name || 'Tài khoản'
   const formatPrice = (price: number | string) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price))
   const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN')
+  const formatVietnamDateTime = (date: string) => {
+    const instant = new Date(date)
+    if (Number.isNaN(instant.getTime())) return 'Chưa cập nhật'
+
+    return `${new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).format(instant)} (GMT+7)`
+  }
   const statusIcon = (status: string) => status === 'Completed'
     ? <CheckCircle2 className="h-5 w-5 text-green-500" />
     : status === 'Cancelled'
@@ -513,9 +528,14 @@ function ProfileContent() {
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">Chi tiết đơn mua xe</h3>
                     <p className="text-sm text-gray-500">Mã đơn: {selectedOrder.orderNumber}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                      <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+                      Tạo lúc {formatVietnamDateTime(selectedOrder.createdAt)}
+                    </p>
                   </div>
                   <button
                     onClick={() => setSelectedOrder(null)}
+                    aria-label="Đóng chi tiết đơn mua xe"
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
                   >
                     <X className="w-5 h-5" />

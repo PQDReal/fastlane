@@ -182,6 +182,16 @@ describe('catalog media resolver', () => {
     expect(resolveCatalogImageUrl(placeholder)).toBe('/images/vf8.png')
   })
 
+  it('prefers the option group explicitly marked as driving media', () => {
+    const base = product()
+    base.optionGroups[0].metadata.primary = true
+    base.optionGroups[1].metadata.drivesMedia = true
+    base.media.byOptionValue['m-id'] = [media('size-m', { optionValueId: 'm-id' })]
+
+    expect(resolveCatalogMedia(base, { selectedOptions: { color: 'red', size: 'm' } })[0])
+      .toMatchObject({ url: 'size-m.jpg', source: 'OPTION_VALUE' })
+  })
+
   it('skips variant videos when an image-only consumer needs a URL', () => {
     const base = product()
     base.media.byVariant['red-m'] = [{
