@@ -4,7 +4,7 @@ import { AdminPromotionsTable, type Promotion } from './promotions-table'
 
 export const dynamic = 'force-dynamic'
 
-const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
+const SELECT = 'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,is_public,created_at,updated_at'
 const LEGACY_SELECT = 'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,created_at,updated_at'
 
 export default async function AdminPromotionsPage() {
@@ -19,6 +19,7 @@ export default async function AdminPromotionsPage() {
     data = legacy.data?.map(({ applicable_product_type, ...item }) => ({
       ...item,
       applicable_product_types: productTypesFromLegacy(applicable_product_type),
+      is_public: true,
     })) ?? null
     error = legacy.error
   }

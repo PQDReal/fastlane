@@ -23,6 +23,7 @@ type PromotionRow = {
   starts_at: string
   ends_at: string
   is_active: boolean
+  is_public?: boolean
 }
 
 export type AccessoryPromotionQuote = {
@@ -32,6 +33,7 @@ export type AccessoryPromotionQuote = {
   description: string | null
   type: 'PERCENT' | 'FIXED'
   value: number
+  maxDiscountAmount: number | null
   discountAmount: number
   subtotal: number
   grandTotal: number
@@ -40,7 +42,7 @@ export type AccessoryPromotionQuote = {
 export type ProductPromotionQuote = AccessoryPromotionQuote
 
 const CURRENT_SELECT =
-  'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active'
+  'id,code,name,description,type,value,applicable_product_types,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active,is_public'
 const LEGACY_SELECT =
   'id,code,name,description,type,value,applicable_product_type,max_discount_amount,minimum_order_amount,usage_limit,used_count,starts_at,ends_at,is_active'
 
@@ -59,7 +61,8 @@ async function findPromotion(code: string): Promise<PromotionRow | null> {
   if (!current.error) return current.data
   if (
     current.error.code !== 'PGRST204' &&
-    !current.error.message.includes('applicable_product_types')
+    !current.error.message.includes('applicable_product_types') &&
+    !current.error.message.includes('is_public')
   ) throw new Error(`Unable to load promotion: ${current.error.message}`)
 
   const legacy = await supabase
@@ -77,11 +80,13 @@ async function listPromotions(): Promise<PromotionRow[]> {
     .from('promotions')
     .select(CURRENT_SELECT)
     .eq('is_active', true)
+    .eq('is_public', true)
 
   if (!current.error) return (current.data ?? []) as PromotionRow[]
   if (
     current.error.code !== 'PGRST204' &&
-    !current.error.message.includes('applicable_product_types')
+    !current.error.message.includes('applicable_product_types') &&
+    !current.error.message.includes('is_public')
   ) throw new Error(`Unable to load promotions: ${current.error.message}`)
 
   const legacy = await supabase
@@ -147,6 +152,9 @@ function quoteEligiblePromotion(
     description: promotion.description,
     type: promotion.type,
     value,
+    maxDiscountAmount: promotion.max_discount_amount === null
+      ? null
+      : Number(promotion.max_discount_amount),
     discountAmount,
     subtotal,
     grandTotal: subtotal - discountAmount,
