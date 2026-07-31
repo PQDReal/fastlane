@@ -9,13 +9,45 @@ const OVERRIDE_IMAGES: Record<string, string> = {
   'VF 5': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw32aad97c/reserves/VF5/2025/12.webp',
   'VF 6': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp',
   'VF 7': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0c109403/reserves/VF7/exterior/product-CE18.webp',
-  'VF 7 MPV': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5e18d16a/images/VF7/GC15V/CE18.webp',
+  'VF 7 MPV': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp',
+  'VF MPV 7': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp',
   'VF 8': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3aa598fc/images/VF8/ND32V/CE18.webp',
   'VF 8 The all new': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61dd02a5/images/VF8-THE-ALL-NEW/HC11V/CE18.webp',
   'VF 9': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwec05bc92/images/VF9/NE3LV/CE18.webp'
 }
 
 export function getProductImage(productName: string, dbImageUrls: string[] | null = null, fallback: string = '/images/vf8.png'): string {
+  // 1. Use DB image if valid and available
+  if (dbImageUrls && dbImageUrls.length > 0) {
+    // Ưu tiên tìm ảnh xe (thường có từ khoá 'car-compare', 'exterior', hoặc '.png', '.webp') 
+    // và loại trừ logo, banner, video, nội thất, v.v.
+    const carImage = dbImageUrls.find((url: string) => {
+      const lowerUrl = url.toLowerCase();
+      const isImage = lowerUrl.match(/\.(jpeg|jpg|png|webp)$/i);
+      const isNotMisc = !lowerUrl.includes('logo') && 
+                        !lowerUrl.includes('banner') && 
+                        !lowerUrl.includes('interior') && 
+                        !lowerUrl.includes('section') && 
+                        !lowerUrl.includes('map');
+      
+      // Ưu tiên ảnh xe trong suốt hoặc ảnh so sánh
+      return isImage && isNotMisc && (lowerUrl.includes('car-compare') || lowerUrl.includes('.png') || lowerUrl.includes('.webp'));
+    }) || dbImageUrls.find((url: string) => {
+      const lowerUrl = url.toLowerCase();
+      const isImage = lowerUrl.match(/\.(jpeg|jpg|png|webp)$/i);
+      const isNotMisc = !lowerUrl.includes('logo') && 
+                        !lowerUrl.includes('banner') && 
+                        !lowerUrl.includes('interior') && 
+                        !lowerUrl.includes('section') && 
+                        !lowerUrl.includes('map');
+      return isImage && isNotMisc;
+    });
+
+    if (carImage && (carImage.startsWith('http') || carImage.startsWith('/'))) {
+      return carImage;
+    }
+  }
+
   const sortedKeys = Object.keys(OVERRIDE_IMAGES).sort((a, b) => b.length - a.length)
   const normalizedProductName = productName.toLowerCase().replace(/-/g, ' ')
   const overrideKey = sortedKeys.find(k => normalizedProductName.includes(k.toLowerCase().replace(/-/g, ' ')))
@@ -30,10 +62,6 @@ export function getProductImage(productName: string, dbImageUrls: string[] | nul
     return `/images/${formattedName}.png`
   }
 
-  // 2. Use DB image if valid
-  if (dbImageUrls && dbImageUrls.length > 0 && dbImageUrls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
-    return dbImageUrls[0]
-  }
 
 
   if (!cachedData) {

@@ -121,6 +121,7 @@ function quoteEligiblePromotion(
   promotion: PromotionRow,
   subtotal: number,
   now: number,
+  expectedProductType: 'CAR' | 'BIKE' | 'ACCESSORY' = 'ACCESSORY',
 ): AccessoryPromotionQuote | null {
   if (!promotion.is_active || now < Date.parse(promotion.starts_at)) return null
   if (now >= Date.parse(promotion.ends_at)) return null
@@ -132,7 +133,7 @@ function quoteEligiblePromotion(
   const productTypes = promotion.applicable_product_types === undefined
     ? productTypesFromLegacy(promotion.applicable_product_type)
     : promotionProductTypes(promotion.applicable_product_types)
-  if (!productTypes.includes('ACCESSORY')) return null
+  if (!productTypes.includes(expectedProductType)) return null
   if (subtotal < Number(promotion.minimum_order_amount ?? 0)) return null
 
   const value = Number(promotion.value)
@@ -277,4 +278,12 @@ export async function quoteProductPromotion(
     subtotal: evaluation.subtotal,
     grandTotal: evaluation.grandTotal,
   }
+}
+
+export function quoteVehiclePromotion(
+  rawCode: string,
+  subtotal: number,
+  vehicleType: 'CAR' | 'BIKE',
+): Promise<ProductPromotionQuote> {
+  return quoteProductPromotion(rawCode, vehicleType, subtotal)
 }
