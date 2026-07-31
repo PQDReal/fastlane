@@ -11,6 +11,42 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
+const SPEC_TRANSLATIONS: Record<string, string> = {
+  // Powertrain specs
+  maxPower: 'Công suất tối đa',
+  maxTorque: 'Mô-men xoắn cực đại',
+  drivetrain: 'Hệ dẫn động',
+  frontSuspension: 'Hệ thống treo trước',
+  rearSuspension: 'Hệ thống treo sau',
+  steering: 'Hệ thống lái',
+  distance: 'Quãng đường di chuyển',
+  batteryCapacity: 'Dung lượng pin',
+  fastChargingTime: 'Thời gian sạc nhanh',
+  maxACCharging: 'Công suất sạc AC',
+  maxDCCharging: 'Công suất sạc DC',
+  topSpeed: 'Tốc độ tối đa',
+  chargingTime: 'Thời gian sạc',
+  
+  // Dimension specs
+  length: 'Kích thước (D x R x C)',
+  wheelbase: 'Chiều dài cơ sở',
+  kurbWeightPayload: 'Khối lượng / Tải trọng',
+  croundClearance: 'Khoảng sáng gầm xe',
+  width: 'Chiều rộng',
+  height: 'Chiều cao',
+  weight: 'Khối lượng',
+  
+  // Other specs
+  seats: 'Số chỗ ngồi',
+  usableBattery: 'Dung lượng sử dụng',
+  fastCharging: 'Sạc nhanh',
+  maxChargingPower: 'Công suất sạc tối đa'
+}
+
+const translateSpecKey = (key: string): string => {
+  return SPEC_TRANSLATIONS[key] || key.replace(/([A-Z])/g, ' $1').trim()
+}
+
 export default async function CarDetailPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
   const supabase = getSupabaseAdmin()
@@ -448,7 +484,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
                 <ul className="space-y-4">
                   {specs.powertrain && Object.entries(specs.powertrain).slice(0, 8).map(([k, v]: any) => (
                     <li key={k} className="flex justify-between py-2 border-b border-black/5 text-sm">
-                      <span className="text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}</span>
+                      <span className="text-muted-foreground">{translateSpecKey(k)}</span>
                       <span className="font-semibold text-right max-w-[50%]">{v}</span>
                     </li>
                   ))}
@@ -460,7 +496,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
                 <ul className="space-y-4">
                   {specs.dimension && Object.entries(specs.dimension).map(([k, v]: any) => (
                     <li key={k} className="flex justify-between py-2 border-b border-black/5 text-sm">
-                      <span className="text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}</span>
+                      <span className="text-muted-foreground">{translateSpecKey(k)}</span>
                       <span className="font-semibold text-right max-w-[50%]">{v}</span>
                     </li>
                   ))}
