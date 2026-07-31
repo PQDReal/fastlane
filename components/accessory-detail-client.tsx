@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { AccessoryCard } from '@/components/accessory-card'
+import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
 import {
   accessoryFitmentStatus,
@@ -322,6 +323,7 @@ export function AccessoryDetailClient({
         if (selectedVehicle) detailParams.set('vehicle', selectedVehicle)
         const detailQuery = detailParams.toString()
         const returnTo = `/accessories/${product.slug}${detailQuery ? `?${detailQuery}` : ''}`
+        startNavigationLoading()
         window.location.assign(
           `/auth/login?returnTo=${encodeURIComponent(returnTo)}`,
         )
@@ -339,6 +341,7 @@ export function AccessoryDetailClient({
         setFeedback({ type: 'error', message: 'Không thể mở trang thanh toán. Vui lòng thử lại.' })
         return
       }
+      startNavigationLoading()
       router.push(`/checkout?item=${encodeURIComponent(checkoutItem.id)}`)
       return
     }

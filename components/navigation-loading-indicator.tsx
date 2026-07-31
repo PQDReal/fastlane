@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
+export function startNavigationLoading() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event('fastlane:navigation-start'))
+}
+
 export function NavigationLoadingIndicator() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -136,33 +141,33 @@ export function NavigationLoadingIndicator() {
       className="fixed bottom-6 right-6 z-[100] flex items-center gap-4 rounded-full border border-slate-900/10 bg-white/95 px-6 py-4 shadow-[0_16px_48px_rgba(15,23,42,0.2)] backdrop-blur-md"
     >
       <svg
-        viewBox="0 0 48 48"
-        className="h-11 w-11 shrink-0 overflow-visible"
+        viewBox="0 0 72 48"
+        className="h-11 w-[4.125rem] shrink-0 overflow-visible"
         aria-hidden="true"
       >
         <path
-          d="M7.5 8.5h7.4L24 29.4l9.1-20.9h7.4L27.1 39.5h-6.2L7.5 8.5Z"
+          d="M20 40 27.8 8H57l-2.1 8.2H36.7l-1.4 5.7h15.1L48.3 30H33.4L31 40Z"
           fill="#0f172a"
         />
         <path
-          d="M7.5 8.5h7.4L24 29.4l9.1-20.9h7.4L27.1 39.5h-6.2L7.5 8.5Z"
+          d="M11 45c5.3-1.1 8.5-4.2 9.8-9.4L27.2 10c.8-3.3 3.1-5 6.8-5h19.4c5.4 0 10.3-1.4 17.6-4"
           pathLength="100"
           fill="none"
           stroke="#9b7200"
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeWidth="2.6"
-          className="navigation-logo-trace"
+          strokeWidth="2.8"
+          className="navigation-speed-trace"
         />
         <path
-          d="M13 10.5 24 35.5 35 10.5"
+          d="M8 42.2c4.7-1 7.4-3.6 8.6-8.2L22.9 8.4C24.3 2.8 28 .2 34.1.2h18.7c5.7 0 11.2-1.4 18.8-4.1"
           pathLength="100"
           fill="none"
           stroke="#d8a313"
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeWidth="1.4"
-          className="navigation-logo-trace navigation-logo-trace-secondary"
+          strokeWidth="1.35"
+          className="navigation-speed-trace navigation-speed-trace-secondary"
         />
       </svg>
       <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-900">
