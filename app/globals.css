@@ -177,12 +177,12 @@ body {
 
 @keyframes navigation-speed-trace {
   0% {
-    stroke-dashoffset: 100;
+    stroke-dashoffset: 0;
     opacity: 1;
   }
 
   100% {
-    stroke-dashoffset: 0;
+    stroke-dashoffset: 100;
     opacity: 1;
   }
 }
