@@ -4,6 +4,19 @@ import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { toNamePrefixTsQuery } from '@/lib/catalog/search'
+import {
+  AdminAccessoryWriteValidationError,
+  parseAdminAccessoryWriteRequest,
+} from '@/lib/catalog/admin-accessory-write'
+import {
+  AdminAccessoryPersistenceError,
+  saveAdminAccessoryProduct,
+} from '@/lib/catalog/admin-accessory-server'
+import {
+  adminAccessoryErrorResponse,
+  adminAccessoryPersistenceResponse,
+  adminAccessoryValidationResponse,
+} from '@/lib/catalog/admin-accessory-api'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -34,6 +47,10 @@ export async function GET(request: Request) {
       ),
       service_label_assignments:product_service_label_assignments (
         service_label_id
+      ),
+      variants:product_variants (
+        sku,
+        is_active
       )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
@@ -54,10 +71,16 @@ export async function GET(request: Request) {
 
   const total = count ?? 0
   return NextResponse.json({
-    data: (data ?? []).map((item) => ({
-      ...item,
-      category: item.categories?.name || 'Chưa phân loại',
-    })),
+    data: (data ?? []).map((item) => {
+      const activeVariant = Array.isArray(item.variants)
+        ? item.variants.find((variant: { is_active?: boolean }) => variant.is_active === true) ?? item.variants[0]
+        : null
+      return {
+        ...item,
+        category: item.categories?.name || 'Chưa phân loại',
+        sku: activeVariant?.sku,
+      }
+    }),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   })
 }
@@ -69,25 +92,26 @@ export async function POST(request: Request) {
     return handleAuthorizationError(error)
   }
 
+  let body: unknown
   try {
-    const body: unknown = await request.json()
-
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-    }
-
-    const { data, error } = await getSupabaseAdmin()
-      .from('products')
-      .insert(body)
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
-    return NextResponse.json(data, { status: 201 })
+    body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    return adminAccessoryErrorResponse(400, 'VALIDATION_FAILED', 'Nội dung JSON không hợp lệ.', {
+      field: { path: 'body', code: 'INVALID_FORMAT', rule: 'INVALID_JSON' },
+    })
+  }
+
+  try {
+    const payload = parseAdminAccessoryWriteRequest(body)
+    const result = await saveAdminAccessoryProduct(payload, null)
+    return NextResponse.json({ data: result }, { status: 201 })
+  } catch (error) {
+    if (error instanceof AdminAccessoryWriteValidationError) {
+      return adminAccessoryValidationResponse(error)
+    }
+    if (error instanceof AdminAccessoryPersistenceError) {
+      return adminAccessoryPersistenceResponse(error)
+    }
+    return adminAccessoryErrorResponse(500, 'INTERNAL_ERROR', 'Không thể tạo sản phẩm phụ kiện.')
   }
 }

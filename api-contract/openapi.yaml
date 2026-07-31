@@ -226,6 +226,8 @@ paths:
     $ref: './paths/admin-products.yaml#/~1admin~1categories'
   /admin/categories/{categoryId}:
     $ref: './paths/admin-products.yaml#/~1admin~1categories~1{categoryId}'
+  /admin/catalog-collections:
+    $ref: './paths/admin-products.yaml#/~1admin~1catalog-collections'
   /admin/products:
     $ref: './paths/admin-products.yaml#/~1admin~1products'
   /admin/products/{productId}:
