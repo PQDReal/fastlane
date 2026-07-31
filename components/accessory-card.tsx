@@ -34,7 +34,9 @@ const formatPrice = (price: number) =>
 
 function primaryMediaOptionGroup(product: CatalogProduct): CatalogOptionGroup | null {
   return product.optionGroups.find((group) => (
-    group.metadata.drivesMedia === true || group.metadata.primary === true
+    group.metadata.drivesMedia === true
+  )) ?? product.optionGroups.find((group) => (
+    group.metadata.primary === true
   )) ?? product.optionGroups.find((group) => (
     group.code === 'color'
     || group.code.endsWith('_color')
@@ -514,9 +516,11 @@ function AccessoryImageCarousel({
 export function AccessoryCard({
   product,
   selectedVehicle,
+  previewMode = false,
 }: {
   product: CatalogProduct
   selectedVehicle?: string
+  previewMode?: boolean
 }) {
   const router = useRouter()
   const visualOptionGroup = primaryMediaOptionGroup(product)
@@ -542,14 +546,17 @@ export function AccessoryCard({
   const discounted = variant?.salePrice !== null
     && variant?.salePrice !== undefined
     && variant.salePrice < variant.originalPrice
-  const openDetail = () => router.push(detailHref)
+  const openDetail = () => {
+    if (!previewMode) router.push(detailHref)
+  }
 
   return (
     <article
-      role="link"
-      tabIndex={0}
-      aria-label={`Xem ${product.name}`}
+      role={previewMode ? undefined : 'link'}
+      tabIndex={previewMode ? undefined : 0}
+      aria-label={previewMode ? `Xem trước card ${product.name}` : `Xem ${product.name}`}
       onClick={(event) => {
+        if (previewMode) return
         if ((event.target as Element).closest('button, input, select, textarea, a')) return
         if (event.metaKey || event.ctrlKey) {
           window.open(detailHref, '_blank')
@@ -558,17 +565,19 @@ export function AccessoryCard({
         openDetail()
       }}
       onAuxClick={(event) => {
+        if (previewMode) return
         if (event.button === 1) {
           if ((event.target as Element).closest('button, input, select, textarea, a')) return
           window.open(detailHref, '_blank')
         }
       }}
       onKeyDown={(event) => {
+        if (previewMode) return
         if (event.target !== event.currentTarget || event.key !== 'Enter') return
         event.preventDefault()
         openDetail()
       }}
-      className="group cursor-pointer overflow-hidden rounded-xl bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.55)] ring-1 ring-slate-200/80 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-28px_rgba(15,23,42,0.5)] active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      className={`group overflow-hidden rounded-xl bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.55)] ring-1 ring-slate-200/80 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_48px_-28px_rgba(15,23,42,0.5)] active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${previewMode ? 'cursor-default' : 'cursor-pointer'}`}
     >
       <AccessoryImageCarousel
         product={product}

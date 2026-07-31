@@ -97,6 +97,8 @@ CatalogVehicleModel:
   $ref: './product.yaml#/CatalogVehicleModel'
 CatalogCollection:
   $ref: './product.yaml#/CatalogCollection'
+AdminCatalogCollection:
+  $ref: './product.yaml#/AdminCatalogCollection'
 CatalogCollectionMembership:
   $ref: './product.yaml#/CatalogCollectionMembership'
 ProductSummary:

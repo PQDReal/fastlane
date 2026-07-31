@@ -241,11 +241,13 @@ export function AccessoryDetailClient({
   initialVariantId,
   selectedVehicle,
   relatedProducts = [],
+  previewMode = false,
 }: {
   product: CatalogProduct
   initialVariantId?: string
   selectedVehicle?: string
   relatedProducts?: CatalogProduct[]
+  previewMode?: boolean
 }) {
   const router = useRouter()
   const { addToCart } = useAppStore()
@@ -295,7 +297,7 @@ export function AccessoryDetailClient({
   }
 
   const handlePurchase = async (destination: 'cart' | 'checkout') => {
-    if (!selectedVariant || !inStock || submitting) return
+    if (previewMode || !selectedVariant || !inStock || submitting) return
     setSubmittingAction(destination)
     setFeedback(null)
     const result = await addToCart(
@@ -380,9 +382,9 @@ export function AccessoryDetailClient({
     <>
       <div className="mx-auto w-full max-w-[1720px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12 xl:px-10">
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-          <Link href={listHref} className="inline-flex items-center gap-2 transition hover:text-brand-700">
-            <ArrowLeft size={15} /> Phụ kiện
-          </Link>
+          {previewMode
+            ? <span className="inline-flex items-center gap-2"><ArrowLeft size={15} /> Phụ kiện</span>
+            : <Link href={listHref} className="inline-flex items-center gap-2 transition hover:text-brand-700"><ArrowLeft size={15} /> Phụ kiện</Link>}
           <ChevronRight size={14} className="text-slate-300" />
           <span className="max-w-[60vw] truncate text-slate-800">{product.name}</span>
         </nav>
@@ -553,11 +555,13 @@ export function AccessoryDetailClient({
                 </div>
               </div>
 
-              <div className="flex items-end justify-between gap-4 border-b border-slate-200 py-5">
-                <p className="text-sm font-bold text-slate-900">Tổng tiền</p>
-                <p className="text-xl font-bold tracking-tight text-brand-700">
-                  {orderTotal === undefined ? 'Liên hệ' : formatPrice(orderTotal)}
-                </p>
+              <div className="border-b border-slate-200 py-5">
+                <div className="flex items-end justify-between gap-4">
+                  <p className="text-sm font-bold text-slate-900">Tổng tiền</p>
+                  <p className="text-xl font-bold tracking-tight text-brand-700">
+                    {orderTotal === undefined ? 'Liên hệ' : formatPrice(orderTotal)}
+                  </p>
+                </div>
               </div>
 
               <div className="mt-5 flex items-end justify-between gap-4">
@@ -595,12 +599,13 @@ export function AccessoryDetailClient({
                   </p>
                 </div>
               </div>
+              {previewMode && <p className="mt-3 rounded-sm bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Tồn kho 25 sản phẩm/biến thể chỉ là dữ liệu giả lập xem trước.</p>}
 
               <div className="mt-4 grid gap-3">
                 <button
                   type="button"
                   onClick={handleBuyNow}
-                  disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+                  disabled={previewMode || !selectedVariant || !inStock || !canPurchase || submitting}
                   className="flex min-h-12 w-full items-center justify-center rounded-sm bg-brand-600 px-5 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {submittingAction === 'checkout' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
@@ -609,7 +614,7 @@ export function AccessoryDetailClient({
                 <button
                   type="button"
                   onClick={handleAdd}
-                  disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+                  disabled={previewMode || !selectedVariant || !inStock || !canPurchase || submitting}
                   className="flex min-h-12 w-full items-center justify-center gap-2 rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:border-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   {submittingAction === 'cart' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
@@ -690,14 +695,14 @@ export function AccessoryDetailClient({
             </div>
             <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {relatedProducts.map((item) => (
-                <AccessoryCard key={item.id} product={item} selectedVehicle={selectedVehicle} />
+                <AccessoryCard key={item.id} product={item} selectedVehicle={selectedVehicle} previewMode={previewMode} />
               ))}
             </div>
           </section>
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden">
+      <div className={`${previewMode ? 'sticky bottom-0' : 'fixed inset-x-0 bottom-0'} z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden`}>
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11px] font-semibold text-slate-400">{selectedVariant?.sku ?? 'Chọn cấu hình'}</p>
@@ -706,7 +711,7 @@ export function AccessoryDetailClient({
           <button
             type="button"
             onClick={handleBuyNow}
-            disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+            disabled={previewMode || !selectedVariant || !inStock || !canPurchase || submitting}
             className="inline-flex h-12 items-center justify-center rounded-sm bg-brand-600 px-4 text-xs font-bold uppercase tracking-wide text-white disabled:bg-slate-300"
           >
             {submittingAction === 'checkout' ? <Loader2 size={17} className="mr-2 animate-spin" /> : null}
@@ -715,7 +720,7 @@ export function AccessoryDetailClient({
           <button
             type="button"
             onClick={handleAdd}
-            disabled={!selectedVariant || !inStock || !canPurchase || submitting}
+            disabled={previewMode || !selectedVariant || !inStock || !canPurchase || submitting}
             aria-label="Thêm vào giỏ hàng"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-slate-300 bg-white px-4 text-xs font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
           >

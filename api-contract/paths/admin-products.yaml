@@ -95,6 +95,34 @@
       '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/catalog-collections:
+  get:
+    tags: [Admin Catalog]
+    operationId: listAdminCatalogCollections
+    x-prd-references: [US-A02, FR-ADMN-02]
+    summary: List active taxonomy collections for a root product category
+    description: Returns parent IDs so the product editor can preserve CATEGORY-to-MODEL hierarchy.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - in: query
+        name: rootCategoryId
+        required: true
+        schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' }
+    responses:
+      '200':
+        description: Active taxonomy collections ordered for administration
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '../openapi.yaml#/components/schemas/AdminCatalogCollection' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
 /admin/products:
   get:
     tags: [Admin Catalog]

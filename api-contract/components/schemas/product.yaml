@@ -285,6 +285,17 @@ CatalogCollection:
     displayOrder: { type: integer, minimum: 0 }
     vehicleModel:
       oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/CatalogVehicleModel' }, { type: 'null' }]
+AdminCatalogCollection:
+  type: object
+  additionalProperties: false
+  required: [id, parentId, kind, slug, name, displayOrder]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    parentId: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/Uuid' }, { type: 'null' }] }
+    kind: { $ref: '../../openapi.yaml#/components/schemas/CatalogCollectionKind' }
+    slug: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    displayOrder: { type: integer, minimum: 0 }
 CatalogCollectionMembership:
   type: object
   additionalProperties: false

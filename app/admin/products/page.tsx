@@ -3,8 +3,10 @@
 import { useCallback, useState, useEffect, useRef } from 'react'
 import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Wrench, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { ProductCreateDialog } from '../../../components/admin/product-create/product-create-dialog'
 import { Button } from '../../../components/ui/button'
 import { ToastViewport, type ToastMessage } from '../../../components/ui/toast'
+import type { AdminRootCategory } from '../../../lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '../../../lib/catalog/service-labels'
 
 type AdminProduct = {
@@ -33,7 +35,7 @@ export default function AdminProductsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<AdminRootCategory[]>([])
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
@@ -42,6 +44,7 @@ export default function AdminProductsPage() {
   const [assignmentProduct, setAssignmentProduct] = useState<AdminProduct | null>(null)
   const [selectedServiceLabelIds, setSelectedServiceLabelIds] = useState<string[]>([])
   const [savingLabels, setSavingLabels] = useState(false)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const assignmentCloseRef = useRef<HTMLButtonElement>(null)
 
@@ -157,7 +160,7 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sản phẩm</h1>
           <p className="text-sm text-slate-500 mt-1">Quản lý xe, phụ kiện và bảng giá.</p>
         </div>
-        <Button className="bg-slate-900 text-white hover:bg-slate-800 shrink-0">
+        <Button onClick={() => setIsCreateOpen(true)} className="bg-slate-900 text-white hover:bg-slate-800 shrink-0">
           <Plus size={16} className="mr-2" /> Thêm sản phẩm
         </Button>
       </div>
@@ -273,6 +276,17 @@ export default function AdminProductsPage() {
             </div>
           </div>
         )}      </div>
+
+      <ProductCreateDialog
+        open={isCreateOpen}
+        categories={categories}
+        serviceLabels={serviceLabels}
+        onClose={() => setIsCreateOpen(false)}
+        onPrototypeComplete={() => {
+          setIsCreateOpen(false)
+          notify('warning', 'Đã hoàn tất bản mẫu', 'Bản mẫu chỉ được lưu trong phiên trình duyệt, chưa ghi vào hệ thống.')
+        }}
+      />
 
       <AnimatePresence>
         {assignmentProduct && (
