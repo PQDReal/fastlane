@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { CheckoutAddressModal, type CheckoutSavedAddress } from '@/components/checkout-address-modal'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import type { AccessoryOrder } from '@/lib/cart/types'
 import { useAppStore } from '@/lib/store'
@@ -532,6 +533,10 @@ export default function CheckoutPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-sm font-semibold text-slate-900">{item.name}</p>
+                      <ProductOptionSummary
+                        options={item.selectedOptions}
+                        className="mt-1.5"
+                      />
                       <p className="mt-1 text-xs text-slate-500">{item.quantity} × {formatPrice(item.price)}</p>
                     </div>
                     <p className="text-sm font-bold text-[#836100]">{formatPrice(item.price * item.quantity)}</p>

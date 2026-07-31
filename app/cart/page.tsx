@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { useAppStore } from '@/lib/store'
 
@@ -424,6 +425,10 @@ export default function CartPage() {
                         {item.name}
                       </Link>
                       <p className="mt-1 text-xs text-slate-500">SKU: {item.sku}</p>
+                      <ProductOptionSummary
+                        options={item.selectedOptions}
+                        className="mt-2"
+                      />
                       <p className="mt-2 font-bold text-brand-700 md:hidden">{formatPrice(item.price)}</p>
                     </div>
                   </div>

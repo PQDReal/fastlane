@@ -4,6 +4,7 @@ import type {
   AccessoryCatalogItem,
   ApiCart,
   CartResponse,
+  SelectedProductOption,
 } from '@/lib/cart/types'
 
 export interface CartItem {
@@ -16,6 +17,7 @@ export interface CartItem {
   image: string
   quantity: number
   sku: string
+  selectedOptions: SelectedProductOption[]
   availableQuantity: number
 }
 
@@ -60,6 +62,7 @@ function mapApiCart(cart: ApiCart) {
     image: item.imageUrl || '/images/vf8.png',
     quantity: item.quantity,
     sku: item.sku,
+    selectedOptions: item.selectedOptions.map((option) => ({ ...option })),
     availableQuantity: item.availableQuantity,
   }))
 }
@@ -181,6 +184,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
             image: item.image,
             quantity,
             sku: item.sku,
+            selectedOptions: item.selectedOptions.map((option) => ({ ...option })),
             availableQuantity: item.availableQuantity,
           },
         ]
