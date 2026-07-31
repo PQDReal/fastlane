@@ -47,6 +47,74 @@ const translateSpecKey = (key: string): string => {
   return SPEC_TRANSLATIONS[key] || key.replace(/([A-Z])/g, ' $1').trim()
 }
 
+const MAIN_POWERTRAIN_KEYS = [
+  'maxPower',
+  'maxTorque',
+  'distance',
+  'batteryCapacity',
+  'fastChargingTime',
+  'topSpeed',
+  'drivetrain'
+]
+
+const MAIN_DIMENSION_KEYS = [
+  'length',
+  'wheelbase',
+  'croundClearance',
+  'kurbWeightPayload',
+  'seats',
+  'numberOfSeats',
+  'airbagSystem'
+]
+
+const formatSpecValue = (key: string, value: any): string => {
+  if (value === null || value === undefined) return 'Chưa cập nhật'
+  const str = String(value).trim()
+  if (!str || str === 'null' || str === 'undefined') return 'Chưa cập nhật'
+  
+  const lowerVal = str.toLowerCase()
+  const hasUnit = lowerVal.includes('hp') || lowerVal.includes('kw') || lowerVal.includes('nm') || 
+                  lowerVal.includes('mm') || lowerVal.includes('km') || lowerVal.includes('phút') || 
+                  lowerVal.includes('lần sạc') || lowerVal.includes('chỗ') || lowerVal.includes('túi') ||
+                  lowerVal.includes('ghế')
+  if (hasUnit) return str
+
+  if (key === 'maxPower') {
+    return `${str} hp`
+  }
+  if (key === 'maxTorque') {
+    return `${str} Nm`
+  }
+  if (key === 'wheelbase') {
+    const num = parseInt(str.replace(/[^0-9]/g, ''), 10)
+    if (!isNaN(num)) {
+      return num > 100 ? `${new Intl.NumberFormat('vi-VN').format(num)} mm` : `${num} mm`
+    }
+    return `${str} mm`
+  }
+  if (key === 'croundClearance') {
+    return `${str} mm`
+  }
+  if (key === 'batteryCapacity') {
+    return `${str} kWh`
+  }
+  if (key === 'distance') {
+    return `${str} km`
+  }
+  if (key === 'topSpeed') {
+    return `${str} km/h`
+  }
+  if (key === 'seats' || key === 'numberOfSeats') {
+    return `${str} ghế`
+  }
+  if (key === 'airbagSystem') {
+    return `${str} túi khí`
+  }
+  
+  return str
+}
+
+
 export default async function CarDetailPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
   const supabase = getSupabaseAdmin()
@@ -145,6 +213,12 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
   const variantKeys = Object.keys(carSpecs.variants || {})
   const firstVariant = variantKeys.length > 0 ? carSpecs.variants[variantKeys[0]] : null
   const specs = firstVariant?.specs || {}
+
+  const dimensionSpecs = {
+    ...(specs.dimension || {}),
+    ...(specs.interior?.numberOfSeats ? { seats: specs.interior.numberOfSeats } : {}),
+    ...(specs.safety?.airbagSystem ? { airbagSystem: specs.safety.airbagSystem } : {})
+  }
 
   // Extract images that look like colored variants
   const uniqueColorsMap = new Map()
@@ -482,24 +556,28 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
               <div>
                 <h3 className="text-2xl font-bold border-b border-black/10 pb-4 mb-6">Động cơ & Vận hành</h3>
                 <ul className="space-y-4">
-                  {specs.powertrain && Object.entries(specs.powertrain).slice(0, 8).map(([k, v]: any) => (
-                    <li key={k} className="flex justify-between py-2 border-b border-black/5 text-sm">
-                      <span className="text-muted-foreground">{translateSpecKey(k)}</span>
-                      <span className="font-semibold text-right max-w-[50%]">{v}</span>
-                    </li>
-                  ))}
+                  {specs.powertrain && Object.entries(specs.powertrain)
+                    .filter(([k]) => MAIN_POWERTRAIN_KEYS.includes(k))
+                    .map(([k, v]: any) => (
+                      <li key={k} className="flex justify-between py-2 border-b border-black/5 text-sm">
+                        <span className="text-muted-foreground">{translateSpecKey(k)}</span>
+                        <span className="font-semibold text-right max-w-[50%]">{formatSpecValue(k, v)}</span>
+                      </li>
+                    ))}
                 </ul>
               </div>
               
               <div>
-                <h3 className="text-2xl font-bold border-b border-black/10 pb-4 mb-6">Kích thước</h3>
+                <h3 className="text-2xl font-bold border-b border-black/10 pb-4 mb-6">Kích thước & Tiện ích</h3>
                 <ul className="space-y-4">
-                  {specs.dimension && Object.entries(specs.dimension).map(([k, v]: any) => (
-                    <li key={k} className="flex justify-between py-2 border-b border-black/5 text-sm">
-                      <span className="text-muted-foreground">{translateSpecKey(k)}</span>
-                      <span className="font-semibold text-right max-w-[50%]">{v}</span>
-                    </li>
-                  ))}
+                  {Object.entries(dimensionSpecs)
+                    .filter(([k]) => MAIN_DIMENSION_KEYS.includes(k))
+                    .map(([k, v]: any) => (
+                      <li key={k} className="flex justify-between py-2 border-b border-black/5 text-sm">
+                        <span className="text-muted-foreground">{translateSpecKey(k)}</span>
+                        <span className="font-semibold text-right max-w-[50%]">{formatSpecValue(k, v)}</span>
+                      </li>
+                    ))}
                 </ul>
               </div>
             </div>
