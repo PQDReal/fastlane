@@ -545,7 +545,12 @@ export function DepositClient({
       if (!isNaN(depVal) && depVal > 0) return depVal
     }
 
-    return vehicleType === 'motorbike' ? 2000000 : 10000000
+    if (vehicleType === 'motorbike') return 2000000
+
+    const carName = (currentCar.name || '').toUpperCase()
+    if (carName.includes('VF 7') || carName.includes('VF 9')) return 50000000
+    if (carName.includes('VF 6') || carName.includes('VF 8')) return 30000000
+    return 15000000
   }
 
   const handleVehicleTypeChange = (nextType: DepositVehicleType) => {

@@ -307,15 +307,23 @@ function ProfileContent() {
                       
                       const carName = `${cleanCarModel} ${cleanCarVariant}`.trim();
                       
-                      let carImage = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
-                      if (vVariant?.image_car_url) {
-                        carImage = vVariant.image_car_url;
-                      } else {
-                        const lowerModel = cleanCarModel.toLowerCase();
-                        if (lowerModel.includes('vf 8') || lowerModel.includes('vf8')) carImage = '/images/vf8.png';
-                        else if (lowerModel.includes('vf 9') || lowerModel.includes('vf9')) carImage = '/images/vf9.png';
-                        else if (lowerModel.includes('vf 3') || lowerModel.includes('vf5') || lowerModel.includes('vf 6') || lowerModel.includes('vf 7')) carImage = '/images/car-sale.png';
-                      }
+                      const getVehicleImage = (model: string, variantImg?: string) => {
+                        if (variantImg) return variantImg;
+                        const m = (model || '').toLowerCase().trim();
+                        if (m.includes('vf 9') || m.includes('vf9')) return '/images/vf9.png';
+                        if (m.includes('vf 8') || m.includes('vf8')) return '/images/vf8.png';
+                        if (m.includes('vf 7') || m.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
+                        if (m.includes('vf 6') || m.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
+                        if (m.includes('vf 5') || m.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
+                        if (m.includes('vf 3') || m.includes('vf3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png';
+                        if (m.includes('vf 2') || m.includes('vf2')) return 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp';
+                        if (m.includes('mpv')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp';
+                        if (m.includes('vento')) return '/images/vento.png';
+                        if (m.includes('kinet')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png';
+                        if (m.includes('kyo')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png';
+                        return '/images/car-sale.png';
+                      };
+                      const carImage = getVehicleImage(cleanCarModel, vVariant?.image_car_url);
 
                       let stateIcon = <Clock className="w-5 h-5 shrink-0 text-gray-500" />;
                       let stateText = translateStatus(status, true);
@@ -543,6 +551,40 @@ function ProfileContent() {
                 </div>
 
               <div className="p-6 space-y-8">
+                {/* Image & Xe Header */}
+                <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="w-48 h-32 relative shrink-0">
+                    <img 
+                      src={(() => {
+                        const m = selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '';
+                        const img = selectedOrder.depositDetails.vehicleVariant?.image_car_url;
+                        if (img) return img;
+                        const lower = m.toLowerCase();
+                        if (lower.includes('vf 9') || lower.includes('vf9')) return '/images/vf9.png';
+                        if (lower.includes('vf 8') || lower.includes('vf8')) return '/images/vf8.png';
+                        if (lower.includes('vf 7') || lower.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
+                        if (lower.includes('vf 6') || lower.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
+                        if (lower.includes('vf 5') || lower.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
+                        if (lower.includes('vf 3') || lower.includes('vf3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png';
+                        if (lower.includes('vf 2') || lower.includes('vf2')) return 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp';
+                        if (lower.includes('mpv')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp';
+                        if (lower.includes('vento')) return '/images/vento.png';
+                        return '/images/car-sale.png';
+                      })()}
+                      alt="Hình ảnh xe" 
+                      className="w-full h-full object-contain mix-blend-multiply"
+                    />
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h4 className="text-2xl font-bold text-gray-900">
+                      VinFast {(selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '').replace(/vinfast/i, '').trim()}
+                    </h4>
+                    <p className="text-gray-500 font-medium mt-1">
+                      {selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Thông tin xe */}
                 <section>
                   <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin xe</h4>
