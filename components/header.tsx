@@ -131,10 +131,20 @@ export function Header() {
               <Link
                 key={link.name}
                 href={link.path}
-                className={`group relative whitespace-nowrap text-[13px] font-bold tracking-wide transition-colors 2xl:text-[15px] ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+                className={`group relative whitespace-nowrap text-[13px] font-bold tracking-wide 2xl:text-[15px] ${headerSolid ? 'text-slate-600' : 'text-white/80'}`}
               >
-                {link.name}
-                <span className={`absolute -bottom-1 left-0 h-px transition-all duration-300 w-0 group-hover:w-full ${headerSolid ? 'bg-slate-900' : 'bg-white'}`}></span>
+                <span className="relative inline-grid">
+                  <span className="col-start-1 row-start-1 transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0">
+                    {link.name}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none col-start-1 row-start-1 -translate-x-2 text-[#836100] opacity-0 transition-[opacity,transform] duration-300 ease-out group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                  >
+                    {link.name}
+                  </span>
+                </span>
+                <span className="absolute -bottom-1 left-0 h-0.5 w-full origin-left scale-x-0 bg-[#836100] transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100" />
               </Link>
             ))}
           </nav>

@@ -80,10 +80,11 @@ export function BikeCatalogBrowser({
   )
   const activePriceBandLabel =
     priceBands.find((band) => band.value === priceBand)?.label
-  const hasActiveFilters =
-    search.trim().length > 0 ||
-    priceBand !== 'all' ||
-    sort !== 'name'
+  const activeFilterCount =
+    Number(search.trim().length > 0) +
+    Number(priceBand !== 'all') +
+    Number(sort !== 'name')
+  const hasActiveFilters = activeFilterCount > 0
 
   const updateSearch = (value: string) => {
     setSearch(value)
@@ -139,16 +140,16 @@ export function BikeCatalogBrowser({
             aria-controls="bike-filter-panel"
             onClick={() => setFilterOpen((current) => !current)}
             className={`flex h-12 shrink-0 items-center gap-2 rounded-full border px-6 text-sm font-medium transition-colors ${
-              filterOpen || priceBand !== 'all'
+              filterOpen || activeFilterCount > 0
                 ? 'border-foreground bg-foreground text-background'
                 : 'border-muted hover:bg-muted'
             }`}
           >
             <SlidersHorizontal size={16} />
             Bộ lọc
-            {priceBand !== 'all' && (
+            {activeFilterCount > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">
-                1
+                {activeFilterCount}
               </span>
             )}
           </button>

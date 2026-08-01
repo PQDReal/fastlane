@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
 
-import { ApiRouteError } from '@/lib/api/errors'
-import { quoteVehiclePromotion } from '@/lib/promotions/quote'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import {
   DepositInputError,
@@ -218,7 +216,6 @@ export async function POST(request: Request) {
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
-        total_estimated_price: quote.totalEstimatedPrice,
         status: 'PENDING_CONFIRMATION',
         terms_accepted_at: now,
       })
@@ -254,7 +251,6 @@ export async function POST(request: Request) {
         await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
       }
     }
-
     return NextResponse.json(responseData(insertResult.data), { status: 201 })
   } catch (error) {
     if (error instanceof DepositInputError) {

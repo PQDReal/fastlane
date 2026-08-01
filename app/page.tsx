@@ -1,13 +1,97 @@
-import { ArrowRight, Zap, ShieldCheck, BatteryCharging, MapPin } from 'lucide-react'
+import { ArrowRight, BatteryCharging, Leaf, MapPin, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { Header, MotionDiv } from '../components/header'
 import { Button } from '../components/ui/button'
-import { ProductCard } from '../components/product-card'
 import { Footer } from '../components/footer'
+import {
+  HomeFeaturedVehicles,
+  HomeVehicleCollection,
+  HomeVehicleFinder,
+  type HomeVehicle,
+} from '../components/home-vehicle-experience'
 import { auth0 } from '../lib/auth0'
 import { getSupabaseAdmin } from '../lib/supabase-admin'
-import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
+
+function shuffleItems<T>(items: T[]): T[] {
+  return [...items].sort(() => Math.random() - 0.5)
+}
+
+function productHref(product: any) {
+  const categoryName = Array.isArray(product.category) ? product.category[0]?.name : product.category?.name
+  if (categoryName === 'Xe máy điện' || product.product_type === 'BIKE') return `/bikes/${product.slug}`
+  if (categoryName === 'Ô tô điện' || product.product_type === 'CAR') return `/cars/${product.slug}`
+  return '#products'
+}
+
+function categoryName(product: any) {
+  return Array.isArray(product.category) ? product.category[0]?.name : product.category?.name
+}
+
+function productType(product: any): 'CAR' | 'BIKE' | null {
+  const category = categoryName(product)
+  if (category === 'Xe máy điện' || product.product_type === 'BIKE') return 'BIKE'
+  if (category === 'Ô tô điện' || product.product_type === 'CAR') return 'CAR'
+  return null
+}
+
+function firstText(value: unknown, fallback: string) {
+  if ((typeof value !== 'string' && typeof value !== 'number') || !String(value).trim()) return fallback
+  return String(value).trim()
+}
+
+function normalizeVehicleModel(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\bvinfast\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function parseAppView(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'string' || !value.trim()) return {}
+  try {
+    return JSON.parse(value)
+  } catch {
+    return {}
+  }
+}
+
+function formatCarRange(value: unknown) {
+  const text = firstText(value, 'Đang cập nhật')
+  if (text === 'Đang cập nhật' || /\bkm\b/i.test(text)) return text
+  const number = text.match(/\d+(?:[.,]\d+)?/)
+  if (!number) return text
+  return `${text.slice(0, number.index! + number[0].length)} km${text.slice(number.index! + number[0].length)}`
+}
+
+function formatCarPower(value: unknown) {
+  const text = firstText(value, 'Đang cập nhật')
+  if (text === 'Đang cập nhật' || /\bkw\b/i.test(text)) return text
+
+  const horsepower = text.match(/\d+(?:[.,]\d+)?/)
+  if (!horsepower) return text
+
+  // Numeric maxPower values in the VinFast master specs are horsepower.
+  const powerInKw = Math.round(Number(horsepower[0].replace(',', '.')) * 0.7457)
+  return `${powerInKw} kW`
+}
+
+function colorHex(name: string) {
+  const normalized = name.toLocaleLowerCase('vi-VN')
+  if (normalized.includes('đỏ')) return '#c8172d'
+  if (normalized.includes('xanh dương') || normalized.includes('xanh tím')) return '#345b9e'
+  if (normalized.includes('xanh rêu') || normalized.includes('xanh oliu')) return '#71806a'
+  if (normalized.includes('xanh')) return '#6f948b'
+  if (normalized.includes('vàng') || normalized.includes('cát')) return '#c7aa65'
+  if (normalized.includes('trắng')) return '#eeeDE8'
+  if (normalized.includes('xám') || normalized.includes('ghi')) return '#85898a'
+  if (normalized.includes('nâu')) return '#735443'
+  if (normalized.includes('đen')) return '#202020'
+  return '#b8b8b8'
+}
 
 export default async function Home() {
   const session = await auth0.getSession()
@@ -24,51 +108,92 @@ export default async function Home() {
         category:categories(name)
       `)
     .eq('is_active', true)
-    .limit(2) // Get two products for the homepage section
+    .limit(48)
+
+  const activeProducts = (rawProducts || []).filter(
+    (product: any) => productType(product) && Number(product.displayed_price) > 0,
+  )
 
   const fs = require('fs')
   const path = require('path')
-  let vf9Specs: any = {}
+  let masterCarSpecs: Record<string, any> = {}
+  let richCars: any[] = []
   try {
     const specsRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'master_car_specs.json'), 'utf8')
-    const specsData = JSON.parse(specsRaw)
-    vf9Specs = specsData['VF 9']?.variants?.['Plus tùy chọn 7 chỗ']?.specs || {}
+    masterCarSpecs = JSON.parse(specsRaw)
+    const carsRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json'), 'utf8')
+    richCars = JSON.parse(carsRaw)
   } catch (e) {
-    console.error('Failed to load VF9 specs', e)
+    console.error('Failed to load vehicle specs for homepage', e)
   }
 
-  const distanceStr = vf9Specs.powertrain?.distance || '602'
-  const distance = distanceStr.match(/\d+/)?.[0] || '602'
-
-  const maxPowerStr = vf9Specs.powertrain?.maxPower || '402'
-  const maxPower = maxPowerStr.match(/\d+/)?.[0] || '402'
-
-  const drivetrainStr = vf9Specs.powertrain?.drivetrain || 'AWD'
-  const drivetrain = drivetrainStr.includes('AWD') ? 'AWD' : drivetrainStr.split('/')[0]
-
   const { getProductImage, getCarSpecsSummary } = require('../lib/get-product-image')
-  const vf9Image = getProductImage('VF 9')
+  const homeVehicles: HomeVehicle[] = shuffleItems(activeProducts).map((product: any) => {
+    const type = productType(product) as 'CAR' | 'BIKE'
+    const productSpecifications = product.specifications || {}
+    const normalizedProductName = normalizeVehicleModel(product.name)
+    const richCar = richCars.find(
+      (car) => normalizeVehicleModel(car.name || '') === normalizedProductName,
+    )
+    const richCarVariant = richCar?.specs
+      ? (Object.values(richCar.specs)[0] as any)
+      : undefined
+    const masterCarRecord = Object.values(masterCarSpecs).find(
+      (car: any) => normalizeVehicleModel(car?.name || '') === normalizedProductName,
+    ) as any
+    const masterCarVariant = masterCarRecord?.variants
+      ? (Object.values(masterCarRecord.variants)[0] as any)
+      : undefined
+    const carSpecs = richCarVariant?.specs || masterCarVariant?.specs || {}
+    const carAppView = parseAppView(carSpecs.appView)
+    const range = firstText(
+      type === 'CAR'
+        ? formatCarRange(
+            carAppView.range ||
+              carSpecs.powertrain?.distance ||
+              richCar?.range_text ||
+              richCar?.range_km,
+          )
+        : productSpecifications['Quãng đường đi được mỗi lần sạc'],
+      type === 'CAR' ? 'Đang cập nhật' : 'Đang cập nhật',
+    )
+    const power = firstText(
+      type === 'CAR'
+        ? formatCarPower(carAppView.maxPower || carSpecs.powertrain?.maxPower)
+        : productSpecifications['Công suất tối đa'] || productSpecifications['Công suất danh định'],
+      'Đang cập nhật',
+    )
+    const thirdMetric =
+      type === 'CAR'
+        ? firstText(carSpecs.powertrain?.drivetrain, 'Thuần điện')
+        : firstText(productSpecifications['Tốc độ tối đa'], 'Đang cập nhật')
+    const colorNames = firstText(productSpecifications['Màu sắc'], '')
+      .split(/[;,]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
 
-  const sortedProducts = (rawProducts || []).sort((a, b) => {
-    const numA = parseInt(a.name.match(/\d+/)?.[0] || '0', 10)
-    const numB = parseInt(b.name.match(/\d+/)?.[0] || '0', 10)
-    if (numA !== numB) return numA - numB
-    return a.name.localeCompare(b.name)
-  })
-
-  const products = sortedProducts.map(p => {
-    const image = getProductImage(p.name, p.image_urls)
-    const specsSummary = getCarSpecsSummary(p.name)
-    const categoryName = Array.isArray(p.category)
-      ? p.category[0]?.name
-      : p.category?.name
-    const productPath = categoryName === 'Xe máy điện' ? 'bikes' : 'cars'
     return {
-      name: p.name.toUpperCase().startsWith('VINFAST') ? p.name.toUpperCase() : `VINFAST ${p.name.toUpperCase()}`,
-      desc: specsSummary || p.description || 'Xe ô tô điện VinFast',
-      price: new Intl.NumberFormat('vi-VN').format(p.displayed_price),
-      image,
-      href: `/${productPath}/${p.slug}`
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      type,
+      description:
+        getCarSpecsSummary(product.name) ||
+        product.description ||
+        (type === 'BIKE'
+          ? 'Linh hoạt trong phố, vận hành êm và không phát thải.'
+          : 'Không gian hiện đại, công nghệ thông minh và trải nghiệm thuần điện.'),
+      image: getProductImage(product.name, product.image_urls),
+      price: Number(product.displayed_price) || 0,
+      range,
+      power,
+      thirdMetric,
+      thirdMetricLabel: type === 'CAR' ? 'Dẫn động' : 'Tốc độ tối đa',
+      colors: colorNames.map(colorHex),
+      href: productHref(product),
+      depositHref: `/deposit?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
+      estimatorHref: `/cost-estimator?model=${encodeURIComponent(product.name)}`,
+      testDriveHref: `/test-drive?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
     }
   })
 
@@ -103,93 +228,87 @@ export default async function Home() {
         </a>
       </section>
 
-      {/* FEATURED VEHICLE (VF9) */}
-      <section id="featured-vehicle" className="relative z-10 w-full scroll-mt-20 bg-background py-32 lg:py-48">
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-            <MotionDiv
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-200px' }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <span className="text-brand-600 font-bold uppercase tracking-widest text-xs">Flagship SUV</span>
-              <h2 className="mt-4 text-5xl font-bold tracking-tighter text-foreground sm:text-7xl">VinFast VF9</h2>
-              <p className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-lg">
-                Tuyệt tác công nghệ và nghệ thuật thiết kế. Không gian rộng rãi hạng thương gia, tích hợp các công nghệ thông minh bậc nhất, sẵn sàng đồng hành cùng bạn trên mọi hành trình vĩ đại.
-              </p>
+      <HomeFeaturedVehicles vehicles={homeVehicles} />
+      <HomeVehicleFinder vehicles={homeVehicles} />
+      <HomeVehicleCollection vehicles={homeVehicles} />
 
-              <div className="mt-12 grid grid-cols-3 gap-8 border-t border-muted pt-8">
-                <div>
-                  <p className="text-3xl font-bold text-foreground tracking-tighter">{distance}<span className="text-lg font-medium text-muted-foreground ml-1">km</span></p>
-                  <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">Phạm vi di chuyển</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-foreground tracking-tighter">{maxPower}<span className="text-lg font-medium text-muted-foreground ml-1">hp</span></p>
-                  <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">Công suất tối đa</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-foreground tracking-tighter">{drivetrain}</p>
-                  <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-[0.1em] font-bold">Dẫn động</p>
-                </div>
-              </div>
+      {/* GREEN FUTURE */}
+      <section className="overflow-hidden bg-[#0d2119] text-white">
+        <div className="relative mx-auto max-w-[1440px] px-6 py-24 lg:px-12 lg:py-32">
+          <div
+            aria-hidden="true"
+            className="absolute -right-32 -top-40 h-[520px] w-[520px] rounded-full bg-[#84a98c]/20 blur-3xl"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -bottom-48 left-[28%] h-[420px] w-[420px] rounded-full bg-[#a87908]/15 blur-3xl"
+          />
 
-              <div className="mt-12 flex flex-wrap gap-4">
-                <Button asChild variant="default" className="bg-foreground text-background hover:bg-foreground/90 h-12 px-8 font-bold relative z-20">
-                  <Link href="/deposit?type=car&model=VF%209">Đặt cọc ngay</Link>
-                </Button>
-                <Button asChild variant="outline" className="h-12 px-8 border-muted-foreground/30 text-foreground hover:bg-muted font-bold relative z-20">
-                  <Link href="/cars/vf-9">Thông số kỹ thuật</Link>
-                </Button>
-              </div>
-            </MotionDiv>
-
-            <MotionDiv
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true, margin: '-200px' }}
-              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative h-[400px] sm:h-[500px] lg:h-[600px] w-full rounded-[2rem] overflow-hidden bg-muted flex items-center justify-center p-8"
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-muted to-muted opacity-50" />
-              <img src={vf9Image} alt="VinFast VF9" className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-1000 ease-out" />
-            </MotionDiv>
-          </div>
-        </div>
-      </section>
-
-      {/* VEHICLE COLLECTION */}
-      <section className="bg-muted py-32 lg:py-48">
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
           <MotionDiv
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8 }}
-            className="flex flex-col md:flex-row md:items-end justify-between gap-6"
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="relative grid gap-14 lg:grid-cols-[1.15fr_0.85fr] lg:items-end"
           >
             <div>
-              <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">Bộ sưu tập</h2>
-              <p className="mt-4 text-lg text-muted-foreground max-w-md">Những thiết kế được yêu thích nhất, mang đậm ngôn ngữ thiết kế tương lai.</p>
+              <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em] text-[#b8d3bd]">
+                <Leaf size={15} strokeWidth={1.8} />
+                Vì tương lai xanh
+              </span>
+              <h2 className="mt-6 max-w-4xl text-5xl font-bold leading-[0.98] tracking-[-0.05em] sm:text-6xl lg:text-7xl">
+                Mỗi hành trình hôm nay,
+                <span className="block text-[#b8d3bd]">một tương lai xanh hơn.</span>
+              </h2>
+              <p className="mt-7 max-w-2xl text-base leading-7 text-white/65 sm:text-lg sm:leading-8">
+                FastLane đồng hành cùng mục tiêu di chuyển xanh của VinFast — đưa xe điện thông minh đến gần hơn với mọi người và góp phần kiến tạo một tương lai bền vững.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <Button asChild className="h-12 rounded-full bg-white px-7 text-xs font-bold uppercase tracking-[0.12em] text-[#0d2119] hover:bg-white/90">
+                  <a href="/cars">
+                    Khám phá xe điện
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+                <Button asChild variant="outline" className="h-12 rounded-full border-white/25 bg-transparent px-7 text-xs font-bold uppercase tracking-[0.12em] text-white hover:bg-white/10 hover:text-white">
+                  <a href="/bikes">Xe máy điện</a>
+                </Button>
+              </div>
             </div>
-            <a className="group flex items-center text-[13px] font-bold uppercase tracking-widest text-brand-600 hover:text-brand-700 transition-colors" href="./bikes">
-              Xem tất cả <ArrowRight className="ml-3 transition-transform group-hover:translate-x-1" size={18} />
-            </a>
-          </MotionDiv>
 
-          <div id="products" className="mt-20 grid gap-12 md:grid-cols-2">
-            {products.map((p, i) => (
-              <MotionDiv
-                key={p.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ duration: 1, delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <ProductCard {...p} />
-              </MotionDiv>
-            ))}
-          </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              {[
+                {
+                  icon: Zap,
+                  title: 'Năng lượng sạch',
+                  description: 'Vận hành thuần điện, hướng tới giảm phát thải.',
+                },
+                {
+                  icon: Sparkles,
+                  title: 'Công nghệ vì con người',
+                  description: 'Thông minh, thuận tiện và dễ tiếp cận mỗi ngày.',
+                },
+                {
+                  icon: Leaf,
+                  title: 'Hành trình bền vững',
+                  description: 'Lựa chọn hôm nay tạo nên thay đổi dài lâu.',
+                },
+              ].map((commitment) => (
+                <div
+                  key={commitment.title}
+                  className="group flex gap-4 rounded-2xl border border-white/10 bg-white/[0.055] p-5 backdrop-blur-sm transition-colors hover:bg-white/[0.09]"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#b8d3bd] text-[#0d2119]">
+                    <commitment.icon size={19} strokeWidth={1.7} />
+                  </span>
+                  <div>
+                    <h3 className="font-bold tracking-tight">{commitment.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-white/55">{commitment.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </MotionDiv>
         </div>
       </section>
 

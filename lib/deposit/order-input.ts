@@ -306,7 +306,6 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
     'payment_method',
     'terms_accepted',
     'showroom',
-    'promotion_code',
   ])
   if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
     throw new DepositInputError('Yêu cầu đặt cọc chứa trường không được hỗ trợ.')
@@ -389,7 +388,6 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
       'Phương thức thanh toán',
     ),
     showroom: input.showroom ? text(input, 'showroom', 'Showroom', { max: 120 }) : null,
-    promotionCode: input.promotion_code ? text(input, 'promotion_code', 'Mã khuyến mãi', { max: 20 }) : null,
   }
 }
 

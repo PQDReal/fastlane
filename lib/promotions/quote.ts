@@ -218,41 +218,6 @@ export async function quoteAccessoryPromotion(
   return quote
 }
 
-export async function quoteVehiclePromotion(
-  rawCode: string,
-  subtotal: number,
-  vehicleType: 'CAR' | 'BIKE'
-): Promise<AccessoryPromotionQuote> {
-  const code = rawCode.trim().toUpperCase()
-  if (!/^[A-Z0-9_-]{3,64}$/.test(code)) invalidPromotion('Mã giảm giá không hợp lệ.')
-
-  const promotion = await findPromotion(code)
-  if (!promotion) invalidPromotion('Mã giảm giá không tồn tại.')
-  if (!promotion.is_active) invalidPromotion('Mã giảm giá đã ngừng áp dụng.')
-
-  const now = Date.now()
-  if (now < Date.parse(promotion.starts_at)) invalidPromotion('Mã giảm giá chưa đến thời gian áp dụng.')
-  if (now >= Date.parse(promotion.ends_at)) invalidPromotion('Mã giảm giá đã hết hạn.')
-  if (
-    promotion.usage_limit !== null &&
-    Number(promotion.used_count) >= Number(promotion.usage_limit)
-  ) invalidPromotion('Mã giảm giá đã hết lượt sử dụng.')
-
-  const productTypes = promotion.applicable_product_types === undefined
-    ? productTypesFromLegacy(promotion.applicable_product_type)
-    : promotionProductTypes(promotion.applicable_product_types)
-  if (!productTypes.includes(vehicleType)) invalidPromotion(`Mã giảm giá không áp dụng cho ${vehicleType === 'CAR' ? 'ô tô' : 'xe máy'}.`)
-
-  const minimumOrderAmount = Number(promotion.minimum_order_amount ?? 0)
-  if (subtotal < minimumOrderAmount) {
-    invalidPromotion(`Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(minimumOrderAmount)} ₫ để áp dụng mã này.`)
-  }
-
-  const quote = quoteEligiblePromotion(promotion, subtotal, now, vehicleType)
-  if (!quote) invalidPromotion('Mã giảm giá không tạo ra giá trị giảm cho đơn hàng này.')
-  return quote
-}
-
 export async function quoteProductPromotion(
   rawCode: string,
   productType: Exclude<PromotionProductType, 'ACCESSORY'>,
@@ -305,11 +270,20 @@ export async function quoteProductPromotion(
     description: promotion.description,
     type: promotion.type,
     value: Number(promotion.value),
-    maxDiscountAmount: promotion.max_discount_amount === null
-      ? null
-      : Number(promotion.max_discount_amount),
+    maxDiscountAmount:
+      promotion.max_discount_amount === null
+        ? null
+        : Number(promotion.max_discount_amount),
     discountAmount: evaluation.discountAmount,
     subtotal: evaluation.subtotal,
     grandTotal: evaluation.grandTotal,
   }
+}
+
+export function quoteVehiclePromotion(
+  rawCode: string,
+  subtotal: number,
+  vehicleType: 'CAR' | 'BIKE',
+): Promise<ProductPromotionQuote> {
+  return quoteProductPromotion(rawCode, vehicleType, subtotal)
 }

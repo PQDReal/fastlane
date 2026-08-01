@@ -1,4 +1,4 @@
--- Migration 024: Add promotion fields to deposit_orders
+-- Migration 025: Add promotion fields to deposit_orders
 BEGIN;
 
 ALTER TABLE public.deposit_orders 

@@ -217,7 +217,6 @@ const findMatchingWard = (showroom: any, locationWards: LocationOption[]) => {
   
   return null;
 };
-
 export function DepositClient({
   carsData,
   motorbikesData,
@@ -378,16 +377,22 @@ export function DepositClient({
   useEffect(() => {
     async function fetchVariants() {
       try {
-        const currentCarObj = carsData.find(c => c.name === selectedCarId) || carsData[0]
+        const vehicles = vehicleType === 'motorbike' ? motorbikesData : carsData
+        const currentCarObj = vehicles.find(c => c.name === selectedCarId) || vehicles[0]
+        if (!currentCarObj) {
+          setDbVariants([])
+          return
+        }
         const res = await fetch(`/api/v1/vehicle-variants?product_name=${encodeURIComponent(currentCarObj.name)}`)
         const data = await res.json()
-        setDbVariants(data)
+        setDbVariants(Array.isArray(data) ? data : [])
       } catch (err) {
         console.error(err)
+        setDbVariants([])
       }
     }
     fetchVariants()
-  }, [selectedCarId, carsData])
+  }, [selectedCarId, vehicleType, carsData, motorbikesData])
 
   useEffect(() => {
     if (!provinceCode) {
@@ -528,9 +533,9 @@ export function DepositClient({
 
   const getDepositAmount = () => {
     const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
-    const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor) 
+    const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor)
       || dbVariants.find(v => v.version === selectedVariantName)
-    
+
     if (matchingDbVariant && matchingDbVariant.deposit_amount) {
       return Number(matchingDbVariant.deposit_amount)
     }
@@ -700,6 +705,14 @@ export function DepositClient({
         })
         return
       }
+      if (!selectedShowroom) {
+        addToast({
+          kind: 'warning',
+          title: 'Chưa chọn showroom',
+          message: 'Vui lòng chọn showroom nhận xe trước khi tiếp tục.',
+        })
+        return
+      }
       goToStep(3)
     } else if (currentStep === 3) {
       if (!termsAccepted) {
@@ -743,7 +756,6 @@ export function DepositClient({
             payment_method: paymentMethod,
             terms_accepted: termsAccepted,
             showroom: selectedShowroom?.name || '',
-            promotion_code: appliedPromotion ? promotionCode : null
           }),
         })
         const result = await response.json().catch(() => null)
@@ -840,18 +852,29 @@ export function DepositClient({
 
   const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
   const selectedVariantData = currentSpecs.variants?.[selectedVariantName]
+  const matchingDbVariant =
+    dbVariants.find(
+      (variant) =>
+        variant.version === selectedVariantName &&
+        variant.color === selectedColor,
+    ) ||
+    dbVariants.find((variant) => variant.version === selectedVariantName)
   const basePrice =
-    selectedVariantData?.price || currentCar.displayed_price || 0
+    matchingDbVariant?.price ||
+    selectedVariantData?.price ||
+    currentCar.displayed_price ||
+    0
   const isAdvancedColor = advancedColors.some(
     (color: any) => color.name === selectedColor,
   )
   const colorPrice = isAdvancedColor
-    ? currentCar.name.includes('MPV')
-      ? 10_000_000
-      : ['VF 7', 'VF 9'].includes(currentCar.name) ||
-          currentCar.name.includes('VF 8')
-        ? 12_000_000
-        : 8_000_000
+    ? Number(currentCar.advanced_color_price) ||
+      (currentCar.name.includes('MPV')
+        ? 10_000_000
+        : ['VF 7', 'VF 9'].includes(currentCar.name) ||
+            currentCar.name.includes('VF 8')
+          ? 12_000_000
+          : 8_000_000)
     : 0
   const availablePackages =
     currentCar.optional_packages?.filter(
@@ -1217,7 +1240,7 @@ export function DepositClient({
                         : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
                     } ${
                       isSelected 
-                        ? 'bg-slate-900 text-white shadow-lg scale-105 disabled:opacity-90' 
+                        ? 'bg-slate-900 text-white shadow-lg scale-105 disabled:opacity-90'
                         : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-600'
                     }`}
                   >
@@ -1819,8 +1842,10 @@ export function DepositClient({
                   <div className="space-y-2 pt-4">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-semibold text-slate-700">Mã ưu đãi / E-voucher</label>
-                      {appliedPromotion && (
-                        <span className="text-xs font-semibold text-emerald-600">Đã áp dụng mã {appliedPromotion.code}</span>
+                      {promotionQuote?.promotion && (
+                        <span className="text-xs font-semibold text-emerald-600">
+                          Đã áp dụng mã {promotionQuote.promotion.code}
+                        </span>
                       )}
                     </div>
                     <div className="flex gap-3">
@@ -1893,13 +1918,23 @@ export function DepositClient({
                         <span className="font-medium text-slate-800">{selectedInteriorColor}</span>
                       </div>
                     )}
-                    {appliedPromotion && (
-                      <div className="flex justify-between items-center py-3 border-t border-slate-100">
-                        <span className="text-slate-600">Mã giảm giá ({appliedPromotion.code})</span>
-                        <span className="font-medium text-emerald-600">
-                          -{new Intl.NumberFormat('vi-VN').format(appliedPromotion.discountAmount)}
-                        </span>
-                      </div>
+                    {promotionQuote?.promotion && (
+                      <>
+                        <div className="flex items-center justify-between border-t border-slate-100 py-3">
+                          <span className="text-slate-600">
+                            Mã ưu đãi {promotionQuote.promotion.code}
+                          </span>
+                          <span className="font-semibold text-emerald-700">
+                            -{new Intl.NumberFormat('vi-VN').format(promotionQuote.discountAmount)} ₫
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-slate-100 py-3">
+                          <span className="font-semibold text-slate-800">Tổng sau ưu đãi</span>
+                          <span className="font-bold text-slate-950">
+                            {new Intl.NumberFormat('vi-VN').format(promotionQuote.totalEstimatedPrice)} ₫
+                          </span>
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -2030,30 +2065,12 @@ export function DepositClient({
                    <div>
                      <div className="text-xs sm:text-sm font-medium text-slate-500 mb-0.5 whitespace-nowrap">Tổng dự tính</div>
                      <div className="text-lg sm:text-xl font-black text-slate-900 whitespace-nowrap">
-                       {(() => {
-                          const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
-                          const variantData = currentSpecs.variants?.[selectedVariantName]
-                          const basePrice = variantData?.price || currentCar.displayed_price || 0
-                          
-                          const isAdvancedColor = advancedColors.some((c: any) => c.name === selectedColor)
-                          const colorPrice = isAdvancedColor ? (currentCar.advanced_color_price || 0) : 0
-                          
-                          let packagesPrice = 0
-                          const availablePackages = currentCar.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
-                          selectedPackages.forEach(id => {
-                            const pkg = availablePackages.find((p: any) => p.id === id)
-                            if (pkg) packagesPrice += pkg.price
-                          })
-                          
-                          const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor) || dbVariants.find(v => v.version === selectedVariantName)
-                          
-                          const baseVariantPrice = matchingDbVariant?.price || basePrice
-                          let totalPrice = baseVariantPrice + colorPrice + packagesPrice
-                          if (appliedPromotion) {
-                            totalPrice = Math.max(0, totalPrice - appliedPromotion.discountAmount)
-                          }
-                          return totalPrice > 0 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice) : 'Liên hệ'
-                       })()}
+                       {displayedTotal > 0
+                         ? new Intl.NumberFormat('vi-VN', {
+                             style: 'currency',
+                             currency: 'VND',
+                           }).format(displayedTotal)
+                         : 'Liên hệ'}
                      </div>
                    </div>
                    
