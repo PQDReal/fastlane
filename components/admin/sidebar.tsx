@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, CalendarDays, CircleDollarSign, LayoutDashboard, LogOut, Package, ShoppingCart, Tags, Ticket, Users, Wrench, X } from 'lucide-react'
+import { Activity, Archive, CalendarDays, CircleDollarSign, LayoutDashboard, LogOut, Package, ShoppingCart, Tags, Ticket, Users, Wrench, X } from 'lucide-react'
 
 const navigation = [
   { name: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+  { name: 'Giám sát', href: '/admin/monitoring', icon: Activity },
   { name: 'Danh mục', href: '/admin/categories', icon: Tags },
   { name: 'Sản phẩm', href: '/admin/products', icon: Package },
   { name: 'Nhãn dịch vụ', href: '/admin/service-labels', icon: Wrench },
