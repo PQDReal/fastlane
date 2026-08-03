@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type JsonRecord = Record<string, unknown>
@@ -151,7 +152,7 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
   }).sort((left, right) => left.name.localeCompare(right.name, 'vi'))
 }
 
-export const listMotorbikeCatalog = cache(async (): Promise<MotorbikeCatalogItem[]> => {
+async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('vehicle_variants')
     .select('id,product_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
@@ -163,7 +164,20 @@ export const listMotorbikeCatalog = cache(async (): Promise<MotorbikeCatalogItem
   }
 
   return mapRows((data ?? []) as VehicleVariantRow[])
-})
+}
+
+const loadCachedMotorbikeCatalog = unstable_cache(
+  loadMotorbikeCatalog,
+  ['motorbike-catalog-v1'],
+  {
+    revalidate: 300,
+    tags: ['motorbike-catalog'],
+  },
+)
+
+// React cache deduplicates calls within one render. The Next data cache keeps the
+// public catalog warm across requests while still refreshing external DB changes.
+export const listMotorbikeCatalog = cache(loadCachedMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
   const items = await listMotorbikeCatalog()

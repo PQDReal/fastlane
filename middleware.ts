@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 import { auth0 } from './lib/auth0'
+import { requiresLocalUserValidation } from './lib/auth/middleware-policy'
 import { findUserByAuth0Subject, findUserByEmail } from './lib/services/user-service'
 
 const swaggerOrigins = new Set(['http://127.0.0.1:8080'])
@@ -44,7 +45,12 @@ export async function middleware(request: NextRequest) {
   const session = await auth0.getSession(request)
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth/')
 
-  if (session && !isAuthRoute && session.user.email_verified === true) {
+  if (
+    session &&
+    !isAuthRoute &&
+    session.user.email_verified === true &&
+    requiresLocalUserValidation(request.nextUrl.pathname)
+  ) {
     try {
       const subjectUser = await findUserByAuth0Subject(session.user.sub)
       const localUser = subjectUser || (session.user.email ? await findUserByEmail(session.user.email) : null)
