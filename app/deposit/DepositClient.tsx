@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight, ChevronDown } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
+import { SearchableLocationSelect } from '../../components/ui/searchable-location-select'
 import {
   findDepositVehicle,
   type DepositVehicleType,
@@ -174,6 +175,48 @@ function stringArray(value: unknown): string[] {
     : []
 }
 
+const normalizeWard = (name: string) => {
+  if (!name) return '';
+  return name.toLowerCase()
+    .replace(/^(phường|xã|thị trấn|thị xã|quận|huyện|thành phố|thị tứ|phố|ấp|thôn|bản)\s+/i, '')
+    .replace(/\s+/g, '')
+    .trim();
+};
+
+const findMatchingWard = (showroom: any, locationWards: LocationOption[]) => {
+  if (!locationWards || locationWards.length === 0) return null;
+  
+  const normDistrict = normalizeWard(showroom.district_name || '');
+  const addressNorm = showroom.address ? showroom.address.toLowerCase() : '';
+  
+  // 1. Try exact normalized match on district_name
+  if (normDistrict) {
+    const exactMatch = locationWards.find(w => normalizeWard(w.name) === normDistrict);
+    if (exactMatch) return exactMatch.name;
+  }
+  
+  // 2. Try matching ward names inside s.address
+  const sortedWards = [...locationWards].sort((a, b) => b.name.length - a.name.length);
+  for (const w of sortedWards) {
+    const normW = normalizeWard(w.name);
+    if (!normW) continue;
+    if (addressNorm.includes(normW) || normalizeWard(showroom.address || '').includes(normW)) {
+      return w.name;
+    }
+  }
+  
+  // 3. Fallback to raw substring match
+  for (const w of sortedWards) {
+    if (showroom.address && showroom.address.includes(w.name)) {
+      return w.name;
+    }
+    if (showroom.district_name && showroom.district_name.includes(w.name)) {
+      return w.name;
+    }
+  }
+  
+  return null;
+};
 export function DepositClient({
   carsData,
   motorbikesData,
@@ -226,6 +269,7 @@ export function DepositClient({
   >({})
   const [locationsLoading, setLocationsLoading] = useState(true)
   const [wardsLoading, setWardsLoading] = useState(false)
+  const [autoOpenWard, setAutoOpenWard] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -252,6 +296,9 @@ export function DepositClient({
   const [selectedShowroom, setSelectedShowroom] = useState<any>(null)
   const [openShowroom, setOpenShowroom] = useState(false)
   const [dbVariants, setDbVariants] = useState<any[]>([])
+  const [applyingPromotion, setApplyingPromotion] = useState(false)
+  const [appliedPromotion, setAppliedPromotion] = useState<any>(null)
+  const [promotionSuccess, setPromotionSuccess] = useState<string | null>(null)
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
@@ -366,6 +413,16 @@ export function DepositClient({
         if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải xã/phường.')
         const fetchedWards = payload.data ?? []
         setWards(fetchedWards)
+        if (selectedShowroom) {
+          const matchedWard = findMatchingWard(selectedShowroom, fetchedWards)
+          if (matchedWard) {
+            const foundWardObj = fetchedWards.find((w: any) => w.name === matchedWard)
+            if (foundWardObj) {
+              setWardCode(String(foundWardObj.code))
+              setFormData(prev => ({ ...prev, ward: matchedWard }))
+            }
+          }
+        }
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
@@ -377,6 +434,66 @@ export function DepositClient({
       })
     return () => controller.abort()
   }, [provinceCode])
+
+  const filteredShowrooms = showrooms
+    .filter(s => {
+      if (!formData.province) return false;
+      
+      const normalize = (str: string) => {
+         if (!str) return '';
+         return str
+           .normalize('NFD')
+           .replace(/[\u0300-\u036f]/g, '')
+           .toLowerCase()
+           .replace(/đ/g, 'd')
+           .replace(/^(tỉnh|thành phố|tp|quận|huyện|thị xã|phường|xã|thị trấn)\s+/i, '')
+           .replace(/\s+/g, '')
+           .trim();
+      }
+      
+      const provName = normalize(s.province_name);
+      const addrName = normalize(s.address);
+      const formProv = normalize(formData.province);
+      
+      return provName.includes(formProv) || formProv.includes(provName) || addrName.includes(formProv);
+    })
+    .filter(s => {
+      if (!formData.ward) return false;
+      
+      const normalize = (str: string) => {
+         if (!str) return '';
+         return str
+           .normalize('NFD')
+           .replace(/[\u0300-\u036f]/g, '')
+           .toLowerCase()
+           .replace(/đ/g, 'd')
+           .replace(/^(tỉnh|thành phố|tp|quận|huyện|thị xã|phường|xã|thị trấn)\s+/i, '')
+           .replace(/\s+/g, '')
+           .trim();
+      }
+      
+      const formWard = normalize(formData.ward);
+      if (!formWard) return false;
+
+      const distName = normalize(s.district_name);
+      const addrName = normalize(s.address);
+      const nameStr = normalize(s.name);
+      return distName.includes(formWard) || formWard.includes(distName) || addrName.includes(formWard) || nameStr.includes(formWard);
+    });
+
+  useEffect(() => {
+    if (!formData.province || !formData.ward) {
+      setSelectedShowroom(null)
+      return
+    }
+    if (filteredShowrooms.length > 0) {
+      if (!selectedShowroom || !filteredShowrooms.some(s => s.entity_id === selectedShowroom.entity_id)) {
+        setSelectedShowroom(filteredShowrooms[0])
+      }
+    } else {
+      setSelectedShowroom(null)
+    }
+  }, [filteredShowrooms, formData.province, formData.ward, selectedShowroom])
   const goToStep = (nextStep: number) => {
     if (nextStep < 3) depositIdempotencyKey.current = null
     setStepDirection(nextStep >= currentStep ? 1 : -1)
@@ -433,7 +550,12 @@ export function DepositClient({
       if (!isNaN(depVal) && depVal > 0) return depVal
     }
 
-    return vehicleType === 'motorbike' ? 2000000 : 10000000
+    if (vehicleType === 'motorbike') return 2000000
+
+    const carName = (currentCar.name || '').toUpperCase()
+    if (carName.includes('VF 7') || carName.includes('VF 9')) return 50000000
+    if (carName.includes('VF 6') || carName.includes('VF 8')) return 30000000
+    return 15000000
   }
 
   const handleVehicleTypeChange = (nextType: DepositVehicleType) => {
@@ -510,23 +632,55 @@ export function DepositClient({
     }
   }
 
-  const filteredShowrooms = showrooms.filter(s => {
-    if (!formData.province) return true;
+  const handleApplyPromotion = async () => {
+    if (!promotionCode.trim()) return;
+    setApplyingPromotion(true);
+    setPromotionError(null);
+    setPromotionSuccess(null);
     
-    const normalize = (str: string) => {
-       if (!str) return '';
-       return str.toLowerCase()
-         .replace(/tỉnh |thành phố |tp\. |quận |huyện |thị xã |phường |xã |thị trấn /g, '')
-         .trim();
+    try {
+      const currentCarObj = availableCars.find((c) => c.name === selectedCarId) || availableCars[0]
+      const currentSpecsObj = specsData[currentCarObj.name] || {}
+      
+      const selectedVariantName = selectedVariant.replace(currentCarObj.name + ' ', '')
+      const variantData = currentSpecsObj.variants?.[selectedVariantName]
+      const basePrice = variantData?.price || currentCarObj.displayed_price || 0
+      
+      const advancedColorsList = (currentCarObj.colors || []).slice(4)
+      const isAdvancedColor = advancedColorsList.some((c: any) => c.name === selectedColor)
+      const colorPrice = isAdvancedColor ? (currentCarObj.advanced_color_price || 0) : 0
+      
+      let packagesPrice = 0
+      const availablePackages = currentCarObj.optional_packages?.filter((pkg: any) => !pkg.variants || pkg.variants.some((v: string) => selectedVariant.includes(v))) || []
+      selectedPackages.forEach(id => {
+        const pkg = availablePackages.find((p: any) => p.id === id)
+        if (pkg) packagesPrice += pkg.price
+      })
+      const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor) || dbVariants.find(v => v.version === selectedVariantName)
+
+      const baseVariantPrice = matchingDbVariant?.price || basePrice
+      const subtotal = baseVariantPrice + colorPrice + packagesPrice
+      const type = vehicleType === 'motorbike' ? 'BIKE' : 'CAR'
+
+      const res = await fetch('/api/v1/deposit/promotion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promotionCode, subtotal, vehicleType: type })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Mã giảm giá không hợp lệ');
+      
+      setAppliedPromotion(data.data);
+      setPromotionSuccess('Áp dụng mã giảm giá thành công!');
+      addToast({ kind: 'success', title: 'Áp dụng mã ưu đãi thành công' })
+    } catch (err: any) {
+      setPromotionError(err.message);
+      setAppliedPromotion(null);
+      addToast({ kind: 'error', title: err.message })
+    } finally {
+      setApplyingPromotion(false)
     }
-    
-    const provName = normalize(s.province_name);
-    const formProv = normalize(formData.province);
-    
-    const isSameProvince = provName.includes(formProv) || formProv.includes(provName);
-    
-    return isSameProvince;
-  });
+  }
 
   const handleNextStep = async () => {
     if (currentStep === 1) {
@@ -543,11 +697,11 @@ export function DepositClient({
         wardCode,
       })
       setFieldErrors(errors)
-      if (Object.keys(errors).length > 0) {
+      if (Object.keys(errors).length > 0 || !formData.province || !formData.ward) {
         addToast({
           kind: 'warning',
           title: 'Thông tin chưa hợp lệ',
-          message: Object.values(errors)[0],
+          message: Object.values(errors)[0] || 'Vui lòng chọn Tỉnh/Thành phố và Xã/Phường.',
         })
         return
       }
@@ -599,7 +753,6 @@ export function DepositClient({
             exterior_color: selectedColor,
             interior_color: selectedInteriorColor || null,
             optional_packages: selectedPackages,
-            promotion_code: promotionQuote?.promotion?.code ?? null,
             payment_method: paymentMethod,
             terms_accepted: termsAccepted,
             showroom: selectedShowroom?.name || '',
@@ -760,48 +913,7 @@ export function DepositClient({
     promotion_code: promotionCode.trim().toUpperCase(),
   })
 
-  const handleApplyPromotion = async () => {
-    const code = promotionCode.trim().toUpperCase()
-    if (!code) {
-      setPromotionError('Vui lòng nhập mã ưu đãi.')
-      return
-    }
-    if (!/^[A-Z0-9_-]{3,64}$/.test(code)) {
-      setPromotionError('Mã ưu đãi chỉ gồm 3–64 chữ in hoa, số, dấu gạch ngang hoặc gạch dưới.')
-      return
-    }
-    setPromotionLoading(true)
-    setPromotionError(null)
-    try {
-      const response = await fetch('/api/deposit/quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(depositSelectionPayload()),
-      })
-      const result = await response.json().catch(() => null)
-      if (!response.ok || !result?.data) {
-        setPromotionQuote(null)
-        setPromotionError(
-          result?.error?.message || 'Không thể áp dụng mã ưu đãi.',
-        )
-        return
-      }
-      setPromotionCode(code)
-      setPromotionQuote(result.data)
-      addToast({
-        kind: 'success',
-        title: 'Đã áp dụng mã ưu đãi',
-        message: `Bạn được giảm ${new Intl.NumberFormat('vi-VN').format(
-          result.data.discountAmount,
-        )} ₫.`,
-      })
-    } catch {
-      setPromotionQuote(null)
-      setPromotionError('Không thể kết nối máy chủ để kiểm tra mã ưu đãi.')
-    } finally {
-      setPromotionLoading(false)
-    }
-  }
+
 
   const activeColorObj = colors.find((c: any) => c.name === selectedColor)
   
@@ -1606,73 +1718,87 @@ export function DepositClient({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Tỉnh / Thành phố <span className="text-red-500">*</span></label>
-                      <select
-                        required
-                        className={`${inputClass('provinceCode')} appearance-none disabled:cursor-not-allowed disabled:opacity-60`}
+                  <div className="grid grid-cols-2 gap-4 relative z-20">
+                    <div>
+                      <SearchableLocationSelect
+                        label="Tỉnh / Thành phố"
+                        options={provinces}
                         value={provinceCode}
-                        aria-invalid={Boolean(fieldErrors.provinceCode)}
-                        disabled={locationsLoading}
-                        onChange={e => {
-                          const nextCode = e.target.value
-                          const selectedProvince = provinces.find(province => String(province.code) === nextCode)
-                          setProvinceCode(nextCode)
-                          setWardCode('')
-                          setFormData({...formData, province: selectedProvince?.name ?? '', ward: ''})
-                          clearFieldError('provinceCode')
-                          clearFieldError('wardCode')
+                        loading={locationsLoading}
+                        placeholder="Chọn Tỉnh/Thành"
+                        onChange={(option) => {
+                          if (option) {
+                            setProvinceCode(String(option.code))
+                            setWardCode('')
+                            setFormData(prev => ({ ...prev, province: option.name, ward: '' }))
+                            setSelectedShowroom(null)
+                            setOpenShowroom(false)
+                            setAutoOpenWard(true)
+                            clearFieldError('provinceCode')
+                            clearFieldError('wardCode')
+                          } else {
+                            setProvinceCode('')
+                            setWardCode('')
+                            setFormData(prev => ({ ...prev, province: '', ward: '' }))
+                            setSelectedShowroom(null)
+                            setOpenShowroom(false)
+                            setAutoOpenWard(false)
+                          }
                         }}
-                      >
-                        <option value="">{locationsLoading ? 'Đang tải Tỉnh/Thành...' : 'Chọn Tỉnh/Thành'}</option>
-                        {provinces.map(province => (
-                          <option key={province.code} value={province.code}>{province.name}</option>
-                        ))}
-                      </select>
-                      {fieldErrors.provinceCode && <p className="text-xs font-medium text-red-600">{fieldErrors.provinceCode}</p>}
+                      />
+                      {fieldErrors.provinceCode && <p className="text-xs font-medium text-red-600 mt-1">{fieldErrors.provinceCode}</p>}
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Xã / Phường <span className="text-red-500">*</span></label>
-                      <select
-                        required
-                        className={`${inputClass('wardCode')} appearance-none disabled:cursor-not-allowed disabled:opacity-60`}
+                    <div>
+                      <SearchableLocationSelect
+                        label="Xã / Phường"
+                        options={wards}
                         value={wardCode}
-                        aria-invalid={Boolean(fieldErrors.wardCode)}
-                        disabled={!provinceCode || wardsLoading}
-                        onChange={e => {
-                          const nextCode = e.target.value
-                          const selectedWard = wards.find(ward => String(ward.code) === nextCode)
-                          setWardCode(nextCode)
-                          setFormData({...formData, ward: selectedWard?.name ?? ''})
-                          clearFieldError('wardCode')
+                        disabled={!provinceCode}
+                        loading={wardsLoading}
+                        autoOpen={autoOpenWard}
+                        placeholder={provinceCode ? 'Chọn Xã/Phường' : 'Chọn Tỉnh/Thành trước'}
+                        onChange={(option) => {
+                          setAutoOpenWard(false)
+                          if (option) {
+                            setWardCode(String(option.code))
+                            setFormData(prev => ({ ...prev, ward: option.name }))
+                            setOpenShowroom(false)
+                            clearFieldError('wardCode')
+                          } else {
+                            setWardCode('')
+                            setFormData(prev => ({ ...prev, ward: '' }))
+                            setSelectedShowroom(null)
+                            setOpenShowroom(false)
+                          }
                         }}
-                      >
-                        <option value="">
-                          {wardsLoading ? 'Đang tải Xã/Phường...' : provinceCode ? 'Chọn Xã/Phường' : 'Chọn Tỉnh/Thành trước'}
-                        </option>
-                        {wards.map(ward => (
-                          <option key={ward.code} value={ward.code}>{ward.name}</option>
-                        ))}
-                      </select>
-                      {fieldErrors.wardCode && <p className="text-xs font-medium text-red-600">{fieldErrors.wardCode}</p>}
+                      />
+                      {fieldErrors.wardCode && <p className="text-xs font-medium text-red-600 mt-1">{fieldErrors.wardCode}</p>}
                     </div>
                   </div>
 
                   {locationError && (
                     <p className="text-sm text-red-600" role="status">{locationError}</p>
                   )}
-                  <div className="space-y-2 pt-4">
+                  <div className="space-y-2 pt-4 relative z-10">
                     <div className="relative text-sm font-medium text-gray-700" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenShowroom(false) }}>
                       <label className="text-sm font-semibold text-slate-700 mb-2 block">Showroom nhận xe <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <button
                           type="button"
+                          disabled={!formData.ward}
                           onClick={() => setOpenShowroom(!openShowroom)}
-                          className="w-full text-left rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-10 font-normal focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-700 min-h-[46px]"
+                          className={`w-full text-left rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-10 font-normal focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-700 min-h-[46px] ${
+                            !formData.ward ? 'bg-slate-100 opacity-60 cursor-not-allowed' : ''
+                          }`}
                         >
                           <span className="block whitespace-normal break-words text-sm">
-                            {selectedShowroom ? `${selectedShowroom.name} - ${selectedShowroom.address}` : 'Chọn showroom'}
+                            {selectedShowroom
+                              ? `${selectedShowroom.name} - ${selectedShowroom.address}`
+                              : formData.ward
+                                ? 'Chọn showroom'
+                                : formData.province
+                                  ? 'Vui lòng chọn Xã/Phường trước'
+                                  : 'Vui lòng chọn Tỉnh/Thành trước'}
                           </span>
                         </button>
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -1689,6 +1815,14 @@ export function DepositClient({
                                 onClick={() => {
                                   setSelectedShowroom(s);
                                   setOpenShowroom(false);
+                                  const matchedWard = findMatchingWard(s, wards);
+                                  if (matchedWard) {
+                                    const foundWardObj = wards.find((w: any) => w.name === matchedWard)
+                                    if (foundWardObj) {
+                                      setWardCode(String(foundWardObj.code))
+                                      setFormData(prev => ({ ...prev, ward: matchedWard }))
+                                    }
+                                  }
                                 }}
                                 className={`flex w-full items-start justify-between rounded-lg px-3 py-2.5 text-left text-sm font-normal transition active:scale-[0.99] ${active ? 'bg-slate-100 text-slate-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
                               >
@@ -1715,70 +1849,37 @@ export function DepositClient({
                       )}
                     </div>
                     <div className="flex gap-3">
-                      <input
-                        type="text"
-                        minLength={3}
-                        maxLength={64}
-                        pattern="[A-Z0-9_-]{3,64}"
-                        autoCapitalize="characters"
-                        spellCheck={false}
+                      <input 
+                        type="text" 
+                        placeholder="Nhập mã ưu đãi" 
                         value={promotionCode}
-                        onChange={(event) => {
-                          setPromotionCode(
-                            event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
-                          )
-                          setPromotionQuote(null)
-                          setPromotionError(null)
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            void handleApplyPromotion()
-                          }
-                        }}
-                        aria-invalid={Boolean(promotionError)}
-                        placeholder="Nhập mã ưu đãi"
-                        disabled={promotionLoading || Boolean(promotionQuote)}
-                        className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 uppercase transition-all focus:border-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                        onChange={(e) => setPromotionCode(e.target.value.toUpperCase())}
+                        disabled={applyingPromotion || !!appliedPromotion}
+                        className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50 focus:bg-white uppercase disabled:opacity-50" 
                       />
-                      {promotionQuote ? (
-                        <button
-                          type="button"
+                      {appliedPromotion ? (
+                        <button 
                           onClick={() => {
-                            setPromotionQuote(null)
+                            setAppliedPromotion(null)
                             setPromotionCode('')
-                            setPromotionError(null)
+                            setPromotionSuccess(null)
                           }}
-                          className="whitespace-nowrap rounded-xl bg-red-50 px-6 py-3 font-bold text-red-600 transition-colors hover:bg-red-100"
+                          className="px-6 py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors whitespace-nowrap"
                         >
                           Hủy mã
                         </button>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => void handleApplyPromotion()}
-                          disabled={promotionLoading || !promotionCode.trim()}
-                          className="whitespace-nowrap rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+                        <button 
+                          onClick={handleApplyPromotion}
+                          disabled={applyingPromotion || !promotionCode.trim()}
+                          className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors whitespace-nowrap disabled:opacity-50"
                         >
-                          {promotionLoading ? 'Đang kiểm tra...' : 'Áp dụng'}
+                          {applyingPromotion ? 'Đang áp dụng...' : 'Áp dụng'}
                         </button>
                       )}
                     </div>
-                    {promotionError && (
-                      <p className="text-sm font-medium text-red-600" role="status">
-                        {promotionError}
-                      </p>
-                    )}
-                    {promotionQuote?.promotion && (
-                      <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
-                        <span className="font-semibold text-emerald-800">
-                          {promotionQuote.promotion.name}
-                        </span>
-                        <span className="font-bold text-emerald-700">
-                          -{new Intl.NumberFormat('vi-VN').format(promotionQuote.discountAmount)} ₫
-                        </span>
-                      </div>
-                    )}
+                    {promotionError && <p className="text-sm text-red-500 mt-1">{promotionError}</p>}
+                    {promotionSuccess && <p className="text-sm text-emerald-600 mt-1">{promotionSuccess}</p>}
                   </div>
                 </div>
               </div>
@@ -1806,7 +1907,7 @@ export function DepositClient({
                       </span>
                     </div>
                     {!isMotorbike && <div className="text-slate-600 mb-4">Kèm pin</div>}
-                    
+
                     <div className="flex justify-between items-center py-3 border-t border-slate-100">
                       <span className="text-slate-600">Ngoại thất</span>
                       <span className="font-medium text-slate-800">{selectedColor}</span>
@@ -1860,7 +1961,9 @@ export function DepositClient({
                     </div>
                     <div className="flex items-center py-3 border-b border-dashed border-slate-200 mt-4">
                       <span className="text-slate-600 w-1/3">Showroom nhận xe</span>
-                      <div className="flex-1 text-right font-medium text-slate-800 border-b border-dashed border-slate-300">VinFast Landmark 81</div>
+                      <div className="flex-1 text-right font-medium text-slate-800 border-b border-dashed border-slate-300">
+                        {selectedShowroom ? selectedShowroom.name : 'VinFast Landmark 81'}
+                      </div>
                     </div>
                     <div className="flex items-center py-3 border-b border-dashed border-slate-200">
                       <span className="text-slate-600 w-1/3">Nhân viên tư vấn</span>
