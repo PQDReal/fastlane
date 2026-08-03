@@ -12,6 +12,9 @@ import { getSupabaseAdmin } from '../lib/supabase-admin'
 import { listMotorbikeCatalog } from '../lib/motorbike-catalog'
 
 export const revalidate = 300
+// Homepage recommendations include the Supabase-backed motorbike catalog.
+// Resolve them at runtime so deployment builds do not depend on DB networking.
+export const dynamic = 'force-dynamic'
 
 function shuffleItems<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
