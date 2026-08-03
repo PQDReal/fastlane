@@ -10,6 +10,7 @@ export type AccessoryCatalogItem = {
   image: string
   images: string[]
   attributes: Record<string, string>
+  selectedOptions: SelectedProductOption[]
   availableQuantity: number
   discount: number | null
 }
