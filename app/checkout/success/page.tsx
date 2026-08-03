@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ProductOptionSummary } from '@/components/product-option-summary'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import { readCustomerOrder } from '@/lib/orders/server'
 
@@ -63,6 +64,10 @@ export default async function CheckoutSuccessPage({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-slate-900">{item.productName}</p>
+                    <ProductOptionSummary
+                      options={item.selectedOptions}
+                      className="mt-1"
+                    />
                     <p className="text-xs text-slate-500">{item.sku} · SL {item.quantity}</p>
                   </div>
                   <p className="font-semibold text-slate-700">{formatPrice(item.lineTotal)}</p>
