@@ -68,16 +68,14 @@ export function getProductImage(productName: string, dbImageUrls: string[] | nul
     try {
       const dataDir = path.join(process.cwd(), 'public', 'data', 'by_type')
       const cars = JSON.parse(fs.readFileSync(path.join(dataDir, 'cars.json'), 'utf8'))
-      const bikes = JSON.parse(fs.readFileSync(path.join(dataDir, 'motorbikes.json'), 'utf8'))
-      const accessories = JSON.parse(fs.readFileSync(path.join(dataDir, 'accessories.json'), 'utf8'))
-      cachedData = [...cars, ...bikes, ...accessories]
+      cachedData = cars
     } catch (e) {
       console.error('Failed to load JSON data for product images:', e)
       return fallback
     }
   }
 
-  const richData = cachedData.find((item: any) => {
+  const richData = (cachedData ?? []).find((item: any) => {
     if (!item.name) return false;
     return productName.includes(item.name) || item.name.includes(productName)
   })
@@ -105,15 +103,13 @@ export function getCarSpecsSummary(productName: string): string | null {
     try {
       const dataDir = path.join(process.cwd(), 'public', 'data', 'by_type')
       const cars = JSON.parse(fs.readFileSync(path.join(dataDir, 'cars.json'), 'utf8'))
-      const bikes = JSON.parse(fs.readFileSync(path.join(dataDir, 'motorbikes.json'), 'utf8'))
-      const accessories = JSON.parse(fs.readFileSync(path.join(dataDir, 'accessories.json'), 'utf8'))
-      cachedData = [...cars, ...bikes, ...accessories]
+      cachedData = cars
     } catch (e) {
       return null
     }
   }
 
-  const car = cachedData.find((item: any) => item.name && (item.name.includes(productName) || productName.includes(item.name)))
+  const car = (cachedData ?? []).find((item: any) => item.name && (item.name.includes(productName) || productName.includes(item.name)))
   if (!car || !car.variants) return null
 
   // Get the first variant's specs
