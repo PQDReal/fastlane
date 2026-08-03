@@ -109,16 +109,15 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
       const environments = await sentryFetch<Array<{ name: string }>>(environmentsUrl, token)
       if (environments.some((item) => item.name === environment)) {
         selectedEnvironment = environment
-      } else if (environments.length > 0) {
-        selectedEnvironment = environments[0].name
-        result.environment = selectedEnvironment
-        result.warnings.push(`Environment ${environment} chưa có dữ liệu; đang hiển thị ${selectedEnvironment}.`)
       } else {
-        result.environment = 'Tất cả môi trường'
+        result.available = true
+        result.warnings.push(`Environment ${environment} chưa có dữ liệu. Dữ liệu mới sẽ xuất hiện sau event đầu tiên.`)
+        result.fetchedAt = new Date().toISOString()
+        cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000, value: result })
+        return result
       }
-    } catch {
-      result.environment = 'Tất cả môi trường'
-      result.warnings.push('Không đọc được danh sách environment; đang hiển thị dữ liệu tổng hợp.')
+    } catch (error) {
+      return { ...result, error: `Không thể kiểm tra environment Sentry: ${safeMessage(error)}` }
     }
 
     const explore = (query: string, grouped = false) => {
