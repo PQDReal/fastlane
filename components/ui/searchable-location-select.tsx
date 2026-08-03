@@ -47,7 +47,10 @@ export function SearchableLocationSelect({
           autoComplete="off"
           disabled={disabled || loading}
           value={query}
-          onFocus={() => setOpen(true)}
+          onFocus={(e) => {
+            setOpen(true)
+            e.target.select()
+          }}
           onChange={(event) => {
             const next = event.target.value
             setQuery(next)

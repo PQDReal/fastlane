@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { ArrowLeft, Check, ChevronDown, Loader2, LockKeyhole, MapPin, ShoppingBag, Star } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, Loader2, LockKeyhole, MapPin, Plus, ShoppingBag, Star } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -186,6 +186,7 @@ export default function CheckoutPage() {
   const grandTotal = appliedPromotion?.grandTotal ?? selectedTotal
   const selectedAddress =
     savedAddresses.find((address) => address.id === selectedAddressId) ?? null
+  const addressLimitReached = savedAddresses.length >= 10
   const promotionOptions = useMemo(() => {
     if (!appliedPromotion || availablePromotions.some((item) => item.promotionId === appliedPromotion.promotionId)) {
       return availablePromotions
@@ -418,12 +419,24 @@ export default function CheckoutPage() {
                     Địa chỉ mặc định được chọn tự động. Bạn có thể chọn địa chỉ khác.
                   </p>
                 </div>
-                <Link
-                  href="/profile?tab=addresses"
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#836100] hover:text-[#836100] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]"
-                >
-                  Quản lý địa chỉ
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddressModalOpen(true)}
+                    disabled={addressesLoading || addressLimitReached}
+                    title={addressLimitReached ? 'Bạn đã lưu tối đa 10 địa chỉ' : undefined}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#836100] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Thêm địa chỉ
+                  </button>
+                  <Link
+                    href="/profile?tab=addresses"
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#836100] hover:text-[#836100] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]"
+                  >
+                    Quản lý địa chỉ
+                  </Link>
+                </div>
               </div>
 
               {addressesLoading ? (
@@ -439,10 +452,7 @@ export default function CheckoutPage() {
                 <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
                   <MapPin className="mx-auto h-8 w-8 text-slate-400" />
                   <p className="mt-3 font-semibold text-slate-800">Bạn chưa có địa chỉ nhận hàng</p>
-                  <p className="mt-1 text-sm text-slate-500">Hãy thêm địa chỉ trong trang hồ sơ trước khi thanh toán.</p>
-                  <button type="button" onClick={() => setAddressModalOpen(true)} className="mt-4 inline-flex rounded-full bg-[#836100] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6a4e00] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]">
-                    Thêm địa chỉ
-                  </button>
+                  <p className="mt-1 text-sm text-slate-500">Chọn “Thêm địa chỉ” để tạo địa chỉ nhận hàng mới.</p>
                 </div>
               ) : (
                 <div role="radiogroup" aria-label="Địa chỉ nhận hàng đã lưu" className="mt-6 -mr-3 max-h-[430px] space-y-3 overflow-y-auto pr-3 [scrollbar-gutter:stable]">

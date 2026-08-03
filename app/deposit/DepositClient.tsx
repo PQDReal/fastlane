@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
-import { Check, Battery, Zap, Ruler, ArrowRight } from 'lucide-react'
+import { Check, Battery, Zap, Ruler, ArrowRight, ChevronDown } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
 import {
   findDepositVehicle,
@@ -248,6 +248,11 @@ export function DepositClient({
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const shouldReduceMotion = useReducedMotion()
 
+  const [showrooms, setShowrooms] = useState<any[]>([])
+  const [selectedShowroom, setSelectedShowroom] = useState<any>(null)
+  const [openShowroom, setOpenShowroom] = useState(false)
+  const [dbVariants, setDbVariants] = useState<any[]>([])
+
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
     setToasts(prev => [...prev, { ...toast, id }]);
@@ -309,8 +314,38 @@ export function DepositClient({
       .finally(() => {
         if (!controller.signal.aborted) setLocationsLoading(false)
       })
+
+    fetch('/data/showroomcar.json')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.data) {
+          setShowrooms(data.data)
+        }
+      })
+      .catch(console.error)
+
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    async function fetchVariants() {
+      try {
+        const vehicles = vehicleType === 'motorbike' ? motorbikesData : carsData
+        const currentCarObj = vehicles.find(c => c.name === selectedCarId) || vehicles[0]
+        if (!currentCarObj) {
+          setDbVariants([])
+          return
+        }
+        const res = await fetch(`/api/v1/vehicle-variants?product_name=${encodeURIComponent(currentCarObj.name)}`)
+        const data = await res.json()
+        setDbVariants(Array.isArray(data) ? data : [])
+      } catch (err) {
+        console.error(err)
+        setDbVariants([])
+      }
+    }
+    fetchVariants()
+  }, [selectedCarId, vehicleType, carsData, motorbikesData])
 
   useEffect(() => {
     if (!provinceCode) {
@@ -329,7 +364,8 @@ export function DepositClient({
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(payload?.error?.message || 'Không thể tải xã/phường.')
-        setWards(payload.data ?? [])
+        const fetchedWards = payload.data ?? []
+        setWards(fetchedWards)
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
@@ -362,21 +398,43 @@ export function DepositClient({
               c.name.startsWith('VinFast'),
           )
           .sort((a, b) => {
-      const getOrder = (name: string) => {
-        if (name.includes('VF 2')) return 2
-        if (name.includes('VF 3')) return 3
-        if (name.includes('VF 5')) return 5
-        if (name.includes('VF 6')) return 6
-        if (name.includes('MPV 7') || name.includes('VF 7')) return 7
-        if (name.includes('All-New 2026') || name.includes('VF 8')) return 8
-        if (name.includes('VF 9')) return 9
-        return 100
-      }
-      const orderA = getOrder(a.name)
-      const orderB = getOrder(b.name)
-      if (orderA !== orderB) return orderA - orderB
-      return a.name.length - b.name.length
-    })
+            const getOrder = (name: string) => {
+              if (name.includes('VF 3')) return 1
+              if (name.includes('VF 5')) return 2
+              if (name.includes('VF 6')) return 3
+              if (name.includes('VF 7')) return 4
+              if (name.includes('MPV 7')) return 5
+              if (name.includes('VF 8')) return 6
+              if (name.includes('VF 9')) return 7
+              return 100
+            }
+            const orderA = getOrder(a.name)
+            const orderB = getOrder(b.name)
+            if (orderA !== orderB) return orderA - orderB
+            return a.name.length - b.name.length
+          })
+
+  const getDepositAmount = () => {
+    const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
+    const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor)
+      || dbVariants.find(v => v.version === selectedVariantName)
+
+    if (matchingDbVariant && matchingDbVariant.deposit_amount) {
+      return Number(matchingDbVariant.deposit_amount)
+    }
+
+    if (currentCar.deposit_value) {
+      const depVal = Number(currentCar.deposit_value)
+      if (depVal > 0) return depVal
+    }
+
+    if (currentCar.deposit) {
+      const depVal = parseInt(currentCar.deposit.toString().replace(/[^0-9]/g, ''), 10)
+      if (!isNaN(depVal) && depVal > 0) return depVal
+    }
+
+    return vehicleType === 'motorbike' ? 2000000 : 10000000
+  }
 
   const handleVehicleTypeChange = (nextType: DepositVehicleType) => {
     if (nextType === vehicleType) return
@@ -452,6 +510,24 @@ export function DepositClient({
     }
   }
 
+  const filteredShowrooms = showrooms.filter(s => {
+    if (!formData.province) return true;
+    
+    const normalize = (str: string) => {
+       if (!str) return '';
+       return str.toLowerCase()
+         .replace(/tỉnh |thành phố |tp\. |quận |huyện |thị xã |phường |xã |thị trấn /g, '')
+         .trim();
+    }
+    
+    const provName = normalize(s.province_name);
+    const formProv = normalize(formData.province);
+    
+    const isSameProvince = provName.includes(formProv) || formProv.includes(provName);
+    
+    return isSameProvince;
+  });
+
   const handleNextStep = async () => {
     if (currentStep === 1) {
       goToStep(2)
@@ -472,6 +548,14 @@ export function DepositClient({
           kind: 'warning',
           title: 'Thông tin chưa hợp lệ',
           message: Object.values(errors)[0],
+        })
+        return
+      }
+      if (!selectedShowroom) {
+        addToast({
+          kind: 'warning',
+          title: 'Chưa chọn showroom',
+          message: 'Vui lòng chọn showroom nhận xe trước khi tiếp tục.',
         })
         return
       }
@@ -513,14 +597,12 @@ export function DepositClient({
             car_model: currentCarObj.name,
             car_variant: selectedVariant,
             exterior_color: selectedColor,
-            interior_color:
-              currentCarObj.product_type === 'motorbike'
-                ? ''
-                : selectedInteriorColor,
+            interior_color: selectedInteriorColor || null,
             optional_packages: selectedPackages,
             promotion_code: promotionQuote?.promotion?.code ?? null,
             payment_method: paymentMethod,
-            terms_accepted: true,
+            terms_accepted: termsAccepted,
+            showroom: selectedShowroom?.name || '',
           }),
         })
         const result = await response.json().catch(() => null)
@@ -573,6 +655,8 @@ export function DepositClient({
     variants = ['Eco', 'Plus']
   } else if (!isMotorbike && currentCar.name === 'VF 2') {
     variants = ['Tiêu chuẩn']
+  } else if (!isMotorbike && currentCar.name.includes('MPV')) {
+    variants = ['Tiêu chuẩn']
   }
   const colors = currentCar.colors || []
   
@@ -615,18 +699,29 @@ export function DepositClient({
 
   const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
   const selectedVariantData = currentSpecs.variants?.[selectedVariantName]
+  const matchingDbVariant =
+    dbVariants.find(
+      (variant) =>
+        variant.version === selectedVariantName &&
+        variant.color === selectedColor,
+    ) ||
+    dbVariants.find((variant) => variant.version === selectedVariantName)
   const basePrice =
-    selectedVariantData?.price || currentCar.displayed_price || 0
+    matchingDbVariant?.price ||
+    selectedVariantData?.price ||
+    currentCar.displayed_price ||
+    0
   const isAdvancedColor = advancedColors.some(
     (color: any) => color.name === selectedColor,
   )
   const colorPrice = isAdvancedColor
-    ? currentCar.name.includes('MPV')
-      ? 10_000_000
-      : ['VF 7', 'VF 9'].includes(currentCar.name) ||
-          currentCar.name.includes('VF 8')
-        ? 12_000_000
-        : 8_000_000
+    ? Number(currentCar.advanced_color_price) ||
+      (currentCar.name.includes('MPV')
+        ? 10_000_000
+        : ['VF 7', 'VF 9'].includes(currentCar.name) ||
+            currentCar.name.includes('VF 8')
+          ? 12_000_000
+          : 8_000_000)
     : 0
   const availablePackages =
     currentCar.optional_packages?.filter(
@@ -958,8 +1053,9 @@ export function DepositClient({
                 <button
                   type="button"
                   onClick={() => handleVehicleTypeChange('car')}
+                  disabled={currentStep > 1}
                   aria-pressed={vehicleType === 'car'}
-                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 ${
+                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     vehicleType === 'car'
                       ? 'scale-105 bg-slate-900 text-white shadow-lg'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -970,8 +1066,9 @@ export function DepositClient({
                 <button
                   type="button"
                   onClick={() => handleVehicleTypeChange('motorbike')}
+                  disabled={currentStep > 1}
                   aria-pressed={vehicleType === 'motorbike'}
-                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 ${
+                  className={`whitespace-nowrap rounded-full px-7 py-2.5 text-sm font-bold tracking-wide transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     vehicleType === 'motorbike'
                       ? 'scale-105 bg-slate-900 text-white shadow-lg'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -1022,15 +1119,17 @@ export function DepositClient({
                 return (
                   <button
                     key={idx}
+                    type="button"
+                    disabled={currentStep > 1}
                     onClick={() => setSelectedCarId(car.name)}
-                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 ${
+                    className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 disabled:cursor-not-allowed ${
                       isMotorbike
                         ? 'h-11 min-w-[112px] px-5 py-2.5 text-[15px] font-bold tracking-[0.04em]'
                         : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
                     } ${
                       isSelected 
-                        ? 'bg-slate-900 text-white shadow-lg scale-105' 
-                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group'
+                        ? 'bg-slate-900 text-white shadow-lg scale-105 disabled:opacity-90'
+                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 group disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-600'
                     }`}
                   >
                     {logo ? (
@@ -1418,7 +1517,19 @@ export function DepositClient({
             
             {currentStep === 2 && (
               <div>
-                <h3 className="text-2xl font-bold tracking-tight mb-8">Thông tin người đặt cọc</h3>
+                <h3 className="text-2xl font-bold tracking-tight mb-6">Thông tin người đặt cọc</h3>
+                
+                <div className="mb-8 p-5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/30 border border-blue-100/80 flex items-center justify-between shadow-sm">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Số tiền đặt cọc</span>
+                    <span className="text-sm font-semibold text-slate-600">Áp dụng cho dòng xe {currentCar.name}</span>
+                  </div>
+                  <span className="text-2xl font-black text-slate-900 tracking-tight">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                      getDepositAmount()
+                    )}
+                  </span>
+                </div>
                 
                 <div className="space-y-6">
                   {/* Loại khách hàng */}
@@ -1552,14 +1663,57 @@ export function DepositClient({
                     <p className="text-sm text-red-600" role="status">{locationError}</p>
                   )}
                   <div className="space-y-2 pt-4">
-                    <label className="text-sm font-semibold text-slate-700">Showroom nhận xe <span className="text-red-500">*</span></label>
-                    <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-medium">
-                      VinFast Landmark 81, TP. Hồ Chí Minh
+                    <div className="relative text-sm font-medium text-gray-700" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenShowroom(false) }}>
+                      <label className="text-sm font-semibold text-slate-700 mb-2 block">Showroom nhận xe <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenShowroom(!openShowroom)}
+                          className="w-full text-left rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-10 font-normal focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-700 min-h-[46px]"
+                        >
+                          <span className="block whitespace-normal break-words text-sm">
+                            {selectedShowroom ? `${selectedShowroom.name} - ${selectedShowroom.address}` : 'Chọn showroom'}
+                          </span>
+                        </button>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      </div>
+                      
+                      {openShowroom && (
+                        <div className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
+                          {filteredShowrooms.length ? filteredShowrooms.map(s => {
+                            const active = selectedShowroom?.entity_id === s.entity_id;
+                            return (
+                              <button
+                                key={s.entity_id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedShowroom(s);
+                                  setOpenShowroom(false);
+                                }}
+                                className={`flex w-full items-start justify-between rounded-lg px-3 py-2.5 text-left text-sm font-normal transition active:scale-[0.99] ${active ? 'bg-slate-100 text-slate-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                              >
+                                <span className="break-words whitespace-normal w-full pr-2 leading-relaxed">{s.name} - {s.address}</span>
+                                {active && <Check className="h-4 w-4 flex-shrink-0 mt-0.5" />}
+                              </button>
+                            )
+                          }) : <p className="px-3 py-6 text-center text-sm font-normal text-gray-500">Không tìm thấy kết quả phù hợp.</p>}
+                        </div>
+                      )}
                     </div>
+                    {filteredShowrooms.length === 0 && formData.province && (
+                      <p className="text-sm text-amber-600 mt-1">Không tìm thấy showroom nào ở khu vực bạn chọn. Vui lòng chọn khu vực khác.</p>
+                    )}
                   </div>
 
                   <div className="space-y-2 pt-4">
-                    <label className="text-sm font-semibold text-slate-700">Mã ưu đãi / E-voucher</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-semibold text-slate-700">Mã ưu đãi / E-voucher</label>
+                      {promotionQuote?.promotion && (
+                        <span className="text-xs font-semibold text-emerald-600">
+                          Đã áp dụng mã {promotionQuote.promotion.code}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex gap-3">
                       <input
                         type="text"
@@ -1584,16 +1738,31 @@ export function DepositClient({
                         }}
                         aria-invalid={Boolean(promotionError)}
                         placeholder="Nhập mã ưu đãi"
+                        disabled={promotionLoading || Boolean(promotionQuote)}
                         className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 uppercase transition-all focus:border-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
                       />
-                      <button
-                        type="button"
-                        onClick={() => void handleApplyPromotion()}
-                        disabled={promotionLoading}
-                        className="whitespace-nowrap rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {promotionLoading ? 'Đang kiểm tra...' : 'Áp dụng'}
-                      </button>
+                      {promotionQuote ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPromotionQuote(null)
+                            setPromotionCode('')
+                            setPromotionError(null)
+                          }}
+                          className="whitespace-nowrap rounded-xl bg-red-50 px-6 py-3 font-bold text-red-600 transition-colors hover:bg-red-100"
+                        >
+                          Hủy mã
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void handleApplyPromotion()}
+                          disabled={promotionLoading || !promotionCode.trim()}
+                          className="whitespace-nowrap rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {promotionLoading ? 'Đang kiểm tra...' : 'Áp dụng'}
+                        </button>
+                      )}
                     </div>
                     {promotionError && (
                       <p className="text-sm font-medium text-red-600" role="status">

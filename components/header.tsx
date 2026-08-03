@@ -119,26 +119,38 @@ export function Header() {
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[92px] lg:h-[118px]'}`}>
-      <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12 xl:px-14">
-        <Link href="/" className="flex shrink-0 items-center gap-3 group" aria-label="FASTLANE - Trang chủ">
-          <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105 lg:h-9" />
-          <span className="font-display mt-1 text-[27px] font-bold tracking-[0.06em] text-[#9b7200] transition-opacity duration-500 group-hover:opacity-80 lg:text-[34px]">FASTLANE</span>
-        </Link>
+      <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between px-5 sm:px-8 lg:px-10 xl:px-12">
+        <div className="flex items-center xl:gap-8 2xl:gap-14 flex-1">
+          <Link href="/" className="flex shrink-0 items-center gap-2 group" aria-label="FASTLANE - Trang chủ">
+            <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105 lg:h-9" />
+            <span className="font-display mt-1 text-[24px] font-bold tracking-[0.06em] text-[#9b7200] transition-opacity duration-500 group-hover:opacity-80 lg:text-[28px] 2xl:text-[32px]">FASTLANE</span>
+          </Link>
 
-        <nav className="hidden items-center justify-center gap-6 xl:flex 2xl:gap-12">
-          {links.map((link) => (
-            <Link
-              key={link.name}
-              href={link.path}
-              className={`group relative whitespace-nowrap text-[14px] font-semibold tracking-wide transition-colors 2xl:text-[16px] ${headerSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
-            >
-              {link.name}
-              <span className={`absolute -bottom-1 left-0 h-px transition-all duration-300 w-0 group-hover:w-full ${headerSolid ? 'bg-slate-900' : 'bg-white'}`}></span>
-            </Link>
-          ))}
-        </nav>
+          <nav className="hidden items-center gap-4 xl:flex 2xl:gap-8">
+            {links.map((link) => (
+              <Link
+                key={link.name}
+                href={link.path}
+                className={`group relative whitespace-nowrap text-[13px] font-bold tracking-wide 2xl:text-[15px] ${headerSolid ? 'text-slate-600' : 'text-white/80'}`}
+              >
+                <span className="relative inline-grid">
+                  <span className="col-start-1 row-start-1 transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0">
+                    {link.name}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none col-start-1 row-start-1 -translate-x-2 text-[#836100] opacity-0 transition-[opacity,transform] duration-300 ease-out group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                  >
+                    {link.name}
+                  </span>
+                </span>
+                <span className="absolute -bottom-1 left-0 h-0.5 w-full origin-left scale-x-0 bg-[#836100] transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100" />
+              </Link>
+            ))}
+          </nav>
+        </div>
 
-        <div className={`flex shrink-0 items-center justify-end gap-4 transition-colors duration-500 xl:gap-6 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
+        <div className={`flex shrink-0 items-center justify-end gap-3 transition-colors duration-500 xl:gap-5 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={23} strokeWidth={2} /></button>
           <Link
             aria-label="Giỏ hàng"

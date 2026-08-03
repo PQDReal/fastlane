@@ -185,7 +185,7 @@ export async function POST(request: Request) {
         discount_amount: quote.discountAmount,
         promotion_id: quote.promotion?.id ?? null,
         promotion_code: quote.promotion?.code ?? null,
-        showroom: 'VinFast Landmark 81',
+        showroom: input.showroom || 'VinFast Landmark 81',
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
