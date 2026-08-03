@@ -52,8 +52,8 @@ export function SearchModal() {
 
   // Get link based on category
   const getProductLink = (product: any) => {
-    if (product.category === 'Ô tô điện') return `/cars` 
-    if (product.category === 'Xe máy điện') return `/bikes`
+    if (product.category === 'Ô tô điện') return `/cars/${product.slug}`
+    if (product.category === 'Xe máy điện') return `/bikes/${product.slug}`
     return `/accessories`
   }
 

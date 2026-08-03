@@ -1,6 +1,7 @@
 import 'server-only'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { getProductImage } from '@/lib/get-product-image'
+import { listMotorbikeCatalog } from '@/lib/motorbike-catalog'
 
 export type ComparableVariant = {
   id: string
@@ -169,17 +170,20 @@ function normalizeMotorbikeSpecifications(value: unknown): Record<string, string
 }
 
 export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('products')
-    .select(`id,name,slug,image_urls,displayed_price,specifications,categories(name),product_variants(id,name,sku,original_price,sale_price)`)
-    .eq('is_active', true)
-    .in('product_type', ['CAR', 'BIKE', 'VEHICLE'])
-    .eq('product_variants.is_active', true)
-    .order('name')
+  const [carResult, motorbikes] = await Promise.all([
+    getSupabaseAdmin()
+      .from('products')
+      .select(`id,name,slug,image_urls,displayed_price,specifications,categories(name),product_variants(id,name,sku,original_price,sale_price)`)
+      .eq('is_active', true)
+      .in('product_type', ['CAR', 'VEHICLE'])
+      .eq('product_variants.is_active', true)
+      .order('name'),
+    listMotorbikeCatalog(),
+  ])
 
-  if (error) throw new Error(`Không thể tải dữ liệu so sánh: ${error.message}`)
+  if (carResult.error) throw new Error(`Không thể tải dữ liệu so sánh: ${carResult.error.message}`)
 
-  return ((data ?? []) as ProductRow[])
+  const cars = ((carResult.data ?? []) as ProductRow[])
     .map((product) => {
       const category = Array.isArray(product.categories) ? product.categories[0] : product.categories
       const images = stringArray(product.image_urls)
@@ -203,4 +207,25 @@ export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
       }
     })
     .filter((product) => COMPARABLE_CATEGORIES.has(product.category))
+
+  const bikes: ComparableVehicle[] = motorbikes.map((motorbike) => ({
+    id: motorbike.productId,
+    name: motorbike.name,
+    slug: motorbike.slug,
+    category: 'Xe máy điện',
+    imageUrl: motorbike.listingImageUrl,
+    displayedPrice: motorbike.displayedPrice,
+    specifications: normalizeMotorbikeSpecifications(motorbike.specifications),
+    variants: motorbike.versions.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      sku: variant.sku,
+      originalPrice: variant.price,
+      salePrice: null,
+    })),
+  }))
+
+  return [...cars, ...bikes].sort((left, right) =>
+    left.name.localeCompare(right.name, 'vi'),
+  )
 }

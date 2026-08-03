@@ -10,6 +10,7 @@ import {
 } from '../components/home-vehicle-experience'
 import { auth0 } from '../lib/auth0'
 import { getSupabaseAdmin } from '../lib/supabase-admin'
+import { listMotorbikeCatalog } from '../lib/motorbike-catalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,14 +102,34 @@ export default async function Home() {
   } : undefined
 
   const supabase = getSupabaseAdmin()
-  const { data: rawProducts } = await supabase
-    .from('products')
-    .select(`
-        *,
-        category:categories(name)
-      `)
-    .eq('is_active', true)
-    .limit(48)
+  const [carResult, motorbikeCatalog] = await Promise.all([
+    supabase
+      .from('products')
+      .select(`
+          *,
+          category:categories(name)
+        `)
+      .eq('is_active', true)
+      .in('product_type', ['CAR', 'VEHICLE'])
+      .limit(48),
+    listMotorbikeCatalog(),
+  ])
+
+  const rawProducts = [
+    ...(carResult.data ?? []),
+    ...motorbikeCatalog.map((motorbike) => ({
+      id: motorbike.productId,
+      name: motorbike.name,
+      slug: motorbike.slug,
+      product_type: 'BIKE',
+      description: motorbike.description,
+      displayed_price: motorbike.displayedPrice,
+      specifications: motorbike.specifications,
+      image_urls: [motorbike.listingImageUrl],
+      colors: motorbike.colors.map((color) => color.name),
+      category: { name: 'Xe máy điện' },
+    })),
+  ]
 
   const activeProducts = (rawProducts || []).filter(
     (product: any) => productType(product) && Number(product.displayed_price) > 0,
@@ -167,10 +188,12 @@ export default async function Home() {
       type === 'CAR'
         ? firstText(carSpecs.powertrain?.drivetrain, 'Thuần điện')
         : firstText(productSpecifications['Tốc độ tối đa'], 'Đang cập nhật')
-    const colorNames = firstText(productSpecifications['Màu sắc'], '')
-      .split(/[;,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
+    const colorNames = type === 'BIKE' && Array.isArray(product.colors)
+      ? product.colors
+      : firstText(productSpecifications['Màu sắc'], '')
+          .split(/[;,]/)
+          .map((item) => item.trim())
+          .filter(Boolean)
 
     return {
       id: product.id,
@@ -183,7 +206,9 @@ export default async function Home() {
         (type === 'BIKE'
           ? 'Linh hoạt trong phố, vận hành êm và không phát thải.'
           : 'Không gian hiện đại, công nghệ thông minh và trải nghiệm thuần điện.'),
-      image: getProductImage(product.name, product.image_urls),
+      image: type === 'BIKE'
+        ? product.image_urls[0]
+        : getProductImage(product.name, product.image_urls),
       price: Number(product.displayed_price) || 0,
       range,
       power,

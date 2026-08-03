@@ -33,6 +33,9 @@
     "preview:openapi": "npm --prefix api-contract run preview",
     "normalize:motorbike-specs": "node scripts/normalize-motorbike-specs.mjs",
     "sync:motorbike-images": "node --env-file=.env.local scripts/sync-motorbike-images.mjs",
+    "verify:motorbike-vehicle-variants": "node --env-file=.env.local scripts/verify-motorbike-vehicle-variants.mjs",
+    "migrate:motorbike-vehicle-variants": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs",
+    "migrate:motorbike-vehicle-variants:apply": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs --apply",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build",
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
