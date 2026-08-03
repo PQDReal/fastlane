@@ -80,7 +80,6 @@ function baseData(period: MonitoringPeriod, environment: string): SentryMonitori
     backend: { ...EMPTY_SUMMARY },
     slowFrontend: [],
     slowBackend: [],
-    apiRoutes: [],
     issues: { unresolved: 0, recent: [] },
   }
 }
@@ -156,10 +155,9 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
       explore('is_transaction:true span.op:[pageload,navigation]', true),
       explore('is_transaction:true span.op:http.server !http.request.method:HEAD', true),
       sentryFetch<JsonRecord[]>(issuesUrl, token),
-      explore('is_transaction:true span.op:http.server transaction:/api/* !http.request.method:HEAD', true, 100),
     ])
 
-    const labels = ['độ trễ frontend', 'độ trễ backend', 'trang frontend chậm', 'API chậm', 'issues', 'danh sách API']
+    const labels = ['độ trễ frontend', 'độ trễ backend', 'trang frontend chậm', 'API chậm', 'issues']
     requests.forEach((request, index) => {
       if (request.status === 'rejected') result.warnings.push(`Không tải được ${labels[index]}: ${safeMessage(request.reason)}`)
     })
@@ -168,7 +166,6 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
     if (requests[1].status === 'fulfilled') result.backend = parseSummary(requests[1].value)
     if (requests[2].status === 'fulfilled') result.slowFrontend = parseTransactions(requests[2].value)
     if (requests[3].status === 'fulfilled') result.slowBackend = parseTransactions(requests[3].value)
-    if (requests[5].status === 'fulfilled') result.apiRoutes = parseTransactions(requests[5].value)
     if (requests[4].status === 'fulfilled') {
       const issues = requests[4].value
       result.issues = {
