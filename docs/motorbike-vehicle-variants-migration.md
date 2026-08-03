@@ -44,7 +44,7 @@ all foreign-key consumers have been migrated.
    npm run verify:motorbike-vehicle-variants
    ```
 
-3. Run `027_migrate_motorbikes_to_vehicle_variants.sql` in a staging project.
+3. Run `030_migrate_motorbikes_to_vehicle_variants.sql` in a staging project.
 4. Run the verifier again and verify:
    - 18 distinct active BIKE products.
    - 118 active BIKE rows for the current snapshot.

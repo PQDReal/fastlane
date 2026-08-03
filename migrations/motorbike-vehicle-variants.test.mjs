@@ -6,7 +6,7 @@ const migration = fs.readFileSync(
   path.join(
     process.cwd(),
     'migrations',
-    '027_migrate_motorbikes_to_vehicle_variants.sql',
+    '030_migrate_motorbikes_to_vehicle_variants.sql',
   ),
   'utf8',
 )
@@ -50,4 +50,3 @@ describe('motorbike vehicle_variants migration', () => {
     expect(migration).toContain('vehicle_variants_bike_version_color_uidx')
   })
 })
-
