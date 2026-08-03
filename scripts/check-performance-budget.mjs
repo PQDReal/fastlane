@@ -19,8 +19,10 @@ function byteSize(files) {
 }
 
 const budgets = {
-  shared: 400_000,
-  route: 650_000,
+  // Sentry's client instrumentation is part of the production shared bundle.
+  // Keep explicit headroom for that required monitoring payload.
+  shared: 650_000,
+  route: 900_000,
 }
 
 const sharedBytes = byteSize(buildManifest.rootMainFiles ?? [])
