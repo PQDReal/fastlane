@@ -11,9 +11,10 @@ import { Header } from '@/components/header'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
 import { ProfileSavedAddresses } from '@/components/profile-saved-addresses'
+import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
-import type { AccessoryOrderSummary } from '@/lib/cart/types'
+import type { AccessoryOrder, AccessoryOrderSummary } from '@/lib/cart/types'
 
 function ProfileContent() {
   const { user, isLoading } = useUser()
@@ -32,6 +33,8 @@ function ProfileContent() {
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
+  const [selectedAccessoryOrder, setSelectedAccessoryOrder] = useState<AccessoryOrder | null>(null)
+  const [accessoryOrderLoadingId, setAccessoryOrderLoadingId] = useState<string | null>(null)
 
   function showToast(
     kind: ToastMessage['kind'],
@@ -125,6 +128,29 @@ function ProfileContent() {
       active = false
     }
   }, [activeTab, user])
+
+  async function openAccessoryOrder(orderId: string) {
+    setAccessoryOrderLoadingId(orderId)
+    try {
+      const response = await fetch(`/api/v1/orders/${encodeURIComponent(orderId)}`)
+      const payload = await response.json().catch(() => ({})) as {
+        data?: AccessoryOrder
+        error?: { message?: string }
+      }
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error?.message || 'Không thể tải chi tiết đơn hàng.')
+      }
+      setSelectedAccessoryOrder(payload.data)
+    } catch (error) {
+      showToast(
+        'error',
+        'Không thể tải chi tiết đơn hàng',
+        error instanceof Error ? error.message : 'Vui lòng thử lại sau.',
+      )
+    } finally {
+      setAccessoryOrderLoadingId(null)
+    }
+  }
 
   if (isLoading) {
     return <main className="flex min-h-screen items-center justify-center bg-gray-50"><Loader2 className="h-8 w-8 animate-spin text-[#836100]" /></main>
@@ -484,7 +510,7 @@ function ProfileContent() {
                             <span className="text-sm font-medium text-gray-700">{translateStatus(order.status, false)}</span>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-4">
                             <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
                               <Package className="h-6 w-6 text-gray-400" />
@@ -494,7 +520,20 @@ function ProfileContent() {
                               <p className="text-sm text-gray-500">Thanh toán: {translatePaymentStatus(order.paymentStatus, false)}</p>
                             </div>
                           </div>
-                          <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                          <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-2">
+                            <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
+                            <button
+                              type="button"
+                              onClick={() => void openAccessoryOrder(order.id)}
+                              disabled={accessoryOrderLoadingId === order.id}
+                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#836100] px-4 text-sm font-bold text-[#836100] transition hover:bg-[#836100] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {accessoryOrderLoadingId === order.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <ArrowRight className="h-4 w-4" />}
+                              Xem chi tiết
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )
@@ -506,7 +545,108 @@ function ProfileContent() {
         </div>
       </div>
       
-      {/* Order Details Modal */}
+      <AnimatePresence>
+        {selectedAccessoryOrder && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onClick={() => setSelectedAccessoryOrder(null)}
+              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+            />
+            <div className="pointer-events-none fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6">
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="accessory-order-detail-title"
+                initial={{ opacity: 0, scale: 0.98, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98, y: 12 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setSelectedAccessoryOrder(null)
+                }}
+                className="pointer-events-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+              >
+                <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
+                  <div>
+                    <h3 id="accessory-order-detail-title" className="text-xl font-bold text-gray-900">
+                      Chi tiết đơn phụ kiện
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">Mã đơn: {selectedAccessoryOrder.orderNumber}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                      <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+                      Tạo lúc {formatVietnamDateTime(selectedAccessoryOrder.createdAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAccessoryOrder(null)}
+                    aria-label="Đóng chi tiết đơn phụ kiện"
+                    className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6 overflow-y-auto p-6">
+                  <section aria-labelledby="accessory-order-products-title">
+                    <h4 id="accessory-order-products-title" className="mb-3 border-l-4 border-[#836100] pl-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                      Sản phẩm
+                    </h4>
+                    <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50 px-4">
+                      {selectedAccessoryOrder.items.map((item) => (
+                        <article key={item.id} className="flex gap-4 py-4">
+                          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white text-gray-400">
+                            <Package className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-gray-900">{item.productName}</p>
+                            <ProductOptionSummary options={item.selectedOptions} className="mt-1.5" />
+                            <p className="mt-1.5 text-xs text-gray-500">SKU: {item.sku} · Số lượng: {item.quantity}</p>
+                          </div>
+                          <p className="shrink-0 text-sm font-bold text-[#836100]">{formatPrice(item.lineTotal)}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section aria-labelledby="accessory-order-shipping-title">
+                    <h4 id="accessory-order-shipping-title" className="mb-3 border-l-4 border-[#836100] pl-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                      Giao nhận
+                    </h4>
+                    <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+                      <p className="font-semibold text-gray-900">{selectedAccessoryOrder.shippingAddress.recipientName}</p>
+                      <p className="mt-1">{selectedAccessoryOrder.shippingAddress.phoneNumber}</p>
+                      <p className="mt-1 leading-6">
+                        {selectedAccessoryOrder.shippingAddress.line1}
+                        {selectedAccessoryOrder.shippingAddress.line2 ? `, ${selectedAccessoryOrder.shippingAddress.line2}` : ''}, {' '}
+                        {selectedAccessoryOrder.shippingAddress.communeLevel.name}, {selectedAccessoryOrder.shippingAddress.province.name}
+                      </p>
+                      {selectedAccessoryOrder.note && <p className="mt-2 border-t border-gray-200 pt-2">Ghi chú: {selectedAccessoryOrder.note}</p>}
+                    </div>
+                  </section>
+
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Trạng thái</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-800">{translateStatus(selectedAccessoryOrder.status, false)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Tổng thanh toán</p>
+                      <p className="mt-1 text-xl font-bold text-[#836100]">{formatPrice(selectedAccessoryOrder.pricing.grandTotal)}</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Vehicle order details */}
       <AnimatePresence>
         {selectedOrder && selectedOrder.orderType === 'deposit' && selectedOrder.depositDetails && (
           <>

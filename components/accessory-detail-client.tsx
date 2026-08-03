@@ -106,6 +106,15 @@ function cartItem(
         option.valueName,
       ]),
     ),
+    selectedOptions: variant.selectedOptionDetails.map((option) => ({
+      groupId: option.groupId,
+      groupCode: option.groupCode,
+      groupName: option.groupName,
+      valueId: option.valueId,
+      valueCode: option.valueCode,
+      valueName: option.valueName,
+      priceAdjustment: String(Math.round(option.priceAdjustment)),
+    })),
     availableQuantity: variant.availableQuantity,
     discount: hasDiscount
       ? Math.round((1 - variant.effectivePrice / variant.originalPrice) * 100)

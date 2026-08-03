@@ -54,6 +54,24 @@ function checkoutError(message: string) {
       'Checkout database migration has not been applied.',
     )
   }
+  if (message.includes('orders_shipping_address_required_fields')) {
+    return new ApiRouteError(
+      503,
+      'SERVICE_UNAVAILABLE',
+      'Cấu hình địa chỉ giao hàng chưa đồng bộ. Vui lòng thử lại sau.',
+    )
+  }
+  if (
+    (message.includes('product_type_snapshot') &&
+      message.includes('product_type')) ||
+    message.includes('operator does not exist: text = product_type')
+  ) {
+    return new ApiRouteError(
+      503,
+      'SERVICE_UNAVAILABLE',
+      'Cấu hình loại sản phẩm chưa đồng bộ. Vui lòng thử lại sau.',
+    )
+  }
   return null
 }
 
