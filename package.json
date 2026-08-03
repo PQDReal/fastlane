@@ -44,6 +44,7 @@
   "dependencies": {
     "@auth0/nextjs-auth0": "4.25.0",
     "@radix-ui/react-slot": "latest",
+    "@sentry/nextjs": "^10.69.0",
     "@supabase/server": "^1.4.0",
     "@supabase/supabase-js": "^2.110.8",
     "class-variance-authority": "latest",
