@@ -8,6 +8,8 @@ import path from 'path'
 import { Button } from '../../../components/ui/button'
 import { Check, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { carDetailCacheKey } from '../../../lib/cache-keys'
+import { readRedisJson, writeRedisJson } from '../../../lib/redis'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,26 +119,37 @@ const formatSpecValue = (key: string, value: any): string => {
 
 export default async function CarDetailPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
-  const supabase = getSupabaseAdmin()
-  
-  const { data: product } = await supabase
-    .from('products')
-    .select('*, category:categories!inner(name)')
-    .eq('slug', params.slug)
-    .eq('is_active', true)
-    .eq('categories.name', 'Ô tô điện')
-    .single()
+  const cacheKey = carDetailCacheKey(params.slug)
+  type CarDetailCache = { product: any | null; variantsData: any[] }
+  const cached = await readRedisJson<CarDetailCache>(cacheKey)
+  let product: any | null = cached?.product ?? null
+  let variantsData: any[] = cached?.variantsData ?? []
+
+  if (!cached) {
+    const supabase = getSupabaseAdmin()
+    const [{ data: loadedProduct }, { data: loadedVariants }] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*, category:categories!inner(name)')
+        .eq('slug', params.slug)
+        .eq('is_active', true)
+        .eq('categories.name', 'Ô tô điện')
+        .maybeSingle(),
+      supabase
+        .from('vehicle_variants')
+        .select('*')
+        .eq('is_active', true),
+    ])
+    product = loadedProduct
+    variantsData = product
+      ? (loadedVariants ?? []).filter((variant: any) => variant.product_id === product.id)
+      : []
+    await writeRedisJson(cacheKey, { product, variantsData }, 300)
+  }
 
   if (!product) {
     notFound()
   }
-
-  const { data: variantsData } = await supabase
-    .from('vehicle_variants')
-    .select('*')
-    .eq('product_id', product.id)
-    .eq('is_active', true)
-
 
   // Load JSON data
   const carsDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json')

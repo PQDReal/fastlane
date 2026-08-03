@@ -14,6 +14,11 @@ import type {
 } from '@/lib/catalog/types'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import {
+  ACCESSORY_CATALOG_SUMMARY_CACHE_KEY,
+  accessoryProductCacheKey,
+} from '@/lib/cache-keys'
+import { readRedisJson, writeRedisJson } from '@/lib/redis'
 
 const CATALOG_PRODUCT_SELECT = `
   id,
@@ -223,7 +228,7 @@ async function loadActiveServiceLabels(): Promise<CatalogServiceLabel[]> {
   }))
 }
 
-const loadAccessoryCatalogSummary = unstable_cache(
+const loadNextCachedAccessoryCatalogSummary = unstable_cache(
   async () => {
     const [serviceLabels, catalogResult] = await Promise.all([
       loadActiveServiceLabels(),
@@ -251,6 +256,21 @@ const loadAccessoryCatalogSummary = unstable_cache(
     tags: ['accessory-catalog'],
   },
 )
+
+type AccessoryCatalogSummary = Awaited<
+  ReturnType<typeof loadNextCachedAccessoryCatalogSummary>
+>
+
+async function loadAccessoryCatalogSummary(): Promise<AccessoryCatalogSummary> {
+  const cached = await readRedisJson<AccessoryCatalogSummary>(
+    ACCESSORY_CATALOG_SUMMARY_CACHE_KEY,
+  )
+  if (cached) return cached
+
+  const summary = await loadNextCachedAccessoryCatalogSummary()
+  await writeRedisJson(ACCESSORY_CATALOG_SUMMARY_CACHE_KEY, summary, 300)
+  return summary
+}
 
 async function loadAccessoryProductsByIds(ids: string[]): Promise<CatalogProduct[]> {
   const uniqueIds = [...new Set(ids)].sort()
@@ -321,7 +341,11 @@ export async function listAccessoryCatalog(options: {
 export async function getAccessoryCatalogProductBySlug(
   slug: string,
 ): Promise<CatalogProduct | null> {
-  return unstable_cache(
+  const cacheKey = accessoryProductCacheKey(slug)
+  const cached = await readRedisJson<CatalogProduct>(cacheKey)
+  if (cached) return cached
+
+  const product = await unstable_cache(
     async () => {
       const { data, error } = await accessoryProductsQuery()
         .eq('slug', slug)
@@ -336,6 +360,8 @@ export async function getAccessoryCatalogProductBySlug(
       tags: ['accessory-catalog', `accessory:${slug}`],
     },
   )()
+  if (product) await writeRedisJson(cacheKey, product, 300)
+  return product
 }
 
 /**

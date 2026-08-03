@@ -3,6 +3,8 @@ import 'server-only'
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { MOTORBIKE_CATALOG_CACHE_KEY } from '@/lib/cache-keys'
+import { readRedisJson, writeRedisJson } from '@/lib/redis'
 
 type JsonRecord = Record<string, unknown>
 
@@ -200,9 +202,20 @@ const loadCachedMotorbikeCatalog = unstable_cache(
   },
 )
 
+async function loadDistributedMotorbikeCatalog() {
+  const cached = await readRedisJson<MotorbikeCatalogItem[]>(
+    MOTORBIKE_CATALOG_CACHE_KEY,
+  )
+  if (cached) return cached
+
+  const items = await loadCachedMotorbikeCatalog()
+  await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, items, 300)
+  return items
+}
+
 // React cache deduplicates calls within one render. The Next data cache keeps the
 // public catalog warm across requests while still refreshing external DB changes.
-export const listMotorbikeCatalog = cache(loadCachedMotorbikeCatalog)
+export const listMotorbikeCatalog = cache(loadDistributedMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
   const items = await listMotorbikeCatalog()
