@@ -9,6 +9,7 @@ type AdminIdentity = { fullName: string; email: string }
 
 export function AdminShell({ children, user }: { children: React.ReactNode; user: AdminIdentity }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
 
   useEffect(() => setSidebarOpen(false), [pathname])
@@ -26,10 +27,10 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
 
   return (
     <div className="flex min-h-screen overflow-x-hidden bg-slate-50">
-      <AdminSidebar open={sidebarOpen} collapsed onClose={() => setSidebarOpen(false)} user={user} />
+      <AdminSidebar open={sidebarOpen} collapsed={isCollapsed} onClose={() => setSidebarOpen(false)} user={user} />
       {sidebarOpen && <button type="button" aria-label="Đóng menu quản trị" className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-[1px] md:hidden" onClick={() => setSidebarOpen(false)} />}
-      <div className={`flex min-w-0 flex-1 flex-col transition-[padding] duration-300 md:pl-20`}>
-        <AdminTopbar onMenuClick={() => setSidebarOpen(true)} />
+      <div className={`flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
+        <AdminTopbar onMenuClick={() => setSidebarOpen(true)} onToggleDesktop={() => setIsCollapsed(!isCollapsed)} />
         <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

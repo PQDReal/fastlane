@@ -170,9 +170,16 @@ export async function POST(request: Request) {
 
       const matchingVv = (vVariants || []).find((vv: any) => {
         const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
-        const colorMatch = !color || !vv.color || vv.color.toLowerCase() === color.toLowerCase()
-        const versionMatch = !vv.version || variant.toLowerCase().includes(vv.version.toLowerCase())
-        return pNameMatch && (colorMatch || versionMatch)
+        
+        const colorMatch = color && vv.color ? vv.color.toLowerCase() === color.toLowerCase() : (!color && !vv.color)
+        const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
+        
+        return pNameMatch && colorMatch && versionMatch
+      }) || (vVariants || []).find((vv: any) => {
+        // Fallback: match version at least
+        const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
+        const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
+        return pNameMatch && versionMatch
       })
 
       if (matchingVv) {
