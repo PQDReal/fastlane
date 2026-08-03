@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { revalidateTag } from 'next/cache'
 import { mapAdminAccessoryEditorRow } from '@/lib/catalog/admin-accessory-editor'
 import {
   adminAccessoryRpcPayload,
@@ -150,7 +151,9 @@ export async function saveAdminAccessoryProduct(
     target_payload: adminAccessoryRpcPayload(request),
   })
   if (error) throw rpcError(error)
-  return saveResult(data)
+  const result = saveResult(data)
+  revalidateTag('accessory-catalog')
+  return result
 }
 
 export async function loadAdminAccessoryProduct(productId: string): Promise<AdminAccessoryEditorData> {

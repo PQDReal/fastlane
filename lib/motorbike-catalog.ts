@@ -63,6 +63,13 @@ type VehicleVariantRow = {
   is_active: boolean
 }
 
+type MotorbikeCatalogReadRow = {
+  product_id: string
+  product_name: string
+  shared_specs: unknown
+  variants: Array<Omit<VehicleVariantRow, 'product_id' | 'product_name' | 'specs'>> | null
+}
+
 function record(value: unknown): JsonRecord {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as JsonRecord
@@ -153,14 +160,32 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
 }
 
 async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
-  const { data, error } = await getSupabaseAdmin()
+  const supabase = getSupabaseAdmin()
+  const aggregate = await supabase.rpc('list_active_motorbike_catalog')
+
+  if (!aggregate.error) {
+    const rows = ((aggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
+      (product.variants ?? []).map((variant) => ({
+        ...variant,
+        product_id: product.product_id,
+        product_name: product.product_name,
+        specs: product.shared_specs,
+      })),
+    )
+    return mapRows(rows)
+  }
+
+  const { data, error } = await supabase
     .from('vehicle_variants')
     .select('id,product_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
     .eq('product_type', 'BIKE')
     .eq('is_active', true)
 
   if (error) {
-    throw new Error(`Unable to load motorbike vehicle variants: ${error.message}`)
+    throw new Error(
+      `Unable to load motorbike vehicle variants: ${error.message}; `
+      + `catalog read model: ${aggregate.error.message}`,
+    )
   }
 
   return mapRows((data ?? []) as VehicleVariantRow[])

@@ -1,4 +1,6 @@
 import 'server-only'
+import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { getProductImage } from '@/lib/get-product-image'
 import { listMotorbikeCatalog } from '@/lib/motorbike-catalog'
@@ -169,7 +171,7 @@ function normalizeMotorbikeSpecifications(value: unknown): Record<string, string
   return normalizeSpecifications(asRecord(root.specs) ?? root)
 }
 
-export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
+async function loadComparableVehicles(): Promise<ComparableVehicle[]> {
   const [carResult, motorbikes] = await Promise.all([
     getSupabaseAdmin()
       .from('products')
@@ -229,3 +231,11 @@ export async function listComparableVehicles(): Promise<ComparableVehicle[]> {
     left.name.localeCompare(right.name, 'vi'),
   )
 }
+
+const loadCachedComparableVehicles = unstable_cache(
+  loadComparableVehicles,
+  ['comparable-vehicles-v1'],
+  { revalidate: 300, tags: ['vehicle-catalog'] },
+)
+
+export const listComparableVehicles = cache(loadCachedComparableVehicles)

@@ -13,8 +13,9 @@ import {
   FileDown,
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
+import Image from 'next/image'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 type JsonObject = Record<string, unknown>
 type SpecEntry = [string, string]
@@ -326,10 +327,13 @@ export default async function BikeDetailPage(
 
       {/* HERO SECTION */}
       <section className="relative flex h-screen min-h-[700px] w-full flex-col justify-between overflow-hidden bg-black">
-        <img
+        <Image
           src={heroImage.src}
           alt={product.name}
-className={`absolute inset-0 h-full w-full object-center ${
+          fill
+          priority
+          sizes="100vw"
+          className={`absolute inset-0 h-full w-full object-center ${
             heroImage.contain
               ? 'object-contain p-8 sm:p-16'
               : 'object-cover'
@@ -598,9 +602,12 @@ className={`absolute inset-0 h-full w-full object-center ${
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             {displayImgs[0] && (
               <div className="overflow-hidden rounded-[2rem] md:col-span-2">
-                <img
+                <Image
                   src={displayImgs[0]}
                   alt={`Thiết kế ${product.name}`}
+                  width={1440}
+                  height={810}
+                  sizes="(max-width: 1024px) 100vw, 1440px"
                   className="h-auto w-full object-cover"
                 />
               </div>
@@ -608,9 +615,12 @@ className={`absolute inset-0 h-full w-full object-center ${
 
             {displayImgs[1] && (
               <div className="aspect-square overflow-hidden rounded-[2rem]">
-                <img
+                <Image
                   src={displayImgs[1]}
                   alt={`Ngoại hình ${product.name}`}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -618,9 +628,12 @@ className={`absolute inset-0 h-full w-full object-center ${
 
             {displayIntImgs[0] && (
               <div className="relative aspect-square overflow-hidden rounded-[2rem]">
-                <img
+                <Image
                   src={displayIntImgs[0]}
                   alt={`Chi tiết ${product.name}`}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="h-full w-full object-cover"
                 />
               </div>

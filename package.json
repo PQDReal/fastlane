@@ -15,6 +15,7 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "check:performance-budget": "node scripts/check-performance-budget.mjs",
     "check:openapi": "npm --prefix api-contract run check:openapi",
     "seed:accessory-inventory": "node scripts/seed-accessory-inventory.mjs",
     "sync:vinfast-accessories": "node --env-file=.env.local scripts/sync-vinfast-accessories.mjs",
@@ -37,7 +38,7 @@
     "migrate:motorbike-vehicle-variants": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs",
     "migrate:motorbike-vehicle-variants:apply": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs --apply",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
-    "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build",
+    "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build && npm run check:performance-budget",
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
   },
   "dependencies": {

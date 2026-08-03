@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { listMotorbikeCatalog } from '@/lib/motorbike-catalog'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import type {
@@ -32,7 +34,7 @@ type ProductRow = {
   categories: { name: string } | { name: string }[] | null
 }
 
-export async function getCostEstimatorData() {
+async function loadCostEstimatorData() {
   const supabase = getSupabaseAdmin()
   const now = new Date().toISOString()
   const [carResult, motorbikes, feeResult] = await Promise.all([
@@ -90,3 +92,11 @@ export async function getCostEstimatorData() {
     })),
   }
 }
+
+const loadCachedCostEstimatorData = unstable_cache(
+  loadCostEstimatorData,
+  ['cost-estimator-data-v1'],
+  { revalidate: 300, tags: ['vehicle-catalog', 'cost-policies'] },
+)
+
+export const getCostEstimatorData = cache(loadCachedCostEstimatorData)

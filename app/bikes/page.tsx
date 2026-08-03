@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { listMotorbikeCatalog } from '../../lib/motorbike-catalog'
 import { BikeCatalogBrowser } from './bike-catalog-browser'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 export default async function BikesPage() {
   const bikesData = await listMotorbikeCatalog()

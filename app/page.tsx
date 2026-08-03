@@ -8,11 +8,10 @@ import {
   HomeVehicleFinder,
   type HomeVehicle,
 } from '../components/home-vehicle-experience'
-import { auth0 } from '../lib/auth0'
 import { getSupabaseAdmin } from '../lib/supabase-admin'
 import { listMotorbikeCatalog } from '../lib/motorbike-catalog'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 function shuffleItems<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -95,12 +94,6 @@ function colorHex(name: string) {
 }
 
 export default async function Home() {
-  const session = await auth0.getSession()
-  const user = session ? {
-    email: session.user.email,
-    name: session.user.name,
-  } : undefined
-
   const supabase = getSupabaseAdmin()
   const [carResult, motorbikeCatalog] = await Promise.all([
     supabase
