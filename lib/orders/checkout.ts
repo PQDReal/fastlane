@@ -3,7 +3,9 @@ import 'server-only'
 import { createHash } from 'node:crypto'
 
 import { ApiRouteError } from '@/lib/api/errors'
+import { customerCartCacheKey } from '@/lib/cache-keys'
 import type { CheckoutRequest } from '@/lib/cart/types'
+import { deleteRedisKey } from '@/lib/redis'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { readCustomerOrder } from '@/lib/orders/server'
 
@@ -117,6 +119,7 @@ export async function checkoutCustomerCart(
         .maybeSingle<{ id: string; request_hash: string }>()
 
       if (existing?.request_hash === hash) {
+        await deleteRedisKey(customerCartCacheKey(customerId))
         return readCustomerOrder(customerId, existing.id)
       }
       throw new ApiRouteError(
@@ -135,5 +138,6 @@ export async function checkoutCustomerCart(
       : ''
   if (!orderId) throw new Error('Checkout did not return an order ID.')
 
+  await deleteRedisKey(customerCartCacheKey(customerId))
   return readCustomerOrder(customerId, orderId)
 }

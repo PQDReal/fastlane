@@ -1,12 +1,32 @@
 import { NextResponse } from 'next/server'
 
+import {
+  normalizeSearchQuery,
+  productSearchCacheKey,
+} from '@/lib/cache-keys'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { toNamePrefixTsQuery } from '@/lib/catalog/search'
 import { listMotorbikeCatalog } from '@/lib/motorbike-catalog'
+import { readRedisJson, writeRedisJson } from '@/lib/redis'
+
+const PRODUCT_SEARCH_TTL_SECONDS = 120
+
+function searchResponse(results: unknown[], cacheStatus: 'HIT' | 'MISS') {
+  return NextResponse.json(results, {
+    headers: {
+      'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+      'X-Fastlane-Cache': cacheStatus,
+    },
+  })
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
+  const cacheKey = productSearchCacheKey(query)
+  const cachedResults = await readRedisJson<unknown[]>(cacheKey)
+  if (cachedResults) return searchResponse(cachedResults, 'HIT')
+
   const supabase = getSupabaseAdmin()
 
   let dbQuery = supabase
@@ -37,7 +57,7 @@ export async function GET(request: Request) {
       ...item,
       category: item.categories?.name || 'Chưa phân loại',
     }))
-  const normalizedQuery = query?.trim().toLocaleLowerCase('vi') ?? ''
+  const normalizedQuery = normalizeSearchQuery(query)
   const motorbikeResults = motorbikes
     .filter((motorbike) =>
       !normalizedQuery ||
@@ -54,5 +74,7 @@ export async function GET(request: Request) {
       category: 'Xe máy điện',
     }))
 
-  return NextResponse.json([...productResults, ...motorbikeResults])
+  const results = [...productResults, ...motorbikeResults]
+  await writeRedisJson(cacheKey, results, PRODUCT_SEARCH_TTL_SECONDS)
+  return searchResponse(results, 'MISS')
 }

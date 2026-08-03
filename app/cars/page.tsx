@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 
 import { Pagination } from '../../components/pagination'
+import { carCatalogCacheKey } from '../../lib/cache-keys'
+import { readRedisJson, writeRedisJson } from '../../lib/redis'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,14 +18,23 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
   const pageSize = 12
   const start = (currentPage - 1) * pageSize
   const end = start + pageSize - 1
+  const cacheKey = carCatalogCacheKey(currentPage, pageSize)
+  const cached = await readRedisJson<{ cars: any[]; count: number }>(cacheKey)
 
-  const supabase = getSupabaseAdmin()
-  const { data: rawCars, count } = await supabase
-    .from('products')
-    .select(`*, category:categories!inner(name)`, { count: 'exact' })
-    .eq('is_active', true)
-    .eq('categories.name', 'Ô tô điện')
-    .range(start, end)
+  let rawCars: any[] | null = cached?.cars ?? null
+  let count = cached?.count ?? null
+  if (!cached) {
+    const supabase = getSupabaseAdmin()
+    const result = await supabase
+      .from('products')
+      .select(`*, category:categories!inner(name)`, { count: 'exact' })
+      .eq('is_active', true)
+      .eq('categories.name', 'Ô tô điện')
+      .range(start, end)
+    rawCars = result.data as any[] | null
+    count = result.count
+    await writeRedisJson(cacheKey, { cars: rawCars ?? [], count: count ?? 0 }, 300)
+  }
 
   const carsData = (rawCars || []).sort((a, b) => {
     const numA = parseInt(a.name.match(/\d+/)?.[0] || '0', 10)
@@ -35,7 +46,9 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
 
   const cars = carsData.map(c => {
     const { getProductImage, getCarSpecsSummary } = require('../../lib/get-product-image')
-    const image = c.thumbnail_url || getProductImage(c.name, c.image_urls)
+    // Resolve through the shared image policy so legacy 403 thumbnail URLs
+    // (notably VF2's old vinfastauto.com PDP asset) cannot leak to the client.
+    const image = getProductImage(c.name, c.image_urls)
     const specsSummary = getCarSpecsSummary(c.name)
     
     return {
