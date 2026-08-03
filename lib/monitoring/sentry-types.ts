@@ -42,6 +42,5 @@ export type SentryMonitoringData = {
   backend: LatencySummary
   slowFrontend: SlowTransaction[]
   slowBackend: SlowTransaction[]
-  apiRoutes: SlowTransaction[]
   issues: { unresolved: number; recent: MonitoringIssue[] }
 }
