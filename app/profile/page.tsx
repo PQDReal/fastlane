@@ -197,7 +197,7 @@ function ProfileContent() {
     if (isCar) {
       return {
         'PENDING_DEPOSIT': 'Chờ cọc',
-        'PENDING_CONFIRMATION': 'Chờ xác nhận cọc',
+        'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
         'CONFIRMED': 'Đã xác nhận',
         'PENDING_CONTRACT': 'Chờ tạo HĐ',
         'CONTRACT_SIGNED': 'Đã ký HĐ',
@@ -333,15 +333,23 @@ function ProfileContent() {
                       
                       const carName = `${cleanCarModel} ${cleanCarVariant}`.trim();
                       
-                      let carImage = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
-                      if (vVariant?.image_car_url) {
-                        carImage = vVariant.image_car_url;
-                      } else {
-                        const lowerModel = cleanCarModel.toLowerCase();
-                        if (lowerModel.includes('vf 8') || lowerModel.includes('vf8')) carImage = '/images/vf8.png';
-                        else if (lowerModel.includes('vf 9') || lowerModel.includes('vf9')) carImage = '/images/vf9.png';
-                        else if (lowerModel.includes('vf 3') || lowerModel.includes('vf5') || lowerModel.includes('vf 6') || lowerModel.includes('vf 7')) carImage = '/images/car-sale.png';
-                      }
+                      const getVehicleImage = (model: string, variantImg?: string) => {
+                        if (variantImg) return variantImg;
+                        const m = (model || '').toLowerCase().trim();
+                        if (m.includes('vf 9') || m.includes('vf9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp';
+                        if (m.includes('vf 8') || m.includes('vf8')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
+                        if (m.includes('vf 7') || m.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
+                        if (m.includes('vf 6') || m.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
+                        if (m.includes('vf 5') || m.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
+                        if (m.includes('vf 3') || m.includes('vf3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png';
+                        if (m.includes('vf 2') || m.includes('vf2')) return 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp';
+                        if (m.includes('mpv')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp';
+                        if (m.includes('vento')) return '/images/vento.png';
+                        if (m.includes('kinet')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png';
+                        if (m.includes('kyo')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png';
+                        return '/images/car-sale.png';
+                      };
+                      const carImage = getVehicleImage(cleanCarModel, vVariant?.image_car_url);
 
                       let stateIcon = <Clock className="w-5 h-5 shrink-0 text-gray-500" />;
                       let stateText = translateStatus(status, true);
@@ -349,34 +357,24 @@ function ProfileContent() {
 
                       switch (status) {
                         case 'PENDING_DEPOSIT':
-                          stateIcon = <Clock className="w-5 h-5 shrink-0 text-yellow-500" />;
-                          stateText = 'Đang chờ thanh toán cọc. Vui lòng hoàn tất để giữ ưu đãi!';
-                          actionBtn = (
-                            <button onClick={() => setSelectedOrder(order)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all">
-                              Thanh toán ngay
-                            </button>
-                          );
-                          break;
                         case 'PENDING_CONFIRMATION':
+                        case 'PENDING':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-blue-500" />;
-                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast.';
+                          stateText = 'Chờ xét duyệt: Đã gửi yêu cầu đặt cọc. Đang chờ VinFast xét duyệt & xác nhận đơn cọc.';
                           break;
                         case 'CONFIRMED':
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
-                          stateText = 'Đã thanh toán cọc. Đang chờ xác nhận từ VinFast, bạn có thể tải lên CCCD.';
+                          stateText = 'Xác thực KYC: Đã xét duyệt đơn cọc. Vui lòng tải lên CCCD/CMND để xác thực KYC & hoàn thiện hồ sơ.';
                           actionBtn = (
-                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-[#836100] text-[#836100] hover:bg-[#836100] hover:text-white transition-all">
-                              Tải lên CCCD
+                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md">
+                              Tải lên CCCD (KYC)
                             </button>
                           );
                           break;
                         case 'PENDING_CONTRACT':
-                          stateIcon = <FileText className="w-5 h-5 shrink-0 text-blue-500" />;
-                          stateText = 'VinFast đang tạo Hợp đồng điện tử. Sẽ mất một chút thời gian.';
-                          break;
                         case 'CONTRACT_SIGNED':
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
-                          stateText = 'Đã có Hợp đồng điện tử. Vui lòng xem và ký xác nhận.';
+                          stateText = 'Ký hợp đồng: Hợp đồng mua xe điện tử đã sẵn sàng. Vui lòng xem & ký hợp đồng.';
                           actionBtn = (
                             <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
                               Xem & Ký HĐ
@@ -385,20 +383,17 @@ function ProfileContent() {
                           break;
                         case 'PENDING_PAYMENT':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
-                          stateText = 'Đang chờ thanh toán phần còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
+                          stateText = 'Thanh toán phần còn lại: Đang chờ thanh toán số tiền còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
                           actionBtn = (
                             <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all">
-                              Thanh toán
+                              Thanh toán phần còn lại
                             </button>
                           );
                           break;
                         case 'PAID':
-                          stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />;
-                          stateText = 'Đã thanh toán thành công. Đang sắp xếp lịch giao xe.';
-                          break;
                         case 'PREPARING_DELIVERY':
                           stateIcon = <Package className="w-5 h-5 shrink-0 text-purple-500" />;
-                          stateText = 'Xe đang được chuẩn bị bàn giao. Vui lòng chờ liên hệ!';
+                          stateText = 'Đã thanh toán thành công. Xe đang được chuẩn bị bàn giao!';
                           break;
                         case 'DELIVERED':
                         case 'COMPLETED':
@@ -411,10 +406,48 @@ function ProfileContent() {
                           break;
                       }
 
+                      const currentStepIdx = (() => {
+                        if (['PENDING_CONFIRMATION', 'PENDING_DEPOSIT', 'PENDING'].includes(status)) return 1;
+                        if (['CONFIRMED'].includes(status)) return 2;
+                        if (['PENDING_CONTRACT', 'CONTRACT_SIGNED'].includes(status)) return 3;
+                        if (['PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 4;
+                        return 1;
+                      })();
+
+                      const stepsList = [
+                        { step: 1, label: '1. Chờ xét duyệt' },
+                        { step: 2, label: '2. Xác thực KYC' },
+                        { step: 3, label: '3. Ký hợp đồng' },
+                        { step: 4, label: '4. Thanh toán' },
+                      ];
+
                       const stateBox = (
-                        <div className="flex items-start gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
-                          {stateIcon}
-                          <span className="text-sm font-medium text-gray-700 leading-snug">{stateText}</span>
+                        <div className="w-full space-y-3">
+                          {status !== 'CANCELLED' && (
+                            <div className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                              <div className="grid grid-cols-4 gap-1 text-[11px] font-bold text-center mb-1.5">
+                                {stepsList.map(s => (
+                                  <span key={s.step} className={s.step === currentStepIdx ? 'text-[#836100]' : s.step < currentStepIdx ? 'text-green-600' : 'text-gray-400'}>
+                                    {s.label}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                {stepsList.map(s => (
+                                  <div 
+                                    key={s.step} 
+                                    className={`flex-1 border-r last:border-r-0 border-white transition-all ${
+                                      s.step < currentStepIdx ? 'bg-green-500' : s.step === currentStepIdx ? 'bg-[#836100]' : 'bg-gray-200'
+                                    }`} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-start gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
+                            {stateIcon}
+                            <span className="text-sm font-medium text-gray-700 leading-snug">{stateText}</span>
+                          </div>
                         </div>
                       );
 
@@ -432,7 +465,7 @@ function ProfileContent() {
                                 alt={carName} 
                                 className="w-full h-full object-contain mix-blend-multiply" 
                                 onError={(e) => {
-                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/CE18.webp';
+                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
                                   e.currentTarget.onerror = null;
                                 }}
                               />
@@ -683,6 +716,40 @@ function ProfileContent() {
                 </div>
 
               <div className="p-6 space-y-8">
+                {/* Image & Xe Header */}
+                <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="w-48 h-32 relative shrink-0">
+                    <img 
+                      src={(() => {
+                        const m = selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '';
+                        const img = selectedOrder.depositDetails.vehicleVariant?.image_car_url;
+                        if (img) return img;
+                        const lower = m.toLowerCase();
+                        if (lower.includes('vf 9') || lower.includes('vf9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp';
+                        if (lower.includes('vf 8') || lower.includes('vf8')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
+                        if (lower.includes('vf 7') || lower.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
+                        if (lower.includes('vf 6') || lower.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
+                        if (lower.includes('vf 5') || lower.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
+                        if (lower.includes('vf 3') || lower.includes('vf3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png';
+                        if (lower.includes('vf 2') || lower.includes('vf2')) return 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp';
+                        if (lower.includes('mpv')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp';
+                        if (lower.includes('vento')) return '/images/vento.png';
+                        return '/images/car-sale.png';
+                      })()}
+                      alt="Hình ảnh xe" 
+                      className="w-full h-full object-contain mix-blend-multiply"
+                    />
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h4 className="text-2xl font-bold text-gray-900">
+                      VinFast {(selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '').replace(/vinfast/i, '').trim()}
+                    </h4>
+                    <p className="text-gray-500 font-medium mt-1">
+                      {selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Thông tin xe */}
                 <section>
                   <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin xe</h4>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, useEffect } from 'react'
+import { useId, useState, useEffect, useRef } from 'react'
 import { Search, ChevronDown, Loader2, Check } from 'lucide-react'
 
 export type LocationOption = { code: number; name: string }
@@ -10,7 +10,7 @@ function searchable(value: string) {
 }
 
 export function SearchableLocationSelect({
-  label, options, value, onChange, placeholder, disabled = false, loading = false,
+  label, options, value, onChange, placeholder, disabled = false, loading = false, autoOpen = false,
 }: {
   label: string
   options: LocationOption[]
@@ -19,13 +19,22 @@ export function SearchableLocationSelect({
   placeholder: string
   disabled?: boolean
   loading?: boolean
+  autoOpen?: boolean
 }) {
   const listId = useId()
   const selected = options.find((option) => String(option.code) === value || option.name === value)
   const [query, setQuery] = useState(selected?.name ?? '')
   const [open, setOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setQuery(selected?.name ?? '') }, [selected?.name])
+
+  useEffect(() => {
+    if (autoOpen && !disabled && !loading) {
+      setOpen(true)
+      inputRef.current?.focus()
+    }
+  }, [autoOpen, disabled, loading])
 
   const normalizedQuery =
     selected && query.trim() === selected.name
@@ -39,6 +48,7 @@ export function SearchableLocationSelect({
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
+          ref={inputRef}
           id={`${listId}-input`}
           role="combobox"
           aria-autocomplete="list"

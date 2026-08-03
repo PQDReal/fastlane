@@ -306,7 +306,19 @@ export async function buildDepositVehicleQuote(
     : null
   const totalEstimatedPrice = promotion?.grandTotal ?? subtotal
   const configuredDeposit = money(selectedVariant?.deposit_amount)
-  const defaultDeposit = input.vehicleType === 'motorbike' ? 2_000_000 : 10_000_000
+  let defaultDeposit = 15_000_000
+  if (input.vehicleType === 'motorbike') {
+    defaultDeposit = 2_000_000
+  } else {
+    const pName = product.name.toUpperCase()
+    if (pName.includes('VF 7') || pName.includes('VF 9')) {
+      defaultDeposit = 50_000_000
+    } else if (pName.includes('VF 6') || pName.includes('VF 8')) {
+      defaultDeposit = 30_000_000
+    } else {
+      defaultDeposit = 15_000_000
+    }
+  }
 
   return {
     productId: product.id,

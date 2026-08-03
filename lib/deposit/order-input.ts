@@ -21,7 +21,7 @@ export type DepositOrderInput = {
   optionalPackages: string[]
   promotionCode: string | null
   paymentMethod: DepositPaymentMethod
-  showroom: string | null
+  showroom?: string | null
 }
 
 export type DepositSelectionInput = Pick<

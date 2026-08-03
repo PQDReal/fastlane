@@ -259,6 +259,16 @@ export async function listCustomerOrders(
 
       orderStatus = deposit.status; // Pass through the status directly for the UI to handle
       
+      const defaultDepositVal = (() => {
+        const m = String(deposit.car_model || '').toUpperCase()
+        if (m.includes('VF 7') || m.includes('VF 9')) return '50000000'
+        if (m.includes('VF 6') || m.includes('VF 8')) return '30000000'
+        if (deposit.vehicle_type === 'motorbike') return '2000000'
+        return '15000000'
+      })()
+
+      const finalDepositVal = deposit.deposit_amount ? String(deposit.deposit_amount) : (deposit.vehicle_variants?.deposit_amount ? String(deposit.vehicle_variants.deposit_amount) : defaultDepositVal)
+
       return {
         id: deposit.id,
         orderNumber: deposit.order_number,
@@ -270,8 +280,8 @@ export async function listCustomerOrders(
         nextPaymentDueAt: null,
         pricing: {
           currency: 'VND',
-          grandTotal: deposit.deposit_amount ? String(deposit.deposit_amount) : (deposit.vehicle_variants?.deposit_amount ? String(deposit.vehicle_variants.deposit_amount) : '10000000'),
-          amountDueNow: deposit.deposit_amount ? String(deposit.deposit_amount) : (deposit.vehicle_variants?.deposit_amount ? String(deposit.vehicle_variants.deposit_amount) : '10000000'),
+          grandTotal: finalDepositVal,
+          amountDueNow: finalDepositVal,
           balanceDue: '0',
         },
         createdAt: deposit.created_at,
