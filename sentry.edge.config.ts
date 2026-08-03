@@ -1,12 +1,12 @@
 import * as Sentry from '@sentry/nextjs'
 
-import { scrubSentryEvent, sentrySampleRate } from '@/lib/sentry-config'
+import { isSentryEnabled, scrubSentryEvent, sentrySampleRate } from '@/lib/sentry-config'
 
 const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
 
 Sentry.init({
   dsn,
-  enabled: Boolean(dsn),
+  enabled: isSentryEnabled(dsn, process.env.NODE_ENV),
   environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
   release: process.env.SENTRY_RELEASE || process.env.RENDER_GIT_COMMIT,
   sendDefaultPii: false,
