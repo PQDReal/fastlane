@@ -33,7 +33,7 @@ function ActionButton({ action, kind }: { action: ToastAction; kind: ToastKind }
 export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onClose: (id: number) => void }) {
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3" aria-live="polite" aria-atomic="false">
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         {toasts.map((toast) => {
           const { box, Icon, iconColor, titleColor, msgColor, closeColor, closeHover } = styles[toast.kind]
           return (
