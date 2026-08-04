@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   let dbQuery = supabase
     .from('vehicle_variants')
-    .select('*')
+    .select('id,product_id,product_name,product_type,variant_name,sku,price,deposit_amount,color,image_car_url,image_color_url,version,is_active,created_at,updated_at')
     .order('created_at', { ascending: false })
 
   if (productId) {

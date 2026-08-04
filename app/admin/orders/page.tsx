@@ -8,7 +8,7 @@ export default async function AdminOrdersPage() {
   
   const { data: depositData, error: depositError } = await supabase
     .from('deposit_orders')
-    .select('*, vehicle_variants(*)')
+    .select('id,order_number,status,customer_type,full_name,phone_number,email,id_card_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,interior_color,deposit_amount,total_estimated_price,payment_method,showroom,created_at,kyc_status,kyc_session_id,vehicle_variants(deposit_amount,product_name,variant_name)')
     .order('created_at', { ascending: false })
 
   if (depositError) {

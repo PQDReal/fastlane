@@ -46,7 +46,7 @@ export async function PATCH(request: Request, context: Context) {
       .from('categories')
       .update(updates)
       .eq('id', categoryId)
-      .select()
+      .select('id,name,slug,description,is_active,created_at,updated_at')
       .maybeSingle()
 
     if (error) {

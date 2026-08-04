@@ -323,7 +323,7 @@ export async function listCustomerOrders(
   if (!type || type === 'car') {
     const { data: depositData, error: depositError } = await supabase
       .from('deposit_orders')
-      .select('*, vehicle_variants(*)')
+      .select('id,order_number,status,deposit_amount,total_estimated_price,created_at,updated_at,showroom,exterior_color,interior_color,optional_packages,full_name,phone_number,id_card_number,province,ward,customer_type,vehicle_type,car_model,car_variant,vehicle_variants(deposit_amount,product_name,variant_name)')
       .or(`customer_id.eq.${customerId},email.eq.${customerEmail}`)
   
     if (depositError) throw new Error(`Unable to list deposit orders: ${depositError.message}`)
@@ -377,7 +377,7 @@ export async function listCustomerOrders(
           customerPhone: deposit.phone_number,
           idCardNumber: deposit.id_card_number,
           province: deposit.province,
-          district: deposit.district,
+          district: deposit.ward,
           customerType: deposit.customer_type,
           totalEstimatedPrice: deposit.total_estimated_price,
           vehicleVariant: deposit.vehicle_variants
