@@ -5,7 +5,6 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { ArrowLeft, Check, ChevronDown, Loader2, LockKeyhole, MapPin, Plus, ShoppingBag, Star } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 
 import { CheckoutAddressModal, type CheckoutSavedAddress } from '@/components/checkout-address-modal'
 import { Footer } from '@/components/footer'
@@ -54,7 +53,6 @@ const formatPrice = (price: number) =>
   }).format(price)
 
 export default function CheckoutPage() {
-  const router = useRouter()
   const { user, isLoading: userLoading } = useUser()
   const {
     cartItems,
@@ -338,7 +336,7 @@ export default function CheckoutPage() {
       }),
     })
     const payload = (await response.json().catch(() => ({}))) as
-      | { data: AccessoryOrder }
+      | { data: AccessoryOrder & { paymentUrl: string } }
       | CheckoutFailure
 
     if (!response.ok) {
@@ -359,9 +357,9 @@ export default function CheckoutPage() {
       return
     }
 
-    const order = (payload as { data: AccessoryOrder }).data
+    const order = (payload as { data: AccessoryOrder & { paymentUrl: string } }).data
     clearCartCache()
-    router.push(`/checkout/success?orderId=${encodeURIComponent(order.id)}`)
+    window.location.assign(order.paymentUrl)
   }
 
   if (

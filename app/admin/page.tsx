@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 const MODULES = {
   categories: { name: 'Danh mục', description: 'Phân nhóm ô tô, xe máy điện và phụ kiện.', href: '/admin/categories', icon: Tags },
   products: { name: 'Sản phẩm', description: 'Sản phẩm, phiên bản và thông tin bán hàng.', href: '/admin/products', icon: Package },
-  orders: { name: 'Đơn hàng', description: 'Đơn mua phụ kiện và dữ liệu thanh toán.', href: '/admin/orders', icon: ShoppingCart },
+  orders: { name: 'Đơn phụ kiện', description: 'Đơn mua phụ kiện và dữ liệu thanh toán.', href: '/admin/accessory-orders', icon: ShoppingCart },
   testDrive: { name: 'Lịch lái thử', description: 'Yêu cầu đăng ký và lịch hẹn lái thử.', href: '/admin/test-drive', icon: CalendarDays },
   inventory: { name: 'Tồn kho', description: 'Số lượng tồn theo từng phiên bản sản phẩm.', href: '/admin/inventory', icon: Archive },
   promotions: { name: 'Khuyến mãi', description: 'Mã giảm giá, điều kiện và lượt sử dụng.', href: '/admin/promotions', icon: Ticket },
@@ -61,7 +61,7 @@ export default async function AdminDashboard() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-base">Đơn hàng gần đây</CardTitle><Link href="/admin/orders" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">Xem tất cả <ArrowUpRight size={14} /></Link></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-base">Đơn phụ kiện gần đây</CardTitle><Link href="/admin/accessory-orders" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">Xem tất cả <ArrowUpRight size={14} /></Link></CardHeader>
           <CardContent>
             {recentOrders.length ? <div className="divide-y divide-slate-100">{recentOrders.map((order) => <div key={order.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{order.customerName}</p><p className="mt-1 text-xs text-slate-500">{order.orderNumber} · {formatDate(order.createdAt)}</p></div><div className="shrink-0 text-right"><p className="text-sm font-bold text-slate-900">{formatMoney(order.totalAmount)}</p><p className="mt-1 text-xs text-slate-500">{ORDER_STATUS[order.status] ?? order.status}</p></div></div>)}</div> : <p className="py-8 text-center text-sm text-slate-500">Chưa có đơn hàng trong database.</p>}
           </CardContent>
