@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const type = params.get('type') as 'accessory' | 'car' | null
     return NextResponse.json(
       await listCustomerOrders(customer.id, customer.email, page, limit, type ?? undefined),
+      { headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
     )
   } catch (error) {
     return apiErrorResponse(error)

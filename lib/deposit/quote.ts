@@ -5,8 +5,21 @@ import type { DepositSelectionInput } from '@/lib/deposit/order-input'
 import { DepositInputError } from '@/lib/deposit/order-input'
 import { quoteProductPromotion } from '@/lib/promotions/quote'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import {
+  listMotorbikeCatalog,
+  type MotorbikeCatalogItem,
+} from '@/lib/motorbike-catalog'
 
 type UnknownRecord = Record<string, unknown>
+
+type DepositCatalogProduct = {
+  id: string
+  name: string
+  slug: string
+  displayed_price: number
+  specifications: unknown
+  motorbike?: MotorbikeCatalogItem
+}
 
 type OptionGroupRow = {
   id: string
@@ -126,18 +139,46 @@ function exactOption(
   )
 }
 
-async function findProduct(input: DepositSelectionInput) {
+async function findProduct(
+  input: DepositSelectionInput,
+): Promise<DepositCatalogProduct> {
+  if (input.vehicleType === 'motorbike') {
+    const catalog = await listMotorbikeCatalog()
+    const requestedExact = key(input.vehicleModel)
+    const exactMatches = catalog.filter((product) =>
+      [product.name, product.slug].some((value) => key(value) === requestedExact),
+    )
+    const requested = modelKey(input.vehicleModel)
+    const matches = exactMatches.length > 0
+      ? exactMatches
+      : catalog.filter((product) =>
+          [product.name, product.slug].some((value) => modelKey(value) === requested),
+        )
+    if (matches.length !== 1) {
+      throw new DepositInputError(
+        matches.length === 0
+          ? 'Mẫu xe không tồn tại hoặc đã ngừng hoạt động.'
+          : 'Mẫu xe không xác định duy nhất. Vui lòng chọn lại.',
+        'car_model',
+      )
+    }
+    const motorbike = matches[0]
+    return {
+      id: motorbike.productId,
+      name: motorbike.name,
+      slug: motorbike.slug,
+      displayed_price: motorbike.displayedPrice,
+      specifications: motorbike.specifications,
+      motorbike,
+    }
+  }
+
   const supabase = getSupabaseAdmin()
   const result = await supabase
     .from('products')
     .select('id,name,slug,displayed_price,product_type,specifications')
     .eq('is_active', true)
-    .in(
-      'product_type',
-      input.vehicleType === 'motorbike'
-        ? ['BIKE', 'MOTORBIKE']
-        : ['CAR'],
-    )
+    .in('product_type', ['CAR'])
   if (result.error) throw result.error
 
   const requestedExact = key(input.vehicleModel)
@@ -167,7 +208,14 @@ async function findProduct(input: DepositSelectionInput) {
       'car_model',
     )
   }
-  return matches[0]
+  const product = matches[0]
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    displayed_price: Number(product.displayed_price),
+    specifications: product.specifications,
+  }
 }
 
 async function catalogOptions(productId: string) {
@@ -200,11 +248,22 @@ export async function buildDepositVehicleQuote(
   const supabase = getSupabaseAdmin()
   const product = await findProduct(input)
   const specifications = object(product.specifications)
-  const variantsResult = await supabase
-    .from('product_variants')
-    .select('id,name,original_price,sale_price,deposit_amount')
-    .eq('product_id', product.id)
-    .eq('is_active', true)
+  const variantsResult = input.vehicleType === 'motorbike'
+    ? {
+        data: product.motorbike?.versions.map((variant) => ({
+          id: variant.id,
+          name: variant.name,
+          original_price: variant.price,
+          sale_price: null,
+          deposit_amount: variant.depositAmount,
+        })) ?? [],
+        error: null,
+      }
+    : await supabase
+        .from('product_variants')
+        .select('id,name,original_price,sale_price,deposit_amount')
+        .eq('product_id', product.id)
+        .eq('is_active', true)
   if (variantsResult.error) throw variantsResult.error
 
   const requestedVariant = key(input.vehicleVariant)
@@ -213,11 +272,28 @@ export async function buildDepositVehicleQuote(
     key(product.name),
     key(specifications.name),
   ].filter(Boolean))
-  const selectedVariant = (variantsResult.data ?? []).find((variant) => {
+  
+  let selectedVariant = (variantsResult.data ?? []).find((variant) => {
     const variantName = key(variant.name)
     return requestedVariant === variantName ||
       [...productNames].some((name) => requestedVariant === `${name}${variantName}`)
   })
+
+  if (!selectedVariant && (variantsResult.data ?? []).length > 0) {
+    const fallbackMatches = (variantsResult.data ?? []).filter((variant) => {
+      const variantName = key(variant.name)
+      return variantName.includes(requestedVariant) || 
+        [...productNames].some((name) => variantName.includes(`${name}${requestedVariant}`) || `${name}${variantName}`.includes(requestedVariant))
+    })
+    
+    if (fallbackMatches.length > 0) {
+      selectedVariant = fallbackMatches.sort((a, b) => {
+        const aIsKemPin = key(a.name).includes('kempin') ? -1 : 1
+        const bIsKemPin = key(b.name).includes('kempin') ? -1 : 1
+        return aIsKemPin - bIsKemPin
+      })[0]
+    }
+  }
   if ((variantsResult.data ?? []).length > 0 && !selectedVariant) {
     throw new DepositInputError(
       'Phiên bản xe không tồn tại hoặc đã ngừng áp dụng.',
@@ -236,6 +312,7 @@ export async function buildDepositVehicleQuote(
     }))
   const exteriorGroup = groups.find((group) => group.code === 'exterior_color')
   const fallbackExterior = [
+    ...namedOptions(product.motorbike?.colors),
     ...namedOptions(specifications.colors),
     ...namedOptions(specifications.color_details),
   ]
@@ -306,11 +383,28 @@ export async function buildDepositVehicleQuote(
     : null
   const totalEstimatedPrice = promotion?.grandTotal ?? subtotal
   const configuredDeposit = money(selectedVariant?.deposit_amount)
-  const defaultDeposit = input.vehicleType === 'motorbike' ? 2_000_000 : 10_000_000
+  let defaultDeposit = 15_000_000
+  if (input.vehicleType === 'motorbike') {
+    defaultDeposit = 2_000_000
+  } else {
+    const pName = product.name.toUpperCase()
+    if (pName.includes('VF 7') || pName.includes('VF 9')) {
+      defaultDeposit = 50_000_000
+    } else if (pName.includes('VF 6') || pName.includes('VF 8')) {
+      defaultDeposit = 30_000_000
+    } else {
+      defaultDeposit = 15_000_000
+    }
+  }
 
   return {
     productId: product.id,
-    variantId: selectedVariant?.id ?? null,
+    variantId: input.vehicleType === 'motorbike'
+      ? product.motorbike?.variantRows.find((row) =>
+          key(row.version) === key(selectedVariant?.name) &&
+          key(row.color) === key(input.exteriorColor)
+        )?.id ?? selectedVariant?.id ?? null
+      : selectedVariant?.id ?? null,
     depositAmount: Math.min(
       configuredDeposit || defaultDeposit,
       totalEstimatedPrice,

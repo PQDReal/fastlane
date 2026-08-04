@@ -4,7 +4,9 @@ import path from 'path'
 let cachedData: any[] | null = null
 
 const OVERRIDE_IMAGES: Record<string, string> = {
-  'VF 2': 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-infinity-blanc-car.webp',
+  // The public vinfastauto.com PDP asset blocks server-side image proxying (403).
+  // Use the equivalent official Shop CDN asset, which permits Next/Image requests.
+  'VF 2': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw05aa09f9/images/VF2/TH14V/CE18.webp',
   'VF 3': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/CE18/F1.png',
   'VF 5': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw32aad97c/reserves/VF5/2025/12.webp',
   'VF 6': 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp',
@@ -17,6 +19,13 @@ const OVERRIDE_IMAGES: Record<string, string> = {
 }
 
 export function getProductImage(productName: string, dbImageUrls: string[] | null = null, fallback: string = '/images/vf8.png'): string {
+  // Some legacy VinFast PDP URLs return 403 through the image optimizer.
+  // Resolve the product override before considering those persisted URLs.
+  const normalizedProductName = productName.toLowerCase().replace(/-/g, ' ')
+  const sortedKeys = Object.keys(OVERRIDE_IMAGES).sort((a, b) => b.length - a.length)
+  const overrideKey = sortedKeys.find(k => normalizedProductName.includes(k.toLowerCase().replace(/-/g, ' ')))
+  if (overrideKey) return OVERRIDE_IMAGES[overrideKey]
+
   // 1. Use DB image if valid and available
   if (dbImageUrls && dbImageUrls.length > 0) {
     // Ưu tiên tìm ảnh xe (thường có từ khoá 'car-compare', 'exterior', hoặc '.png', '.webp') 
@@ -48,13 +57,6 @@ export function getProductImage(productName: string, dbImageUrls: string[] | nul
     }
   }
 
-  const sortedKeys = Object.keys(OVERRIDE_IMAGES).sort((a, b) => b.length - a.length)
-  const normalizedProductName = productName.toLowerCase().replace(/-/g, ' ')
-  const overrideKey = sortedKeys.find(k => normalizedProductName.includes(k.toLowerCase().replace(/-/g, ' ')))
-  if (overrideKey) {
-    return OVERRIDE_IMAGES[overrideKey]
-  }
-
   // 1. Check local prioritized white images
   const formattedName = productName.replace(/\s/g, '').toLowerCase() // "VF 9" -> "vf9"
   const localImgPath = path.join(process.cwd(), 'public', 'images', `${formattedName}.png`)
@@ -68,16 +70,14 @@ export function getProductImage(productName: string, dbImageUrls: string[] | nul
     try {
       const dataDir = path.join(process.cwd(), 'public', 'data', 'by_type')
       const cars = JSON.parse(fs.readFileSync(path.join(dataDir, 'cars.json'), 'utf8'))
-      const bikes = JSON.parse(fs.readFileSync(path.join(dataDir, 'motorbikes.json'), 'utf8'))
-      const accessories = JSON.parse(fs.readFileSync(path.join(dataDir, 'accessories.json'), 'utf8'))
-      cachedData = [...cars, ...bikes, ...accessories]
+      cachedData = cars
     } catch (e) {
       console.error('Failed to load JSON data for product images:', e)
       return fallback
     }
   }
 
-  const richData = cachedData.find((item: any) => {
+  const richData = (cachedData ?? []).find((item: any) => {
     if (!item.name) return false;
     return productName.includes(item.name) || item.name.includes(productName)
   })
@@ -105,15 +105,13 @@ export function getCarSpecsSummary(productName: string): string | null {
     try {
       const dataDir = path.join(process.cwd(), 'public', 'data', 'by_type')
       const cars = JSON.parse(fs.readFileSync(path.join(dataDir, 'cars.json'), 'utf8'))
-      const bikes = JSON.parse(fs.readFileSync(path.join(dataDir, 'motorbikes.json'), 'utf8'))
-      const accessories = JSON.parse(fs.readFileSync(path.join(dataDir, 'accessories.json'), 'utf8'))
-      cachedData = [...cars, ...bikes, ...accessories]
+      cachedData = cars
     } catch (e) {
       return null
     }
   }
 
-  const car = cachedData.find((item: any) => item.name && (item.name.includes(productName) || productName.includes(item.name)))
+  const car = (cachedData ?? []).find((item: any) => item.name && (item.name.includes(productName) || productName.includes(item.name)))
   if (!car || !car.variants) return null
 
   // Get the first variant's specs

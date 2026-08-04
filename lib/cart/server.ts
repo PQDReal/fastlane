@@ -1,11 +1,15 @@
 import 'server-only'
 
 import { ApiRouteError } from '@/lib/api/errors'
+import { customerCartCacheKey } from '@/lib/cache-keys'
 import { getAccessoryCatalogVariantsByIds } from '@/lib/catalog/server'
 import type { CatalogVariantContext } from '@/lib/catalog/types'
 import { mapCatalogCartItem } from '@/lib/cart/catalog-item'
 import type { ApiCart } from '@/lib/cart/types'
+import { deleteRedisKey, readRedisJson, writeRedisJson } from '@/lib/redis'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+
+const CUSTOMER_CART_TTL_SECONDS = 60
 
 type CartRow = {
   id: string
@@ -96,6 +100,10 @@ function cartItemQuantity(row: CartItemRow): number {
 }
 
 export async function readCustomerCart(customerId: string): Promise<ApiCart> {
+  const cacheKey = customerCartCacheKey(customerId)
+  const cachedCart = await readRedisJson<ApiCart>(cacheKey)
+  if (cachedCart) return cachedCart
+
   const cart = await ensureActiveCart(customerId)
   const rows = await readCartItems(cart.id)
   const contextsByVariantId = await readCartItemContexts(rows)
@@ -115,7 +123,7 @@ export async function readCustomerCart(customerId: string): Promise<ApiCart> {
     0,
   )
 
-  return {
+  const result: ApiCart = {
     id: cart.id,
     version: cartVersion(cart.updated_at),
     pricedAt: new Date().toISOString(),
@@ -130,6 +138,12 @@ export async function readCustomerCart(customerId: string): Promise<ApiCart> {
       balanceDue: '0',
     },
   }
+  await writeRedisJson(cacheKey, result, CUSTOMER_CART_TTL_SECONDS)
+  return result
+}
+
+async function invalidateCustomerCart(customerId: string) {
+  await deleteRedisKey(customerCartCacheKey(customerId))
 }
 
 async function readAccessoryVariant(
@@ -175,7 +189,7 @@ export async function addCustomerCartItem(
     throw new ApiRouteError(
       409,
       'OUT_OF_STOCK',
-      'Requested quantity is unavailable.',
+      'Đã đạt giới hạn tối đa của mặt hàng này',
     )
   }
 
@@ -190,6 +204,7 @@ export async function addCustomerCartItem(
   if (error) throw new Error(`Unable to add cart item: ${error.message}`)
 
   await touchCart(cart.id)
+  await invalidateCustomerCart(customerId)
   return readCustomerCart(customerId)
 }
 
@@ -203,7 +218,7 @@ export async function updateCustomerCartItem(
     throw new ApiRouteError(
       409,
       'OUT_OF_STOCK',
-      'Requested quantity is unavailable.',
+      'Đã đạt giới hạn tối đa của mặt hàng này',
     )
   }
 
@@ -225,6 +240,7 @@ export async function updateCustomerCartItem(
   }
 
   await touchCart(cart.id)
+  await invalidateCustomerCart(customerId)
   return readCustomerCart(customerId)
 }
 
@@ -250,5 +266,6 @@ export async function removeCustomerCartItem(
   }
 
   await touchCart(cart.id)
+  await invalidateCustomerCart(customerId)
   return readCustomerCart(customerId)
 }

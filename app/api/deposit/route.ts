@@ -156,6 +156,39 @@ export async function POST(request: Request) {
     }
     const currentUser = await getCurrentUser().catch(() => null)
     const now = new Date().toISOString()
+
+    // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
+    let vehicleVariantId: string | null = null
+    try {
+      const { data: vVariants } = await getSupabaseAdmin()
+        .from('vehicle_variants')
+        .select('id, product_name, variant_name, version, color')
+      
+      const model = input.vehicleModel
+      const color = input.exteriorColor
+      const variant = input.vehicleVariant
+
+      const matchingVv = (vVariants || []).find((vv: any) => {
+        const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
+        
+        const colorMatch = color && vv.color ? vv.color.toLowerCase() === color.toLowerCase() : (!color && !vv.color)
+        const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
+        
+        return pNameMatch && colorMatch && versionMatch
+      }) || (vVariants || []).find((vv: any) => {
+        // Fallback: match version at least
+        const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
+        const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
+        return pNameMatch && versionMatch
+      })
+
+      if (matchingVv) {
+        vehicleVariantId = matchingVv.id
+      }
+    } catch {
+      vehicleVariantId = quote.variantId
+    }
+
     const insertResult = await getSupabaseAdmin()
       .from('deposit_orders')
       .insert({
@@ -175,6 +208,7 @@ export async function POST(request: Request) {
         ward_code: input.wardCode,
         product_id: quote.productId,
         variant_id: quote.variantId,
+        vehicle_variant_id: vehicleVariantId,
         vehicle_type: input.vehicleType,
         car_model: input.vehicleModel,
         car_variant: input.vehicleVariant,
@@ -183,14 +217,14 @@ export async function POST(request: Request) {
         optional_packages: input.optionalPackages,
         subtotal: quote.subtotal,
         discount_amount: quote.discountAmount,
+        total_estimated_price: quote.totalEstimatedPrice,
         promotion_id: quote.promotion?.id ?? null,
         promotion_code: quote.promotion?.code ?? null,
         showroom: input.showroom || 'VinFast Landmark 81',
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
-        total_estimated_price: quote.totalEstimatedPrice,
-        status: 'PENDING_PAYMENT',
+        status: 'PENDING_CONFIRMATION',
         terms_accepted_at: now,
       })
       .select(RESPONSE_COLUMNS)
@@ -200,6 +234,13 @@ export async function POST(request: Request) {
       if (insertResult.error.code === '23505') {
         const replay = await existingOrder(idempotencyKey)
         if (replay) return NextResponse.json(responseData(replay, true))
+      }
+      if (insertResult.error.code === '23514') {
+        return errorResponse(
+          400,
+          'DEPOSIT_CONSTRAINT_VIOLATION',
+          'Số điện thoại hoặc thông tin đặt cọc không đúng định dạng.',
+        )
       }
       if (isDepositSchemaOutdated(insertResult.error)) {
         return errorResponse(
@@ -211,6 +252,13 @@ export async function POST(request: Request) {
       throw insertResult.error
     }
 
+    if (input.promotionCode && quote.discountAmount > 0) {
+      const supabase = getSupabaseAdmin()
+      const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
+      if (promo) {
+        await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
+      }
+    }
     return NextResponse.json(responseData(insertResult.data), { status: 201 })
   } catch (error) {
     if (error instanceof DepositInputError) {
@@ -238,6 +286,6 @@ export async function POST(request: Request) {
       )
     }
     console.error('Unable to create deposit order:', error)
-    return errorResponse(500, 'INTERNAL_SERVER_ERROR', 'Không thể tạo đơn đặt cọc.')
+    return errorResponse(500, 'INTERNAL_SERVER_ERROR', 'Không thể tạo đơn đặt cọc. ' + (error instanceof Error ? error.message : JSON.stringify(error)))
   }
 }

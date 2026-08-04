@@ -3,7 +3,9 @@ import 'server-only'
 import { createHash } from 'node:crypto'
 
 import { ApiRouteError } from '@/lib/api/errors'
+import { customerCartCacheKey } from '@/lib/cache-keys'
 import type { CheckoutRequest } from '@/lib/cart/types'
+import { deleteRedisKey } from '@/lib/redis'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { readCustomerOrder } from '@/lib/orders/server'
 
@@ -40,8 +42,8 @@ function checkoutError(message: string) {
       409,
       code,
       code === 'OUT_OF_STOCK'
-        ? 'Requested quantity is unavailable.'
-        : 'Cart or checkout state changed; review it before retrying.',
+        ? 'Đã đạt giới hạn tối đa của mặt hàng này'
+        : 'Giỏ hàng hoặc trạng thái thanh toán đã thay đổi; vui lòng kiểm tra lại.',
     )
   }
   if (message.includes('CART_EMPTY')) {
@@ -51,7 +53,7 @@ function checkoutError(message: string) {
     return new ApiRouteError(
       503,
       'SERVICE_UNAVAILABLE',
-      'Checkout database migration has not been applied.',
+      'Cấu hình cơ sở dữ liệu chưa được đồng bộ. Vui lòng thử lại sau.',
     )
   }
   if (message.includes('orders_shipping_address_required_fields')) {
@@ -84,7 +86,7 @@ export async function checkoutCustomerCart(
     throw new ApiRouteError(
       409,
       'PRICE_CHANGED',
-      'Accessory orders require full payment at checkout.',
+      'Yêu cầu thanh toán đầy đủ cho đơn đặt hàng phụ kiện tại thời điểm thanh toán.',
     )
   }
 
@@ -117,23 +119,25 @@ export async function checkoutCustomerCart(
         .maybeSingle<{ id: string; request_hash: string }>()
 
       if (existing?.request_hash === hash) {
+        await deleteRedisKey(customerCartCacheKey(customerId))
         return readCustomerOrder(customerId, existing.id)
       }
       throw new ApiRouteError(
         409,
         'IDEMPOTENCY_KEY_REUSED',
-        'Idempotency key was reused with a different request.',
+        'Yêu cầu thanh toán này đã được gửi trước đó. Vui lòng kiểm tra lại đơn hàng trước khi thử lại.',
       )
     }
 
-    throw checkoutError(error.message) ?? new Error(`Checkout failed: ${error.message}`)
+    throw checkoutError(error.message) ?? new Error(`Phiên thanh toán thất bại: ${error.message}`)
   }
 
   const orderId =
     data && typeof data === 'object' && 'orderId' in data
       ? String(data.orderId)
       : ''
-  if (!orderId) throw new Error('Checkout did not return an order ID.')
+  if (!orderId) throw new Error('Phiên thanh toán đã được tạo nhưng không có ID đơn hàng. Vui lòng liên hệ bộ phận hỗ trợ khách hàng.')
 
+  await deleteRedisKey(customerCartCacheKey(customerId))
   return readCustomerOrder(customerId, orderId)
 }

@@ -2865,7 +2865,7 @@ components:
           schema:
             $ref: '#/components/schemas/CartResponse'
     OutOfStock:
-      description: Requested quantity is unavailable.
+      description: Đã đạt giới hạn tối đa của mặt hàng này
       x-error-codes:
         - OUT_OF_STOCK
       content:
@@ -2875,7 +2875,7 @@ components:
           example:
             error:
               code: OUT_OF_STOCK
-              message: Requested quantity is unavailable.
+              message: Đã đạt giới hạn tối đa của mặt hàng này
               requestId: req_01J00000000000000000000000
     BusinessRuleError:
       description: Request is well-formed but violates a business invariant.

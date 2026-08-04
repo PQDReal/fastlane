@@ -3,7 +3,7 @@ import 'server-only'
 import type { LatencySummary, MonitoringIssue, MonitoringPeriod, SentryMonitoringData, SlowTransaction } from '@/lib/monitoring/sentry-types'
 
 const CACHE_TTL_SECONDS = 120
-const EMPTY_SUMMARY: LatencySummary = { requestCount: 0, p50Ms: null, p95Ms: null, p99Ms: null, failureRate: null }
+const EMPTY_SUMMARY: LatencySummary = { requestCount: 0, avgMs: null, p50Ms: null, p95Ms: null, p99Ms: null, failureRate: null }
 const cache = new Map<string, { expiresAt: number; value: SentryMonitoringData }>()
 
 type JsonRecord = Record<string, unknown>
@@ -26,6 +26,7 @@ function parseSummary(payload: unknown): LatencySummary {
   const row = ((payload as { data?: JsonRecord[] })?.data ?? [])[0]
   return {
     requestCount: metric(row, 'count()', 'count') ?? 0,
+    avgMs: metric(row, 'avg(span.duration)', 'avg()'),
     p50Ms: metric(row, 'p50(span.duration)', 'p50()'),
     p95Ms: metric(row, 'p95(span.duration)', 'p95()'),
     p99Ms: metric(row, 'p99(span.duration)', 'p99()'),
@@ -37,7 +38,10 @@ function parseTransactions(payload: unknown): SlowTransaction[] {
   return (((payload as { data?: JsonRecord[] })?.data ?? []).map((row) => ({
     name: String(row.transaction ?? row['transaction.name'] ?? 'Không xác định'),
     operation: String(row['span.op'] ?? ''),
+    method: String(row['http.request.method'] ?? '').toUpperCase(),
+    statusCode: metric(row, 'http.response.status_code'),
     requestCount: metric(row, 'count()', 'count') ?? 0,
+    avgMs: metric(row, 'avg(span.duration)', 'avg()'),
     p50Ms: metric(row, 'p50(span.duration)', 'p50()'),
     p95Ms: metric(row, 'p95(span.duration)', 'p95()'),
     p99Ms: metric(row, 'p99(span.duration)', 'p99()'),
@@ -109,19 +113,18 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
       const environments = await sentryFetch<Array<{ name: string }>>(environmentsUrl, token)
       if (environments.some((item) => item.name === environment)) {
         selectedEnvironment = environment
-      } else if (environments.length > 0) {
-        selectedEnvironment = environments[0].name
-        result.environment = selectedEnvironment
-        result.warnings.push(`Environment ${environment} chưa có dữ liệu; đang hiển thị ${selectedEnvironment}.`)
       } else {
-        result.environment = 'Tất cả môi trường'
+        result.available = true
+        result.warnings.push(`Environment ${environment} chưa có dữ liệu. Dữ liệu mới sẽ xuất hiện sau event đầu tiên.`)
+        result.fetchedAt = new Date().toISOString()
+        cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000, value: result })
+        return result
       }
-    } catch {
-      result.environment = 'Tất cả môi trường'
-      result.warnings.push('Không đọc được danh sách environment; đang hiển thị dữ liệu tổng hợp.')
+    } catch (error) {
+      return { ...result, error: `Không thể kiểm tra environment Sentry: ${safeMessage(error)}` }
     }
 
-    const explore = (query: string, grouped = false) => {
+    const explore = (query: string, grouped = false, perPage = 8) => {
       const url = new URL(`${apiBase}/organizations/${encodeURIComponent(org)}/events/`)
       url.searchParams.set('dataset', 'spans')
       url.searchParams.set('project', projectId)
@@ -129,12 +132,12 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
       url.searchParams.set('statsPeriod', period)
       url.searchParams.set('query', query)
       const fields = grouped
-        ? ['transaction', 'span.op', 'count()', 'p50(span.duration)', 'p95(span.duration)', 'p99(span.duration)', 'failure_rate()']
-        : ['count()', 'p50(span.duration)', 'p95(span.duration)', 'p99(span.duration)', 'failure_rate()']
+        ? ['transaction', 'span.op', 'http.request.method', 'http.response.status_code', 'count()', 'avg(span.duration)', 'p50(span.duration)', 'p95(span.duration)', 'p99(span.duration)', 'failure_rate()']
+        : ['count()', 'avg(span.duration)', 'p50(span.duration)', 'p95(span.duration)', 'p99(span.duration)', 'failure_rate()']
       fields.forEach((field) => url.searchParams.append('field', field))
       if (grouped) {
         url.searchParams.set('sort', '-p95(span.duration)')
-        url.searchParams.set('per_page', '8')
+        url.searchParams.set('per_page', String(perPage))
       }
       return sentryFetch<unknown>(url, token)
     }
@@ -148,9 +151,9 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
 
     const requests = await Promise.allSettled([
       explore('is_transaction:true span.op:[pageload,navigation]'),
-      explore('is_transaction:true span.op:http.server'),
+      explore('is_transaction:true span.op:http.server !http.request.method:HEAD'),
       explore('is_transaction:true span.op:[pageload,navigation]', true),
-      explore('is_transaction:true span.op:http.server', true),
+      explore('is_transaction:true span.op:http.server !http.request.method:HEAD', true),
       sentryFetch<JsonRecord[]>(issuesUrl, token),
     ])
 

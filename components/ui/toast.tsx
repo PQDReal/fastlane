@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { AlertTriangle, CheckCircle2, CircleAlert, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -30,37 +31,45 @@ function ActionButton({ action, kind }: { action: ToastAction; kind: ToastKind }
   return <button type="button" onClick={action.onClick} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${style}`}>{action.label}</button>
 }
 
+function ToastItem({ toast, onClose }: { toast: ToastMessage; onClose: (id: number) => void }) {
+  const { box, Icon, iconColor, titleColor, msgColor, closeColor, closeHover } = styles[toast.kind]
+
+  useEffect(() => {
+    if (toast.action || toast.secondaryAction) return
+    const timer = window.setTimeout(() => onClose(toast.id), 4500)
+    return () => window.clearTimeout(timer)
+  }, [onClose, toast.action, toast.id, toast.secondaryAction])
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 28, y: -8, scale: 0.96 }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 28, scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+      role={toast.kind === 'error' ? 'alert' : 'status'}
+      className={`pointer-events-auto flex items-start gap-3 rounded-xl border p-4 shadow-xl ${box}`}
+    >
+      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconColor}`} />
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-semibold ${titleColor}`}>{toast.title}</p>
+        {toast.message && <p className={`mt-1 text-sm leading-5 ${msgColor}`}>{toast.message}</p>}
+        {(toast.action || toast.secondaryAction) && (
+          <div className="mt-3 flex justify-end gap-2">
+            {toast.secondaryAction && <ActionButton action={toast.secondaryAction} kind={toast.kind} />}
+            {toast.action && <ActionButton action={toast.action} kind={toast.kind} />}
+          </div>
+        )}
+      </div>
+      <button type="button" onClick={() => onClose(toast.id)} className={`rounded p-1 transition-colors ${closeColor} ${closeHover}`} aria-label="Đóng thông báo"><X size={16} /></button>
+    </motion.div>
+  )
+}
+
 export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onClose: (id: number) => void }) {
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3" aria-live="polite" aria-atomic="false">
       <AnimatePresence initial={false} mode="popLayout">
-        {toasts.map((toast) => {
-          const { box, Icon, iconColor, titleColor, msgColor, closeColor, closeHover } = styles[toast.kind]
-          return (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, x: 28, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 28, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-              role={toast.kind === 'error' ? 'alert' : 'status'}
-              className={`pointer-events-auto flex items-start gap-3 rounded-xl border p-4 shadow-xl ${box}`}
-            >
-              <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconColor}`} />
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${titleColor}`}>{toast.title}</p>
-                {toast.message && <p className={`mt-1 text-sm leading-5 ${msgColor}`}>{toast.message}</p>}
-                {(toast.action || toast.secondaryAction) && (
-                  <div className="mt-3 flex justify-end gap-2">
-                    {toast.secondaryAction && <ActionButton action={toast.secondaryAction} kind={toast.kind} />}
-                    {toast.action && <ActionButton action={toast.action} kind={toast.kind} />}
-                  </div>
-                )}
-              </div>
-              <button type="button" onClick={() => onClose(toast.id)} className={`rounded p-1 transition-colors ${closeColor} ${closeHover}`} aria-label="Close notification"><X size={16} /></button>
-            </motion.div>
-          )
-        })}
+        {toasts.map((toast) => <ToastItem key={toast.id} toast={toast} onClose={onClose} />)}
       </AnimatePresence>
     </div>
   )

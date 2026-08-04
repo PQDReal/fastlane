@@ -14,6 +14,10 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: 3000
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379}"
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
       - "${FASTLANE_PORT:-3000}:3000"
     healthcheck:
@@ -22,6 +26,21 @@ services:
       timeout: 3s
       retries: 5
       start_period: 20s
+  redis:
+    image: redis:7-alpine
+    init: true
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
   swagger:
     image: swaggerapi/swagger-ui:v5.32.6
     init: true
@@ -38,3 +57,6 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+
+volumes:
+  redis-data:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { scrubSentryEvent, sentrySampleRate } from './sentry-config'
+import { isSentryEnabled, scrubSentryEvent, sentrySampleRate } from './sentry-config'
 
 describe('Sentry privacy configuration', () => {
   it('removes credentials, request content and URL parameters', () => {
@@ -32,6 +32,13 @@ describe('Sentry privacy configuration', () => {
       url: 'https://fastlane.example/auth/callback',
     })
     expect(event.user).toEqual({ id: 'user-1' })
+  })
+
+  it('disables Sentry outside production', () => {
+    expect(isSentryEnabled('https://public@sentry.test/1', 'production')).toBe(true)
+    expect(isSentryEnabled('https://public@sentry.test/1', 'development')).toBe(false)
+    expect(isSentryEnabled('https://public@sentry.test/1', 'test')).toBe(false)
+    expect(isSentryEnabled(undefined, 'production')).toBe(false)
   })
 
   it('accepts only sample rates between zero and one', () => {

@@ -13,6 +13,10 @@ export function sentrySampleRate(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : fallback
 }
 
+export function isSentryEnabled(dsn: string | undefined, nodeEnv: string | undefined) {
+  return Boolean(dsn) && nodeEnv === 'production'
+}
+
 export function scrubSentryEvent(event: ErrorEvent, _hint: EventHint) {
   if (event.request) {
     const headers = Object.fromEntries(
