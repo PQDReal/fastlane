@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
@@ -15,6 +15,12 @@ import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrder, AccessoryOrderSummary } from '@/lib/cart/types'
+
+function OrderItemThumbnail({ src, productName }: { src: string | null; productName: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) return <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-white text-gray-400"><Package className="h-5 w-5" /></div>
+  return <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-white"><img src={src} alt={`Ảnh ${productName}`} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-contain" /></div>
+}
 
 function ProfileContent() {
   const { user, isLoading } = useUser()
@@ -35,6 +41,7 @@ function ProfileContent() {
   const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
   const [selectedAccessoryOrder, setSelectedAccessoryOrder] = useState<AccessoryOrder | null>(null)
   const [accessoryOrderLoadingId, setAccessoryOrderLoadingId] = useState<string | null>(null)
+  const [orderAction, setOrderAction] = useState<{ id: string; type: 'payment' | 'cancel' } | null>(null)
 
   function showToast(
     kind: ToastMessage['kind'],
@@ -46,7 +53,7 @@ function ProfileContent() {
     const dismiss = () => setToasts((current) => current.filter((toast) => toast.id !== id))
     const wrap = (action: ToastMessage['action']) => action ? { ...action, onClick: () => { action.onClick(); dismiss() } } : undefined
     setToasts((current) => [...current, { id, kind, title, message, action: wrap(actions?.action), secondaryAction: wrap(actions?.secondaryAction) }])
-    window.setTimeout(dismiss, 4500)
+    if (!actions?.action && !actions?.secondaryAction) window.setTimeout(dismiss, 4500)
   }
 
   useEffect(() => {
@@ -109,7 +116,7 @@ function ProfileContent() {
     setOrdersLoading(true)
     setOrdersError(null)
     const typeQuery = activeTab === 'orders' ? 'accessory' : 'car'
-    fetch(`/api/v1/orders?limit=20&type=${typeQuery}`)
+    fetch(`/api/v1/orders?limit=20&type=${typeQuery}`, { cache: 'no-store' })
       .then(async (response) => {
         const payload = await response.json()
         if (!response.ok) {
@@ -152,6 +159,52 @@ function ProfileContent() {
     }
   }
 
+  async function payAccessoryOrder(order: AccessoryOrderSummary) {
+    setOrderAction({ id: order.id, type: 'payment' })
+    try {
+      const response = await fetch(`/api/v1/orders/${encodeURIComponent(order.id)}/payment`, { method: 'POST' })
+      const payload = await response.json().catch(() => ({})) as { data?: { paymentUrl?: string }; error?: { message?: string } }
+      if (!response.ok || !payload.data?.paymentUrl) throw new Error(payload.error?.message || 'Không thể tạo giao dịch thanh toán.')
+      window.location.assign(payload.data.paymentUrl)
+    } catch (error) {
+      showToast('error', 'Không thể thanh toán đơn hàng', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
+      setOrderAction(null)
+    }
+  }
+
+  function requestCancelAccessoryOrder(order: AccessoryOrderSummary) {
+    const paid = order.paymentStatus === 'Paid'
+    showToast('warning', 'Xác nhận hủy đơn hàng', paid
+      ? 'Đơn đã thanh toán sẽ chuyển sang trạng thái chờ hoàn tiền.'
+      : 'Đơn đang chờ thanh toán sẽ được chuyển sang trạng thái đã hủy.', {
+      secondaryAction: { label: 'Giữ đơn hàng', onClick: () => undefined },
+      action: { label: 'Hủy đơn hàng', variant: 'danger', onClick: () => void cancelAccessoryOrder(order) },
+    })
+  }
+
+  async function cancelAccessoryOrder(order: AccessoryOrderSummary) {
+    setOrderAction({ id: order.id, type: 'cancel' })
+    try {
+      const response = await fetch(`/api/v1/orders/${encodeURIComponent(order.id)}`, { method: 'DELETE' })
+      const payload = await response.json().catch(() => ({})) as { data?: AccessoryOrder; error?: { message?: string } }
+      if (!response.ok || !payload.data) throw new Error(payload.error?.message || 'Không thể hủy đơn hàng.')
+      const cancelled = payload.data
+      setUserOrders((current) => current.map((item) => item.id === order.id ? {
+        ...item,
+        status: 'CANCELLED',
+        statusUpdatedAt: cancelled.statusUpdatedAt,
+        refundStatus: cancelled.refundStatus,
+        paymentStatus: cancelled.payment.status,
+      } : item))
+      if (selectedAccessoryOrder?.id === order.id) setSelectedAccessoryOrder(cancelled)
+      showToast('success', cancelled.refundStatus === 'Pending' ? 'Đã hủy - Chờ hoàn tiền' : 'Đã hủy đơn hàng')
+    } catch (error) {
+      showToast('error', 'Không thể hủy đơn hàng', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
+    } finally {
+      setOrderAction(null)
+    }
+  }
+
   if (isLoading) {
     return <main className="flex min-h-screen items-center justify-center bg-gray-50"><Loader2 className="h-8 w-8 animate-spin text-[#836100]" /></main>
   }
@@ -187,13 +240,13 @@ function ProfileContent() {
       hourCycle: 'h23',
     }).format(instant)} (GMT+7)`
   }
-  const statusIcon = (status: string) => status === 'Completed'
+  const statusIcon = (status: string) => ['Completed', 'Paid', 'Confirmed', 'CONFIRMED'].includes(status)
     ? <CheckCircle2 className="h-5 w-5 text-green-500" />
-    : status === 'Cancelled'
+    : status === 'Cancelled' || status === 'CANCELLED' || status === 'FAILED'
       ? <XCircle className="h-5 w-5 text-red-500" />
       : <Clock className="h-5 w-5 text-yellow-500" />
-  
-  const translateStatus = (s: string, isCar: boolean) => {
+
+  const translateStatus = (s: string, isCar: boolean, refundStatus?: AccessoryOrder['refundStatus']) => {
     if (isCar) {
       return {
         'PENDING_DEPOSIT': 'Chờ cọc',
@@ -216,18 +269,20 @@ function ProfileContent() {
         'Confirmed': 'Đã xác nhận',
       }[s] || s
     }
+    if ((s === 'Cancelled' || s === 'CANCELLED') && refundStatus === 'Pending') return 'Đã Hủy - Chờ Hoàn Tiền'
     return {
-      'Created': 'Chờ xác nhận',
-      'Paid': 'Đã thanh toán',
-      'Pending': 'Chờ xác nhận',
+      'Created': 'Chờ Thanh Toán',
+      'Paid': 'Đã Thanh Toán',
+      'Pending': 'Chờ Thanh Toán',
       'Processing': 'Đang chuẩn bị hàng',
       'Shipped': 'Đang giao hàng',
       'Completed': 'Giao thành công',
       'Cancelled': 'Đã hủy',
+      'CANCELLED': 'Đã Hủy',
       'Confirmed': 'Đã xác nhận',
     }[s] || s
   }
-  
+
   const translatePaymentStatus = (s: string, isCar: boolean) => {
     if (isCar) {
       return {
@@ -238,8 +293,8 @@ function ProfileContent() {
       }[s] || s
     }
     return {
-      'Pending': 'Chưa thanh toán',
-      'Paid': 'Đã thanh toán',
+      'Pending': 'Chờ Thanh Toán',
+      'Paid': 'Đã Thanh Toán',
       'Refunded': 'Đã hoàn tiền',
       'Failed': 'Thất bại',
     }[s] || s
@@ -320,19 +375,19 @@ function ProfileContent() {
                     if (activeTab === 'car-orders') {
                       const status = order.status;
                       const vVariant = order.depositDetails?.vehicleVariant;
-                      
+
                       const cleanCarModel = (vVariant?.product_name || order.carModel || '').replace(/vinfast\s*/i, '').trim();
                       let cleanCarVariant = (vVariant?.variant_name || vVariant?.version || order.carVariant || '').replace(/vinfast\s*/i, '').trim();
-                      
+
                       // Remove base model (e.g. 'VF 8') from variant if model already has it to avoid duplication
                       const modelMatch = cleanCarModel.match(/VF\s*\d+/i);
                       if (modelMatch) {
                         const regex = new RegExp(modelMatch[0] + '\\s*', 'i');
                         cleanCarVariant = cleanCarVariant.replace(regex, '').trim();
                       }
-                      
+
                       const carName = `${cleanCarModel} ${cleanCarVariant}`.trim();
-                      
+
                       const getVehicleImage = (model: string, variantImg?: string) => {
                         if (variantImg) return variantImg;
                         const m = (model || '').toLowerCase().trim();
@@ -434,11 +489,10 @@ function ProfileContent() {
                               </div>
                               <div className="flex h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                 {stepsList.map(s => (
-                                  <div 
-                                    key={s.step} 
-                                    className={`flex-1 border-r last:border-r-0 border-white transition-all ${
-                                      s.step < currentStepIdx ? 'bg-green-500' : s.step === currentStepIdx ? 'bg-[#836100]' : 'bg-gray-200'
-                                    }`} 
+                                  <div
+                                    key={s.step}
+                                    className={`flex-1 border-r last:border-r-0 border-white transition-all ${s.step < currentStepIdx ? 'bg-green-500' : s.step === currentStepIdx ? 'bg-[#836100]' : 'bg-gray-200'
+                                      }`}
                                   />
                                 ))}
                               </div>
@@ -456,14 +510,14 @@ function ProfileContent() {
 
                       return (
                         <div key={order.id} className="border border-gray-200 rounded-2xl p-7 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white shadow-sm flex flex-col lg:flex-row gap-8 items-stretch">
-                          
+
                           {/* LEFT: Image */}
                           <div className="w-full lg:w-[220px] shrink-0 flex flex-col items-center justify-center">
                             <div className="aspect-[4/3] w-full relative">
-                              <img 
-                                src={carImage} 
-                                alt={carName} 
-                                className="w-full h-full object-contain mix-blend-multiply" 
+                              <img
+                                src={carImage}
+                                alt={carName}
+                                className="w-full h-full object-contain mix-blend-multiply"
                                 onError={(e) => {
                                   e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
                                   e.currentTarget.onerror = null;
@@ -485,7 +539,7 @@ function ProfileContent() {
                             <p className="text-lg text-gray-500 font-medium mb-6">
                               {cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}
                             </p>
-                            
+
                             <div className="mb-6 flex flex-col items-center">
                               <p className="text-sm uppercase tracking-wider text-gray-400 font-bold mb-1">Tiền cọc</p>
                               <p className="text-[#836100] text-4xl font-bold">
@@ -510,9 +564,9 @@ function ProfileContent() {
                                 <p className="text-base font-bold text-gray-700">{formatDate(order.createdAt)}</p>
                               </div>
                             </div>
-                            
+
                             <div className="flex flex-col gap-3">
-                              <button 
+                              <button
                                 onClick={() => setSelectedOrder(order)}
                                 className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-all group shadow-sm"
                               >
@@ -531,44 +585,86 @@ function ProfileContent() {
                     }
 
                     // Original Accessory Order UI
+                    const accessoryStatus = String(order.status)
+                    const canPay = ['Created', 'Pending', 'PENDING'].includes(accessoryStatus) && order.paymentStatus === 'Pending'
+                    const canCancel = canPay || ['Paid', 'PAID'].includes(accessoryStatus)
+                    const paymentFailed = canPay && order.latestPaymentAttemptStatus === 'FAILED'
+                    const actionBusy = orderAction?.id === order.id
+                    const paymentBusy = actionBusy && orderAction?.type === 'payment'
+                    const cancellationBusy = actionBusy && orderAction?.type === 'cancel'
+                    const displayStatus = paymentFailed ? 'Thanh toán thất bại' : translateStatus(order.status, false, order.refundStatus)
+                    const isCancelled = ['Cancelled', 'CANCELLED'].includes(accessoryStatus)
+                    const statusBadgeClass = isCancelled && order.refundStatus === 'Pending'
+                      ? 'border-orange-200 bg-orange-50 text-orange-700'
+                      : isCancelled
+                        ? 'border-red-200 bg-red-50 text-red-700'
+                      : paymentFailed
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : order.paymentStatus === 'Paid'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-amber-200 bg-amber-50 text-amber-700'
                     return (
-                      <div key={order.id} className="border border-gray-100 rounded-xl p-5 hover:border-[#836100]/30 transition-colors">
-                        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-4">
+                      <article key={order.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-[#836100]/30 hover:shadow-md">
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-5 py-4">
                           <div>
                             <p className="text-sm font-bold text-gray-900">{order.orderNumber}</p>
-                            <p className="text-xs text-gray-500 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
+                            <p className="mt-1 text-xs text-gray-500">Ngày đặt: {formatDate(order.createdAt)}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${statusBadgeClass}`}>
                             {statusIcon(order.status)}
-                            <span className="text-sm font-medium text-gray-700">{translateStatus(order.status, false)}</span>
+                            <span>{displayStatus}</span>
+                          </div>
+                        </header>
+
+                        <div className="grid gap-5 px-5 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                          <section className="min-w-0">
+                            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Sản phẩm</p>
+                            <div className="min-w-0">
+                            <ul className="min-w-0 flex-1 divide-y divide-gray-100">
+                              {(order.items ?? []).map((item) => (
+                                <li key={item.id} className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0 text-sm text-gray-700">
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <OrderItemThumbnail src={item.thumbnailUrl} productName={item.productName} />
+                                    <span className="min-w-0 font-semibold text-gray-900">{item.productName}</span>
+                                  </div>
+                                  <span className="shrink-0 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">× {item.quantity}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            </div>
+                          </section>
+                          <div className="md:min-w-36 md:text-right">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Tổng cộng</p>
+                            <p className="mt-2 text-lg font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
                           </div>
                         </div>
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <Package className="h-6 w-6 text-gray-400" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">Đơn phụ kiện FASTLANE</p>
-                              <p className="text-sm text-gray-500">Thanh toán: {translatePaymentStatus(order.paymentStatus, false)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-2">
-                            <p className="font-bold text-[#836100]">{formatPrice(order.pricing.grandTotal)}</p>
-                            <button
-                              type="button"
-                              onClick={() => void openAccessoryOrder(order.id)}
-                              disabled={accessoryOrderLoadingId === order.id}
-                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#836100] px-4 text-sm font-bold text-[#836100] transition hover:bg-[#836100] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
-                            >
-                              {accessoryOrderLoadingId === order.id
-                                ? <Loader2 className="h-4 w-4 animate-spin" />
-                                : <ArrowRight className="h-4 w-4" />}
-                              Xem chi tiết
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+
+                        <footer className="flex flex-wrap justify-end gap-2 border-t border-gray-200 bg-gray-50/70 px-5 py-3.5">
+                              {canPay && (
+                                <button type="button" onClick={() => void payAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#836100] px-4 text-sm font-bold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60">
+                                  {paymentBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                                  {paymentFailed ? 'Thanh toán lại' : 'Thanh toán'}
+                                </button>
+                              )}
+                              {canCancel && (
+                                <button type="button" onClick={() => requestCancelAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-300 px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60">
+                                  {cancellationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                  Hủy đơn hàng
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void openAccessoryOrder(order.id)}
+                                disabled={accessoryOrderLoadingId === order.id}
+                                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#836100] px-4 text-sm font-bold text-[#836100] transition hover:bg-[#836100] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
+                              >
+                                {accessoryOrderLoadingId === order.id
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <ArrowRight className="h-4 w-4" />}
+                                Xem chi tiết
+                              </button>
+                        </footer>
+                      </article>
                     )
                   })}
                 </div>
@@ -577,7 +673,7 @@ function ProfileContent() {
           </section>
         </div>
       </div>
-      
+
       <AnimatePresence>
         {selectedAccessoryOrder && (
           <>
@@ -632,9 +728,7 @@ function ProfileContent() {
                     <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 bg-gray-50 px-4">
                       {selectedAccessoryOrder.items.map((item) => (
                         <article key={item.id} className="flex gap-4 py-4">
-                          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white text-gray-400">
-                            <Package className="h-5 w-5" />
-                          </div>
+                          <OrderItemThumbnail src={item.thumbnailUrl} productName={item.productName} />
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-gray-900">{item.productName}</p>
                             <ProductOptionSummary options={item.selectedOptions} className="mt-1.5" />
@@ -648,7 +742,7 @@ function ProfileContent() {
 
                   <section aria-labelledby="accessory-order-shipping-title">
                     <h4 id="accessory-order-shipping-title" className="mb-3 border-l-4 border-[#836100] pl-3 text-sm font-bold uppercase tracking-wider text-gray-900">
-                      Giao nhận
+                      Thông tin nhận hàng
                     </h4>
                     <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
                       <p className="font-semibold text-gray-900">{selectedAccessoryOrder.shippingAddress.recipientName}</p>
@@ -665,7 +759,7 @@ function ProfileContent() {
                   <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-gray-500">Trạng thái</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-800">{translateStatus(selectedAccessoryOrder.status, false)}</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-800">{['Created', 'Pending', 'PENDING'].includes(String(selectedAccessoryOrder.status)) && selectedAccessoryOrder.payment.status === 'Pending' && selectedAccessoryOrder.latestPaymentAttemptStatus === 'FAILED' ? 'Thanh toán thất bại' : translateStatus(selectedAccessoryOrder.status, false, selectedAccessoryOrder.refundStatus)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs uppercase tracking-wide text-gray-500">Tổng thanh toán</p>
@@ -715,107 +809,107 @@ function ProfileContent() {
                   </button>
                 </div>
 
-              <div className="p-6 space-y-8">
-                {/* Image & Xe Header */}
-                <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <div className="w-48 h-32 relative shrink-0">
-                    <img 
-                      src={(() => {
-                        const m = selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '';
-                        const img = selectedOrder.depositDetails.vehicleVariant?.image_car_url;
-                        if (img) return img;
-                        const lower = m.toLowerCase();
-                        if (lower.includes('vf 9') || lower.includes('vf9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp';
-                        if (lower.includes('vf 8') || lower.includes('vf8')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
-                        if (lower.includes('vf 7') || lower.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
-                        if (lower.includes('vf 6') || lower.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
-                        if (lower.includes('vf 5') || lower.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
-                        if (lower.includes('vf 3') || lower.includes('vf3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png';
-                        if (lower.includes('vf 2') || lower.includes('vf2')) return 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp';
-                        if (lower.includes('mpv')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp';
-                        if (lower.includes('vento')) return '/images/vento.png';
-                        return '/images/car-sale.png';
-                      })()}
-                      alt="Hình ảnh xe" 
-                      className="w-full h-full object-contain mix-blend-multiply"
-                    />
+                <div className="p-6 space-y-8">
+                  {/* Image & Xe Header */}
+                  <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div className="w-48 h-32 relative shrink-0">
+                      <img
+                        src={(() => {
+                          const m = selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '';
+                          const img = selectedOrder.depositDetails.vehicleVariant?.image_car_url;
+                          if (img) return img;
+                          const lower = m.toLowerCase();
+                          if (lower.includes('vf 9') || lower.includes('vf9')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3c2decf/images/PDP/vf9/202406/exterior/CE1V.webp';
+                          if (lower.includes('vf 8') || lower.includes('vf8')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
+                          if (lower.includes('vf 7') || lower.includes('vf7')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c3e07c9/reserves/VF7/exterior/product-CE1M.webp';
+                          if (lower.includes('vf 6') || lower.includes('vf6')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw445cc03b/images/VF6/JB10V/CE18.webp';
+                          if (lower.includes('vf 5') || lower.includes('vf5')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw15aebeed/reserves/VF5/2025/10.webp';
+                          if (lower.includes('vf 3') || lower.includes('vf3')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784768418972/ldp-all-cars/360/VF3/exterior/181U/F1.png';
+                          if (lower.includes('vf 2') || lower.includes('vf2')) return 'https://vinfastauto.com/themes/porto/img/pdp-page/vf2/vf2-car/vf2-urbant-mint-car.webp';
+                          if (lower.includes('mpv')) return 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784854804001/images/VFMPV7/SL1WV/CE18.webp';
+                          if (lower.includes('vento')) return '/images/vento.png';
+                          return '/images/car-sale.png';
+                        })()}
+                        alt="Hình ảnh xe"
+                        className="w-full h-full object-contain mix-blend-multiply"
+                      />
+                    </div>
+                    <div className="text-center sm:text-left">
+                      <h4 className="text-2xl font-bold text-gray-900">
+                        VinFast {(selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '').replace(/vinfast/i, '').trim()}
+                      </h4>
+                      <p className="text-gray-500 font-medium mt-1">
+                        {selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-center sm:text-left">
-                    <h4 className="text-2xl font-bold text-gray-900">
-                      VinFast {(selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel || '').replace(/vinfast/i, '').trim()}
-                    </h4>
-                    <p className="text-gray-500 font-medium mt-1">
-                      {selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}
-                    </p>
-                  </div>
+
+                  {/* Thông tin xe */}
+                  <section>
+                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin xe</h4>
+                    <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Dòng xe</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Phiên bản</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Màu ngoại thất</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.color || selectedOrder.depositDetails.exteriorColor}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Màu nội thất</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.interiorColor}</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Thông tin thanh toán */}
+                  <section>
+                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thanh toán & Giao nhận</h4>
+                    <div className="bg-gray-50 rounded-xl p-5 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Showroom nhận xe</span>
+                        <span className="font-semibold text-gray-900 text-right">{selectedOrder.depositDetails.showroom}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Tổng giá trị dự kiến</span>
+                        <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-4 flex justify-between items-center">
+                        <span className="text-gray-600 font-medium">Số tiền đã cọc</span>
+                        <span className="font-bold text-[#836100] text-lg">{formatPrice(selectedOrder.pricing.amountDueNow)}</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Thông tin khách hàng */}
+                  <section>
+                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin khách hàng</h4>
+                    <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Số điện thoại</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerPhone}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-gray-500 mb-1">CMND/CCCD/MST</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.idCardNumber}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-gray-500 mb-1">Khu vực</p>
+                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.district}, {selectedOrder.depositDetails.province}</p>
+                      </div>
+                    </div>
+                  </section>
                 </div>
-
-                {/* Thông tin xe */}
-                <section>
-                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin xe</h4>
-                  <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Dòng xe</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.product_name || selectedOrder.carModel}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Phiên bản</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.variant_name || selectedOrder.depositDetails.vehicleVariant?.version || selectedOrder.carVariant}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Màu ngoại thất</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.vehicleVariant?.color || selectedOrder.depositDetails.exteriorColor}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Màu nội thất</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.interiorColor}</p>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Thông tin thanh toán */}
-                <section>
-                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thanh toán & Giao nhận</h4>
-                  <div className="bg-gray-50 rounded-xl p-5 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Showroom nhận xe</span>
-                      <span className="font-semibold text-gray-900 text-right">{selectedOrder.depositDetails.showroom}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Tổng giá trị dự kiến</span>
-                      <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
-                    </div>
-                    <div className="border-t border-gray-200 pt-4 flex justify-between items-center">
-                      <span className="text-gray-600 font-medium">Số tiền đã cọc</span>
-                      <span className="font-bold text-[#836100] text-lg">{formatPrice(selectedOrder.pricing.amountDueNow)}</span>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Thông tin khách hàng */}
-                <section>
-                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-l-4 border-[#836100] pl-3">Thông tin khách hàng</h4>
-                  <div className="bg-gray-50 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerName}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Số điện thoại</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.customerPhone}</p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <p className="text-xs text-gray-500 mb-1">CMND/CCCD/MST</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.idCardNumber}</p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <p className="text-xs text-gray-500 mb-1">Khu vực</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.district}, {selectedOrder.depositDetails.province}</p>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </motion.div>
+              </motion.div>
             </div>
           </>
         )}

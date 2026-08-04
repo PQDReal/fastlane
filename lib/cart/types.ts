@@ -135,6 +135,8 @@ export type AccessoryOrder = {
   customer: { id: string; email: string }
   status: 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled' | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'PENDING_PAYMENT' | 'PAID' | 'PREPARING_DELIVERY' | 'DELIVERED'
   statusUpdatedAt: string
+  refundStatus: 'None' | 'Pending' | 'Completed'
+  latestPaymentAttemptStatus?: 'PENDING' | 'PAID' | 'FAILED' | null
   pricing: {
     currency: 'VND'
     subtotal: string
@@ -175,6 +177,7 @@ export type AccessoryOrder = {
     purchaseTerms: ApiCartItem['purchaseTerms']
     sku: string
     productName: string
+    thumbnailUrl: string | null
     variantAttributes: Record<string, string>
     selectedOptions: SelectedProductOption[]
     unitListPrice: string
@@ -192,7 +195,7 @@ export type AccessoryOrder = {
 
 export type AccessoryOrderSummary = Pick<
   AccessoryOrder,
-  'id' | 'orderNumber' | 'createdAt' | 'statusUpdatedAt'
+  'id' | 'orderNumber' | 'createdAt' | 'statusUpdatedAt' | 'refundStatus' | 'latestPaymentAttemptStatus'
 > & {
   status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'PENDING_PAYMENT' | 'PAID' | 'PREPARING_DELIVERY' | 'DELIVERED'
   orderType?: 'accessory' | 'deposit'
@@ -200,6 +203,7 @@ export type AccessoryOrderSummary = Pick<
   carVariant?: string
   paymentStatus: 'Pending' | 'Paid'
   nextPaymentDueAt: string | null
+  items?: Array<Pick<AccessoryOrder['items'][number], 'id' | 'productName' | 'thumbnailUrl' | 'quantity'>>
   pricing: Pick<
     AccessoryOrder['pricing'],
     'currency' | 'grandTotal' | 'amountDueNow' | 'balanceDue'
