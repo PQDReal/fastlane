@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Filter, MoreHorizontal, Eye, Truck, CheckCircle2, FileText, XCircle } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { AdminOrderDetailDrawer } from './order-detail-drawer'
@@ -14,6 +15,7 @@ export type AdminOrderRow = {
   amount: number
   status: string
   payment: string
+  refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
   kyc_status?: string | null
   kyc_session_id?: string | null
   createdAt: string
@@ -23,12 +25,18 @@ export type AdminOrderRow = {
 }
 
 export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('All')
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderRow | null>(null)
   
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => router.refresh(), 15_000)
+    return () => window.clearInterval(timer)
+  }, [router])
   
   const showToast = useCallback((toast: Omit<ToastMessage, 'id'>, duration = 4500) => {
     const id = Date.now()
@@ -84,7 +92,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
         'PENDING_CONTRACT': 'Chờ tạo HĐ',
         'CONTRACT_SIGNED': 'Đã ký HĐ',
         'PENDING_PAYMENT': 'Chờ thanh toán',
-        'PAID': 'Đã thanh toán',
+        'PAID': 'Đã thanh toán toàn bộ',
         'PREPARING_DELIVERY': 'Chờ giao xe',
         'DELIVERED': 'Đã giao xe',
         'COMPLETED': 'Hoàn thành',
@@ -101,6 +109,22 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
       'Completed': 'Giao thành công',
       'Cancelled': 'Đã hủy',
     }[status] || status
+  }
+
+  const combinedStatus = (order: AdminOrderRow) => {
+    if (order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED') {
+      return { label: 'Đã hủy, đã hoàn tiền', style: 'bg-green-100 text-green-700 border border-green-200' }
+    }
+    if (order.status === 'CANCELLED' && order.payment === 'Paid') {
+      return { label: 'Đã hủy, chờ hoàn tiền', style: 'bg-orange-100 text-orange-700 border border-orange-200' }
+    }
+    if (['CANCELLED', 'COMPLETED', 'DELIVERED', 'PREPARING_DELIVERY', 'PAID', 'PENDING_PAYMENT', 'CONTRACT_SIGNED', 'PENDING_CONTRACT', 'CONFIRMED'].includes(order.status)) {
+      return { label: translateAdminStatus(order.status, order.isCar), style: getStatusStyle(order.status) }
+    }
+    if (order.payment === 'Paid') {
+      return { label: 'Đã thanh toán', style: 'bg-green-100 text-green-700 border border-green-200' }
+    }
+    return { label: 'Chờ thanh toán', style: 'bg-amber-100 text-amber-700 border border-amber-200' }
   }
 
   const renderActions = (order: any) => {
@@ -186,7 +210,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                   <option value="PENDING_CONTRACT">Chờ tạo HĐ</option>
                   <option value="CONTRACT_SIGNED">Đã ký HĐ</option>
                   <option value="PENDING_PAYMENT">Chờ thanh toán</option>
-                  <option value="PAID">Đã thanh toán</option>
+                  <option value="PAID">Đã thanh toán toàn bộ</option>
                   <option value="PREPARING_DELIVERY">Chờ giao xe</option>
                   <option value="DELIVERED">Đã giao xe</option>
                   <option value="COMPLETED">Hoàn thành (Xe)</option>
@@ -207,13 +231,14 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                 <th className="px-6 py-4">Sản phẩm</th>
                 <th className="px-6 py-4">Tổng tiền</th>
                 <th className="px-6 py-4">Trạng thái</th>
-                <th className="px-6 py-4">Thanh toán</th>
                 <th className="px-6 py-4">Ngày tạo</th>
                 <th className="relative w-28 px-6 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredOrders.map(order => (
+              {filteredOrders.map(order => {
+                const displayStatus = combinedStatus(order)
+                return (
                 <tr key={order.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 font-semibold text-slate-900">
                     <div>{order.orderNumber}</div>
@@ -223,8 +248,8 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                   <td className="px-6 py-4 text-slate-600 max-w-[250px] truncate" title={order.vehicle}>{order.vehicle}</td>
                   <td className="px-6 py-4 font-semibold text-slate-900">{formatMoney(order.amount)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${getStatusStyle(order.status)}`}>
-                      {translateAdminStatus(order.status, order.isCar)}
+                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${displayStatus.style}`}>
+                      {displayStatus.label}
                     </span>
                     {order.kyc_status === 'REVIEW' && (
                       <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200">
@@ -232,23 +257,17 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
-                      order.payment === 'Paid' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}>
-                      {order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 text-slate-50-50 text-xs">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4 text-right">
                     {renderActions(order)}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     Không tìm thấy đơn hàng nào.
                   </td>
                 </tr>
@@ -272,8 +291,8 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onOrderUpdated={() => {
-          // You could optionally trigger a router.refresh() here 
-          // or let the actions.ts revalidatePath handle it (it does).
+          setSelectedOrder(null)
+          router.refresh()
         }}
         onShowToast={showToast}
       />

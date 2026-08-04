@@ -2865,7 +2865,7 @@ components:
           schema:
             $ref: '#/components/schemas/CartResponse'
     OutOfStock:
-      description: Requested quantity is unavailable.
+      description: Đã đạt giới hạn tối đa của mặt hàng này
       x-error-codes:
         - OUT_OF_STOCK
       content:
@@ -2875,7 +2875,7 @@ components:
           example:
             error:
               code: OUT_OF_STOCK
-              message: Requested quantity is unavailable.
+              message: Đã đạt giới hạn tối đa của mặt hàng này
               requestId: req_01J00000000000000000000000
     BusinessRuleError:
       description: Request is well-formed but violates a business invariant.
@@ -5908,6 +5908,32 @@ components:
         displayOrder:
           type: integer
           minimum: 0
+    AdminAccessoryCompatibilityMode:
+      type: string
+      enum:
+        - ALL_MODELS
+        - SELECTED_MODELS
+        - NOT_APPLICABLE
+      description: ALL_MODELS applies to every current and future model below the selected category without creating individual model memberships.
+    AdminAccessoryCategoryAssignment:
+      type: object
+      additionalProperties: false
+      required:
+        - categoryId
+        - compatibilityMode
+        - modelIds
+      properties:
+        categoryId:
+          $ref: '#/components/schemas/Uuid'
+        compatibilityMode:
+          $ref: '#/components/schemas/AdminAccessoryCompatibilityMode'
+        modelIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: Required only for SELECTED_MODELS; must otherwise be empty.
     AdminAccessoryContentSectionInput:
       type: object
       additionalProperties: false
@@ -5992,7 +6018,6 @@ components:
         - colorHex
         - swatchUrl
         - displayOrder
-        - imageUrls
       properties:
         existingId:
           $ref: '#/components/schemas/Uuid'
@@ -6019,14 +6044,6 @@ components:
         displayOrder:
           type: integer
           minimum: 0
-        imageUrls:
-          type: array
-          maxItems: 20
-          uniqueItems: true
-          items:
-            type: string
-            format: uri
-            maxLength: 2048
     AdminAccessoryOptionGroupInput:
       type: object
       additionalProperties: false
@@ -6037,7 +6054,6 @@ components:
         - minimumSelections
         - maximumSelections
         - displayOrder
-        - drivesMedia
         - values
       properties:
         existingId:
@@ -6068,9 +6084,6 @@ components:
         displayOrder:
           type: integer
           minimum: 0
-        drivesMedia:
-          type: boolean
-          description: At most one group may drive option-scoped media.
         values:
           type: array
           minItems: 1
@@ -6080,10 +6093,9 @@ components:
     AdminAccessoryVariantInput:
       type: object
       additionalProperties: false
-      description: The sellable and inventory-owned SKU. originalPrice and salePrice are whole-VND JSON integers.
+      description: The sellable and inventory-owned variant. The database assigns a unique ACS SKU when a new variant is saved. Existing variant IDs retain their current SKU. originalPrice and salePrice are whole-VND JSON integers. Included variants must carry 1–20 direct HTTP/HTTPS image URLs; storefront accessory media is variant-only.
       required:
         - name
-        - sku
         - originalPrice
         - salePrice
         - isActive
@@ -6096,10 +6108,6 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-        sku:
-          type: string
-          minLength: 1
-          maxLength: 80
         originalPrice:
           type: integer
           minimum: 0
@@ -6123,22 +6131,25 @@ components:
           description: Exact group-code to value-code selections for this SKU. Every required group must be represented.
         imageUrls:
           type: array
+          minItems: 1
           maxItems: 20
           uniqueItems: true
           items:
             type: string
             format: uri
+            pattern: ^https?://[^\s]+$
             maxLength: 2048
     AdminAccessoryWriteRequest:
       type: object
       additionalProperties: false
       description: |
-        Complete ACCESSORY aggregate replacement. The backend validates the entire body before opening the database write and then persists product, taxonomy, service labels, options, SKUs, mappings, inventory initialization and media in one transaction.
+        Complete ACCESSORY aggregate replacement. The backend validates the entire body before opening the database write and then persists product, taxonomy, service labels, options, SKUs, mappings, inventory initialization and direct SKU media in one transaction.
         Option values never add price. Existing variant IDs preserve inventory; new variants start at zero inventory. PATCH requires expectedUpdatedAt.
       required:
         - categoryId
-        - primaryCollectionId
-        - modelCollectionIds
+        - templateCode
+        - templateVersion
+        - categoryAssignments
         - name
         - slug
         - description
@@ -6147,7 +6158,6 @@ components:
         - content
         - optionGroups
         - variants
-        - productImageUrls
       properties:
         expectedUpdatedAt:
           type: string
@@ -6155,14 +6165,23 @@ components:
           description: Required by PATCH for optimistic concurrency and omitted by POST.
         categoryId:
           $ref: '#/components/schemas/Uuid'
-        primaryCollectionId:
-          $ref: '#/components/schemas/Uuid'
-        modelCollectionIds:
+        templateCode:
+          type: string
+          enum:
+            - vehicle_fit
+            - window_film
+            - apparel
+            - ev_charger
+            - custom
+        templateVersion:
+          type: integer
+          const: 1
+        categoryAssignments:
           type: array
-          maxItems: 100
-          uniqueItems: true
+          minItems: 1
+          maxItems: 20
           items:
-            $ref: '#/components/schemas/Uuid'
+            $ref: '#/components/schemas/AdminAccessoryCategoryAssignment'
         name:
           type: string
           minLength: 1
@@ -6197,14 +6216,6 @@ components:
           maxItems: 500
           items:
             $ref: '#/components/schemas/AdminAccessoryVariantInput'
-        productImageUrls:
-          type: array
-          maxItems: 20
-          uniqueItems: true
-          items:
-            type: string
-            format: uri
-            maxLength: 2048
     AdminAccessorySaveResult:
       type: object
       additionalProperties: false
@@ -6282,7 +6293,6 @@ components:
         - name
         - colorHex
         - swatchUrl
-        - imageUrls
       properties:
         id:
           type: string
@@ -6295,10 +6305,6 @@ components:
           type: string
         swatchUrl:
           type: string
-        imageUrls:
-          type: array
-          items:
-            type: string
     AdminAccessoryDraftOptionGroup:
       type: object
       additionalProperties: false
@@ -6310,7 +6316,6 @@ components:
         - displayType
         - minimumSelections
         - maximumSelections
-        - mediaEnabled
         - values
       properties:
         id:
@@ -6336,8 +6341,6 @@ components:
         maximumSelections:
           type: integer
           const: 1
-        mediaEnabled:
-          type: boolean
         values:
           type: array
           items:
@@ -6388,8 +6391,9 @@ components:
       additionalProperties: false
       required:
         - rootCategoryId
-        - primaryCollectionSlug
-        - modelCollectionSlugs
+        - templateCode
+        - templateVersion
+        - categoryAssignments
         - name
         - slug
         - description
@@ -6398,16 +6402,24 @@ components:
         - sections
         - optionGroups
         - variants
-        - productImageUrls
       properties:
         rootCategoryId:
           $ref: '#/components/schemas/Uuid'
-        primaryCollectionSlug:
+        templateCode:
           type: string
-        modelCollectionSlugs:
+          enum:
+            - vehicle_fit
+            - window_film
+            - apparel
+            - ev_charger
+            - custom
+        templateVersion:
+          type: integer
+          const: 1
+        categoryAssignments:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/AdminAccessoryCategoryAssignment'
         name:
           type: string
         slug:
@@ -6428,18 +6440,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdminAccessoryDraftOptionGroup'
-        mediaOptionGroupId:
-          type:
-            - string
-            - 'null'
         variants:
           type: array
           items:
             $ref: '#/components/schemas/AdminAccessoryDraftVariant'
-        productImageUrls:
-          type: array
-          items:
-            type: string
     AdminAccessoryEditorData:
       type: object
       additionalProperties: false

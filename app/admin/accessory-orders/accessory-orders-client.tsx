@@ -12,6 +12,7 @@ export type AdminAccessoryOrder = {
   status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
   refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
   refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
+  refundNextCheckAt: string | null
   createdAt: string
 }
 
@@ -79,6 +80,7 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         status: body.data.status ?? item.status,
         refundStatus: body.data.refundStatus ?? item.refundStatus,
         refundAttemptStatus: body.data.attemptStatus ?? item.refundAttemptStatus,
+        refundNextCheckAt: body.data.nextCheckAt === undefined ? item.refundNextCheckAt : body.data.nextCheckAt,
       }))
       const title = action === 'cancel' ? 'Đã hủy đơn phụ kiện' : action === 'complete' ? 'Đã hoàn thành đơn phụ kiện' : body.data.attemptStatus === 'COMPLETED' ? 'Hoàn tiền thành công' : body.data.attemptStatus === 'FAILED' ? 'Hoàn tiền thất bại' : 'VNPay đang xử lý hoàn tiền'
       if (!silent || body.data.attemptStatus === 'COMPLETED' || body.data.attemptStatus === 'FAILED') {
@@ -94,13 +96,19 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
       && order.refundStatus === 'PENDING'
       && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? ''))
     if (!processingOrders.length) return
+    const now = Date.now()
+    const eligibleOrders = processingOrders.filter((order) => !order.refundNextCheckAt || new Date(order.refundNextCheckAt).getTime() <= now)
+    const processingOrder = eligibleOrders.length
+      ? eligibleOrders[pollCursorRef.current % eligibleOrders.length]
+      : [...processingOrders].sort((a, b) => new Date(a.refundNextCheckAt ?? 0).getTime() - new Date(b.refundNextCheckAt ?? 0).getTime())[0]
+    const eligibleTime = new Date(processingOrder.refundNextCheckAt ?? 0).getTime()
+    const delay = eligibleOrders.length ? 500 : Math.max(1_000, eligibleTime - now)
     const timer = window.setTimeout(() => {
       if (!busyRef.current) {
-        const processingOrder = processingOrders[pollCursorRef.current % processingOrders.length]
         pollCursorRef.current += 1
         void runAction(processingOrder, 'refund-status', true)
       }
-    }, 60_000)
+    }, delay)
     return () => window.clearTimeout(timer)
   }, [orders, busy])
 

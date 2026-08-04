@@ -35,8 +35,6 @@ const formatPrice = (price: number) =>
 
 function primaryMediaOptionGroup(product: CatalogProduct): CatalogOptionGroup | null {
   return product.optionGroups.find((group) => (
-    group.metadata.drivesMedia === true
-  )) ?? product.optionGroups.find((group) => (
     group.metadata.primary === true
   )) ?? product.optionGroups.find((group) => (
     group.code === 'color'
@@ -184,8 +182,7 @@ function VisualOptionSelector({
             const candidates = filterCompatibleVariants(product.variants, {
               [group.code]: value.code,
             })
-            const hasMedia = (product.media.byOptionValue[value.id] ?? []).length > 0
-            const selectable = candidates.length > 0 || hasMedia
+            const selectable = candidates.length > 0
             const inStock = candidates.some((variant) => variant.availableQuantity > 0)
             const selected = selectedValueCode === value.code
 

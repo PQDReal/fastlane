@@ -1,10 +1,10 @@
 'use client'
 
 import { ChevronDown, LogOut, Menu, Search, ShoppingCart, X } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type MouseEvent } from 'react'
 import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
@@ -12,6 +12,7 @@ import { UserAvatar } from '@/components/auth/user-avatar'
 import {
   CART_ANIMATION_CANCEL,
   CART_ANIMATION_COMPLETE,
+  CART_ANIMATION_LAUNCH,
   CART_ANIMATION_PREPARE,
   type CartAnimationResolutionDetail,
 } from '@/lib/cart/animation'
@@ -36,6 +37,7 @@ export function Header() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   const {
     setSearchModalOpen,
     getCartCount,
@@ -47,6 +49,7 @@ export function Header() {
   const cartCount = getCartCount()
   const cartCountRef = useRef(cartCount)
   const pendingCartAnimationsRef = useRef(0)
+  const pendingCartNavigationRef = useRef(false)
   const [displayedCartCount, setDisplayedCartCount] = useState(cartCount)
   cartCountRef.current = cartCount
 
@@ -105,15 +108,29 @@ export function Header() {
       }
     }
 
+    const handleLaunch = () => {
+      if (!pendingCartNavigationRef.current) return
+      pendingCartNavigationRef.current = false
+      router.push('/cart')
+    }
+
     window.addEventListener(CART_ANIMATION_PREPARE, handlePrepare)
+    window.addEventListener(CART_ANIMATION_LAUNCH, handleLaunch)
     window.addEventListener(CART_ANIMATION_CANCEL, handleCancel)
     window.addEventListener(CART_ANIMATION_COMPLETE, handleComplete)
     return () => {
       window.removeEventListener(CART_ANIMATION_PREPARE, handlePrepare)
+      window.removeEventListener(CART_ANIMATION_LAUNCH, handleLaunch)
       window.removeEventListener(CART_ANIMATION_CANCEL, handleCancel)
       window.removeEventListener(CART_ANIMATION_COMPLETE, handleComplete)
     }
-  }, [])
+  }, [router])
+
+  const handleCartClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (pendingCartAnimationsRef.current === 0) return
+    event.preventDefault()
+    pendingCartNavigationRef.current = true
+  }
 
   const headerSolid = scrolled || !isTransparentPage
 
@@ -155,6 +172,7 @@ export function Header() {
           <Link
             aria-label="Giỏ hàng"
             href="/cart"
+            onClick={handleCartClick}
             data-cart-animation-target="true"
             className="relative block transition-opacity hover:opacity-70"
           >

@@ -51,7 +51,7 @@ function product(): CatalogProduct {
     name: 'Áo VF 7',
     slug: 'ao-vf-7',
     description: null,
-    productType: 'ACCESSORY',
+    productType: 'CAR',
     displayedPrice: null,
     depositPrice: null,
     content: { schema: 'accessory_content_v1', sections: [] },
@@ -155,6 +155,12 @@ describe('catalog combination resolver', () => {
 })
 
 describe('catalog media resolver', () => {
+  it('does not fall back across scopes for accessories', () => {
+    const accessory = { ...product(), productType: 'ACCESSORY' as const }
+    expect(resolveCatalogMedia(accessory, { selectedOptions: { color: 'red' } })[0])
+      .toMatchObject({ url: '/images/vf8.png', source: 'PLACEHOLDER' })
+    expect(resolveCatalogImageUrl(accessory, { variantId: 'red-s' })).toBe('/images/vf8.png')
+  })
   it('uses variant media first', () => {
     expect(resolveCatalogMedia(product(), {
       variantId: 'red-m',
