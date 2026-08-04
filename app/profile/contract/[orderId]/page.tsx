@@ -27,7 +27,17 @@ export default async function ContractPage({ params }: { params: Promise<{ order
     redirect('/403')
   }
 
-  if (order.status !== 'PENDING_CONTRACT' && order.status !== 'CONTRACT_SIGNED') {
+  const allowedStatuses = [
+    'PENDING_CONTRACT', 
+    'CONTRACT_SIGNED', 
+    'PENDING_PAYMENT', 
+    'PAID', 
+    'PREPARING_DELIVERY', 
+    'DELIVERED', 
+    'COMPLETED'
+  ]
+
+  if (!allowedStatuses.includes(order.status)) {
     redirect('/profile')
   }
 

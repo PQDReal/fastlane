@@ -198,6 +198,9 @@ export const ACCESSORY_SECTION_TYPES: Array<{
   { value: 'SHIPPING_NOTE', label: 'Lưu ý giao hàng', defaultTitle: 'Lưu ý giao hàng' },
   { value: 'SAFETY_NOTE', label: 'Lưu ý an toàn', defaultTitle: 'Lưu ý an toàn' },
   { value: 'PURCHASE_NOTE', label: 'Lưu ý mua hàng', defaultTitle: 'Lưu ý khi mua hàng' },
+  { value: 'CAR_HERO', label: 'Hero Banner', defaultTitle: 'Khám phá kỷ nguyên mới' },
+  { value: 'CAR_FEATURE_SPLIT', label: 'Đặc điểm nổi bật (Chia đôi)', defaultTitle: 'Đặc điểm nổi bật' },
+  { value: 'CAR_GALLERY', label: 'Thư viện ảnh', defaultTitle: 'Thư viện ảnh' },
   { value: 'OTHER', label: 'Thông tin khác', defaultTitle: 'Thông tin khác' },
 ]
 

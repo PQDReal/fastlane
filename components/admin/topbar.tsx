@@ -15,11 +15,11 @@ export function AdminTopbar({ onMenuClick, onToggleDesktop }: { onMenuClick?: ()
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
       <div className="flex items-center gap-4">
-        <button type="button" onClick={onMenuClick} className="-ml-2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:hidden" aria-label="Mở menu quản trị">
+        <button type="button" onClick={onMenuClick} className="-ml-2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:hidden" aria-label="Mở menu quản trị" suppressHydrationWarning>
           <Menu size={20} />
         </button>
         {onToggleDesktop && (
-          <button type="button" onClick={onToggleDesktop} className="hidden -ml-2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:block" aria-label="Thu gọn menu quản trị">
+          <button type="button" onClick={onToggleDesktop} className="hidden -ml-2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:block" aria-label="Thu gọn menu quản trị" suppressHydrationWarning>
             <Menu size={20} />
           </button>
         )}

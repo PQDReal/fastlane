@@ -22,6 +22,8 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
   const [agreed, setAgreed] = useState(false)
   const [isSigning, setIsSigning] = useState(false)
 
+  const isSigned = ['CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order?.status)
+
   const handleSign = async () => {
     if (!agreed) return
     setIsSigning(true)
@@ -218,30 +220,39 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
       </div>
 
       {/* Hành động Ký hợp đồng */}
-      <div className="mt-8 flex flex-col items-center space-y-6 border-t border-slate-200 pt-8 sm:px-6 font-sans">
-        <label className="flex cursor-pointer items-start space-x-3 rounded-lg border border-transparent p-3 transition-colors hover:bg-slate-50">
-          <input 
-            type="checkbox"
-            id="agree-contract" 
-            checked={agreed} 
-            onChange={(e) => setAgreed(e.target.checked)} 
-            className="mt-1 h-5 w-5 rounded border-gray-300 text-[#1e4d2b] focus:ring-[#1e4d2b]"
-          />
-          <div className="leading-snug">
-            <p className="font-medium text-slate-900">Tôi đã đọc, hiểu rõ và đồng ý với toàn bộ các điều khoản của Hợp đồng mua bán xe ô tô điện VinFast.</p>
-            <p className="mt-1 text-xs text-slate-500">Giao dịch này tương đương chữ ký số có giá trị pháp lý.</p>
+      {isSigned ? (
+        <div className="mt-8 flex flex-col items-center space-y-4 border-t border-slate-200 pt-8 sm:px-6 font-sans">
+          <div className="rounded-lg bg-green-50 p-4 border border-green-200 text-center w-full sm:w-auto">
+            <p className="font-semibold text-green-800">Hợp đồng này đã được ký</p>
+            <p className="mt-1 text-sm text-green-700">Được kí bởi <strong>{customerName}</strong> ngày <strong>{formatDateStr(order?.updated_at || order?.created_at)}</strong></p>
           </div>
-        </label>
-        
-        <Button 
-          onClick={handleSign} 
-          disabled={!agreed || isSigning} 
-          size="default" 
-          className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
-        >
-          {isSigning ? 'Đang xử lý...' : 'Ký Hợp Đồng'}
-        </Button>
-      </div>
+        </div>
+      ) : (
+        <div className="mt-8 flex flex-col items-center space-y-6 border-t border-slate-200 pt-8 sm:px-6 font-sans">
+          <label className="flex cursor-pointer items-start space-x-3 rounded-lg border border-transparent p-3 transition-colors hover:bg-slate-50">
+            <input 
+              type="checkbox"
+              id="agree-contract" 
+              checked={agreed} 
+              onChange={(e) => setAgreed(e.target.checked)} 
+              className="mt-1 h-5 w-5 rounded border-gray-300 text-[#1e4d2b] focus:ring-[#1e4d2b]"
+            />
+            <div className="leading-snug">
+              <p className="font-medium text-slate-900">Tôi đã đọc, hiểu rõ và đồng ý với toàn bộ các điều khoản của Hợp đồng mua bán xe ô tô điện VinFast.</p>
+              <p className="mt-1 text-xs text-slate-500">Giao dịch này tương đương chữ ký số có giá trị pháp lý.</p>
+            </div>
+          </label>
+          
+          <Button 
+            onClick={handleSign} 
+            disabled={!agreed || isSigning} 
+            size="default" 
+            className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
+          >
+            {isSigning ? 'Đang xử lý...' : 'Ký Hợp Đồng'}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

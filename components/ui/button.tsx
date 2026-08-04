@@ -26,4 +26,4 @@ const styles = cva(
 )
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>,VariantProps<typeof styles>{asChild?:boolean}
-export function Button({className,variant,size,asChild=false,...props}:ButtonProps){const Comp=asChild?Slot:'button';return <Comp className={cn(styles({variant,size,className}))}{...props}/>}
+export function Button({className,variant,size,asChild=false,...props}:ButtonProps){const Comp=asChild?Slot:'button';return <Comp className={cn(styles({variant,size,className}))} suppressHydrationWarning {...props}/>}
