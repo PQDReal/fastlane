@@ -3,10 +3,8 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Inter } from 'next/font/google'
 import { Auth0Provider } from '@auth0/nextjs-auth0/client'
-import { SearchModal } from '@/components/search-modal'
 import { NavigationLoadingIndicator } from '@/components/navigation-loading-indicator'
-import { CartFlyAnimation } from '@/components/cart-fly-animation'
-import { auth0 } from '@/lib/auth0'
+import { GlobalOverlays } from '@/components/global-overlays'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter' })
 
@@ -29,8 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense fallback={null}>
             <NavigationLoadingIndicator />
           </Suspense>
-          <CartFlyAnimation />
-          <SearchModal />
+          <GlobalOverlays />
         </Auth0Provider>
       </body>
     </html>

@@ -13,6 +13,7 @@ export function NavigationLoadingIndicator() {
   const searchParams = useSearchParams()
   const search = searchParams.toString()
   const navigationStartedAt = useRef(0)
+  const pendingLinks = useRef<Set<HTMLAnchorElement>>(new Set())
   const [isNavigating, setIsNavigating] = useState(false)
 
   function startNavigation() {
@@ -22,6 +23,13 @@ export function NavigationLoadingIndicator() {
 
   useEffect(() => {
     if (!navigationStartedAt.current) return
+
+    for (const link of pendingLinks.current) {
+      delete link.dataset.fastlanePending
+      link.removeAttribute('aria-disabled')
+      link.classList.remove('pointer-events-none', 'opacity-60')
+    }
+    pendingLinks.current.clear()
 
     const elapsed = performance.now() - navigationStartedAt.current
     const timeout = window.setTimeout(() => {
@@ -59,6 +67,12 @@ export function NavigationLoadingIndicator() {
       const href = link.getAttribute('href')
       if (!href || href.startsWith('#')) return
 
+      if (link.dataset.fastlanePending === 'true') {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+
       const destination = new URL(
         link.href,
         window.location.href,
@@ -69,6 +83,11 @@ export function NavigationLoadingIndicator() {
       ) {
         return
       }
+
+      link.dataset.fastlanePending = 'true'
+      link.setAttribute('aria-disabled', 'true')
+      link.classList.add('pointer-events-none', 'opacity-60')
+      pendingLinks.current.add(link)
 
       const current = new URL(
         window.location.href,

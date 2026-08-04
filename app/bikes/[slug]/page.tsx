@@ -3,7 +3,7 @@ import { Header } from '../../../components/header'
 import { Footer } from '../../../components/footer'
 import Link from 'next/link'
 import { BikeColorSelector } from '../../../components/bike-color-selector'
-import { getSupabaseAdmin } from '../../../lib/supabase-admin'
+import { getMotorbikeCatalogBySlug } from '../../../lib/motorbike-catalog'
 import { Button } from '../../../components/ui/button'
 import {
   BatteryCharging,
@@ -13,16 +13,10 @@ import {
   FileDown,
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
-import {
-  getBikeColorImage,
-  getBikeDetailImages,
-  getBikeHeroImage,
-  getBikeListingImage,
-  isBikeSwatchImage,
-  isRenderableBikeImage,
-  parseBikeImageUrls,
-} from '../../../lib/bike-images'
+import Image from 'next/image'
 
+export const revalidate = 300
+// Avoid querying Supabase while the deployment build is prerendering pages.
 export const dynamic = 'force-dynamic'
 
 type JsonObject = Record<string, unknown>
@@ -42,10 +36,6 @@ function asObject(value: unknown): JsonObject {
   return isObject(value) ? value : {}
 }
 
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : []
-}
-
 function asString(value: unknown): string {
   if (typeof value === 'string') {
     return value.trim()
@@ -56,14 +46,6 @@ function asString(value: unknown): string {
   }
 
   return ''
-}
-
-function getStringArray(
-  value: unknown,
-): string[] {
-  return asArray(value)
-    .map(asString)
-    .filter(Boolean)
 }
 
 function normalizeText(value: string): string {
@@ -155,170 +137,32 @@ export default async function BikeDetailPage(
   },
 ) {
   const params = await props.params
-  const supabase = getSupabaseAdmin()
+  const motorbike = await getMotorbikeCatalogBySlug(params.slug)
 
-  const { data: product } = await supabase
-    .from('products')
-    .select('*, category:categories!inner(name)')
-    .eq('slug', params.slug)
-    .eq('is_active', true)
-    .eq('categories.name', 'Xe máy điện')
-    .single()
-
-  if (!product) {
+  if (!motorbike) {
     notFound()
   }
 
-  const rawSpecifications =
-    asObject(product.specifications)
-
-  const specifications = isObject(
-    rawSpecifications.specs,
-  )
-    ? asObject(rawSpecifications.specs)
-    : rawSpecifications
-
-  const gallery = asObject(
-    rawSpecifications.gallery,
-  )
-
-  /*
-   * Existing JSONB format only.
-   *
-   * Placement contract:
-   * banner_images[0]  -> hero
-   * color_details[0] -> first color
-   * color_details[1] -> second color
-   * exterior_images[0] -> large design image
-   * exterior_images[1] -> lower-left image
-   * interior_images[0] -> lower-right image
-   *
-   * When a dedicated gallery array is empty,
-   * all_images is read in its existing order.
-   */
-  const bannerImages = getStringArray(
-    gallery.banner_images,
-  )
-
-  const exteriorImages = getStringArray(
-    gallery.exterior_images,
-  )
-
-  const interiorImages = getStringArray(
-    gallery.interior_images,
-  )
-
-  const allImages = getStringArray(
-    gallery.all_images,
-  )
-
-  const rawColorDetails = asArray(
-    rawSpecifications.color_details,
-  )
-
-  const specificationColorNames = asString(specifications['Màu sắc'])
-    .split(/[;,]/)
-    .map((name) => name.trim())
-    .filter(Boolean)
-  const legacyColorDetails = rawColorDetails
-    .map(asObject)
-    .map((item, index) => {
-            const colorName =
-              asString(item.color_name) || asString(item.name)
-            const candidate =
-              asString(item.image) || asString(item.image_url)
-            const explicitSwatch = asString(item.swatch)
-            const swatchUrl =
-              explicitSwatch ||
-              (isBikeSwatchImage(candidate) ? candidate : '')
-            const exteriorImage =
-              exteriorImages.length ===
-                rawColorDetails.length &&
-              isRenderableBikeImage(exteriorImages[index])
-                ? exteriorImages[index]
-                : ''
-
-            return {
-              colorName,
-              imageUrl:
-                exteriorImage ||
-                getBikeColorImage(
-                  product.slug,
-                  colorName,
-                  candidate,
-                ),
-              swatchUrl,
-            }
-          })
-  const orderedColorNames = legacyColorDetails.length > 0
-    ? legacyColorDetails.map((item) => item.colorName)
-    : specificationColorNames
-
-  const databaseImages = parseBikeImageUrls(
-    product.image_urls,
-    orderedColorNames,
-  )
-  const productImages = getStringArray(product.image_urls)
-  const listingImage = databaseImages.listingImage || getBikeListingImage(
-    product.slug,
-    product.image_urls,
-    '/images/vento.png',
-  )
-  const heroImage = databaseImages.followsOrderedContract
-    ? {
-        src: databaseImages.heroImage,
-        contain: databaseImages.heroImage === databaseImages.listingImage,
-      }
-    : getBikeHeroImage(product.slug, bannerImages, listingImage)
-  const colorDetails = databaseImages.followsOrderedContract
-    ? databaseImages.colorImages
-    : legacyColorDetails
-
-  const orderedColorDetails = colorDetails
-    .filter(
-      (item): item is {
-        colorName: string
-        imageUrl: string
-        swatchUrl: string
-      } => item.colorName !== '' && item.imageUrl !== null,
-    )
-
-  const bikeColors = orderedColorDetails.map((item) => ({
-    name: item.colorName,
-    swatch: item.swatchUrl || undefined,
+  const product = {
+    id: motorbike.productId,
+    name: motorbike.name,
+    slug: motorbike.slug,
+    description: motorbike.description,
+    displayed_price: motorbike.displayedPrice,
+  }
+  const rawSpecifications = motorbike.specifications
+  const specifications = motorbike.specifications
+  const listingImage = motorbike.listingImageUrl
+  const heroImage = {
+    src: motorbike.heroImageUrl,
+    contain: motorbike.heroImageUrl === motorbike.listingImageUrl,
+  }
+  const bikeColors = motorbike.colors.map((color) => ({
+    name: color.name,
+    swatch: color.swatchUrl || undefined,
   }))
-
-  /*
-   * Existing JSONB structure:
-   *
-   * color_details[i].image_url
-   *   -> small color swatch
-   *
-   * gallery.exterior_images[i]
-   *   -> full-bike image for the same color
-   *
-   * Their array indexes are paired directly. No filename
-   * matching or image scoring is performed.
-   */
-  const colorImages = orderedColorDetails.map(
-    (item) => item.imageUrl,
-  )
-
-  /*
-   * Design placement comes from all_images order.
-   * exterior_images is reserved for ordered color renders
-   * when it has a one-to-one color mapping.
-   */
-  const detailImages = databaseImages.followsOrderedContract
-    ? databaseImages.detailImages
-    : getBikeDetailImages(
-        product.slug,
-        [
-          ...interiorImages,
-          ...allImages,
-          ...productImages,
-        ],
-      )
+  const colorImages = motorbike.colors.map((color) => color.imageUrl)
+  const detailImages = motorbike.detailImageUrls
 
   const displayImgs = detailImages.slice(0, 2)
   const displayIntImgs = detailImages.slice(2, 3)
@@ -467,12 +311,7 @@ export default async function BikeDetailPage(
     asString(product.description) ||
     `Xe máy điện VinFast ${product.name}.`
   const brochureUrl = [
-    rawSpecifications.brochure_url,
-    rawSpecifications.brochureUrl,
-    rawSpecifications.brochure,
-    gallery.brochure_url,
-    gallery.brochureUrl,
-    gallery.brochure,
+    motorbike.brochureUrl,
   ]
     .map(asString)
     .find(
@@ -490,10 +329,13 @@ export default async function BikeDetailPage(
 
       {/* HERO SECTION */}
       <section className="relative flex h-screen min-h-[700px] w-full flex-col justify-between overflow-hidden bg-black">
-        <img
+        <Image
           src={heroImage.src}
           alt={product.name}
-className={`absolute inset-0 h-full w-full object-center ${
+          fill
+          priority
+          sizes="100vw"
+          className={`absolute inset-0 h-full w-full object-center ${
             heroImage.contain
               ? 'object-contain p-8 sm:p-16'
               : 'object-cover'
@@ -736,7 +578,7 @@ className={`absolute inset-0 h-full w-full object-center ${
         </div>
       </section>
 
-      {orderedColorDetails.length > 0 && (
+      {motorbike.colors.length > 0 && (
         <BikeColorSelector
           colors={bikeColors}
           images={colorImages}
@@ -762,9 +604,12 @@ className={`absolute inset-0 h-full w-full object-center ${
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             {displayImgs[0] && (
               <div className="overflow-hidden rounded-[2rem] md:col-span-2">
-                <img
+                <Image
                   src={displayImgs[0]}
                   alt={`Thiết kế ${product.name}`}
+                  width={1440}
+                  height={810}
+                  sizes="(max-width: 1024px) 100vw, 1440px"
                   className="h-auto w-full object-cover"
                 />
               </div>
@@ -772,9 +617,12 @@ className={`absolute inset-0 h-full w-full object-center ${
 
             {displayImgs[1] && (
               <div className="aspect-square overflow-hidden rounded-[2rem]">
-                <img
+                <Image
                   src={displayImgs[1]}
                   alt={`Ngoại hình ${product.name}`}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -782,9 +630,12 @@ className={`absolute inset-0 h-full w-full object-center ${
 
             {displayIntImgs[0] && (
               <div className="relative aspect-square overflow-hidden rounded-[2rem]">
-                <img
+                <Image
                   src={displayIntImgs[0]}
                   alt={`Chi tiết ${product.name}`}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="h-full w-full object-cover"
                 />
               </div>

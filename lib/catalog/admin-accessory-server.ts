@@ -1,5 +1,11 @@
 import 'server-only'
 
+import { revalidateTag } from 'next/cache'
+import {
+  ACCESSORY_CATALOG_SUMMARY_CACHE_KEY,
+  ACCESSORY_PRODUCT_CACHE_PREFIX,
+  PRODUCT_SEARCH_CACHE_PREFIX,
+} from '@/lib/cache-keys'
 import { mapAdminAccessoryEditorRow } from '@/lib/catalog/admin-accessory-editor'
 import {
   adminAccessoryRpcPayload,
@@ -8,6 +14,7 @@ import {
   type AdminAccessoryWriteRequest,
 } from '@/lib/catalog/admin-accessory-write'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 
 export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   id,
@@ -150,7 +157,14 @@ export async function saveAdminAccessoryProduct(
     target_payload: adminAccessoryRpcPayload(request),
   })
   if (error) throw rpcError(error)
-  return saveResult(data)
+  const result = saveResult(data)
+  revalidateTag('accessory-catalog')
+  await Promise.all([
+    deleteRedisKey(ACCESSORY_CATALOG_SUMMARY_CACHE_KEY),
+    deleteRedisKeysByPrefix(ACCESSORY_PRODUCT_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
+  ])
+  return result
 }
 
 export async function loadAdminAccessoryProduct(productId: string): Promise<AdminAccessoryEditorData> {

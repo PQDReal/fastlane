@@ -22,6 +22,7 @@ FastLane là ứng dụng thương mại điện tử và đặt lịch lái th�
 - Tailwind CSS
 - Auth0 Universal Login
 - Supabase PostgreSQL
+- Redis 7 (cache phân tán; Supabase vẫn là nguồn dữ liệu chính)
 - OpenAPI 3 và Redocly CLI
 - Docker Compose
 - Vitest
@@ -47,6 +48,7 @@ lib/services/         Truy cập dữ liệu và nghiệp vụ
 - Docker Desktop và Docker Compose v2 nếu chạy bằng container
 - Một Auth0 Regular Web Application và Auth0 API
 - Một Supabase project đã có schema của FastLane
+- Redis local hoặc managed Redis khi cần cache phân tán
 
 ## Biến môi trường
 
@@ -70,6 +72,7 @@ Copy-Item .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_URL` | URL của Supabase project |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, chỉ dùng phía server |
+| `REDIS_URL` | Kết nối Redis; không khai báo thì ứng dụng tự dùng Supabase mà không cache phân tán |
 
 Không commit `.env`, `.env.local`, client secret, service-role key hoặc access token.
 
@@ -117,6 +120,20 @@ Các bảng chính đang được sử dụng:
 - `reservations`: yêu cầu lái thử, thông tin liên hệ, mẫu xe, lịch hẹn và trạng thái.
 
 `SUPABASE_SERVICE_ROLE_KEY` có quyền cao và chỉ được đọc trong server code. Không đặt key này trong biến có tiền tố `NEXT_PUBLIC_`.
+
+## Redis
+
+Redis là lớp tăng tốc tùy chọn cho kết quả tìm kiếm sản phẩm, catalog xe máy/phụ kiện và giỏ hàng theo từng tài khoản. Dữ liệu sản phẩm và giỏ hàng vẫn được ghi bền vững trong Supabase; Redis hỏng hoặc restart không làm mất dữ liệu và ứng dụng tự chuyển về đọc database.
+
+Chạy Redis riêng khi phát triển bằng npm:
+
+```powershell
+docker compose up -d redis
+$env:REDIS_URL = 'redis://localhost:6379'
+npm run dev
+```
+
+Khi chạy toàn bộ bằng Compose, web tự kết nối tới service `redis`. Trên Render hoặc môi trường production, khai báo `REDIS_URL` của managed Redis thay vì địa chỉ `localhost`.
 
 Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 016](migrations/016_admin_accessory_aggregate_write.sql). Migration cài RPC service-role-only `save_admin_accessory_product`; ứng dụng không tự động chạy DDL khi khởi động. Nếu runtime trả `503`, hãy áp dụng migration vào đúng Supabase project trước khi thử lại.
 
@@ -183,7 +200,7 @@ Dừng hệ thống:
 docker compose down
 ```
 
-Compose mặc định dùng `.env.local`. Có thể chọn file khác bằng `FASTLANE_ENV_FILE`, đổi cổng web bằng `FASTLANE_PORT` và đổi cổng Swagger bằng `SWAGGER_PORT`.
+Compose mặc định dùng `.env.local`. Có thể chọn file khác bằng `FASTLANE_ENV_FILE`, đổi cổng web bằng `FASTLANE_PORT`, Redis bằng `REDIS_PORT` và Swagger bằng `SWAGGER_PORT`.
 
 ## Kiểm tra chất lượng
 
