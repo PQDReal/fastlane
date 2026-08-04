@@ -236,7 +236,7 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
         <Button 
           onClick={handleSign} 
           disabled={!agreed || isSigning} 
-          size="lg" 
+          size="default" 
           className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
         >
           {isSigning ? 'Đang xử lý...' : 'Ký Hợp Đồng'}

@@ -87,7 +87,8 @@ jobs:
             --env SUPABASE_SERVICE_ROLE_KEY fastlane:ci
           for attempt in {1..20}; do
             if curl --fail --silent http://127.0.0.1:3000/api/v1/health \
-              && curl --fail --silent --output /dev/null http://127.0.0.1:3000/; then
+              && curl --fail --silent --output /dev/null \
+                http://127.0.0.1:3000/images/fastlane-logo.png; then
               exit 0
             fi
             sleep 1

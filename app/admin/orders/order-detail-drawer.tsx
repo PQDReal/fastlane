@@ -195,7 +195,7 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                   <div className="flex justify-between">
                     <span className="text-slate-500">Trạng thái TT cọc:</span>
                     <span className={`font-semibold ${order.payment === 'Paid' ? 'text-green-600' : 'text-slate-600'}`}>
-                      {order.payment === 'Paid' ? 'Đã Thanh toán' : 'Chưa Thanh toán'}
+                      {order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
                     </span>
                   </div>
                   <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between bg-amber-50/50 p-2 rounded-lg">

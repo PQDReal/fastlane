@@ -236,7 +236,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
                       order.payment === 'Paid' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
                     }`}>
-                      {order.payment === 'Paid' ? 'Đã TT' : 'Chưa TT'}
+                      {order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-50-50 text-xs">{formatDate(order.createdAt)}</td>

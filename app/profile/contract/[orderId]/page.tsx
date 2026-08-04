@@ -5,7 +5,8 @@ import ContractPageClient from './contract-client'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ContractPage({ params }: { params: { orderId: string } }) {
+export default async function ContractPage({ params }: { params: Promise<{ orderId: string }> }) {
+  const { orderId } = await params
   const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login')
@@ -15,7 +16,7 @@ export default async function ContractPage({ params }: { params: { orderId: stri
   const { data: order, error } = await supabase
     .from('deposit_orders')
     .select('*, vehicle_variants(*)')
-    .eq('id', params.orderId)
+    .eq('id', orderId)
     .single()
 
   if (error || !order) {

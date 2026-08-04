@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export function VehicleCard({ name, desc, price, image, href = '#' }: any) {
   const slug = href.split('/').filter(Boolean).pop()
@@ -9,9 +10,11 @@ export function VehicleCard({ name, desc, price, image, href = '#' }: any) {
   return (
     <article className="group h-full flex flex-col items-center text-center cursor-pointer pb-8">
       <Link href={href} className="relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden rounded-2xl bg-gray-50/50 p-4">
-        <img 
+        <Image
           src={image} 
           alt={name} 
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="relative z-10 w-full h-full object-contain transition-transform duration-700 ease-[0.16,1,0.3,1] group-hover:scale-[1.05]" 
         />
       </Link>

@@ -2,6 +2,7 @@ export type MonitoringPeriod = '1h' | '24h' | '7d' | '14d'
 
 export type LatencySummary = {
   requestCount: number
+  avgMs: number | null
   p50Ms: number | null
   p95Ms: number | null
   p99Ms: number | null
@@ -11,6 +12,8 @@ export type LatencySummary = {
 export type SlowTransaction = LatencySummary & {
   name: string
   operation: string
+  method: string
+  statusCode: number | null
 }
 
 export type MonitoringIssue = {

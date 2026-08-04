@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Check } from 'lucide-react'
+import Image from 'next/image'
 
 interface BikeColorSelectorProps {
   colors: (string | { name: string; swatch?: string })[]
@@ -121,10 +122,13 @@ export function BikeColorSelector({ colors, images }: BikeColorSelectorProps) {
             {availableOptions.map(({ color: colorObj }, idx) => {
               const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
               return (
-                <img
+                <Image
                   key={colorName}
                   src={availableOptions[idx].image}
                   alt={colorName}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 896px"
+                  loading={idx === 0 ? 'eager' : 'lazy'}
                   className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ease-in-out ${selectedIndex === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
                     }`}
                 />
@@ -152,7 +156,13 @@ export function BikeColorSelector({ colors, images }: BikeColorSelectorProps) {
                     title={colorName}
                   >
                     {swatchImg && (
-                      <img src={swatchImg} alt={colorName} className="absolute inset-0 w-full h-full object-cover" />
+                      <Image
+                        src={swatchImg}
+                        alt={colorName}
+                        fill
+                        sizes="48px"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
                     )}
 
                     {/* Ring selection effect */}

@@ -4,38 +4,19 @@ import { DepositClient } from './DepositClient'
 import {
   buildMotorbikeDepositSpecs,
   findDepositVehicle,
-  mergeMotorbikeDatabaseRows,
-  normalizeMotorbikesForDeposit,
   type DepositVehicleType,
 } from '../../lib/deposit-vehicles'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
+import { listMotorbikeCatalog } from '../../lib/motorbike-catalog'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DepositPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await searchParams
   const carsDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json')
-  const motorbikesDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'motorbikes.json')
   const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
 
-  const publishedMotorbikes = JSON.parse(fs.readFileSync(motorbikesDataPath, 'utf8'))
-  const motorbikeResult = await getSupabaseAdmin()
-    .from('products')
-    .select(`
-      name,
-      slug,
-      displayed_price,
-      image_urls,
-      specifications,
-      category:categories!inner(name),
-      product_variants(name,original_price,sale_price,deposit_amount,is_active)
-    `)
-    .eq('is_active', true)
-    .eq('categories.name', 'Xe máy điện')
-    .order('name', { ascending: true })
-  if (motorbikeResult.error) {
-    console.error('Unable to load motorbike deposit data from Supabase:', motorbikeResult.error)
-  }
+  const motorbikeCatalog = await listMotorbikeCatalog()
 
   const supabase = getSupabaseAdmin()
   let dbProducts: any[] = []
@@ -54,12 +35,30 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     }
     return c
   })
-  const motorbikesData = normalizeMotorbikesForDeposit(
-    mergeMotorbikeDatabaseRows(
-      publishedMotorbikes,
-      motorbikeResult.data ?? [],
+  const motorbikesData = motorbikeCatalog.map((motorbike) => ({
+    name: motorbike.name,
+    slug: motorbike.slug,
+    product_type: 'motorbike' as const,
+    displayed_price: motorbike.displayedPrice,
+    deposit_value: motorbike.versions[0]?.depositAmount ?? 2_000_000,
+    image_url: motorbike.heroImageUrl,
+    colors: motorbike.colors.map((color) => ({
+      name: color.name,
+      image: color.imageUrl,
+      swatch: color.swatchUrl,
+    })),
+    variants: motorbike.versions.map((version) => version.name),
+    variant_prices: Object.fromEntries(
+      motorbike.versions.map((version) => [version.name, version.price]),
     ),
-  )
+    specs: motorbike.specifications,
+    optional_packages: [],
+    gallery: {
+      exterior_images: motorbike.colors.map((color) => color.imageUrl),
+      interior_images: [],
+      detail_images: motorbike.detailImageUrls,
+    },
+  }))
   const specsData = {
     ...JSON.parse(fs.readFileSync(specsDataPath, 'utf8')),
     ...buildMotorbikeDepositSpecs(motorbikesData),

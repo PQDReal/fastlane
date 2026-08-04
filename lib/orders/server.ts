@@ -19,12 +19,29 @@ type OrderItemRow = {
   unit_price: number | string
   quantity: number
   line_subtotal: number | string
+  variant: {
+    product: OrderItemProduct | OrderItemProduct[] | null
+  } | { product: OrderItemProduct | OrderItemProduct[] | null }[] | null
+}
+
+type OrderItemProduct = {
+  thumbnail_url: string | null
+  image_urls: unknown
+  media: Array<{
+    variant_id: string | null
+    role: string
+    media_type: string
+    url: string
+    is_active: boolean
+    display_order: number
+  }>
 }
 
 type OrderRow = {
   id: string
   order_number: string
-  status: 'PENDING' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
+  status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
+  refund_status: 'NONE' | 'PENDING' | 'COMPLETED' | null
   subtotal: number | string
   discount_amount: number | string
   total_amount: number | string
@@ -41,8 +58,10 @@ function money(value: number | string) {
 
 function orderStatus(status: OrderRow['status']): AccessoryOrder['status'] {
   switch (status) {
-    case 'CONFIRMED':
+    case 'PAID':
       return 'Paid'
+    case 'CONFIRMED':
+      return 'Confirmed'
     case 'READY':
       return 'Shipped'
     case 'DELIVERED':
@@ -70,7 +89,12 @@ function mapOrder(row: OrderRow): AccessoryOrder {
     countryCode: 'VN',
   }
   const status = orderStatus(row.status)
-  const pending = row.status === 'PENDING'
+  const pending = row.status === 'PENDING' || (row.status === 'CANCELLED' && row.refund_status !== 'PENDING' && row.refund_status !== 'COMPLETED')
+  const refundStatus: AccessoryOrder['refundStatus'] = row.refund_status === 'PENDING'
+    ? 'Pending'
+    : row.refund_status === 'COMPLETED'
+      ? 'Completed'
+      : 'None'
   const initialPaymentDueAt = new Date(
     new Date(row.created_at).getTime() + 30 * 60 * 1000,
   ).toISOString()
@@ -88,6 +112,7 @@ function mapOrder(row: OrderRow): AccessoryOrder {
     customer: row.customer,
     status,
     statusUpdatedAt: row.updated_at,
+    refundStatus,
     pricing: {
       currency: 'VND',
       subtotal,
@@ -121,7 +146,19 @@ function mapOrder(row: OrderRow): AccessoryOrder {
     cancellation: null,
     shippingAddress,
     note: typeof rawAddress.note === 'string' ? rawAddress.note : null,
-    items: (row.order_items || []).map((item) => ({
+    items: (row.order_items || []).map((item) => {
+      const variant = Array.isArray(item.variant) ? item.variant[0] : item.variant
+      const product = Array.isArray(variant?.product) ? variant.product[0] : variant?.product
+      const media = (product?.media ?? [])
+        .filter((entry) => entry.is_active && entry.media_type === 'IMAGE')
+        .sort((left, right) => left.display_order - right.display_order)
+      const thumbnailUrl = media.find((entry) => entry.variant_id === item.variant_id && entry.role === 'THUMBNAIL')?.url
+        ?? media.find((entry) => entry.variant_id === null && entry.role === 'THUMBNAIL')?.url
+        ?? media.find((entry) => entry.variant_id === item.variant_id)?.url
+        ?? (Array.isArray(product?.image_urls) && typeof product.image_urls[0] === 'string' ? product.image_urls[0] : null)
+        ?? product?.thumbnail_url
+        ?? null
+      return {
       id: item.id,
       variantId: item.variant_id,
       productKind: 'accessory',
@@ -135,6 +172,7 @@ function mapOrder(row: OrderRow): AccessoryOrder {
       },
       sku: item.sku_snapshot,
       productName: item.product_name_snapshot,
+      thumbnailUrl,
       variantAttributes:
         item.variant_name_snapshot === 'Mặc định'
           ? ({} as Record<string, string>)
@@ -150,7 +188,7 @@ function mapOrder(row: OrderRow): AccessoryOrder {
       quantity: item.quantity,
       lineTotal: money(item.line_subtotal),
       lineAmountDueNow: money(item.line_subtotal),
-    })),
+    }}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -160,6 +198,7 @@ const orderSelection = `
   id,
   order_number,
   status,
+  refund_status,
   subtotal,
   discount_amount,
   total_amount,
@@ -177,6 +216,13 @@ const orderSelection = `
     unit_price,
     quantity,
     line_subtotal
+    ,variant:product_variants(
+      product:products(
+        thumbnail_url,
+        image_urls,
+        media:product_media(variant_id,role,media_type,url,is_active,display_order)
+      )
+    )
   )
 `
 
@@ -193,7 +239,17 @@ export async function readCustomerOrder(customerId: string, orderId: string) {
     throw new ApiRouteError(404, 'RESOURCE_NOT_FOUND', 'Order was not found.')
   }
 
-  return mapOrder(data as unknown as OrderRow)
+  const order = mapOrder(data as unknown as OrderRow)
+  const attempt = await getSupabaseAdmin()
+    .from('vnpay_checkout_attempts')
+    .select('status')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ status: 'PENDING' | 'PAID' | 'FAILED' }>()
+
+  if (attempt.error) throw new Error(`Unable to read payment attempt: ${attempt.error.message}`)
+  return { ...order, latestPaymentAttemptStatus: attempt.data?.status ?? null }
 }
 
 export async function listCustomerOrders(
@@ -217,13 +273,38 @@ export async function listCustomerOrders(
     if (accessoryError) throw new Error(`Unable to list orders: ${accessoryError.message}`)
   
     const accessoryOrders = ((accessoryData ?? []) as unknown as OrderRow[]).map(mapOrder)
+    const orderIds = accessoryOrders.map((order) => order.id)
+    const latestAttemptByOrder = new Map<string, 'PENDING' | 'PAID' | 'FAILED'>()
+
+    if (orderIds.length > 0) {
+      const { data: attempts, error: attemptsError } = await supabase
+        .from('vnpay_checkout_attempts')
+        .select('order_id,status,created_at')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false })
+
+      if (attemptsError) throw new Error(`Unable to list payment attempts: ${attemptsError.message}`)
+      for (const attempt of attempts ?? []) {
+        if (!latestAttemptByOrder.has(attempt.order_id)) {
+          latestAttemptByOrder.set(attempt.order_id, attempt.status as 'PENDING' | 'PAID' | 'FAILED')
+        }
+      }
+    }
     
     accessorySummaries = accessoryOrders.map((order) => ({
       id: order.id,
       orderNumber: order.orderNumber,
       orderType: 'accessory',
       status: order.status as AccessoryOrderSummary['status'],
+      refundStatus: order.refundStatus,
       paymentStatus: order.payment.status,
+      latestPaymentAttemptStatus: latestAttemptByOrder.get(order.id) ?? null,
+      items: order.items.map((item) => ({
+        id: item.id,
+        productName: item.productName,
+        thumbnailUrl: item.thumbnailUrl,
+        quantity: item.quantity,
+      })),
       nextPaymentDueAt:
         order.payment.status === 'Pending'
           ? order.payment.schedule.initialPaymentDueAt
@@ -276,6 +357,7 @@ export async function listCustomerOrders(
         carModel: deposit.car_model,
         carVariant: deposit.car_variant,
         status: orderStatus as AccessoryOrderSummary['status'],
+        refundStatus: 'None',
         paymentStatus: paymentStatus as 'Pending' | 'Paid',
         nextPaymentDueAt: null,
         pricing: {

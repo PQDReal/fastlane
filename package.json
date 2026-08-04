@@ -7,7 +7,8 @@
     "npm": ">=10"
   },
   "overrides": {
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "sharp": "^0.35.0"
   },
   "scripts": {
     "dev": "next dev --turbopack",
@@ -15,6 +16,7 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "check:performance-budget": "node scripts/check-performance-budget.mjs",
     "check:openapi": "npm --prefix api-contract run check:openapi",
     "seed:accessory-inventory": "node scripts/seed-accessory-inventory.mjs",
     "sync:vinfast-accessories": "node --env-file=.env.local scripts/sync-vinfast-accessories.mjs",
@@ -33,8 +35,11 @@
     "preview:openapi": "npm --prefix api-contract run preview",
     "normalize:motorbike-specs": "node scripts/normalize-motorbike-specs.mjs",
     "sync:motorbike-images": "node --env-file=.env.local scripts/sync-motorbike-images.mjs",
+    "verify:motorbike-vehicle-variants": "node --env-file=.env.local scripts/verify-motorbike-vehicle-variants.mjs",
+    "migrate:motorbike-vehicle-variants": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs",
+    "migrate:motorbike-vehicle-variants:apply": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs --apply",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
-    "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build",
+    "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build && npm run check:performance-budget",
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
   },
   "dependencies": {
@@ -47,9 +52,10 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "framer-motion": "^12.42.2",
+    "ioredis": "^5.11.1",
     "jose": "6.2.3",
     "lucide-react": "latest",
-    "next": "15.5.20",
+    "next": "^15.5.22",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.10.0",
@@ -65,5 +71,9 @@
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3",
     "vitest": "3.2.7"
+  },
+  "allowScripts": {
+    "@sentry/cli@2.58.6": true,
+    "esbuild@0.28.1": true
   }
 }
