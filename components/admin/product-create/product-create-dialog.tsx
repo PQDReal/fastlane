@@ -167,6 +167,20 @@ export function ProductCreateDialog({
     ])
   }
 
+  const requestClose = useCallback(() => {
+    if (!workflowDirty) {
+      onClose()
+      return
+    }
+
+    confirmWorkflow(
+      'Thoát trình tạo sản phẩm?',
+      'Thông tin phụ kiện bạn đã nhập sẽ bị mất nếu chưa lưu bản nháp.',
+      onClose,
+      'Thoát và bỏ thay đổi',
+    )
+  }, [confirmWorkflow, onClose, workflowDirty])
+
   return (
     <>
       <ToastViewport toasts={toasts} onClose={dismissToast} />
@@ -178,7 +192,7 @@ export function ProductCreateDialog({
               <header className="flex items-center gap-4 border-b border-slate-200 px-4 py-3 sm:px-6">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white"><PackagePlus size={19} /></div>
                 <div className="min-w-0 flex-1"><h2 id="create-product-title" className="text-lg font-bold text-slate-950">Thêm sản phẩm</h2><p className="text-xs text-slate-500">Chọn loại sản phẩm để bắt đầu</p></div>
-                <button ref={closeRef} type="button" onClick={onClose} aria-label="Đóng" className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><X size={20} /></button>
+                <button ref={closeRef} type="button" onClick={requestClose} aria-label="Đóng" className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><X size={20} /></button>
               </header>
               <ProductTypePicker categories={categories} onSelect={selectCategory} />
             </motion.div>
@@ -191,7 +205,7 @@ export function ProductCreateDialog({
           open={open}
           rootCategoryId={activeCategory.id}
           serviceLabels={serviceLabels}
-          onClose={onClose}
+          onClose={requestClose}
           onChangeType={requestChangeType}
           onDirtyChange={setWorkflowDirty}
           onSaved={onSaved}
