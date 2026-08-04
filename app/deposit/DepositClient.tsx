@@ -1694,7 +1694,7 @@ export function DepositClient({
                   
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Số điện thoại <span className="text-red-500">*</span></label>
-                    <input type="tel" required autoComplete="tel" inputMode="tel" minLength={10} maxLength={20} pattern="(?:0|\\+84)(?:3|5|7|8|9)[0-9 .()\\-]{8,14}" aria-invalid={Boolean(fieldErrors.phoneNumber)} placeholder="Ví dụ: 0901234567 hoặc +84901234567" className={inputClass('phoneNumber')} value={formData.phone} onBlur={() => validateCustomerField('phoneNumber')} onChange={e => { setFormData({...formData, phone: e.target.value}); clearFieldError('phoneNumber') }} />
+                    <input type="tel" required autoComplete="tel" inputMode="tel" minLength={10} maxLength={20} pattern="(?:0|\+84)(?:3|5|7|8|9)[0-9 .()\-]{8,14}" aria-invalid={Boolean(fieldErrors.phoneNumber)} placeholder="Ví dụ: 0901234567 hoặc +84901234567" className={inputClass('phoneNumber')} value={formData.phone} onBlur={() => validateCustomerField('phoneNumber')} onChange={e => { setFormData({...formData, phone: e.target.value}); clearFieldError('phoneNumber') }} />
                     {fieldErrors.phoneNumber && <p className="text-xs font-medium text-red-600">{fieldErrors.phoneNumber}</p>}
                   </div>
 
@@ -2094,10 +2094,10 @@ export function DepositClient({
                  </>
                ) : (
                  <button 
-                   onClick={() => window.location.href = '/'}
+                   onClick={() => window.location.href = '/profile'}
                    className="w-full flex justify-center items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-full font-bold text-sm tracking-widest hover:bg-slate-800 transition-all uppercase hover:shadow-xl active:scale-95"
                  >
-                   Về trang chủ
+                   Xem lịch sử mua xe
                  </button>
                )}
              </div>

@@ -86,6 +86,7 @@ export function depositVehicleKey(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .replace(/vinfast\s*/g, '')
     .replace(/[^a-z0-9]/g, '')
 }
 

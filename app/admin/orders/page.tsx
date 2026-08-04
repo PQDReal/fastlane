@@ -48,6 +48,8 @@ export default async function AdminOrdersPage() {
       payment: paymentStatus,
       createdAt: deposit.created_at,
       isCar: true,
+      kyc_status: deposit.kyc_status,
+      kyc_session_id: deposit.kyc_session_id,
       rawDeposit: deposit,
     }
   })

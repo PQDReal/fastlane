@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "4.25.0",
+    "@didit-protocol/sdk-web": "^0.2.1",
     "@radix-ui/react-slot": "latest",
     "@sentry/nextjs": "^10.69.0",
     "@supabase/server": "^1.4.0",

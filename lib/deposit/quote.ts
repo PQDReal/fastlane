@@ -213,11 +213,28 @@ export async function buildDepositVehicleQuote(
     key(product.name),
     key(specifications.name),
   ].filter(Boolean))
-  const selectedVariant = (variantsResult.data ?? []).find((variant) => {
+  
+  let selectedVariant = (variantsResult.data ?? []).find((variant) => {
     const variantName = key(variant.name)
     return requestedVariant === variantName ||
       [...productNames].some((name) => requestedVariant === `${name}${variantName}`)
   })
+
+  if (!selectedVariant && (variantsResult.data ?? []).length > 0) {
+    const fallbackMatches = (variantsResult.data ?? []).filter((variant) => {
+      const variantName = key(variant.name)
+      return variantName.includes(requestedVariant) || 
+        [...productNames].some((name) => variantName.includes(`${name}${requestedVariant}`) || `${name}${variantName}`.includes(requestedVariant))
+    })
+    
+    if (fallbackMatches.length > 0) {
+      selectedVariant = fallbackMatches.sort((a, b) => {
+        const aIsKemPin = key(a.name).includes('kempin') ? -1 : 1
+        const bIsKemPin = key(b.name).includes('kempin') ? -1 : 1
+        return aIsKemPin - bIsKemPin
+      })[0]
+    }
+  }
   if ((variantsResult.data ?? []).length > 0 && !selectedVariant) {
     throw new DepositInputError(
       'Phiên bản xe không tồn tại hoặc đã ngừng áp dụng.',

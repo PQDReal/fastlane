@@ -280,9 +280,9 @@ export async function listCustomerOrders(
         nextPaymentDueAt: null,
         pricing: {
           currency: 'VND',
-          grandTotal: finalDepositVal,
+          grandTotal: deposit.total_estimated_price ? String(deposit.total_estimated_price) : finalDepositVal,
           amountDueNow: finalDepositVal,
-          balanceDue: '0',
+          balanceDue: deposit.total_estimated_price ? String(Math.max(0, Number(deposit.total_estimated_price) - Number(finalDepositVal))) : '0',
         },
         createdAt: deposit.created_at,
         statusUpdatedAt: deposit.updated_at,
