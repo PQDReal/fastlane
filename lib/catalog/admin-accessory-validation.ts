@@ -1,6 +1,7 @@
 import {
   draftOptionGroupIsRequired,
   projectedVariantCount,
+  nonEmptyUrls,
   variantGroups,
   variantSignature,
   type AdminAccessoryDraft,
@@ -10,7 +11,7 @@ import {
 
 export type DraftValidationIssue = {
   path: string
-  section: 'options' | 'variants' | 'media' | 'review'
+  section: 'options' | 'variants' | 'review'
   severity: 'error' | 'warning'
   code: string
   message: string
@@ -79,9 +80,6 @@ function validateGroup(group: DraftOptionGroup, groupIndex: number): DraftValida
     if (!isHttpUrl(value.swatchUrl)) {
       issues.push({ path: `${valuePath}.swatchUrl`, section: 'options', severity: 'error', code: 'OPTION_SWATCH_URL_INVALID', message: 'URL swatch phải dùng HTTP hoặc HTTPS.' })
     }
-    if (value.imageUrls.some((url) => !isHttpUrl(url))) {
-      issues.push({ path: `${valuePath}.imageUrls`, section: 'media', severity: 'error', code: 'OPTION_MEDIA_URL_INVALID', message: 'URL hình ảnh tùy chọn phải dùng HTTP hoặc HTTPS.' })
-    }
   })
 
   return issues
@@ -90,7 +88,6 @@ function validateGroup(group: DraftOptionGroup, groupIndex: number): DraftValida
 function validateVariants(draft: AdminAccessoryDraft): DraftValidationIssue[] {
   const issues: DraftValidationIssue[] = []
   const included = draft.variants.filter((variant) => variant.isIncluded !== false)
-  const duplicateSkus = duplicateIndexes(included.map((variant) => normalized(variant.sku)))
   const duplicateSignatures = duplicateIndexes(included.map((variant) => variantSignature(variant, draft.optionGroups)))
 
   if (included.length === 0 || !included.some((variant) => variant.isActive)) {
@@ -103,11 +100,6 @@ function validateVariants(draft: AdminAccessoryDraft): DraftValidationIssue[] {
     const originalPrice = Number(variant.originalPrice)
     const salePrice = variant.salePrice.trim() ? Number(variant.salePrice) : null
     if (!variant.name.trim()) issues.push({ path: `${path}.name`, section: 'variants', severity: 'error', code: 'VARIANT_NAME_REQUIRED', message: 'Tên biến thể không được để trống.' })
-    if (!variant.sku.trim()) {
-      issues.push({ path: `${path}.sku`, section: 'variants', severity: 'error', code: 'VARIANT_SKU_REQUIRED', message: 'SKU không được để trống.' })
-    } else if (duplicateSkus.has(normalized(variant.sku))) {
-      issues.push({ path: `${path}.sku`, section: 'variants', severity: 'error', code: 'VARIANT_SKU_DUPLICATE', message: 'SKU bị trùng trong bản nháp.' })
-    }
     if (!Number.isSafeInteger(originalPrice) || originalPrice < 0) {
       issues.push({ path: `${path}.originalPrice`, section: 'variants', severity: 'error', code: 'VARIANT_PRICE_INVALID', message: 'Giá niêm yết phải là số nguyên VND không âm.' })
     }
@@ -122,8 +114,19 @@ function validateVariants(draft: AdminAccessoryDraft): DraftValidationIssue[] {
         issues.push({ path: `${path}.selections.${group.id}`, section: 'variants', severity: 'error', code: 'VARIANT_SELECTION_REQUIRED', message: `Cần chọn ${group.name || 'thuộc tính bắt buộc'}.` })
       }
     }
+    const imageUrls = nonEmptyUrls(variant.imageUrls)
+    if (imageUrls.length > 20) {
+      issues.push({ path: `${path}.imageUrls`, section: 'variants', severity: 'error', code: 'VARIANT_MEDIA_LIMIT_INVALID', message: 'Mỗi SKU chỉ được có tối đa 20 ảnh.' })
+    }
     if (variant.imageUrls.some((url) => !isHttpUrl(url))) {
-      issues.push({ path: `${path}.imageUrls`, section: 'media', severity: 'error', code: 'VARIANT_MEDIA_URL_INVALID', message: 'URL hình ảnh biến thể phải dùng HTTP hoặc HTTPS.' })
+      issues.push({ path: `${path}.imageUrls`, section: 'variants', severity: 'error', code: 'VARIANT_MEDIA_URL_INVALID', message: 'URL hình ảnh SKU phải dùng HTTP hoặc HTTPS.' })
+    }
+    const duplicateImageUrls = duplicateIndexes(imageUrls.map((url) => normalized(url)))
+    if (duplicateImageUrls.size > 0) {
+      issues.push({ path: `${path}.imageUrls`, section: 'variants', severity: 'error', code: 'VARIANT_MEDIA_DUPLICATE', message: 'URL hình ảnh SKU không được trùng.' })
+    }
+    if (imageUrls.length === 0) {
+      issues.push({ path: `${path}.imageUrls`, section: 'variants', severity: 'error', code: 'VARIANT_MEDIA_REQUIRED', message: `${variant.name || `Biến thể ${index + 1}`} cần ít nhất một ảnh trực tiếp.` })
     }
   })
 
@@ -145,9 +148,6 @@ export function validateAdminAccessoryDraft(draft: AdminAccessoryDraft): DraftVa
   else if (matrixSize >= 100) issues.push({ path: 'optionGroups', section: 'options', severity: 'warning', code: 'VARIANT_MATRIX_LARGE', message: `Ma trận sẽ tạo ${matrixSize} tổ hợp; hãy kiểm tra trước khi tiếp tục.` })
 
   issues.push(...validateVariants(draft))
-  if (draft.productImageUrls.some((url) => !isHttpUrl(url))) {
-    issues.push({ path: 'productImageUrls', section: 'media', severity: 'error', code: 'PRODUCT_MEDIA_URL_INVALID', message: 'URL hình ảnh sản phẩm phải dùng HTTP hoặc HTTPS.' })
-  }
   return issues
 }
 

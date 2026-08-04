@@ -54,15 +54,15 @@ function draftFromFixture(product: RawAccessory): AdminAccessoryDraft {
         name,
         colorHex: '',
         swatchUrl: '',
-        imageUrls: [''],
       })),
     }
   })
 
   return {
     rootCategoryId: 'fixture-accessories',
-    primaryCollectionSlug: 'fixture',
-    modelCollectionSlugs: [],
+    templateCode: 'custom',
+    templateVersion: 1,
+    categoryAssignments: [{ categoryId: 'fixture', compatibilityMode: 'NOT_APPLICABLE', modelIds: [] }],
     name: product.name,
     slug: accessoryAdminSlug(product.name),
     description: product.description,
@@ -84,7 +84,6 @@ function draftFromFixture(product: RawAccessory): AdminAccessoryDraft {
       })),
       imageUrls: variant.images.length > 0 ? variant.images : [''],
     })),
-    productImageUrls: product.images.length > 0 ? product.images : [''],
   }
 }
 

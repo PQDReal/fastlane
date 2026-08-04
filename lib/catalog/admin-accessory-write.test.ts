@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   adminAccessoryDraftToWriteRequest,
+  adminAccessoryRpcPayload,
   AdminAccessoryWriteValidationError,
   parseAdminAccessoryWriteRequest,
   type AdminAccessoryWriteRequest,
@@ -16,8 +17,9 @@ const LABEL_ID = '44444444-4444-4444-4444-444444444444'
 function request(): AdminAccessoryWriteRequest {
   return {
     categoryId: CATEGORY_ID,
-    primaryCollectionId: PRIMARY_ID,
-    modelCollectionIds: [MODEL_ID],
+    templateCode: 'vehicle_fit',
+    templateVersion: 1,
+    categoryAssignments: [{ categoryId: PRIMARY_ID, compatibilityMode: 'SELECTED_MODELS', modelIds: [MODEL_ID] }],
     name: 'Ốp gương',
     slug: 'op-guong',
     description: 'Phụ kiện chính hãng.',
@@ -42,26 +44,22 @@ function request(): AdminAccessoryWriteRequest {
       minimumSelections: 1,
       maximumSelections: 1,
       displayOrder: 10,
-      drivesMedia: true,
       values: [{
         code: 'black',
         name: 'Đen',
         colorHex: '#000000',
         swatchUrl: null,
         displayOrder: 10,
-        imageUrls: ['https://cdn.example.com/black.webp'],
       }],
     }],
     variants: [{
       name: 'Đen',
-      sku: 'ACC-BLACK',
       originalPrice: 500000,
       salePrice: 450000,
       isActive: true,
       optionValues: { color: 'black' },
-      imageUrls: [],
+      imageUrls: ['https://cdn.example.com/black-sku.webp'],
     }],
-    productImageUrls: ['https://cdn.example.com/product.webp'],
   }
 }
 
@@ -93,14 +91,45 @@ describe('parseAdminAccessoryWriteRequest', () => {
     )
   })
 
-  it('rejects media on a non-media option group', () => {
+  it('rejects removed option-scoped media fields', () => {
     const input = request()
-    input.optionGroups[0].drivesMedia = false
+    Object.assign(input.optionGroups[0], { drivesMedia: false })
 
     expect(() => parseAdminAccessoryWriteRequest(input)).toThrowError(
       expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({
-        code: 'OPTION_MEDIA_GROUP_INVALID',
+        code: 'UNKNOWN_FIELD',
       }),
+    )
+  })
+
+  it('rejects client-provided SKU values because the database owns allocation', () => {
+    const input = request()
+    Object.assign(input.variants[0], { sku: 'CLIENT-SKU' })
+
+    expect(() => parseAdminAccessoryWriteRequest(input)).toThrowError(
+      expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({
+        code: 'UNKNOWN_FIELD',
+        path: 'variants.0.sku',
+      }),
+    )
+  })
+
+  it('requires direct media for every SKU and rejects the generic gallery field', () => {
+    const input = request()
+    input.variants[0].imageUrls = []
+
+    expect(() => parseAdminAccessoryWriteRequest(input)).toThrowError(
+      expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({
+        code: 'VARIANT_MEDIA_REQUIRED',
+        path: 'variants.0.imageUrls',
+      }),
+    )
+
+    input.variants[0].imageUrls = ['https://cdn.example.com/black-sku.webp']
+    expect(parseAdminAccessoryWriteRequest(input).variants[0].imageUrls).toEqual(['https://cdn.example.com/black-sku.webp'])
+
+    expect(() => parseAdminAccessoryWriteRequest({ ...input, productImageUrls: ['https://cdn.example.com/gallery.webp'] })).toThrowError(
+      expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({ code: 'UNKNOWN_FIELD', path: 'body.productImageUrls' }),
     )
   })
 
@@ -114,6 +143,59 @@ describe('parseAdminAccessoryWriteRequest', () => {
       }),
     )
   })
+
+  it('derives compatibility product media from the first active SKU only', () => {
+    const parsed = parseAdminAccessoryWriteRequest(request())
+    expect(adminAccessoryRpcPayload(parsed)).toMatchObject({
+      productImageUrls: ['https://cdn.example.com/black-sku.webp'],
+      optionGroups: [{ drivesMedia: false, values: [{ imageUrls: [] }] }],
+    })
+  })
+
+  it('rejects duplicate, invalid-protocol and oversized SKU image lists', () => {
+    const duplicate = request()
+    duplicate.variants[0].imageUrls = ['https://cdn.example.com/a.webp', 'https://cdn.example.com/a.webp']
+    expect(() => parseAdminAccessoryWriteRequest(duplicate)).toThrowError(
+      expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({ path: 'variants.0.imageUrls', code: 'URL_DUPLICATE' }),
+    )
+
+    const invalid = request()
+    invalid.variants[0].imageUrls = ['ftp://cdn.example.com/a.webp']
+    expect(() => parseAdminAccessoryWriteRequest(invalid)).toThrowError(
+      expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({ path: 'variants.0.imageUrls.0', code: 'URL_INVALID' }),
+    )
+
+    const oversized = request()
+    oversized.variants[0].imageUrls = Array.from({ length: 21 }, (_, index) => `https://cdn.example.com/${index}.webp`)
+    expect(() => parseAdminAccessoryWriteRequest(oversized)).toThrowError(
+      expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({ path: 'variants.0.imageUrls', code: 'URL_LIST_INVALID' }),
+    )
+  })
+
+  it('normalizes the legacy taxonomy payload during the rollout window', () => {
+    const { templateCode: _templateCode, templateVersion: _templateVersion, categoryAssignments: _categoryAssignments, ...aggregate } = request()
+    const parsed = parseAdminAccessoryWriteRequest({
+      ...aggregate,
+      primaryCollectionId: PRIMARY_ID,
+      modelCollectionIds: [MODEL_ID],
+    })
+    expect(parsed).toMatchObject({
+      legacyTaxonomy: true,
+      templateCode: 'custom',
+      templateVersion: 1,
+      categoryAssignments: [{ categoryId: PRIMARY_ID, compatibilityMode: 'SELECTED_MODELS', modelIds: [MODEL_ID] }],
+    })
+  })
+
+  it('rejects a payload that mixes legacy and multi-category taxonomy', () => {
+    expect(() => parseAdminAccessoryWriteRequest({
+      ...request(),
+      primaryCollectionId: PRIMARY_ID,
+      modelCollectionIds: [],
+    })).toThrowError(expect.objectContaining<Partial<AdminAccessoryWriteValidationError>>({
+      code: 'TAXONOMY_SHAPE_CONFLICT',
+    }))
+  })
 })
 
 describe('adminAccessoryDraftToWriteRequest', () => {
@@ -125,13 +207,13 @@ describe('adminAccessoryDraftToWriteRequest', () => {
     const draft = createAdminAccessoryDraft()
     Object.assign(draft, {
       rootCategoryId: CATEGORY_ID,
-      primaryCollectionSlug: 'phu-kien-o-to-dien',
-      modelCollectionSlugs: ['vf-8'],
+      templateCode: 'vehicle_fit',
+      templateVersion: 1,
+      categoryAssignments: [{ categoryId: PRIMARY_ID, compatibilityMode: 'SELECTED_MODELS', modelIds: [MODEL_ID] }],
       name: 'Ốp gương',
       slug: 'op-guong',
       description: 'Phụ kiện chính hãng.',
       isActive: true,
-      productImageUrls: ['https://cdn.example.com/product.webp'],
       optionGroups: [{
         id: 'group-local',
         presetCode: 'color',
@@ -146,7 +228,6 @@ describe('adminAccessoryDraftToWriteRequest', () => {
           name: 'Đen',
           colorHex: '#000000',
           swatchUrl: '',
-          imageUrls: ['https://cdn.example.com/black.webp'],
         }],
       }],
       variants: [{
@@ -158,14 +239,13 @@ describe('adminAccessoryDraftToWriteRequest', () => {
         isActive: true,
         isIncluded: true,
         selections: { 'group-local': 'value-local' },
-        imageUrls: [''],
+        imageUrls: ['https://cdn.example.com/black-sku.webp'],
       }],
     })
 
     const payload = adminAccessoryDraftToWriteRequest(draft, collections)
 
-    expect(payload.primaryCollectionId).toBe(PRIMARY_ID)
-    expect(payload.modelCollectionIds).toEqual([MODEL_ID])
+    expect(payload.categoryAssignments).toEqual([{ categoryId: PRIMARY_ID, compatibilityMode: 'SELECTED_MODELS', modelIds: [MODEL_ID] }])
     expect(payload.variants[0].optionValues).toEqual({ color: 'black' })
     expect(payload.optionGroups[0].values[0]).not.toHaveProperty('existingId')
   })

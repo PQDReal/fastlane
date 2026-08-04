@@ -8,7 +8,7 @@ import {
 import { validateAdminAccessoryDraft } from '@/lib/catalog/admin-accessory-validation'
 
 function value(id: string, code = id) {
-  return { id, code, name: id, colorHex: '', swatchUrl: '', imageUrls: [] }
+  return { id, code, name: id, colorHex: '', swatchUrl: '' }
 }
 
 function variantGroup(overrides: Partial<DraftOptionGroup> = {}): DraftOptionGroup {
@@ -25,13 +25,38 @@ describe('admin accessory draft validation', () => {
     const draft = createAdminAccessoryDraft()
     draft.optionGroups = [variantGroup()]
     draft.variants = buildVariantMatrix(draft.optionGroups, draft.variants).map((variant) => ({
-      ...variant, sku: 'ACC-BLUE', originalPrice: '100000',
+      ...variant, sku: 'ACC-BLUE', originalPrice: '100000', imageUrls: ['https://cdn.example.com/blue.webp'],
     }))
 
     expect(validateAdminAccessoryDraft(draft).filter((issue) => issue.severity === 'error')).toEqual([])
   })
 
-  it('reports duplicate group, value, sku and signature codes', () => {
+  it('requires a direct image on every sellable SKU', () => {
+    const draft = createAdminAccessoryDraft()
+    draft.optionGroups = [variantGroup({ values: [value('blue'), value('red')] })]
+    draft.variants = buildVariantMatrix(draft.optionGroups, draft.variants).map((variant, index) => ({
+      ...variant,
+      sku: `ACC-${index + 1}`,
+      originalPrice: '100000',
+      imageUrls: index === 0 ? ['https://cdn.example.com/blue.webp'] : [''],
+    }))
+
+    let issues = validateAdminAccessoryDraft(draft)
+    expect(issues.filter((issue) => issue.code === 'VARIANT_MEDIA_REQUIRED')).toHaveLength(1)
+    draft.variants = draft.variants.map((variant) => variant.selections.color === 'red'
+      ? { ...variant, imageUrls: ['https://cdn.example.com/red-sku.webp'] }
+      : variant)
+    issues = validateAdminAccessoryDraft(draft)
+    expect(issues.filter((issue) => issue.code === 'VARIANT_MEDIA_REQUIRED')).toEqual([])
+  })
+
+  it('allows an excluded SKU to omit direct media', () => {
+    const draft = createAdminAccessoryDraft()
+    draft.variants[0] = { ...draft.variants[0], isIncluded: false }
+    expect(validateAdminAccessoryDraft(draft).map((issue) => issue.code)).not.toContain('VARIANT_MEDIA_REQUIRED')
+  })
+
+  it('reports duplicate group, value and signature codes', () => {
     const draft = createAdminAccessoryDraft()
     draft.optionGroups = [
       variantGroup({ values: [value('one', 'same'), value('two', 'same')] }),
@@ -45,7 +70,6 @@ describe('admin accessory draft validation', () => {
     const codes = validateAdminAccessoryDraft(draft).map((issue) => issue.code)
     expect(codes).toContain('OPTION_GROUP_CODE_DUPLICATE')
     expect(codes).toContain('OPTION_VALUE_CODE_DUPLICATE')
-    expect(codes).toContain('VARIANT_SKU_DUPLICATE')
     expect(codes).toContain('VARIANT_SIGNATURE_DUPLICATE')
   })
 
@@ -53,7 +77,6 @@ describe('admin accessory draft validation', () => {
     const draft = createAdminAccessoryDraft()
     draft.variants = [{ ...draft.variants[0], isIncluded: false }]
     const issues = validateAdminAccessoryDraft(draft)
-    expect(issues.some((issue) => issue.code === 'VARIANT_SKU_REQUIRED')).toBe(false)
     expect(issues.some((issue) => issue.code === 'ACTIVE_VARIANT_REQUIRED')).toBe(true)
   })
 

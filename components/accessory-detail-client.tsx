@@ -20,8 +20,9 @@ import { AccessoryCard } from '@/components/accessory-card'
 import { startNavigationLoading } from '@/components/navigation-loading-indicator'
 import type { AccessoryCatalogItem } from '@/lib/cart/types'
 import {
+  accessoryCategoryLabels,
   accessoryFitmentStatus,
-  accessoryPrimaryCategoryLabel,
+  type AccessoryVehicleContext,
 } from '@/lib/catalog/accessory-filters'
 import {
   changeOptionSelection,
@@ -255,12 +256,14 @@ export function AccessoryDetailClient({
   product,
   initialVariantId,
   selectedVehicle,
+  vehicleContext = [],
   relatedProducts = [],
   previewMode = false,
 }: {
   product: CatalogProduct
   initialVariantId?: string
   selectedVehicle?: string
+  vehicleContext?: AccessoryVehicleContext[]
   relatedProducts?: CatalogProduct[]
   previewMode?: boolean
 }) {
@@ -391,8 +394,8 @@ export function AccessoryDetailClient({
     && selectedVariant.salePrice < selectedVariant.originalPrice,
   )
   const maximumQuantity = Math.min(99, selectedVariant?.availableQuantity ?? 0)
-  const fitment = accessoryFitmentStatus(product, selectedVehicle)
-  const primaryCategory = accessoryPrimaryCategoryLabel(product)
+  const fitment = accessoryFitmentStatus(product, selectedVehicle, vehicleContext)
+  const categoryLabels = accessoryCategoryLabels(product)
   const canPurchase = fitment !== 'incompatible'
   const listHref = selectedVehicle
     ? `/accessories?vehicle=${encodeURIComponent(selectedVehicle)}`
@@ -497,7 +500,7 @@ export function AccessoryDetailClient({
           <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(280px,1fr)_minmax(320px,390px)] xl:gap-10">
             <section aria-labelledby="product-heading" className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-brand-700">
-                <span>{primaryCategory ?? 'Phụ kiện chính hãng'}</span>
+                {categoryLabels.length > 0 ? categoryLabels.map((category) => <span key={category} className="rounded bg-brand-50 px-2 py-1 text-brand-700">{category}</span>) : <span>Phụ kiện chính hãng</span>}
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span>{product.variants.length} cấu hình</span>
               </div>

@@ -1,10 +1,12 @@
 import {
   ACCESSORY_OPTION_PRESETS,
   type AdminAccessoryDraft,
+  type CompatibilityMode,
   type DraftContentSection,
   type DraftOptionGroup,
   type DraftVariant,
 } from '@/lib/catalog/admin-accessory-draft'
+import { accessoryTemplate, isAccessoryTemplateCode } from '@/lib/catalog/admin-accessory-templates'
 import type { AdminAccessoryEditorData } from '@/lib/catalog/admin-accessory-write'
 
 type UnknownRecord = Record<string, unknown>
@@ -89,24 +91,15 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
   }
 
   const media = records(row.media ?? row.product_media).filter(isActive).sort(ordered)
-  const mediaByOptionValue = new Map<string, string[]>()
   const mediaByVariant = new Map<string, string[]>()
-  const productMedia: string[] = []
   for (const item of media) {
     const url = text(item.url).trim()
     if (!url) continue
-    const optionValueId = nullableText(item.option_value_id)
     const variantId = nullableText(item.variant_id)
-    if (optionValueId) {
-      const urls = mediaByOptionValue.get(optionValueId) ?? []
-      urls.push(url)
-      mediaByOptionValue.set(optionValueId, urls)
-    } else if (variantId) {
+    if (variantId) {
       const urls = mediaByVariant.get(variantId) ?? []
       urls.push(url)
       mediaByVariant.set(variantId, urls)
-    } else {
-      productMedia.push(url)
     }
   }
 
@@ -115,7 +108,6 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
     .sort(ordered)
   const optionGroups: DraftOptionGroup[] = groups.map((group) => {
     const code = text(group.code)
-    const groupMetadata = metadata(group.metadata)
     return {
       id: text(group.id),
       presetCode: ACCESSORY_OPTION_PRESETS.some((preset) => preset.code === code) ? code : '',
@@ -126,9 +118,6 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
         : 'BUTTON',
       minimumSelections: integer(group.minimum_selections) >= 1 ? 1 : 0,
       maximumSelections: 1,
-      mediaEnabled: typeof groupMetadata.drivesMedia === 'boolean'
-        ? groupMetadata.drivesMedia
-        : undefined,
       values: records(group.option_values ?? group.values)
         .filter(isActive)
         .sort(ordered)
@@ -138,7 +127,6 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
           name: text(option.name),
           colorHex: nullableText(option.color_hex) ?? '',
           swatchUrl: nullableText(option.swatch_url) ?? '',
-          imageUrls: mediaByOptionValue.get(text(option.id)) ?? [''],
         })),
     }
   })
@@ -181,25 +169,43 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
       collection: firstRecord(membership.collection ?? membership.catalog_collections),
     }))
     .filter((item): item is { row: UnknownRecord; collection: UnknownRecord } => Boolean(item.collection && isActive(item.collection)))
-  const primaryMembership = memberships.find((item) => item.row.is_primary === true && item.collection.kind === 'CATEGORY')
-    ?? memberships.find((item) => item.collection.kind === 'CATEGORY')
-  const modelCollectionSlugs = [...new Set(memberships
-    .filter((item) => item.collection.kind === 'MODEL')
-    .map((item) => text(item.collection.slug))
-    .filter(Boolean))]
+  const categoryAssignments = memberships
+    .filter((item) => item.collection.kind === 'CATEGORY')
+    .sort((left, right) => ordered(left.collection, right.collection))
+    .map(({ row: membership, collection }) => {
+      const modelIds = memberships
+        .filter((item) => item.collection.kind === 'MODEL' && item.collection.parent_id === collection.id)
+        .sort((left, right) => ordered(left.collection, right.collection))
+        .map((item) => text(item.collection.id))
+        .filter(Boolean)
+      const mode = text(metadata(membership.metadata).compatibilityMode)
+      const compatibilityMode: CompatibilityMode = mode === 'ALL_MODELS' || mode === 'SELECTED_MODELS' || mode === 'NOT_APPLICABLE'
+        ? mode
+        : modelIds.length > 0 ? 'SELECTED_MODELS' : 'ALL_MODELS'
+      return {
+        categoryId: text(collection.id),
+        compatibilityMode,
+        modelIds,
+      }
+    })
   const serviceLabelIds = [...new Set(records(
     row.service_label_assignments ?? row.product_service_label_assignments,
   ).filter((assignment) => {
     const label = firstRecord(assignment.service_label ?? assignment.catalog_service_labels)
     return !label || isActive(label)
   }).map((assignment) => text(assignment.service_label_id)).filter(Boolean))]
-  const mediaOptionGroup = optionGroups.find((group) => group.mediaEnabled)
-  const legacyImages = stringArray(row.image_urls)
+  const rawTemplateCode = text(row.accessory_template_code)
+  const rawTemplateVersion = integer(row.accessory_template_version, 1)
+  const templateCode = isAccessoryTemplateCode(rawTemplateCode) && accessoryTemplate(rawTemplateCode, rawTemplateVersion)
+    ? rawTemplateCode
+    : 'custom'
+  const templateVersion = templateCode === rawTemplateCode ? rawTemplateVersion : 1
 
   const draft: AdminAccessoryDraft = {
     rootCategoryId: text(row.category_id),
-    primaryCollectionSlug: primaryMembership ? text(primaryMembership.collection.slug) : '',
-    modelCollectionSlugs,
+    templateCode,
+    templateVersion,
+    categoryAssignments,
     name: text(row.name),
     slug: text(row.slug),
     description: text(row.description),
@@ -207,15 +213,7 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
     serviceLabelIds,
     sections: mapSections(row.specifications),
     optionGroups,
-    mediaOptionGroupId: mediaOptionGroup?.id,
     variants,
-    productImageUrls: productMedia.length > 0
-      ? productMedia
-      : media.length > 0
-        ? ['']
-        : legacyImages.length > 0
-          ? legacyImages
-          : [''],
   }
 
   return {

@@ -1,4 +1,5 @@
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
+import { accessoryTemplate, isTemplateSectionKey, type AccessoryTemplateCode } from '@/lib/catalog/admin-accessory-templates'
 import type {
   CatalogAccessoryContentSectionType,
   CatalogMedia,
@@ -39,13 +40,20 @@ export type DraftContentSection = {
   attributes: DraftContentAttribute[]
 }
 
+export type CompatibilityMode = 'ALL_MODELS' | 'SELECTED_MODELS' | 'NOT_APPLICABLE'
+
+export type DraftCategoryAssignment = {
+  categoryId: string
+  compatibilityMode: CompatibilityMode | null
+  modelIds: string[]
+}
+
 export type DraftOptionValue = {
   id: string
   code: string
   name: string
   colorHex: string
   swatchUrl: string
-  imageUrls: string[]
 }
 
 export type DraftOptionGroup = {
@@ -56,8 +64,6 @@ export type DraftOptionGroup = {
   displayType: 'BUTTON' | 'SWATCH' | 'SELECT'
   minimumSelections?: number
   maximumSelections?: number
-  /** undefined = tự suy luận từ color/swatch hoặc dữ liệu ảnh hiện có. */
-  mediaEnabled?: boolean
   /** Legacy prototype field; normalized to minimumSelections when restoring drafts. */
   required?: boolean
   values: DraftOptionValue[]
@@ -85,8 +91,9 @@ export type DraftVariant = {
 
 export type AdminAccessoryDraft = {
   rootCategoryId: string
-  primaryCollectionSlug: string
-  modelCollectionSlugs: string[]
+  templateCode: AccessoryTemplateCode
+  templateVersion: number
+  categoryAssignments: DraftCategoryAssignment[]
   name: string
   slug: string
   description: string
@@ -94,10 +101,7 @@ export type AdminAccessoryDraft = {
   serviceLabelIds: string[]
   sections: DraftContentSection[]
   optionGroups: DraftOptionGroup[]
-  /** undefined = tự chọn nhóm hình ảnh phù hợp; null = chỉ dùng gallery chung. */
-  mediaOptionGroupId?: string | null
   variants: DraftVariant[]
-  productImageUrls: string[]
 }
 
 export const ACCESSORY_ROOT_SLUG = 'phu-kien'
@@ -136,16 +140,38 @@ export function accessoryCategoryCollections(collections: DraftCollection[]) {
 
 export function accessoryModelCollectionsForCategory(
   collections: DraftCollection[],
-  categorySlug: string,
+  categoryIdentifier: string,
 ) {
   const category = collections.find((collection) => (
-    collection.kind === 'CATEGORY' && collection.slug === categorySlug
+    collection.kind === 'CATEGORY'
+    && (collection.id === categoryIdentifier || collection.slug === categoryIdentifier)
   ))
   if (!category) return []
 
   return collections
     .filter((collection) => collection.kind === 'MODEL' && collection.parentId === category.id)
     .sort((left, right) => left.displayOrder - right.displayOrder || left.name.localeCompare(right.name, 'vi'))
+}
+
+export function applyAccessoryTemplateCategoryDefaults(
+  draft: AdminAccessoryDraft,
+  collections: DraftCollection[],
+  templateCode: AccessoryTemplateCode = draft.templateCode,
+) {
+  if (draft.categoryAssignments.length > 0) return draft
+  const suggestedSlugs = accessoryTemplate(templateCode)?.suggestedCategorySlugs ?? []
+  const categories = accessoryCategoryCollections(collections)
+  const categoryAssignments = suggestedSlugs.flatMap((slug) => {
+    const category = categories.find((item) => item.slug === slug)
+    if (!category) return []
+    const models = accessoryModelCollectionsForCategory(collections, category.id)
+    return [{
+      categoryId: category.id,
+      compatibilityMode: models.length === 0 ? 'NOT_APPLICABLE' as const : null,
+      modelIds: [],
+    }]
+  })
+  return categoryAssignments.length > 0 ? { ...draft, categoryAssignments } : draft
 }
 
 export const ACCESSORY_OPTION_PRESETS: DraftOptionPreset[] = [
@@ -194,7 +220,7 @@ export const ACCESSORY_SECTION_TYPES: Array<{
   { value: 'CARE_GUIDE', label: 'Hướng dẫn bảo quản', defaultTitle: 'Hướng dẫn bảo quản' },
   { value: 'INSTALLATION_GUIDE', label: 'Hướng dẫn lắp đặt', defaultTitle: 'Hướng dẫn lắp đặt' },
   { value: 'PACKAGE_CONTENTS', label: 'Bộ sản phẩm', defaultTitle: 'Bộ sản phẩm' },
-  { value: 'WARRANTY', label: 'Bảo hành', defaultTitle: 'Chính sách bảo hành' },
+  { value: 'WARRANTY', label: 'Chính sách bảo hành', defaultTitle: 'Chính sách bảo hành' },
   { value: 'SHIPPING_NOTE', label: 'Lưu ý giao hàng', defaultTitle: 'Lưu ý giao hàng' },
   { value: 'SAFETY_NOTE', label: 'Lưu ý an toàn', defaultTitle: 'Lưu ý an toàn' },
   { value: 'PURCHASE_NOTE', label: 'Lưu ý mua hàng', defaultTitle: 'Lưu ý khi mua hàng' },
@@ -215,8 +241,9 @@ export function accessoryAdminSlug(value: string) {
 export function createAdminAccessoryDraft(): AdminAccessoryDraft {
   return {
     rootCategoryId: '',
-    primaryCollectionSlug: '',
-    modelCollectionSlugs: [],
+    templateCode: 'custom',
+    templateVersion: 1,
+    categoryAssignments: [],
     name: '',
     slug: '',
     description: '',
@@ -235,7 +262,6 @@ export function createAdminAccessoryDraft(): AdminAccessoryDraft {
       selections: {},
       imageUrls: [''],
     }],
-    productImageUrls: [''],
   }
 }
 
@@ -277,37 +303,11 @@ export function createDraftOptionValue(id: string): DraftOptionValue {
     name: '',
     colorHex: '',
     swatchUrl: '',
-    imageUrls: [''],
   }
 }
 
 export function variantGroups(groups: DraftOptionGroup[]) {
   return groups
-}
-
-export function draftOptionGroupSupportsMedia(group: DraftOptionGroup) {
-  if (group.mediaEnabled !== undefined) return group.mediaEnabled
-  return group.presetCode === 'color'
-    || group.code === 'color'
-    || group.displayType === 'SWATCH'
-    || group.values.some((value) => nonEmptyUrls(value.imageUrls).length > 0)
-}
-
-export function resolvedDraftMediaOptionGroupId(draft: AdminAccessoryDraft) {
-  if (draft.mediaOptionGroupId === null) return null
-  const usableGroups = draft.optionGroups.filter((group) => (
-    draftOptionGroupSupportsMedia(group)
-    && group.values.some((value) => value.name.trim())
-  ))
-  if (draft.mediaOptionGroupId && usableGroups.some((group) => group.id === draft.mediaOptionGroupId)) {
-    return draft.mediaOptionGroupId
-  }
-
-  return usableGroups.find((group) => (
-    group.presetCode === 'color'
-    || group.code === 'color'
-    || group.displayType === 'SWATCH'
-  ))?.id ?? usableGroups[0]?.id ?? null
 }
 
 export function variantSignature(variant: DraftVariant, groups: DraftOptionGroup[]) {
@@ -326,28 +326,6 @@ export function projectedVariantCount(groups: DraftOptionGroup[]) {
     const valueCount = group.values.filter((value) => value.name.trim() && value.code.trim()).length
     return total * (valueCount + (draftOptionGroupIsRequired(group) ? 0 : 1))
   }, 1)
-}
-
-export function generateVariantSku(
-  prefix: string,
-  variant: DraftVariant,
-  groups: DraftOptionGroup[],
-  index: number,
-) {
-  const normalizedPrefix = prefix
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  if (!normalizedPrefix) return variant.sku
-
-  const optionCodes = variantGroups(groups).flatMap((group) => {
-    const selectedValue = group.values.find((value) => value.id === variant.selections[group.id])
-    return selectedValue?.code ? [selectedValue.code.toUpperCase()] : []
-  })
-  return [normalizedPrefix, ...(optionCodes.length > 0 ? optionCodes : [String(index + 1).padStart(2, '0')])]
-    .join('-')
-    .replace(/[^A-Z0-9-]+/g, '-')
 }
 
 export function buildVariantMatrix(groups: DraftOptionGroup[], currentVariants: DraftVariant[]) {
@@ -446,7 +424,6 @@ export function adminAccessoryDraftToCatalogProduct(
 ): CatalogProduct {
   const productId = 'preview-product'
   const productName = draft.name.trim() || 'Tên phụ kiện mới'
-  const mediaOptionGroupId = resolvedDraftMediaOptionGroupId(draft)
   const transformedGroups = variantGroups(draft.optionGroups).map((group, groupIndex) => {
     const groupCode = group.code.trim() || `option_${groupIndex + 1}`
     const values = group.values.map((value, valueIndex) => ({
@@ -473,7 +450,6 @@ export function adminAccessoryDraftToCatalogProduct(
       metadata: {
         preview: true,
         primary: groupIndex === 0,
-        drivesMedia: group.id === mediaOptionGroupId,
       },
       values: values.map(({ catalog: value }) => value),
     }
@@ -507,7 +483,7 @@ export function adminAccessoryDraftToCatalogProduct(
     return {
       id: variant.id,
       productId,
-      sku: variant.sku.trim() || 'CHƯA-CÓ-SKU',
+      sku: variant.sku.trim() || '—',
       name: variant.name.trim() || 'Mặc định',
       originalPrice: normalizedOriginalPrice,
       salePrice: normalizedSalePrice,
@@ -521,76 +497,72 @@ export function adminAccessoryDraftToCatalogProduct(
     }
   })
 
-  const productMedia = previewMediaRows({
-    urls: draft.productImageUrls,
-    productId,
-    scope: 'product',
-    productName,
-  })
   const byVariant = Object.fromEntries(sourceVariants.map((variant) => [
     variant.id,
     previewMediaRows({ urls: variant.imageUrls, productId, scope: 'variant', scopeId: variant.id, productName }),
   ]))
-  const byOptionValue = Object.fromEntries(transformedGroups.flatMap(({ values }) => values.map(({ source: value }) => [
-    value.id,
-    previewMediaRows({ urls: value.imageUrls, productId, scope: 'option', scopeId: value.id, productName }),
-  ])))
   const pricedVariants = variants.filter((_, index) => Boolean(sourceVariants[index]?.originalPrice.trim()))
   const effectivePrices = pricedVariants.map((variant) => variant.effectivePrice)
-  const primaryCategory = accessoryCategoryCollections(collections)
-    .find((collection) => collection.slug === draft.primaryCollectionSlug)
-  const categoryMemberships = primaryCategory ? [{
-    id: `preview-membership-${primaryCategory.slug}`,
+  const assignedCategories = draft.categoryAssignments.flatMap((assignment) => {
+    const category = accessoryCategoryCollections(collections)
+      .find((collection) => collection.id === assignment.categoryId)
+    return category ? [{ assignment, category }] : []
+  })
+  const categoryMemberships = assignedCategories.map(({ assignment, category }) => ({
+    id: `preview-membership-${category.slug}`,
     sourceSystem: 'preview',
-    isPrimary: true,
+    isPrimary: false,
     firstSeenAt: '',
     lastSeenAt: '',
-    metadata: { preview: true },
+    metadata: { preview: true, compatibilityMode: assignment.compatibilityMode },
     collection: {
-      id: `preview-collection-${primaryCategory.slug}`,
+      id: category.id,
       parentId: null,
       kind: 'CATEGORY' as const,
       sourceSystem: 'preview',
-      sourceKey: primaryCategory.slug,
-      slug: primaryCategory.slug,
-      name: primaryCategory.name,
+      sourceKey: category.slug,
+      slug: category.slug,
+      name: category.name,
       vehicleFilterMode: 'NONE' as const,
-      displayOrder: 10,
+      displayOrder: category.displayOrder,
       metadata: { preview: true },
       vehicleModel: null,
     },
-  }] : []
-  const allowedModels = accessoryModelCollectionsForCategory(collections, draft.primaryCollectionSlug)
-  const modelMemberships = draft.modelCollectionSlugs.flatMap((slug, index) => {
-    const model = allowedModels.find((collection) => collection.slug === slug)
-    return model ? [{
-      id: `preview-membership-${model.slug}`,
-      sourceSystem: 'preview',
-      isPrimary: false,
-      firstSeenAt: '',
-      lastSeenAt: '',
-      metadata: { preview: true },
-      collection: {
-        id: `preview-collection-${model.slug}`,
-        parentId: primaryCategory ? `preview-collection-${primaryCategory.slug}` : null,
-        kind: 'MODEL' as const,
+  }))
+  const modelMemberships = assignedCategories.flatMap(({ assignment, category }) => {
+    if (assignment.compatibilityMode !== 'SELECTED_MODELS') return []
+    const allowedModels = accessoryModelCollectionsForCategory(collections, category.id)
+    return assignment.modelIds.flatMap((modelId, index) => {
+      const model = allowedModels.find((collection) => collection.id === modelId)
+      return model ? [{
+        id: `preview-membership-${model.slug}`,
         sourceSystem: 'preview',
-        sourceKey: model.slug,
-        slug: model.slug,
-        name: model.name,
-        vehicleFilterMode: 'COLLECTION_MEMBERSHIP' as const,
-        displayOrder: (index + 1) * 10,
+        isPrimary: false,
+        firstSeenAt: '',
+        lastSeenAt: '',
         metadata: { preview: true },
-        vehicleModel: {
-          id: `preview-model-${model.slug}`,
-          code: model.slug.toUpperCase(),
+        collection: {
+          id: model.id,
+          parentId: category.id,
+          kind: 'MODEL' as const,
+          sourceSystem: 'preview',
+          sourceKey: model.slug,
           slug: model.slug,
           name: model.name,
-          vehicleKind: 'CAR' as const,
+          vehicleFilterMode: 'COLLECTION_MEMBERSHIP' as const,
+          displayOrder: (index + 1) * 10,
           metadata: { preview: true },
+          vehicleModel: {
+            id: `preview-model-${model.slug}`,
+            code: model.slug.toUpperCase(),
+            slug: model.slug,
+            name: model.name,
+            vehicleKind: 'CAR' as const,
+            metadata: { preview: true },
+          },
         },
-      },
-    }] : []
+      }] : []
+    })
   })
 
   return {
@@ -608,9 +580,13 @@ export function adminAccessoryDraftToCatalogProduct(
       sections: draft.sections.map((section, index) => ({
         key: section.id,
         type: section.type,
-        title: section.type === 'OTHER'
-          ? section.title.trim() || 'Thông tin khác'
-          : ACCESSORY_SECTION_TYPES.find((definition) => definition.value === section.type)?.defaultTitle || `Nội dung ${index + 1}`,
+        title: isTemplateSectionKey(section.id)
+          ? section.title.trim()
+            || ACCESSORY_SECTION_TYPES.find((definition) => definition.value === section.type)?.defaultTitle
+            || `Nội dung ${index + 1}`
+          : section.type === 'OTHER'
+            ? section.title.trim() || 'Thông tin khác'
+            : ACCESSORY_SECTION_TYPES.find((definition) => definition.value === section.type)?.defaultTitle || `Nội dung ${index + 1}`,
         displayOrder: (index + 1) * 10,
         body: section.body.trim() || null,
         items: section.itemsText.split('\n').map((item) => item.trim()).filter(Boolean),
@@ -619,10 +595,10 @@ export function adminAccessoryDraftToCatalogProduct(
     },
     serviceLabels: serviceLabels.filter((label) => draft.serviceLabelIds.includes(label.id)),
     collectionMemberships: [...categoryMemberships, ...modelMemberships],
-    legacyImageUrls: nonEmptyUrls(draft.productImageUrls),
+    legacyImageUrls: [],
     optionGroups: transformedGroups.map(({ catalog }) => catalog),
     variants,
-    media: { product: productMedia, byVariant, byOptionValue },
+    media: { product: [], byVariant, byOptionValue: {} },
     priceRange: effectivePrices.length > 0 ? { minimum: Math.min(...effectivePrices), maximum: Math.max(...effectivePrices) } : null,
     availableQuantity: variants.reduce((total, variant) => total + variant.availableQuantity, 0),
   }
@@ -634,10 +610,10 @@ export function variantIsComplete(variant: DraftVariant, groups: DraftOptionGrou
   const salePrice = variant.salePrice.trim() ? Number(variant.salePrice) : null
   return Boolean(
     variant.name.trim()
-    && variant.sku.trim()
     && Number.isFinite(originalPrice)
     && originalPrice >= 0
     && (salePrice === null || (Number.isFinite(salePrice) && salePrice >= 0 && salePrice < originalPrice))
+    && nonEmptyUrls(variant.imageUrls).length > 0
     && variantGroups(groups).every((group) => (
       !draftOptionGroupIsRequired(group)
       || Boolean(variant.selections[group.id])

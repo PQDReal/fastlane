@@ -121,6 +121,10 @@ AdminAccessoryOptionGroupInput:
   $ref: './product.yaml#/AdminAccessoryOptionGroupInput'
 AdminAccessoryVariantInput:
   $ref: './product.yaml#/AdminAccessoryVariantInput'
+AdminAccessoryCompatibilityMode:
+  $ref: './product.yaml#/AdminAccessoryCompatibilityMode'
+AdminAccessoryCategoryAssignment:
+  $ref: './product.yaml#/AdminAccessoryCategoryAssignment'
 AdminAccessoryWriteRequest:
   $ref: './product.yaml#/AdminAccessoryWriteRequest'
 AdminAccessorySaveResult:
