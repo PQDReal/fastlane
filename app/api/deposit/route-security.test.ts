@@ -10,6 +10,7 @@ describe('deposit route safety contract', () => {
 
   it('keeps guest idempotency lookups separate from authenticated users', () => {
     expect(source).toContain("query.is('customer_id', null)")
+    expect(source).toContain(".ilike('email', guestEmail)")
   })
 
   it('compares request hashes after a concurrent unique-key conflict', () => {

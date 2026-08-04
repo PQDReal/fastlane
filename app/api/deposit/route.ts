@@ -104,6 +104,7 @@ async function requestHash(input: DepositOrderInput) {
 async function existingOrder(
   idempotencyKey: string,
   customerId: string | null,
+  guestEmail: string,
 ): Promise<DepositOrderRow | null> {
   let query = getSupabaseAdmin()
     .from('deposit_orders')
@@ -111,7 +112,7 @@ async function existingOrder(
     .eq('idempotency_key', idempotencyKey)
   query = customerId
     ? query.eq('customer_id', customerId)
-    : query.is('customer_id', null)
+    : query.is('customer_id', null).ilike('email', guestEmail)
   const result = await query.maybeSingle<DepositOrderRow>()
   if (result.error) throw result.error
   return result.data
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
     const hash = await requestHash(input)
     const currentUser = await getCurrentUser().catch(() => null)
     const customerId = currentUser?.id ?? null
-    const replay = await existingOrder(idempotencyKey, customerId)
+    const replay = await existingOrder(idempotencyKey, customerId, input.email)
     if (replay) {
       if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
         return errorResponse(
@@ -240,7 +241,7 @@ export async function POST(request: Request) {
 
     if (insertResult.error) {
       if (insertResult.error.code === '23505') {
-        const replay = await existingOrder(idempotencyKey, customerId)
+        const replay = await existingOrder(idempotencyKey, customerId, input.email)
         if (replay) {
           if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
             return errorResponse(
