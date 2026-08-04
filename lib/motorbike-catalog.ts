@@ -3,7 +3,7 @@ import 'server-only'
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { MOTORBIKE_CATALOG_CACHE_KEY, motorbikeDetailCacheKey } from '@/lib/cache-keys'
+import { MOTORBIKE_CATALOG_CACHE_KEY } from '@/lib/cache-keys'
 import { readRedisJson, writeRedisJson } from '@/lib/redis'
 
 type JsonRecord = Record<string, unknown>
@@ -207,13 +207,11 @@ async function loadDistributedMotorbikeCatalog() {
     MOTORBIKE_CATALOG_CACHE_KEY,
   )
   if (cached) {
-    await Promise.all(cached.map((item) => writeRedisJson(motorbikeDetailCacheKey(item.slug), item, 300)))
     return cached
   }
 
   const items = await loadCachedMotorbikeCatalog()
   await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, items, 300)
-  await Promise.all(items.map((item) => writeRedisJson(motorbikeDetailCacheKey(item.slug), item, 300)))
   return items
 }
 
