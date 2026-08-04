@@ -271,7 +271,6 @@ export function DepositClient({
   const [wardsLoading, setWardsLoading] = useState(false)
   const [autoOpenWard, setAutoOpenWard] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'atm' | 'bank_transfer'>('bank_transfer')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [promotionCode, setPromotionCode] = useState('')
   const [promotionQuote, setPromotionQuote] = useState<DepositQuote | null>(null)
@@ -753,14 +752,14 @@ export function DepositClient({
             exterior_color: selectedColor,
             interior_color: selectedInteriorColor || null,
             optional_packages: selectedPackages,
-            payment_method: paymentMethod,
+            payment_method: 'atm',
             terms_accepted: termsAccepted,
             showroom: selectedShowroom?.name || '',
           }),
         })
         const result = await response.json().catch(() => null)
 
-        if (!response.ok || !result?.data) {
+        if (!response.ok || !result?.data?.paymentUrl) {
           addToast({
             kind: 'error',
             title: 'Không thể tạo đơn đặt cọc',
@@ -769,8 +768,7 @@ export function DepositClient({
           return
         }
 
-        setCompletedOrder(result.data)
-        goToStep(4)
+        window.location.assign(result.data.paymentUrl)
       } catch {
         addToast({
           kind: 'error',
@@ -1968,25 +1966,6 @@ export function DepositClient({
                     <div className="flex items-center py-3 border-b border-dashed border-slate-200">
                       <span className="text-slate-600 w-1/3">Nhân viên tư vấn</span>
                       <div className="flex-1 text-right font-medium text-slate-800"></div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-200">
-                    <div className="text-lg font-semibold text-slate-400 mb-6">Hình thức thanh toán</div>
-                    
-                    <div className="space-y-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="paymentMethod" checked={paymentMethod === 'credit_card'} onChange={() => setPaymentMethod('credit_card')} className="w-4 h-4 text-slate-900 focus:ring-slate-900" />
-                        <span className="text-slate-600">Thẻ thanh toán quốc tế</span>
-                      </label>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="paymentMethod" checked={paymentMethod === 'atm'} onChange={() => setPaymentMethod('atm')} className="w-4 h-4 text-slate-900 focus:ring-slate-900" />
-                        <span className="text-slate-600">Thẻ ATM nội địa/ Internet Banking</span>
-                      </label>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="paymentMethod" checked={paymentMethod === 'bank_transfer'} onChange={() => setPaymentMethod('bank_transfer')} className="w-4 h-4 text-slate-900 focus:ring-slate-900" />
-                        <span className="text-slate-600">Chuyển khoản ngân hàng</span>
-                      </label>
                     </div>
                   </div>
 

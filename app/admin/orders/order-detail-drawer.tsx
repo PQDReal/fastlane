@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, FileText, Truck, XCircle, CreditCard, User, MapPin } from 'lucide-react'
 import { AdminOrderRow } from './orders-client'
-import { updateOrderStatus } from './actions'
+import { confirmDepositRefund, updateOrderStatus } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
 
 type OrderDetailDrawerProps = {
@@ -28,17 +28,17 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
   })
 
   const nextActionMap: Record<string, { label: string; icon: any; nextStatus: string }> = {
-    'PENDING_DEPOSIT': { label: 'Xác nhận thanh toán cọc', icon: <CheckCircle2 size={16}/>, nextStatus: 'PENDING_CONFIRMATION' },
     'PENDING_CONFIRMATION': { label: 'Xác nhận đơn & duyệt', icon: <CheckCircle2 size={16}/>, nextStatus: 'CONFIRMED' },
     'PENDING_CONTRACT': { label: 'Khách đã ký Hợp đồng', icon: <FileText size={16}/>, nextStatus: 'CONTRACT_SIGNED' },
     'CONTRACT_SIGNED': { label: 'Yêu cầu thanh toán xe', icon: <CreditCard size={16}/>, nextStatus: 'PENDING_PAYMENT' },
-    'PENDING_PAYMENT': { label: 'Xác nhận đã thanh toán', icon: <CheckCircle2 size={16}/>, nextStatus: 'PAID' },
     'PAID': { label: 'Chuẩn bị giao xe', icon: <Truck size={16}/>, nextStatus: 'PREPARING_DELIVERY' },
     'PREPARING_DELIVERY': { label: 'Bàn giao xe', icon: <Truck size={16}/>, nextStatus: 'DELIVERED' },
     'DELIVERED': { label: 'Hoàn thành đơn', icon: <CheckCircle2 size={16}/>, nextStatus: 'COMPLETED' },
   }
 
-  const nextAction = nextActionMap[order.status]
+  const nextAction = order.status === 'PENDING_CONFIRMATION' && order.payment !== 'Paid'
+    ? undefined
+    : nextActionMap[order.status]
 
   const handleUpdateStatus = async (newStatus: string) => {
     setIsUpdating(true)
@@ -53,6 +53,35 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
     } else {
       onShowToast({ title: 'Lỗi', message: res.error || 'Có lỗi xảy ra khi cập nhật', kind: 'error' })
     }
+  }
+
+  const handleConfirmRefund = async () => {
+    setIsUpdating(true)
+    const res = await confirmDepositRefund(order.id)
+    setIsUpdating(false)
+    if (res.success) {
+      const refundCompleted = 'refundStatus' in res && res.refundStatus === 'COMPLETED'
+      onShowToast({
+        title: refundCompleted ? 'Hoàn tiền thành công' : 'VNPay đang xử lý hoàn tiền',
+        message: refundCompleted
+          ? 'Khoản tiền đặt cọc đã được xác nhận hoàn thành.'
+          : 'Yêu cầu đã được gửi đến VNPay và đang chờ kết quả.',
+        kind: 'success',
+      })
+      onOrderUpdated()
+    } else {
+      onShowToast({ title: 'Không thể xác nhận hoàn tiền', message: res.error || 'Vui lòng thử lại.', kind: 'error' })
+    }
+  }
+
+  const requestConfirmRefund = () => {
+    onShowToast({
+      title: 'Xác nhận hoàn tiền?',
+      message: 'Hệ thống sẽ gửi yêu cầu hoàn tiền đặt cọc đến VNPay.',
+      kind: 'warning',
+      secondaryAction: { label: 'Kiểm tra lại', onClick: () => undefined },
+      action: { label: 'Xác nhận hoàn tiền', onClick: () => void handleConfirmRefund() },
+    })
   }
 
   return (
@@ -194,14 +223,24 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Trạng thái TT cọc:</span>
-                    <span className={`font-semibold ${order.payment === 'Paid' ? 'text-green-600' : 'text-slate-600'}`}>
-                      {order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
+                    <span className={`font-semibold ${order.status === 'CANCELLED' && order.payment === 'Paid' ? 'text-orange-600' : order.payment === 'Paid' ? 'text-green-600' : 'text-slate-600'}`}>
+                      {order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED'
+                        ? 'Đã hủy, đã hoàn tiền'
+                        : order.status === 'CANCELLED' && order.payment === 'Paid'
+                        ? 'Đã hủy, chờ hoàn tiền'
+                        : order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
                     </span>
                   </div>
+                  {order.status === 'PAID' && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Thanh toán đơn xe:</span>
+                      <span className="font-semibold text-emerald-600">Đã thanh toán toàn bộ</span>
+                    </div>
+                  )}
                   <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between bg-amber-50/50 p-2 rounded-lg">
                     <span className="text-amber-800 font-medium">Số tiền còn lại phải đóng:</span>
                     <span className="font-bold text-amber-700">
-                      {formatMoney(Math.max(0, Number(d.total_estimated_price || 0) - order.amount))}
+                      {formatMoney(order.status === 'PAID' ? 0 : Math.max(0, Number(d.total_estimated_price || 0) - order.amount))}
                     </span>
                   </div>
                 </div>
@@ -232,6 +271,16 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
             {/* Footer Actions */}
             <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               <div className="flex flex-col gap-3">
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus !== 'COMPLETED' && (
+                  <button
+                    onClick={requestConfirmRefund}
+                    disabled={isUpdating}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle2 size={16} />
+                    {isUpdating ? 'Đang gửi VNPay...' : 'Xác nhận hoàn tiền'}
+                  </button>
+                )}
                 {nextAction && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
                   <button
                     onClick={() => handleUpdateStatus(nextAction.nextStatus)}
@@ -249,8 +298,20 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                   </div>
                 )}
 
+                {!nextAction && ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && order.payment !== 'Paid' && (
+                  <div className="w-full rounded-lg border border-amber-200 bg-amber-50 py-2.5 text-center text-sm font-medium text-amber-700">
+                    Đang chờ khách hàng thanh toán qua VNPAY
+                  </div>
+                )}
+
+                {!nextAction && order.status === 'PENDING_PAYMENT' && (
+                  <div className="w-full rounded-lg border border-amber-200 bg-amber-50 py-2.5 text-center text-sm font-medium text-amber-700">
+                    Đang chờ khách hàng thanh toán phần còn lại qua VNPAY
+                  </div>
+                )}
+
                 
-                {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
+                {!['CANCELLED', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                   <button
                     onClick={() => handleUpdateStatus('CANCELLED')}
                     disabled={isUpdating}
@@ -259,6 +320,11 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                     <XCircle size={16} />
                     Hủy đơn hàng
                   </button>
+                )}
+                {['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs font-medium text-slate-500">
+                    Không thể hủy trực tiếp ở giai đoạn này.
+                  </div>
                 )}
               </div>
             </div>

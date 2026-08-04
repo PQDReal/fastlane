@@ -58,6 +58,7 @@ export function createVnPayPaymentUrl(input: {
   orderNumber: string
   amountVnd: number
   clientIp: string
+  orderInfo?: string
   now?: Date
 }) {
   const config = vnPayConfig()
@@ -66,7 +67,7 @@ export function createVnPayPaymentUrl(input: {
     vnp_Version: '2.1.0', vnp_Command: 'pay', vnp_TmnCode: config.tmnCode,
     vnp_Amount: String(Math.round(input.amountVnd * 100)), vnp_CurrCode: 'VND',
     vnp_TxnRef: input.transactionReference,
-    vnp_OrderInfo: `Thanh toan dat coc ${input.orderNumber}`,
+    vnp_OrderInfo: input.orderInfo || `Thanh toan dat coc ${input.orderNumber}`,
     vnp_OrderType: 'other', vnp_Locale: 'vn', vnp_ReturnUrl: config.returnUrl,
     vnp_IpAddr: input.clientIp === '::1' ? '127.0.0.1' : input.clientIp,
     vnp_CreateDate: vnPayDate(now), vnp_ExpireDate: vnPayDate(new Date(now.getTime() + 15 * 60_000)),

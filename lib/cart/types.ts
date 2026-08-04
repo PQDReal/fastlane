@@ -217,9 +217,10 @@ export type AccessoryOrderSummary = Pick<
     customerPhone: string
     idCardNumber: string
     province: string
-    district: string
+    ward: string
     customerType: string
     totalEstimatedPrice: string
+    balancePaymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | null
     vehicleVariant?: any
   }
 }
