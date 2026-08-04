@@ -131,7 +131,12 @@ export async function processVnPayCallback(
   }
   const orderUpdate = await getSupabaseAdmin().from('orders').update({ status: 'PAID' })
     .eq('id', attempt.order_id).eq('status', 'PENDING')
-  if (orderUpdate.error) throw orderUpdate.error
+  if (orderUpdate.error) {
+    if (orderUpdate.error.code === '23514' && orderUpdate.error.message.includes('INVALID_ORDER_TRANSITION_PENDING_TO_PAID')) {
+      throw new Error('Database chưa cho phép chuyển đơn từ chờ thanh toán sang đã thanh toán. Hãy áp dụng migration 041.')
+    }
+    throw orderUpdate.error
+  }
   const paymentUpdate = await getSupabaseAdmin().from('vnpay_checkout_attempts').update({
     status: 'PAID', response_code: responseCode,
     vnpay_transaction_no: params.vnp_TransactionNo || null,

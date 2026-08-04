@@ -12,12 +12,13 @@ type Row = {
   created_at: string
   customer: { email: string } | { email: string }[] | null
   order_items: Array<{ product_name_snapshot: string; quantity: number }>
+  refund_attempts: Array<{ status: AdminAccessoryOrder['refundAttemptStatus']; requested_at: string }>
 }
 
 export default async function AdminAccessoryOrdersPage() {
   const result = await getSupabaseAdmin()
     .from('orders')
-    .select('id,order_number,status,refund_status,total_amount,created_at,customer:users!inner(email),order_items(product_name_snapshot,quantity)')
+    .select('id,order_number,status,refund_status,total_amount,created_at,customer:users!inner(email),order_items(product_name_snapshot,quantity),refund_attempts:vnpay_refund_attempts(status,requested_at)')
     .order('created_at', { ascending: false })
 
   const orders: AdminAccessoryOrder[] = ((result.data ?? []) as Row[]).map((row) => ({
@@ -28,6 +29,7 @@ export default async function AdminAccessoryOrdersPage() {
     totalAmount: Number(row.total_amount),
     status: row.status,
     refundStatus: row.refund_status,
+    refundAttemptStatus: [...(row.refund_attempts ?? [])].sort((a, b) => b.requested_at.localeCompare(a.requested_at))[0]?.status ?? null,
     createdAt: row.created_at,
   }))
 

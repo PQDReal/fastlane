@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { apiErrorResponse, ApiRouteError } from '@/lib/api/errors'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
+import { getCurrentUser } from '@/lib/auth/current-user'
 import { parseItemId } from '@/lib/cart/validation'
+import { reconcileVnPayRefund, refundCancelledOrder, VnPayRefundError } from '@/lib/services/vnpay-refund-service'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type RouteContext = { params: Promise<{ orderId: string; action: string }> }
@@ -65,14 +67,32 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (action === 'refund') {
-      const result = await supabase.from('orders').update({ refund_status: 'COMPLETED', updated_at: new Date().toISOString() }).eq('id', orderId).eq('status', 'CANCELLED').eq('refund_status', 'PENDING').select('status,refund_status').maybeSingle()
-      if (result.error) throw result.error
-      if (!result.data) throw new ApiRouteError(409, 'REFUND_NOT_PENDING', 'Đơn hàng không ở trạng thái chờ hoàn tiền.')
-      return NextResponse.json({ data: { status: result.data.status, refundStatus: result.data.refund_status } })
+      const admin = await getCurrentUser()
+      const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      const result = await refundCancelledOrder({
+        orderId,
+        requestedBy: admin?.email ?? 'admin',
+        clientIp: forwarded || request.headers.get('x-real-ip') || '127.0.0.1',
+      })
+      return NextResponse.json({ data: { status: 'CANCELLED', ...result } })
+    }
+
+    if (action === 'refund-status') {
+      const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      const result = await reconcileVnPayRefund({ orderId, clientIp: forwarded || request.headers.get('x-real-ip') || '127.0.0.1' })
+      return NextResponse.json({ data: { status: 'CANCELLED', ...result } })
     }
 
     throw new ApiRouteError(404, 'ACTION_NOT_FOUND', 'Thao tác đơn hàng không hợp lệ.')
   } catch (error) {
+    if (error instanceof VnPayRefundError) {
+      const conflictCodes = ['REFUND_NOT_PENDING', 'REFUND_ALREADY_REQUESTED', 'REFUND_NOT_PROCESSING']
+      return apiErrorResponse(new ApiRouteError(
+        conflictCodes.includes(error.code) ? 409 : error.code === 'ORDER_NOT_FOUND' ? 404 : 502,
+        error.code,
+        error.message,
+      ))
+    }
     if (typeof error === 'object' && error && 'message' in error && String(error.message).includes('INVALID_ORDER_TRANSITION')) {
       return apiErrorResponse(new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Không thể chuyển trạng thái đơn hàng ở bước hiện tại.'))
     }
