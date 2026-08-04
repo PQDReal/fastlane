@@ -7,6 +7,7 @@ import {
   parseIdempotencyKey,
   type DepositOrderInput,
 } from '@/lib/deposit/order-input'
+import { decideDepositReplay } from '@/lib/deposit/idempotency'
 import {
   DepositLocationUnavailableError,
   validateDepositLocation,
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
     const customerId = currentUser?.id ?? null
     const replay = await existingOrder(idempotencyKey, customerId)
     if (replay) {
-      if (replay.request_hash && replay.request_hash !== hash) {
+      if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
         return errorResponse(
           409,
           'IDEMPOTENCY_CONFLICT',
@@ -241,7 +242,7 @@ export async function POST(request: Request) {
       if (insertResult.error.code === '23505') {
         const replay = await existingOrder(idempotencyKey, customerId)
         if (replay) {
-          if (replay.request_hash && replay.request_hash !== hash) {
+          if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
             return errorResponse(
               409,
               'IDEMPOTENCY_CONFLICT',
@@ -268,11 +269,24 @@ export async function POST(request: Request) {
       throw insertResult.error
     }
 
-    if (input.promotionCode && quote.discountAmount > 0) {
+    if (quote.promotion?.id && quote.discountAmount > 0) {
       const supabase = getSupabaseAdmin()
-      const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
-      if (promo) {
-        await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
+      const usage = await supabase.rpc('consume_promotion_usage_atomic', {
+        p_promotion_id: quote.promotion.id,
+      })
+      if (usage.error || usage.data !== true) {
+        // The order must not retain a discount when no promotion use was
+        // reserved. This compensating delete also keeps retries idempotent.
+        await supabase.from('deposit_orders').delete().eq('id', insertResult.data.id)
+        if (usage.error) {
+          throw new Error(`Unable to consume promotion usage: ${usage.error.message}`)
+        }
+        return errorResponse(
+          422,
+          'PROMOTION_USAGE_LIMIT',
+          'Mã giảm giá đã hết lượt sử dụng. Vui lòng chọn mã khác.',
+          'promotion_code',
+        )
       }
     }
     return NextResponse.json(responseData(insertResult.data), { status: 201 })
