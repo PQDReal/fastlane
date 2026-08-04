@@ -833,7 +833,7 @@ function OptionsAndVariantsStep({
                 </div>
               </div>
               <div className="border-t border-slate-100 px-5 py-3">
-                <div className="flex items-center justify-between"><div className="flex items-center gap-2"><h4 className="text-sm font-bold text-slate-800">Giá trị</h4><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{group.values.length}</span></div><button type="button" onClick={() => addValue(group)} className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-bold text-brand-700 transition hover:bg-brand-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><Plus size={13} />Thêm giá trị</button></div>
+                <div className="flex items-center justify-between"><div className="flex items-center gap-2"><h4 className="text-sm font-bold text-slate-800">Giá trị</h4><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{group.values.length}</span></div><button type="button" onClick={() => addValue(group)} className="inline-flex min-h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-bold text-brand-700 shadow-sm transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><Plus size={13} />Thêm giá trị</button></div>
                 {preset && (
                   <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50/60 p-3">
                     <p className="text-xs font-bold text-brand-800">Gợi ý từ dữ liệu hiện tại</p>
@@ -1126,7 +1126,7 @@ function UrlEditor({
             type="button"
             disabled={urls.length >= 20}
             onClick={() => onChange([...urls, ''])}
-            className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 text-xs font-bold text-brand-700 transition hover:bg-brand-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-bold text-brand-700 shadow-sm transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus size={13} />
             Thêm ô URL
