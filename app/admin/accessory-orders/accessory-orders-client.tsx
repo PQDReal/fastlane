@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, RotateCcw, Search, ShoppingBag, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
@@ -11,6 +11,7 @@ export type AdminAccessoryOrder = {
   totalAmount: number
   status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
   refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
+  refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
   createdAt: string
 }
 
@@ -25,12 +26,22 @@ const statusStyle: Record<AdminAccessoryOrder['status'], string> = {
 }
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
 const date = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+const isBankRefundPending = (order: AdminAccessoryOrder) => order.status === 'CANCELLED'
+  && order.refundStatus === 'PENDING'
+  && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')
+const displayStatus = (order: AdminAccessoryOrder) => isBankRefundPending(order)
+  ? 'Đang chờ hoàn tiền'
+  : order.status === 'CANCELLED' && order.refundStatus === 'PENDING'
+    ? 'Đã hủy · Chờ hoàn tiền'
+    : statusLabel[order.status]
 
 export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrders: AdminAccessoryOrder[]; loadError: string | null }) {
   const [orders, setOrders] = useState(initialOrders)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'ALL' | AdminAccessoryOrder['status']>('ALL')
   const [busy, setBusy] = useState<string | null>(null)
+  const busyRef = useRef<string | null>(null)
+  const pollCursorRef = useRef(0)
   const [toasts, setToasts] = useState<ToastMessage[]>(loadError ? [{ id: 1, kind: 'error', title: 'Tải đơn hàng thất bại', message: loadError }] : [])
   const filteredOrders = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('vi')
@@ -39,6 +50,8 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
   const notify = (toast: Omit<ToastMessage, 'id'>) => setToasts((current) => [...current, { id: Date.now(), ...toast }])
 
   async function confirmOrder(order: AdminAccessoryOrder) {
+    if (busyRef.current) return
+    busyRef.current = order.id
     setBusy(order.id)
     try {
       const response = await fetch(`/api/v1/admin/orders/${order.id}/confirm`, { method: 'POST' })
@@ -50,10 +63,12 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
       notify({ kind: 'success', title: 'Đã xác nhận đơn phụ kiện', message: order.orderNumber })
     } catch (error) {
       notify({ kind: 'error', title: 'Xác nhận đơn hàng thất bại', message: error instanceof Error ? error.message : undefined })
-    } finally { setBusy(null) }
+    } finally { busyRef.current = null; setBusy(null) }
   }
 
-  async function runAction(order: AdminAccessoryOrder, action: 'cancel' | 'complete' | 'refund') {
+  async function runAction(order: AdminAccessoryOrder, action: 'cancel' | 'complete' | 'refund' | 'refund-status', silent = false) {
+    if (busyRef.current) return
+    busyRef.current = order.id
     setBusy(order.id)
     try {
       const response = await fetch(`/api/v1/admin/orders/${order.id}/actions/${action}`, { method: 'POST' })
@@ -63,13 +78,31 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         ...item,
         status: body.data.status ?? item.status,
         refundStatus: body.data.refundStatus ?? item.refundStatus,
+        refundAttemptStatus: body.data.attemptStatus ?? item.refundAttemptStatus,
       }))
-      const title = action === 'cancel' ? 'Đã hủy đơn phụ kiện' : action === 'complete' ? 'Đã hoàn thành đơn phụ kiện' : 'Đã xác nhận hoàn tiền'
-      notify({ kind: 'success', title, message: order.orderNumber })
+      const title = action === 'cancel' ? 'Đã hủy đơn phụ kiện' : action === 'complete' ? 'Đã hoàn thành đơn phụ kiện' : body.data.attemptStatus === 'COMPLETED' ? 'Hoàn tiền thành công' : body.data.attemptStatus === 'FAILED' ? 'Hoàn tiền thất bại' : 'VNPay đang xử lý hoàn tiền'
+      if (!silent || body.data.attemptStatus === 'COMPLETED' || body.data.attemptStatus === 'FAILED') {
+        notify({ kind: body.data.attemptStatus === 'FAILED' ? 'error' : 'success', title, message: order.orderNumber })
+      }
     } catch (error) {
-      notify({ kind: 'error', title: 'Cập nhật đơn hàng thất bại', message: error instanceof Error ? error.message : undefined })
-    } finally { setBusy(null) }
+      if (!silent) notify({ kind: 'error', title: 'Cập nhật đơn hàng thất bại', message: error instanceof Error ? error.message : undefined })
+    } finally { busyRef.current = null; setBusy(null) }
   }
+
+  useEffect(() => {
+    const processingOrders = orders.filter((order) => order.status === 'CANCELLED'
+      && order.refundStatus === 'PENDING'
+      && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? ''))
+    if (!processingOrders.length) return
+    const timer = window.setTimeout(() => {
+      if (!busyRef.current) {
+        const processingOrder = processingOrders[pollCursorRef.current % processingOrders.length]
+        pollCursorRef.current += 1
+        void runAction(processingOrder, 'refund-status', true)
+      }
+    }, 60_000)
+    return () => window.clearTimeout(timer)
+  }, [orders, busy])
 
   function requestCancellation(order: AdminAccessoryOrder) {
     const toastId = Date.now()
@@ -83,11 +116,24 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
     }])
   }
 
+  function requestRefund(order: AdminAccessoryOrder) {
+    const toastId = Date.now()
+    setToasts((current) => [...current, {
+      id: toastId,
+      kind: 'warning',
+      title: 'Hoàn tiền qua VNPay?',
+      message: `Hoàn toàn bộ ${money(order.totalAmount)} cho đơn ${order.orderNumber}. Thao tác có thể không thể thu hồi.`,
+      secondaryAction: { label: 'Để sau', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+      action: { label: 'Gửi yêu cầu hoàn tiền', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); void runAction(order, 'refund') } },
+    }])
+  }
+
   function orderActions(order: AdminAccessoryOrder) {
     if (order.status === 'PENDING') return <Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button>
     if (order.status === 'PAID') return <Button size="sm" onClick={() => confirmOrder(order)} disabled={busy === order.id} className="gap-1.5"><CheckCircle2 size={15} />{busy === order.id ? 'Đang xử lý...' : 'Xác nhận'}</Button>
     if (order.status === 'CONFIRMED') return <div className="flex justify-end gap-2"><Button size="sm" onClick={() => runAction(order, 'complete')} disabled={busy === order.id} className="gap-1.5"><CheckCircle2 size={15} />Đã hoàn thành</Button><Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button></div>
-    if (order.status === 'CANCELLED' && order.refundStatus === 'PENDING') return <Button size="sm" onClick={() => runAction(order, 'refund')} disabled={busy === order.id} className="gap-1.5"><RotateCcw size={15} />Đã hoàn tiền</Button>
+    if (order.status === 'CANCELLED' && order.refundStatus === 'PENDING' && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')) return <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600"><RotateCcw size={15} className="animate-spin" />Đang tự động kiểm tra</span>
+    if (order.status === 'CANCELLED' && order.refundStatus === 'PENDING') return <Button size="sm" onClick={() => requestRefund(order)} disabled={busy === order.id} className="gap-1.5"><RotateCcw size={15} />{order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Hoàn tiền'}</Button>
     if (order.status === 'CANCELLED') return <span className="text-xs font-medium text-slate-400">Đã hủy</span>
     return null
   }
@@ -105,7 +151,7 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         <tbody className="divide-y divide-slate-100">{filteredOrders.map((order) => <tr key={order.id} className="transition-colors hover:bg-slate-50">
           <td className="px-5 py-4 font-semibold text-slate-900">{order.orderNumber}</td><td className="px-5 py-4 text-slate-700">{order.customerEmail}</td>
           <td className="max-w-xs px-5 py-4 text-slate-600"><div className="space-y-1">{order.items.map((item, index) => <p key={`${item.product_name_snapshot}-${index}`} className="truncate" title={item.product_name_snapshot}>{item.product_name_snapshot} × {item.quantity}</p>)}</div></td>
-          <td className="px-5 py-4 font-semibold text-slate-900">{money(order.totalAmount)}</td><td className="px-5 py-4"><span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${statusStyle[order.status]}`}>{order.status === 'CANCELLED' && order.refundStatus === 'PENDING' ? 'Đã hủy · Chờ hoàn tiền' : statusLabel[order.status]}</span></td><td className="px-5 py-4 text-xs text-slate-500">{date(order.createdAt)}</td>
+          <td className="px-5 py-4 font-semibold text-slate-900">{money(order.totalAmount)}</td><td className="px-5 py-4"><span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${isBankRefundPending(order) ? 'bg-amber-100 text-amber-700' : statusStyle[order.status]}`}>{displayStatus(order)}</span></td><td className="px-5 py-4 text-xs text-slate-500">{date(order.createdAt)}</td>
           <td className="px-5 py-4 text-right">{orderActions(order)}</td>
         </tr>)}{!filteredOrders.length && <tr><td colSpan={7} className="px-6 py-14 text-center text-slate-500"><ShoppingBag className="mx-auto mb-3 text-slate-300" size={30} /><p>{loadError ? 'Không thể tải đơn phụ kiện.' : 'Không có đơn phụ kiện phù hợp.'}</p></td></tr>}</tbody>
       </table></div><div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredOrders.length} / {orders.length} đơn hàng</div>

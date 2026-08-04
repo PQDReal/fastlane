@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2 } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
@@ -38,6 +38,8 @@ function ProfileContent() {
   const [userOrders, setUserOrders] = useState<AccessoryOrderSummary[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
+  const [ordersPage, setOrdersPage] = useState(1)
+  const [ordersMeta, setOrdersMeta] = useState({ page: 1, limit: 5, total: 0, totalPages: 0 })
   const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
   const [selectedAccessoryOrder, setSelectedAccessoryOrder] = useState<AccessoryOrder | null>(null)
   const [accessoryOrderLoadingId, setAccessoryOrderLoadingId] = useState<string | null>(null)
@@ -110,19 +112,27 @@ function ProfileContent() {
   }
 
   useEffect(() => {
+    setOrdersPage(1)
+  }, [activeTab])
+
+  useEffect(() => {
     if (!user || (activeTab !== 'orders' && activeTab !== 'car-orders')) return
 
     let active = true
     setOrdersLoading(true)
     setOrdersError(null)
+    setUserOrders([])
     const typeQuery = activeTab === 'orders' ? 'accessory' : 'car'
-    fetch(`/api/v1/orders?limit=20&type=${typeQuery}`, { cache: 'no-store' })
+    fetch(`/api/v1/orders?page=${ordersPage}&limit=5&type=${typeQuery}`, { cache: 'no-store' })
       .then(async (response) => {
         const payload = await response.json()
         if (!response.ok) {
           throw new Error(payload.error?.message || 'Không thể tải đơn hàng.')
         }
-        if (active) setUserOrders(payload.data || [])
+        if (active) {
+          setUserOrders(payload.data || [])
+          setOrdersMeta(payload.meta || { page: ordersPage, limit: 5, total: 0, totalPages: 0 })
+        }
       })
       .catch((error: unknown) => {
         if (active) setOrdersError(error instanceof Error ? error.message : 'Không thể tải đơn hàng.')
@@ -134,7 +144,7 @@ function ProfileContent() {
     return () => {
       active = false
     }
-  }, [activeTab, user])
+  }, [activeTab, ordersPage, user])
 
   async function openAccessoryOrder(orderId: string) {
     setAccessoryOrderLoadingId(orderId)
@@ -667,6 +677,36 @@ function ProfileContent() {
                       </article>
                     )
                   })}
+                  {!ordersLoading && !ordersError && ordersMeta.totalPages > 1 && (
+                    <nav aria-label="Phân trang đơn hàng" className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 sm:flex-row">
+                      <p className="text-sm text-gray-500">
+                        Hiển thị {(ordersMeta.page - 1) * ordersMeta.limit + 1}–{Math.min(ordersMeta.page * ordersMeta.limit, ordersMeta.total)} trong {ordersMeta.total} đơn hàng
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setOrdersPage((page) => Math.max(1, page - 1))}
+                          disabled={ordersMeta.page <= 1}
+                          aria-label="Trang trước"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-700 transition hover:border-[#836100] hover:text-[#836100] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="min-w-24 text-center text-sm font-semibold text-gray-700">
+                          Trang {ordersMeta.page} / {ordersMeta.totalPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setOrdersPage((page) => Math.min(ordersMeta.totalPages, page + 1))}
+                          disabled={ordersMeta.page >= ordersMeta.totalPages}
+                          aria-label="Trang sau"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-700 transition hover:border-[#836100] hover:text-[#836100] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </nav>
+                  )}
                 </div>
               </div>
             )}

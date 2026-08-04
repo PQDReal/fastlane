@@ -30,7 +30,7 @@ export default async function VnPayReturnPage({ searchParams }: {
           <Link
             href={result.success && result.orderId
               ? `/checkout/success?orderId=${encodeURIComponent(result.orderId)}`
-              : '/checkout'}
+              : '/profile?tab=orders'}
             className="rounded-xl bg-slate-950 px-5 py-3 text-white"
           >
             {result.success ? 'Xem đơn hàng' : 'Thử thanh toán lại'}

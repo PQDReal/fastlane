@@ -17,6 +17,7 @@ export function vnPayConfig() {
   if (!tmnCode || !hashSecret) throw new VnPayConfigError()
   return {
     paymentUrl: process.env.VNPAY_PAYMENT_URL || SANDBOX_URL,
+    apiUrl: process.env.VNPAY_API_URL || 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction',
     tmnCode,
     hashSecret,
     returnUrl: process.env.VNPAY_RETURN_URL || `${baseUrl}/payment/vnpay/return`,
@@ -43,7 +44,7 @@ export function verifyVnPayHash(params: VnPayParams, secret = vnPayConfig().hash
   return crypto.timingSafeEqual(Buffer.from(received, 'hex'), Buffer.from(createVnPayHash(params, secret), 'hex'))
 }
 
-function vnDate(date: Date) {
+export function vnPayDate(date: Date) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
@@ -68,7 +69,7 @@ export function createVnPayPaymentUrl(input: {
     vnp_OrderInfo: `Thanh toan dat coc ${input.orderNumber}`,
     vnp_OrderType: 'other', vnp_Locale: 'vn', vnp_ReturnUrl: config.returnUrl,
     vnp_IpAddr: input.clientIp === '::1' ? '127.0.0.1' : input.clientIp,
-    vnp_CreateDate: vnDate(now), vnp_ExpireDate: vnDate(new Date(now.getTime() + 15 * 60_000)),
+    vnp_CreateDate: vnPayDate(now), vnp_ExpireDate: vnPayDate(new Date(now.getTime() + 15 * 60_000)),
   }
   const signingData = vnPaySigningData(params)
   return `${config.paymentUrl}?${signingData}&vnp_SecureHash=${createVnPayHash(params, config.hashSecret)}`
@@ -76,3 +77,13 @@ export function createVnPayPaymentUrl(input: {
 
 export const vnPayParams = (searchParams: URLSearchParams): VnPayParams =>
   Object.fromEntries(searchParams.entries())
+
+export function createVnPayPipeHash(values: string[], secret = vnPayConfig().hashSecret) {
+  return crypto.createHmac('sha512', secret).update(values.join('|'), 'utf8').digest('hex')
+}
+
+export function verifyVnPayPipeHash(values: string[], received: string | undefined, secret = vnPayConfig().hashSecret) {
+  if (!received || !/^[a-f0-9]{128}$/i.test(received)) return false
+  const expected = createVnPayPipeHash(values, secret)
+  return crypto.timingSafeEqual(Buffer.from(received.toLowerCase(), 'hex'), Buffer.from(expected, 'hex'))
+}
