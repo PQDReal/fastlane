@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { usePathname } from 'next/navigation'
 import { ShoppingCart } from 'lucide-react'
 import {
   CART_ANIMATION_CANCEL,
@@ -96,7 +97,27 @@ export function CartFlyAnimation() {
   const itemsRef = useRef<FlyingCart[]>([])
   const timers = useRef(new Map<string, number>())
   const completedIds = useRef(new Set<string>())
+  const pathname = usePathname()
+  const previousPathname = useRef(pathname)
   const shouldReduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) return
+    previousPathname.current = pathname
+
+    // The cart page keeps a pending animation alive because the add request
+    // may finish after navigation. On any other route, discard an animation
+    // whose source button has disappeared instead of leaving it floating.
+    if (pathname === '/cart') return
+    const pendingIds = itemsRef.current
+      .filter((item) => item.phase === 'emerging')
+      .map((item) => item.id)
+    pendingIds.forEach((id) => {
+      window.dispatchEvent(
+        new CustomEvent<{ id: string }>(CART_ANIMATION_CANCEL, { detail: { id } }),
+      )
+    })
+  }, [pathname])
 
   useEffect(() => {
     const removeTimer = (id: string) => {
@@ -130,39 +151,57 @@ export function CartFlyAnimation() {
         event as CustomEvent<CartAnimationResolutionDetail>
       ).detail
 
-      const item = itemsRef.current.find((entry) => entry.id === id)
-      if (!item) return
+      const attemptLaunch = (attempt: number) => {
+        const item = itemsRef.current.find((entry) => entry.id === id)
+        if (!item || item.phase === 'cancelled') return
 
-      removeTimer(id)
-      const target = targetPosition()
-      if (!target) {
-        const nextItems = itemsRef.current.filter(
-          (entry) => entry.id !== id,
-        )
+        const target = targetPosition()
+        // Route transitions can briefly render before the fixed header/cart
+        // target is available. Keep the prepared animation alive and retry
+        // instead of completing it (and losing the visual) immediately.
+        if (!target && attempt < 20) {
+          const timer = window.setTimeout(() => {
+            timers.current.delete(id)
+            attemptLaunch(attempt + 1)
+          }, 50)
+          timers.current.set(id, timer)
+          return
+        }
+
+        removeTimer(id)
+        if (!target) {
+          finishFlightFallback(id, quantity)
+          return
+        }
+
+        const nextItems = itemsRef.current.map((entry) => (
+          entry.id === id
+            ? {
+                ...entry,
+                origin: trackedSourcePosition(entry.sourceElement) ?? entry.origin,
+                phase: 'flying' as const,
+                target,
+                quantity,
+              }
+            : entry
+        ))
         itemsRef.current = nextItems
         setItems(nextItems)
-        window.dispatchEvent(
-          new CustomEvent<CartAnimationResolutionDetail>(
-            CART_ANIMATION_COMPLETE,
-            { detail: { id, quantity } },
-          ),
-        )
-        return
       }
 
-      const nextItems = itemsRef.current.map((entry) => (
-        entry.id === id
-          ? {
-              ...entry,
-              origin: trackedSourcePosition(entry.sourceElement) ?? entry.origin,
-              phase: 'flying' as const,
-              target,
-              quantity,
-            }
-          : entry
-      ))
+      attemptLaunch(0)
+    }
+
+    const finishFlightFallback = (id: string, quantity: number) => {
+      const nextItems = itemsRef.current.filter((entry) => entry.id !== id)
       itemsRef.current = nextItems
       setItems(nextItems)
+      window.dispatchEvent(
+        new CustomEvent<CartAnimationResolutionDetail>(
+          CART_ANIMATION_COMPLETE,
+          { detail: { id, quantity } },
+        ),
+      )
     }
 
     const handleCancel = (event: Event) => {

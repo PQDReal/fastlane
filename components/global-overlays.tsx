@@ -1,8 +1,6 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { usePathname } from 'next/navigation'
-
 import { useAppStore } from '@/lib/store'
 
 const LazySearchModal = dynamic(
@@ -16,13 +14,14 @@ const LazyCartFlyAnimation = dynamic(
 )
 
 export function GlobalOverlays() {
-  const pathname = usePathname()
   const searchModalOpen = useAppStore((state) => state.searchModalOpen)
 
   return (
     <>
       {searchModalOpen && <LazySearchModal />}
-      {pathname.startsWith('/accessories') && <LazyCartFlyAnimation />}
+      {/* Keep the animation mounted across route changes. An add-to-cart
+          request may finish after the user has already opened /cart. */}
+      <LazyCartFlyAnimation />
     </>
   )
 }
