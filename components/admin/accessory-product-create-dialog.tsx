@@ -916,16 +916,38 @@ function SwatchInput({
   onChange: (url: string) => void
   onNotifyError?: (message: string) => void
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false)
   const hasImage = Boolean(value.trim())
+
+  useEffect(() => {
+    if (!previewOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previewOpen])
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1.5">
       {hasImage ? (
         <div
-          title="Ảnh swatch"
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+          role="button"
+          tabIndex={0}
+          onClick={() => setPreviewOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setPreviewOpen(true)
+            }
+          }}
+          title="Bấm để xem ảnh swatch phóng to"
+          className="group relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition hover:border-brand-500 hover:ring-2 hover:ring-brand-100"
         >
           <img src={value.trim()} alt="Swatch" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition group-hover:opacity-100">
+            <Eye size={13} className="text-white" />
+          </div>
         </div>
       ) : (
         <ImageUploadDropzone
@@ -991,6 +1013,42 @@ function SwatchInput({
           onError={onNotifyError}
         />
       )}
+
+      {/* Lightbox Preview Modal for Swatch */}
+      <AnimatePresence>
+        {previewOpen && hasImage && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Xem trước hình ảnh swatch"
+            onClick={() => setPreviewOpen(false)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                aria-label="Đóng xem trước"
+                className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-slate-800/80 text-white backdrop-blur-md transition hover:bg-red-600 focus-visible:outline-none"
+              >
+                <X size={16} />
+              </button>
+              <img
+                src={value.trim()}
+                alt="Xem trước ảnh swatch"
+                className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
