@@ -125,3 +125,24 @@ export async function deleteRedisKeysByPrefix(prefix: string): Promise<number> {
     return 0
   }
 }
+
+export async function getRedisMonitoring() {
+  const client = await connectedRedis()
+  if (!client) return { configured: isRedisConfigured(), connected: false, latencyMs: null, keyCount: 0 }
+
+  try {
+    const started = Date.now()
+    await client.ping()
+    let cursor = '0'
+    let keyCount = 0
+    do {
+      const [nextCursor, keys] = await client.scan(cursor, 'MATCH', 'fastlane:*', 'COUNT', 100)
+      cursor = nextCursor
+      keyCount += keys.length
+    } while (cursor !== '0')
+    return { configured: true, connected: true, latencyMs: Date.now() - started, keyCount }
+  } catch (error) {
+    reportRedisFallback(error)
+    return { configured: true, connected: false, latencyMs: null, keyCount: 0 }
+  }
+}
