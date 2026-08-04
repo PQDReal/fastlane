@@ -60,24 +60,27 @@ export function ProductCreateDialog({
   const confirmWorkflow = useCallback((title: string, message: string, onConfirm: () => void, confirmLabel = 'Tiếp tục') => {
     const id = Date.now() + Math.random()
     const closeWarning = () => dismissToast(id)
-    setToasts((current) => [
-      ...current.filter((toast) => toast.title !== title),
-      {
-        id,
-        kind: 'warning',
-        title,
-        message,
-        secondaryAction: { label: 'Giữ lại', onClick: closeWarning },
-        action: {
-          label: confirmLabel,
-          variant: 'danger',
-          onClick: () => {
-            closeWarning()
-            onConfirm()
+    setToasts((current) => {
+      if (current.some((toast) => toast.kind === 'warning' && toast.title === title)) return current
+      return [
+        ...current,
+        {
+          id,
+          kind: 'warning',
+          title,
+          message,
+          secondaryAction: { label: 'Giữ lại', onClick: closeWarning },
+          action: {
+            label: confirmLabel,
+            variant: 'danger',
+            onClick: () => {
+              closeWarning()
+              onConfirm()
+            },
           },
         },
-      },
-    ])
+      ]
+    })
   }, [dismissToast])
 
   useEffect(() => {
@@ -145,26 +148,12 @@ export function ProductCreateDialog({
       return
     }
 
-    const id = Date.now() + Math.random()
-    const closeWarning = () => dismissToast(id)
-    setToasts((current) => [
-      ...current.filter((toast) => toast.title !== 'Đổi loại sản phẩm?'),
-      {
-        id,
-        kind: 'warning',
-        title: 'Đổi loại sản phẩm?',
-        message: 'Thông tin phụ kiện đã nhập sẽ bị xóa.',
-        secondaryAction: { label: 'Giữ lại', onClick: closeWarning },
-        action: {
-          label: 'Xóa và đổi loại',
-          variant: 'danger',
-          onClick: () => {
-            closeWarning()
-            returnToTypePicker()
-          },
-        },
-      },
-    ])
+    confirmWorkflow(
+      'Đổi loại sản phẩm?',
+      'Thông tin phụ kiện đã nhập sẽ bị xóa.',
+      returnToTypePicker,
+      'Xóa và đổi loại',
+    )
   }
 
   const requestClose = useCallback(() => {
