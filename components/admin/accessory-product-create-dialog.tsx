@@ -8,8 +8,10 @@ import {
   ArrowUp,
   Check,
   ChevronLeft,
+  ChevronRight,
   Copy,
   Eye,
+  GripVertical,
   ImageIcon,
   Layers3,
   Loader2,
@@ -19,10 +21,12 @@ import {
   RotateCcw,
   Save,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react'
 
 import { AccessoryProductPreview } from '@/components/admin/accessory-product-preview'
+import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
 import { ProductReviewDecisionDialog, type ProductReviewBlocker } from '@/components/admin/product-create/product-review-decision-dialog'
 import { Button } from '@/components/ui/button'
 import type { ToastKind } from '@/components/ui/toast'
@@ -838,11 +842,11 @@ function OptionsAndVariantsStep({
                 )}
                 <div className="mt-2 space-y-1.5">
                   {group.values.map((value) => (
-                    <div key={value.id} className={`grid items-start gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-2 ${group.displayType === 'SWATCH' ? 'sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.45fr)_auto]'}`}>
+                    <div key={value.id} className={`grid items-start gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-2 ${group.displayType === 'SWATCH' ? 'sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1.8fr)_auto]' : 'sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.45fr)_auto]'}`}>
                       <input aria-label="Tên giá trị" value={value.name} onChange={(event) => { const name = event.target.value; updateGroup(group.id, { values: group.values.map((item) => item.id === value.id ? { ...item, name, code: accessoryAdminSlug(name) } : item) }) }} placeholder="Tên giá trị, ví dụ Xanh dương" className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
                       {group.displayType === 'SWATCH' && <input aria-label="Mã màu" value={value.colorHex} onChange={(event) => updateGroup(group.id, { values: group.values.map((item) => item.id === value.id ? { ...item, colorHex: event.target.value } : item) })} placeholder="#0057B8" className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />}
                       {group.displayType === 'SWATCH'
-                        ? <input aria-label="URL swatch" value={value.swatchUrl} onChange={(event) => updateGroup(group.id, { values: group.values.map((item) => item.id === value.id ? { ...item, swatchUrl: event.target.value } : item) })} placeholder="URL swatch, không bắt buộc" className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+                        ? <SwatchInput value={value.swatchUrl} onChange={(nextUrl) => updateGroup(group.id, { values: group.values.map((item) => item.id === value.id ? { ...item, swatchUrl: nextUrl } : item) })} />
                         : <details className="group/code"><summary className="flex h-9 cursor-pointer list-none items-center rounded-md border border-transparent px-3 text-xs font-semibold text-slate-500 transition hover:border-slate-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">Mã: {value.code || 'chưa có'}</summary><input aria-label="Mã giá trị" value={value.code} onChange={(event) => updateGroup(group.id, { values: group.values.map((item) => item.id === value.id ? { ...item, code: accessoryAdminSlug(event.target.value) } : item) })} className="mt-1 h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></details>}
                       <button type="button" aria-label="Xóa giá trị" disabled={group.values.length <= 1} onClick={() => removeValue(group, value.id)} className="grid h-9 w-9 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-30"><X size={15} /></button>
                     </div>
@@ -903,6 +907,94 @@ function OptionsAndVariantsStep({
   )
 }
 
+function SwatchInput({
+  value,
+  onChange,
+  onNotifyError,
+}: {
+  value: string
+  onChange: (url: string) => void
+  onNotifyError?: (message: string) => void
+}) {
+  const hasImage = Boolean(value.trim())
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      {hasImage ? (
+        <div
+          title="Ảnh swatch"
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+        >
+          <img src={value.trim()} alt="Swatch" className="h-full w-full object-cover" />
+        </div>
+      ) : (
+        <ImageUploadDropzone
+          onUploadSuccess={(urls) => {
+            if (urls[0]) onChange(urls[0])
+          }}
+          onError={onNotifyError}
+        >
+          {({ isUploading }) => (
+            <div
+              title={isUploading ? 'Đang tải ảnh...' : 'Bấm để chọn/tải ảnh swatch từ máy'}
+              className={`group relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border transition ${
+                isUploading
+                  ? 'border-brand-500 bg-brand-50 shadow-inner'
+                  : 'border-slate-200 bg-slate-50 hover:border-brand-500 hover:ring-2 hover:ring-brand-100'
+              }`}
+            >
+              <ImageIcon
+                size={15}
+                className={`transition ${
+                  isUploading ? 'text-brand-600 animate-pulse' : 'text-slate-400 group-hover:text-brand-600'
+                }`}
+              />
+              {!isUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition group-hover:opacity-100">
+                  <Upload size={13} className="text-white" />
+                </div>
+              )}
+            </div>
+          )}
+        </ImageUploadDropzone>
+      )}
+
+      <div className="relative flex min-w-0 flex-1 items-center">
+        <input
+          aria-label="URL swatch"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="URL swatch (dán URL hoặc bấm icon bên trái)"
+          className={`h-9 min-w-0 w-full rounded-md border border-slate-200 bg-white pl-2.5 text-xs text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 ${
+            hasImage ? 'pr-8 font-mono text-[11px]' : 'pr-2.5'
+          }`}
+        />
+        {hasImage && (
+          <button
+            type="button"
+            title="Xóa URL swatch"
+            onClick={() => onChange('')}
+            className="absolute right-2 flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-red-600"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {hasImage && (
+        <ImageUploadDropzone
+          compact
+          label="Tải mới"
+          onUploadSuccess={(urls) => {
+            if (urls[0]) onChange(urls[0])
+          }}
+          onError={onNotifyError}
+        />
+      )}
+    </div>
+  )
+}
+
 function UrlEditor({
   urls,
   label,
@@ -910,6 +1002,7 @@ function UrlEditor({
   description,
   header,
   onChange,
+  onNotifyError,
 }: {
   urls: string[]
   label: string
@@ -917,32 +1010,337 @@ function UrlEditor({
   description?: string
   header?: ReactNode
   onChange: (urls: string[]) => void
+  onNotifyError?: (message: string) => void
 }) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+
   const completedCount = nonEmptyUrls(urls).length
   const hasHeadingContent = Boolean(header || title || description)
+  const validUrls = useMemo(() => urls.map((u) => u.trim()).filter(Boolean), [urls])
+
+  useEffect(() => {
+    if (previewIndex === null || validUrls.length === 0) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewIndex(null)
+      if (e.key === 'ArrowLeft' && validUrls.length > 1) {
+        setPreviewIndex((current) =>
+          current === null ? null : (current - 1 + validUrls.length) % validUrls.length,
+        )
+      }
+      if (e.key === 'ArrowRight' && validUrls.length > 1) {
+        setPreviewIndex((current) =>
+          current === null ? null : (current + 1) % validUrls.length,
+        )
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previewIndex, validUrls.length])
+
+  const handleUploadSuccess = (newUrls: string[]) => {
+    if (newUrls.length === 0) return
+    const currentValid = urls.filter((u) => u.trim() !== '')
+    onChange([...currentValid, ...newUrls])
+  }
+
+  const handleSingleRowUploadSuccess = (index: number, newUrls: string[]) => {
+    if (newUrls.length === 0) return
+    const updated = [...urls]
+    updated[index] = newUrls[0]
+    if (newUrls.length > 1) {
+      updated.push(...newUrls.slice(1))
+    }
+    onChange(updated)
+  }
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== targetIndex) {
+      const updated = [...urls]
+      const [moved] = updated.splice(draggedIndex, 1)
+      updated.splice(targetIndex, 0, moved)
+      onChange(updated)
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const activePreviewUrl =
+    previewIndex !== null && validUrls[previewIndex] ? validUrls[previewIndex] : null
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        {hasHeadingContent ? <div className="min-w-48 flex-1">
-          {header ?? <>
-            {title && <h3 className="text-sm font-bold text-slate-900">{title}</h3>}
-            {description && <p className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p>}
-          </>}
-        </div> : <span className="text-[11px] font-semibold text-slate-400">{completedCount}/{urls.length} ảnh đã nhập</span>}
-        <div className="flex shrink-0 items-center gap-3">
-          {hasHeadingContent && <span className="text-[11px] font-semibold text-slate-400">{completedCount}/{urls.length} ảnh đã nhập</span>}
-          <button type="button" disabled={urls.length >= 20} onClick={() => onChange([...urls, ''])} className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-bold text-brand-700 transition hover:bg-brand-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40"><Plus size={13} />Thêm ảnh</button>
+        {hasHeadingContent ? (
+          <div className="min-w-48 flex-1">
+            {header ?? (
+              <>
+                {title && <h3 className="text-sm font-bold text-slate-900">{title}</h3>}
+                {description && (
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                    {description} {urls.length > 1 && '(Kéo icon ⠿ để sắp xếp thứ tự)'}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <span className="text-[11px] font-semibold text-slate-400">
+            {completedCount}/{urls.length} ảnh đã nhập
+          </span>
+        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {hasHeadingContent && (
+            <span className="text-[11px] font-semibold text-slate-400">
+              {completedCount}/{urls.length} ảnh đã nhập
+            </span>
+          )}
+          <ImageUploadDropzone
+            compact
+            label="Tải ảnh từ máy"
+            onUploadSuccess={handleUploadSuccess}
+            onError={onNotifyError}
+          />
+          <button
+            type="button"
+            disabled={urls.length >= 20}
+            onClick={() => onChange([...urls, ''])}
+            className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 text-xs font-bold text-brand-700 transition hover:bg-brand-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus size={13} />
+            Thêm ô URL
+          </button>
         </div>
       </div>
-      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))' }}>
-        {urls.map((url, index) => (
-          <div key={index} className="grid min-w-0 grid-cols-[42px_minmax(0,1fr)_34px] items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white">{url.trim() ? <img src={url} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={16} className="text-slate-300" />}</div>
-            <input aria-label={`${label} ${index + 1}`} value={url} onChange={(event) => onChange(urls.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder={`${label} ${index + 1}`} className="h-9 min-w-0 rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
-            <button type="button" aria-label={`Xóa ${label.toLocaleLowerCase('vi-VN')} ${index + 1}`} disabled={urls.length <= 1} onClick={() => onChange(urls.filter((_, itemIndex) => itemIndex !== index))} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-25"><Trash2 size={14} /></button>
-          </div>
-        ))}
+
+      <div className="space-y-2">
+        {urls.map((url, index) => {
+          const isDragging = draggedIndex === index
+          const isDragOver = dragOverIndex === index
+          const hasImage = Boolean(url.trim())
+
+          return (
+            <div
+              key={index}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
+              className={`flex min-w-0 items-center gap-2 rounded-lg transition ${
+                isDragging ? 'opacity-40 scale-[0.99]' : ''
+              } ${
+                isDragOver && !isDragging ? 'ring-2 ring-brand-500 bg-brand-50/30' : ''
+              }`}
+            >
+              {/* Drag Handle */}
+              <div
+                draggable={urls.length > 1}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragEnd={handleDragEnd}
+                title={urls.length > 1 ? 'Kéo thả để đổi vị trí thứ tự ảnh' : 'Cần ít nhất 2 ảnh để sắp xếp'}
+                className={`flex h-9 w-6 shrink-0 items-center justify-center text-slate-400 transition ${
+                  urls.length > 1
+                    ? 'cursor-grab hover:text-slate-700 active:cursor-grabbing'
+                    : 'cursor-not-allowed opacity-30'
+                }`}
+              >
+                <GripVertical size={16} />
+              </div>
+
+              {/* Thumbnail: If hasImage -> Preview Modal on click; If empty -> Trigger file upload */}
+              {hasImage ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    const idx = validUrls.indexOf(url.trim())
+                    setPreviewIndex(idx !== -1 ? idx : 0)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      const idx = validUrls.indexOf(url.trim())
+                      setPreviewIndex(idx !== -1 ? idx : 0)
+                    }
+                  }}
+                  title="Bấm để xem ảnh phóng to"
+                  className="group relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition hover:border-brand-500 hover:ring-2 hover:ring-brand-100"
+                >
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition group-hover:opacity-100">
+                    <Eye size={13} className="text-white" />
+                  </div>
+                </div>
+              ) : (
+                <ImageUploadDropzone
+                  onUploadSuccess={(newUrls) => handleSingleRowUploadSuccess(index, newUrls)}
+                  onError={onNotifyError}
+                >
+                  {({ isUploading }) => (
+                    <div
+                      title={isUploading ? 'Đang tải ảnh...' : 'Bấm để chọn/tải ảnh từ máy'}
+                      className={`group relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border transition ${
+                        isUploading
+                          ? 'border-brand-500 bg-brand-50 shadow-inner'
+                          : 'border-slate-200 bg-slate-50 hover:border-brand-500 hover:ring-2 hover:ring-brand-100'
+                      }`}
+                    >
+                      <ImageIcon
+                        size={15}
+                        className={`transition ${
+                          isUploading ? 'text-brand-600 animate-pulse' : 'text-slate-400 group-hover:text-brand-600'
+                        }`}
+                      />
+                      {!isUploading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition group-hover:opacity-100">
+                          <Upload size={13} className="text-white" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </ImageUploadDropzone>
+              )}
+
+              {/* URL Input with embedded X clear button */}
+              <div className="relative flex min-w-0 flex-1 items-center">
+                <input
+                  aria-label={`${label} ${index + 1}`}
+                  value={url}
+                  onChange={(event) =>
+                    onChange(urls.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))
+                  }
+                  placeholder={hasImage ? `${label} ${index + 1}` : `${label} ${index + 1} (dán URL hoặc bấm icon bên trái)`}
+                  className={`h-9 min-w-0 w-full rounded-md border border-slate-200 bg-white pl-2.5 text-xs text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 ${
+                    hasImage ? 'pr-8 font-mono text-[11px]' : 'pr-2.5'
+                  }`}
+                />
+                {hasImage && (
+                  <button
+                    type="button"
+                    title="Xóa URL dòng này"
+                    onClick={() => onChange(urls.map((item, itemIndex) => (itemIndex === index ? '' : item)))}
+                    className="absolute right-2 flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-red-600"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Delete row button */}
+              <button
+                type="button"
+                aria-label={`Xóa dòng ${label.toLocaleLowerCase('vi-VN')} ${index + 1}`}
+                disabled={urls.length <= 1}
+                onClick={() => onChange(urls.filter((_, itemIndex) => itemIndex !== index))}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-25"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )
+        })}
       </div>
+
+      {/* Lightbox Image Preview Modal with Gallery Navigation */}
+      <AnimatePresence>
+        {activePreviewUrl !== null && previewIndex !== null && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Xem trước hình ảnh"
+            onClick={() => setPreviewIndex(null)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
+          >
+            {/* Left Chevron Button */}
+            {validUrls.length > 1 && (
+              <button
+                type="button"
+                aria-label="Ảnh trước"
+                title="Ảnh trước (Phím ←)"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPreviewIndex((current) =>
+                    current === null ? null : (current - 1 + validUrls.length) % validUrls.length,
+                  )
+                }}
+                className="absolute left-4 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-slate-900/80 text-white shadow-lg backdrop-blur-md transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                <ChevronLeft size={26} />
+              </button>
+            )}
+
+            {/* Right Chevron Button */}
+            {validUrls.length > 1 && (
+              <button
+                type="button"
+                aria-label="Ảnh sau"
+                title="Ảnh sau (Phím →)"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPreviewIndex((current) =>
+                    current === null ? null : (current + 1) % validUrls.length,
+                  )
+                }}
+                className="absolute right-4 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-slate-900/80 text-white shadow-lg backdrop-blur-md transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                <ChevronRight size={26} />
+              </button>
+            )}
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl"
+            >
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setPreviewIndex(null)}
+                aria-label="Đóng xem trước"
+                className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-slate-800/80 text-white backdrop-blur-md transition hover:bg-red-600 focus-visible:outline-none"
+              >
+                <X size={16} />
+              </button>
+
+              {/* Counter Badge */}
+              {validUrls.length > 1 && (
+                <div className="absolute left-3 top-3 z-10 rounded-md bg-slate-800/80 px-2.5 py-1 text-xs font-semibold text-slate-200 backdrop-blur-md">
+                  {previewIndex + 1} / {validUrls.length}
+                </div>
+              )}
+
+              <img
+                key={activePreviewUrl}
+                src={activePreviewUrl}
+                alt={`Xem trước ảnh ${previewIndex + 1}`}
+                className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
