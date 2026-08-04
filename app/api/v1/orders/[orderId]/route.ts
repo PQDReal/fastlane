@@ -48,7 +48,20 @@ export async function DELETE(_request: Request, context: RouteContext) {
       if (cancellation.error.message.includes('ORDER_CANNOT_BE_CANCELLED_FROM')) {
         throw new ApiRouteError(409, 'ORDER_CANNOT_BE_CANCELLED', 'Đơn hàng ở trạng thái hiện tại không thể hủy.')
       }
-      throw cancellation.error
+      console.error('Unable to cancel accessory order:', {
+        orderId,
+        code: cancellation.error.code,
+        message: cancellation.error.message,
+        details: cancellation.error.details,
+        hint: cancellation.error.hint,
+      })
+      throw new ApiRouteError(
+        500,
+        'ORDER_CANCELLATION_FAILED',
+        process.env.NODE_ENV === 'development'
+          ? `Không thể hủy đơn hàng: ${cancellation.error.message}`
+          : 'Không thể hủy đơn hàng do lỗi xử lý dữ liệu.',
+      )
     }
 
     return NextResponse.json({ data: await readCustomerOrder(customer.id, orderId) })
