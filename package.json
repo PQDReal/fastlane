@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "check:performance-budget": "node scripts/check-performance-budget.mjs",
     "check:openapi": "npm --prefix api-contract run check:openapi",
+    "check:api-routes": "node scripts/check-api-route-coverage.mjs --write",
     "seed:accessory-inventory": "node scripts/seed-accessory-inventory.mjs",
     "sync:vinfast-accessories": "node --env-file=.env.local scripts/sync-vinfast-accessories.mjs",
     "sync:vinfast-accessories:apply": "node --env-file=.env.local scripts/sync-vinfast-accessories.mjs --apply",
