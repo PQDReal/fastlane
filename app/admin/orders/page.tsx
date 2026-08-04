@@ -15,12 +15,26 @@ export default async function AdminOrdersPage() {
     console.error('Failed to fetch deposit orders:', depositError)
   }
 
+  const paidDepositOrderIds = new Set<string>()
+  const depositOrderIds = (depositData ?? []).map((deposit: any) => deposit.id)
+  if (depositOrderIds.length > 0) {
+    const { data: paymentAttempts, error: paymentAttemptsError } = await supabase
+      .from('vnpay_deposit_attempts')
+      .select('deposit_order_id,status')
+      .in('deposit_order_id', depositOrderIds)
+      .eq('status', 'PAID')
+
+    if (paymentAttemptsError) {
+      console.error('Failed to fetch deposit payment attempts:', paymentAttemptsError)
+    } else {
+      for (const attempt of paymentAttempts ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
+    }
+  }
+
   const orders: AdminOrderRow[] = (depositData ?? []).map((deposit: any) => {
     let paymentStatus = 'Pending'
-    if (deposit.status === 'PAID' || deposit.status === 'PREPARING_DELIVERY' || deposit.status === 'DELIVERED' || deposit.status === 'COMPLETED') {
+    if (paidDepositOrderIds.has(deposit.id) || deposit.status === 'PAID' || deposit.status === 'PREPARING_DELIVERY' || deposit.status === 'DELIVERED' || deposit.status === 'COMPLETED') {
       paymentStatus = 'Paid'
-    } else if (deposit.status === 'CANCELLED') {
-      paymentStatus = 'Pending'
     }
 
     const defaultDepositVal = (() => {
@@ -46,6 +60,7 @@ export default async function AdminOrdersPage() {
       amount,
       status: deposit.status,
       payment: paymentStatus,
+      refundStatus: deposit.refund_status || 'NONE',
       createdAt: deposit.created_at,
       isCar: true,
       kyc_status: deposit.kyc_status,

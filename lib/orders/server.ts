@@ -323,19 +323,43 @@ export async function listCustomerOrders(
   if (!type || type === 'car') {
     const { data: depositData, error: depositError } = await supabase
       .from('deposit_orders')
-      .select('id,order_number,status,deposit_amount,total_estimated_price,created_at,updated_at,showroom,exterior_color,interior_color,optional_packages,full_name,phone_number,id_card_number,province,ward,customer_type,vehicle_type,car_model,car_variant,vehicle_variants(deposit_amount,product_name,variant_name)')
+      .select('*, vehicle_variants(*)')
       .or(`customer_id.eq.${customerId},email.eq.${customerEmail}`)
   
     if (depositError) throw new Error(`Unable to list deposit orders: ${depositError.message}`)
+
+    const paidDepositOrderIds = new Set<string>()
+    const latestBalanceAttemptByOrder = new Map<string, 'PENDING' | 'PAID' | 'FAILED'>()
+    const depositOrderIds = (depositData ?? []).map((deposit: any) => deposit.id)
+    if (depositOrderIds.length > 0) {
+      const { data: depositAttempts, error: depositAttemptsError } = await supabase
+        .from('vnpay_deposit_attempts')
+        .select('deposit_order_id,status')
+        .in('deposit_order_id', depositOrderIds)
+        .eq('status', 'PAID')
+
+      if (depositAttemptsError) throw new Error(`Unable to list deposit payment attempts: ${depositAttemptsError.message}`)
+      for (const attempt of depositAttempts ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
+
+      const { data: balanceAttempts, error: balanceAttemptsError } = await supabase
+        .from('vnpay_vehicle_balance_attempts')
+        .select('deposit_order_id,status,created_at')
+        .in('deposit_order_id', depositOrderIds)
+        .order('created_at', { ascending: false })
+      if (balanceAttemptsError) throw new Error(`Unable to list vehicle balance payment attempts: ${balanceAttemptsError.message}`)
+      for (const attempt of balanceAttempts ?? []) {
+        if (!latestBalanceAttemptByOrder.has(attempt.deposit_order_id)) {
+          latestBalanceAttemptByOrder.set(attempt.deposit_order_id, attempt.status as 'PENDING' | 'PAID' | 'FAILED')
+        }
+      }
+    }
   
     depositSummaries = (depositData ?? []).map((deposit: any) => {
       let paymentStatus: 'Pending' | 'Paid' = 'Pending'
       let orderStatus: AccessoryOrder['status'] = 'Created'
       
-      if (deposit.status === 'PAID') {
+      if (paidDepositOrderIds.has(deposit.id) || ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(deposit.status)) {
         paymentStatus = 'Paid'
-      } else if (deposit.status === 'CANCELLED') {
-        paymentStatus = 'Pending' // Or keep it what it was
       }
 
       orderStatus = deposit.status; // Pass through the status directly for the UI to handle
@@ -357,14 +381,18 @@ export async function listCustomerOrders(
         carModel: deposit.car_model,
         carVariant: deposit.car_variant,
         status: orderStatus as AccessoryOrderSummary['status'],
-        refundStatus: 'None',
+        refundStatus: deposit.refund_status === 'COMPLETED'
+          ? 'Completed'
+          : deposit.refund_status === 'PENDING' ? 'Pending' : 'None',
         paymentStatus: paymentStatus as 'Pending' | 'Paid',
         nextPaymentDueAt: null,
         pricing: {
           currency: 'VND',
           grandTotal: deposit.total_estimated_price ? String(deposit.total_estimated_price) : finalDepositVal,
           amountDueNow: finalDepositVal,
-          balanceDue: deposit.total_estimated_price ? String(Math.max(0, Number(deposit.total_estimated_price) - Number(finalDepositVal))) : '0',
+          balanceDue: ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(deposit.status)
+            ? '0'
+            : deposit.total_estimated_price ? String(Math.max(0, Number(deposit.total_estimated_price) - Number(finalDepositVal))) : '0',
         },
         createdAt: deposit.created_at,
         statusUpdatedAt: deposit.updated_at,
@@ -377,9 +405,10 @@ export async function listCustomerOrders(
           customerPhone: deposit.phone_number,
           idCardNumber: deposit.id_card_number,
           province: deposit.province,
-          district: deposit.ward,
+          ward: deposit.ward,
           customerType: deposit.customer_type,
           totalEstimatedPrice: deposit.total_estimated_price,
+          balancePaymentStatus: latestBalanceAttemptByOrder.get(deposit.id) ?? null,
           vehicleVariant: deposit.vehicle_variants
         }
       }

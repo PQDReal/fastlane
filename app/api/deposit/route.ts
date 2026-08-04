@@ -7,7 +7,6 @@ import {
   parseIdempotencyKey,
   type DepositOrderInput,
 } from '@/lib/deposit/order-input'
-import { decideDepositReplay } from '@/lib/deposit/idempotency'
 import {
   DepositLocationUnavailableError,
   validateDepositLocation,
@@ -17,6 +16,8 @@ import {
   depositQuoteError,
 } from '@/lib/deposit/quote'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { VnPayConfigError } from '@/lib/payments/vnpay'
+import { createOrReuseVnPayDepositPayment } from '@/lib/services/vnpay-payment-service'
 
 const RESPONSE_COLUMNS =
   'id,order_number,status,deposit_amount,subtotal,discount_amount,total_estimated_price,promotion_code,car_model,car_variant,created_at,request_hash'
@@ -58,7 +59,7 @@ function vietnamOffsetIso(value: string) {
     .replace('Z', '+07:00')
 }
 
-function responseData(row: DepositOrderRow, replayed = false) {
+function responseData(row: DepositOrderRow, replayed = false, paymentUrl?: string) {
   return {
     data: {
       id: row.id,
@@ -73,8 +74,15 @@ function responseData(row: DepositOrderRow, replayed = false) {
       vehicleVariant: row.car_variant,
       createdAt: vietnamOffsetIso(row.created_at),
       replayed,
+      ...(paymentUrl ? { paymentUrl } : {}),
     },
   }
+}
+
+function clientIp(request: Request) {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || '127.0.0.1'
 }
 
 function generateOrderNumber(): string {
@@ -93,6 +101,13 @@ function isDepositSchemaOutdated(error: unknown): boolean {
     || /column deposit_orders\.[a-z_]+ does not exist/i.test(message)
 }
 
+function isDepositPaymentSchemaMissing(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; message?: unknown }
+  return String(candidate.code ?? '') === 'PGRST205'
+    || /vnpay_deposit_attempts/i.test(String(candidate.message ?? ''))
+}
+
 async function requestHash(input: DepositOrderInput) {
   const bytes = new TextEncoder().encode(JSON.stringify(input))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -101,19 +116,12 @@ async function requestHash(input: DepositOrderInput) {
     .join('')
 }
 
-async function existingOrder(
-  idempotencyKey: string,
-  customerId: string | null,
-  guestEmail: string,
-): Promise<DepositOrderRow | null> {
-  let query = getSupabaseAdmin()
+async function existingOrder(idempotencyKey: string): Promise<DepositOrderRow | null> {
+  const result = await getSupabaseAdmin()
     .from('deposit_orders')
     .select(RESPONSE_COLUMNS)
     .eq('idempotency_key', idempotencyKey)
-  query = customerId
-    ? query.eq('customer_id', customerId)
-    : query.is('customer_id', null).ilike('email', guestEmail)
-  const result = await query.maybeSingle<DepositOrderRow>()
+    .maybeSingle<DepositOrderRow>()
   if (result.error) throw result.error
   return result.data
 }
@@ -143,18 +151,20 @@ export async function POST(request: Request) {
 
   try {
     const hash = await requestHash(input)
-    const currentUser = await getCurrentUser().catch(() => null)
-    const customerId = currentUser?.id ?? null
-    const replay = await existingOrder(idempotencyKey, customerId, input.email)
+    const replay = await existingOrder(idempotencyKey)
     if (replay) {
-      if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
+      if (replay.request_hash && replay.request_hash !== hash) {
         return errorResponse(
           409,
           'IDEMPOTENCY_CONFLICT',
           'Yêu cầu này đã được dùng cho một nội dung đặt cọc khác.',
         )
       }
-      return NextResponse.json(responseData(replay, true))
+      const paymentUrl = await createOrReuseVnPayDepositPayment(
+        { id: replay.id, orderNumber: replay.order_number },
+        clientIp(request),
+      )
+      return NextResponse.json(responseData(replay, true, paymentUrl))
     }
 
     await validateDepositLocation(input)
@@ -164,42 +174,43 @@ export async function POST(request: Request) {
     } catch (error) {
       depositQuoteError(error)
     }
+    const currentUser = await getCurrentUser().catch(() => null)
     const now = new Date().toISOString()
 
-    // Motorbike quotes already use the canonical vehicle_variants ID. Cars
-    // still quote from product_variants, so resolve their read-model relation
-    // separately without ever copying an ID across the two tables.
+    // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
     let vehicleVariantId: string | null = input.vehicleType === 'motorbike'
       ? quote.variantId
       : null
-    if (input.vehicleType === 'car') try {
-      const { data: vVariants } = await getSupabaseAdmin()
-        .from('vehicle_variants')
-        .select('id, product_name, variant_name, version, color')
+    try {
+      if (input.vehicleType === 'car') {
+        const { data: vVariants } = await getSupabaseAdmin()
+          .from('vehicle_variants')
+          .select('id, product_name, variant_name, version, color')
       
-      const model = input.vehicleModel
-      const color = input.exteriorColor
-      const variant = input.vehicleVariant
+        const model = input.vehicleModel
+        const color = input.exteriorColor
+        const variant = input.vehicleVariant
 
-      const matchingVv = (vVariants || []).find((vv: any) => {
-        const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
+        const matchingVv = (vVariants || []).find((vv: any) => {
+          const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
         
-        const colorMatch = color && vv.color ? vv.color.toLowerCase() === color.toLowerCase() : (!color && !vv.color)
-        const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
+          const colorMatch = color && vv.color ? vv.color.toLowerCase() === color.toLowerCase() : (!color && !vv.color)
+          const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
         
-        return pNameMatch && colorMatch && versionMatch
-      }) || (vVariants || []).find((vv: any) => {
-        // Fallback: match version at least
-        const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
-        const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
-        return pNameMatch && versionMatch
-      })
+          return pNameMatch && colorMatch && versionMatch
+        }) || (vVariants || []).find((vv: any) => {
+          // Fallback: match version at least
+          const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
+          const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
+          return pNameMatch && versionMatch
+        })
 
-      if (matchingVv) {
-        vehicleVariantId = matchingVv.id
+        if (matchingVv) {
+          vehicleVariantId = matchingVv.id
+        }
       }
     } catch {
-      vehicleVariantId = null
+      vehicleVariantId = input.vehicleType === 'motorbike' ? quote.variantId : null
     }
 
     const insertResult = await getSupabaseAdmin()
@@ -239,7 +250,7 @@ export async function POST(request: Request) {
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,
-        status: 'PENDING_CONFIRMATION',
+        status: 'PENDING_DEPOSIT',
         terms_accepted_at: now,
       })
       .select(RESPONSE_COLUMNS)
@@ -247,16 +258,13 @@ export async function POST(request: Request) {
 
     if (insertResult.error) {
       if (insertResult.error.code === '23505') {
-        const replay = await existingOrder(idempotencyKey, customerId, input.email)
+        const replay = await existingOrder(idempotencyKey)
         if (replay) {
-          if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
-            return errorResponse(
-              409,
-              'IDEMPOTENCY_CONFLICT',
-              'Yêu cầu này đã được dùng cho một nội dung đặt cọc khác.',
-            )
-          }
-          return NextResponse.json(responseData(replay, true))
+          const paymentUrl = await createOrReuseVnPayDepositPayment(
+            { id: replay.id, orderNumber: replay.order_number },
+            clientIp(request),
+          )
+          return NextResponse.json(responseData(replay, true, paymentUrl))
         }
       }
       if (insertResult.error.code === '23514') {
@@ -276,27 +284,18 @@ export async function POST(request: Request) {
       throw insertResult.error
     }
 
-    if (quote.promotion?.id && quote.discountAmount > 0) {
+    if (input.promotionCode && quote.discountAmount > 0) {
       const supabase = getSupabaseAdmin()
-      const usage = await supabase.rpc('consume_promotion_usage_atomic', {
-        p_promotion_id: quote.promotion.id,
-      })
-      if (usage.error || usage.data !== true) {
-        // The order must not retain a discount when no promotion use was
-        // reserved. This compensating delete also keeps retries idempotent.
-        await supabase.from('deposit_orders').delete().eq('id', insertResult.data.id)
-        if (usage.error) {
-          throw new Error(`Unable to consume promotion usage: ${usage.error.message}`)
-        }
-        return errorResponse(
-          422,
-          'PROMOTION_USAGE_LIMIT',
-          'Mã giảm giá đã hết lượt sử dụng. Vui lòng chọn mã khác.',
-          'promotion_code',
-        )
+      const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
+      if (promo) {
+        await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
       }
     }
-    return NextResponse.json(responseData(insertResult.data), { status: 201 })
+    const paymentUrl = await createOrReuseVnPayDepositPayment(
+      { id: insertResult.data.id, orderNumber: insertResult.data.order_number },
+      clientIp(request),
+    )
+    return NextResponse.json(responseData(insertResult.data, false, paymentUrl), { status: 201 })
   } catch (error) {
     if (error instanceof DepositInputError) {
       return errorResponse(
@@ -313,6 +312,16 @@ export async function POST(request: Request) {
         503,
         'LOCATION_SERVICE_UNAVAILABLE',
         error.message,
+      )
+    }
+    if (error instanceof VnPayConfigError) {
+      return errorResponse(503, 'VNPAY_NOT_CONFIGURED', error.message)
+    }
+    if (isDepositPaymentSchemaMissing(error)) {
+      return errorResponse(
+        503,
+        'PAYMENT_SCHEMA_NOT_READY',
+        'Database chưa áp dụng migration 033 cho thanh toán đặt cọc VNPAY.',
       )
     }
     if (isDepositSchemaOutdated(error)) {

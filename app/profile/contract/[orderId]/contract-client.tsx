@@ -37,7 +37,7 @@ export default function ContractPageClient({ order }: { order: any }) {
       showToast('success', 'Ký hợp đồng thành công', 'Đơn hàng của bạn đã được cập nhật trạng thái.')
       
       setTimeout(() => {
-        router.push('/profile')
+        router.push(data.redirectUrl || '/profile?tab=car-orders')
         router.refresh()
       }, 1500)
     } catch (err: any) {

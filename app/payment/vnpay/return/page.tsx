@@ -20,6 +20,12 @@ export default async function VnPayReturnPage({ searchParams }: {
     console.error('Unable to process VNPAY return:', error)
     result = { success: false, message: 'Chưa thể xác nhận giao dịch.' }
   }
+  const isVehicleOrder = result.orderKind === 'deposit' || result.orderKind === 'vehicle_balance'
+  const destination = isVehicleOrder
+    ? '/profile?tab=car-orders'
+    : result.success && result.orderId
+      ? `/checkout/success?orderId=${encodeURIComponent(result.orderId)}`
+      : '/profile?tab=orders'
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
       <section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center">
@@ -28,12 +34,10 @@ export default async function VnPayReturnPage({ searchParams }: {
         {result.orderNumber && <p className="mt-4">Mã đơn hàng: <strong>{result.orderNumber}</strong></p>}
         <div className="mt-8 flex justify-center gap-3">
           <Link
-            href={result.success && result.orderId
-              ? `/checkout/success?orderId=${encodeURIComponent(result.orderId)}`
-              : '/profile?tab=orders'}
+            href={destination}
             className="rounded-xl bg-slate-950 px-5 py-3 text-white"
           >
-            {result.success ? 'Xem đơn hàng' : 'Thử thanh toán lại'}
+            {isVehicleOrder ? 'Xem đơn mua xe' : result.success ? 'Xem đơn hàng' : 'Thử thanh toán lại'}
           </Link>
           <Link href="/" className="rounded-xl border px-5 py-3">Về trang chủ</Link>
         </div>
