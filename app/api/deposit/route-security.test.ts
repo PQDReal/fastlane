@@ -16,4 +16,12 @@ describe('deposit route safety contract', () => {
   it('compares request hashes after a concurrent unique-key conflict', () => {
     expect(source).toMatch(/error\.code === '23505'[\s\S]*decideDepositReplay\(replay\.request_hash, hash\)/)
   })
+
+  it('does not write canonical motorbike IDs into the legacy product variant relation', () => {
+    expect(source).toContain('variant_id: null')
+    expect(source).toMatch(
+      /vehicleVariantId: string \| null = input\.vehicleType === 'motorbike'[\s\S]*\? quote\.variantId/,
+    )
+    expect(source).not.toContain('vehicleVariantId = quote.variantId')
+  })
 })

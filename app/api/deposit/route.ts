@@ -166,9 +166,13 @@ export async function POST(request: Request) {
     }
     const now = new Date().toISOString()
 
-    // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
-    let vehicleVariantId: string | null = null
-    try {
+    // Motorbike quotes already use the canonical vehicle_variants ID. Cars
+    // still quote from product_variants, so resolve their read-model relation
+    // separately without ever copying an ID across the two tables.
+    let vehicleVariantId: string | null = input.vehicleType === 'motorbike'
+      ? quote.variantId
+      : null
+    if (input.vehicleType === 'car') try {
       const { data: vVariants } = await getSupabaseAdmin()
         .from('vehicle_variants')
         .select('id, product_name, variant_name, version, color')
@@ -195,7 +199,7 @@ export async function POST(request: Request) {
         vehicleVariantId = matchingVv.id
       }
     } catch {
-      vehicleVariantId = quote.variantId
+      vehicleVariantId = null
     }
 
     const insertResult = await getSupabaseAdmin()
@@ -216,7 +220,9 @@ export async function POST(request: Request) {
         ward: input.ward,
         ward_code: input.wardCode,
         product_id: quote.productId,
-        variant_id: quote.variantId,
+        // Vehicle orders use vehicle_variant_id. product_variants is reserved
+        // for accessories, so the legacy order relation stays empty here.
+        variant_id: null,
         vehicle_variant_id: vehicleVariantId,
         vehicle_type: input.vehicleType,
         car_model: input.vehicleModel,
