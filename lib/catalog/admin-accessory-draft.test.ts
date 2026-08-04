@@ -2,30 +2,60 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ACCESSORY_CATALOG_COLLECTIONS,
+  ACCESSORY_SECTION_TYPES,
   adminAccessoryDraftToCatalogProduct,
+  applyAccessoryTemplateCategoryDefaults,
   accessoryModelCollectionsForCategory,
   accessoryAdminSlug,
   buildVariantMatrix,
   createAdminAccessoryDraft,
-  draftOptionGroupSupportsMedia,
-  generateVariantSku,
   isSectionComplete,
-  resolvedDraftMediaOptionGroupId,
   variantIsComplete,
   variantSignature,
 } from '@/lib/catalog/admin-accessory-draft'
 
 describe('admin accessory draft helpers', () => {
+  it('offers the canonical warranty policy section type', () => {
+    expect(ACCESSORY_SECTION_TYPES.find((type) => type.value === 'WARRANTY')).toEqual({
+      value: 'WARRANTY',
+      label: 'Chính sách bảo hành',
+      defaultTitle: 'Chính sách bảo hành',
+    })
+  })
+
   it('resolves vehicle-model collections only through their selected parent category', () => {
     expect(accessoryModelCollectionsForCategory(ACCESSORY_CATALOG_COLLECTIONS, 'phu-kien-o-to-dien').map((collection) => collection.slug))
       .toEqual(['vf-9', 'vf-8', 'vf-7', 'vf-6', 'nerio-green', 'limo-green', 'vf-5', 'vf-3'])
     expect(accessoryModelCollectionsForCategory(ACCESSORY_CATALOG_COLLECTIONS, 'phong-cach-song')).toEqual([])
   })
 
+  it('prefills the category suggested by a template without overriding existing choices', () => {
+    const filmDraft = applyAccessoryTemplateCategoryDefaults(
+      createAdminAccessoryDraft(),
+      ACCESSORY_CATALOG_COLLECTIONS,
+      'window_film',
+    )
+    expect(filmDraft.categoryAssignments).toEqual([{
+      categoryId: 'preview-collection-phu-kien-o-to-dien',
+      compatibilityMode: null,
+      modelIds: [],
+    }])
+
+    const customizedDraft = {
+      ...createAdminAccessoryDraft(),
+      categoryAssignments: [{
+        categoryId: 'preview-collection-phong-cach-song',
+        compatibilityMode: 'NOT_APPLICABLE' as const,
+        modelIds: [],
+      }],
+    }
+    expect(applyAccessoryTemplateCategoryDefaults(customizedDraft, ACCESSORY_CATALOG_COLLECTIONS, 'window_film'))
+      .toBe(customizedDraft)
+  })
+
   it('does not emit a model membership outside the selected category branch', () => {
     const draft = createAdminAccessoryDraft()
-    draft.primaryCollectionSlug = 'phong-cach-song'
-    draft.modelCollectionSlugs = ['vf-9']
+    draft.categoryAssignments = [{ categoryId: 'preview-collection-phong-cach-song', compatibilityMode: 'NOT_APPLICABLE', modelIds: ['preview-collection-vf-9'] }]
 
     const product = adminAccessoryDraftToCatalogProduct(draft, [])
 
@@ -35,8 +65,7 @@ describe('admin accessory draft helpers', () => {
 
   it('emits the selected model as a child of its primary category in preview data', () => {
     const draft = createAdminAccessoryDraft()
-    draft.primaryCollectionSlug = 'phu-kien-o-to-dien'
-    draft.modelCollectionSlugs = ['vf-9']
+    draft.categoryAssignments = [{ categoryId: 'preview-collection-phu-kien-o-to-dien', compatibilityMode: 'SELECTED_MODELS', modelIds: ['preview-collection-vf-9'] }]
 
     const product = adminAccessoryDraftToCatalogProduct(draft, [])
     const modelMembership = product.collectionMemberships.find((membership) => membership.collection.slug === 'vf-9')
@@ -64,11 +93,11 @@ describe('admin accessory draft helpers', () => {
   it('validates variant selections and prices', () => {
     const group = {
       id: 'color', presetCode: 'color', code: 'color', name: 'Màu sắc', displayType: 'SWATCH' as const,
-      required: true, values: [{ id: 'blue', code: 'blue', name: 'Xanh', colorHex: '#0057B8', swatchUrl: '', imageUrls: [] }],
+      required: true, values: [{ id: 'blue', code: 'blue', name: 'Xanh', colorHex: '#0057B8', swatchUrl: '' }],
     }
     const variant = {
       id: 'variant-1', name: 'Xanh', sku: 'ACC-BLUE', originalPrice: '200000', salePrice: '180000',
-      isActive: true, selections: { color: 'blue' }, imageUrls: [],
+      isActive: true, selections: { color: 'blue' }, imageUrls: ['https://cdn.example.com/blue.webp'],
     }
     expect(variantIsComplete(variant, [group])).toBe(true)
     expect(variantSignature(variant, [group])).toBe('color=blue')
@@ -80,16 +109,16 @@ describe('admin accessory draft helpers', () => {
       id: 'color', presetCode: 'color', code: 'color', name: 'Màu sắc', displayType: 'SWATCH' as const,
       required: true,
       values: [
-        { id: 'blue', code: 'blue', name: 'Xanh', colorHex: '', swatchUrl: '', imageUrls: [] },
-        { id: 'red', code: 'red', name: 'Đỏ', colorHex: '', swatchUrl: '', imageUrls: [] },
+        { id: 'blue', code: 'blue', name: 'Xanh', colorHex: '', swatchUrl: '' },
+        { id: 'red', code: 'red', name: 'Đỏ', colorHex: '', swatchUrl: '' },
       ],
     }
     const size = {
       id: 'size', presetCode: 'size', code: 'size', name: 'Kích thước', displayType: 'BUTTON' as const,
       required: true,
       values: [
-        { id: 'small', code: 's', name: 'S', colorHex: '', swatchUrl: '', imageUrls: [] },
-        { id: 'medium', code: 'm', name: 'M', colorHex: '', swatchUrl: '', imageUrls: [] },
+        { id: 'small', code: 's', name: 'S', colorHex: '', swatchUrl: '' },
+        { id: 'medium', code: 'm', name: 'M', colorHex: '', swatchUrl: '' },
       ],
     }
     const existing = {
@@ -107,7 +136,7 @@ describe('admin accessory draft helpers', () => {
     const color = {
       id: 'color', presetCode: 'color', code: 'color', name: 'Màu sắc', displayType: 'SWATCH' as const,
       required: true,
-      values: [{ id: 'blue', code: 'blue', name: 'Xanh mới', colorHex: '', swatchUrl: '', imageUrls: [] }],
+      values: [{ id: 'blue', code: 'blue', name: 'Xanh mới', colorHex: '', swatchUrl: '' }],
     }
     const existing = {
       id: 'existing', name: 'Tên cũ', sku: 'BLUE', originalPrice: '200000', salePrice: '',
@@ -127,7 +156,7 @@ describe('admin accessory draft helpers', () => {
     const group = {
       id: 'engraving', presetCode: '', code: 'engraving', name: 'Khắc tên',
       displayType: 'BUTTON' as const, minimumSelections: 0, maximumSelections: 1,
-      values: [{ id: 'yes', code: 'yes', name: 'Có', colorHex: '', swatchUrl: '', imageUrls: [] }],
+      values: [{ id: 'yes', code: 'yes', name: 'Có', colorHex: '', swatchUrl: '' }],
     }
 
     const matrix = buildVariantMatrix([group], createAdminAccessoryDraft().variants)
@@ -141,7 +170,7 @@ describe('admin accessory draft helpers', () => {
     const group = {
       id: 'engraving', presetCode: '', code: 'engraving', name: 'Khắc tên',
       displayType: 'BUTTON' as const, minimumSelections: 0, maximumSelections: 1,
-      values: [{ id: 'yes', code: 'yes', name: 'Có', colorHex: '', swatchUrl: '', imageUrls: [] }],
+      values: [{ id: 'yes', code: 'yes', name: 'Có', colorHex: '', swatchUrl: '' }],
     }
     const edited = buildVariantMatrix([group], []).map((variant) => variant.selections.engraving === null
       ? { ...variant, sku: 'NO-ENGRAVING', originalPrice: '99000', isIncluded: false }
@@ -168,20 +197,6 @@ describe('admin accessory draft helpers', () => {
     expect(product.priceRange).toEqual({ minimum: 100000, maximum: 100000 })
   })
 
-  it('generates SKUs from a prefix and selected option codes', () => {
-    const groups = [{
-      id: 'color', presetCode: 'color', code: 'color', name: 'Màu sắc', displayType: 'SWATCH' as const,
-      required: true,
-      values: [{ id: 'blue', code: 'blue', name: 'Xanh', colorHex: '', swatchUrl: '', imageUrls: [] }],
-    }]
-    const variant = {
-      id: 'variant-1', name: 'Xanh', sku: '', originalPrice: '100000', salePrice: '', isActive: true,
-      selections: { color: 'blue' }, imageUrls: [],
-    }
-    expect(generateVariantSku('Rain coat', variant, groups, 0)).toBe('RAIN-COAT-BLUE')
-    expect(generateVariantSku('ACC', { ...variant, selections: {} }, groups, 4)).toBe('ACC-05')
-  })
-
   it('keeps standard section names fixed and uses a free title only for Other', () => {
     const draft = createAdminAccessoryDraft()
     draft.sections = [
@@ -205,11 +220,10 @@ describe('admin accessory draft helpers', () => {
     const draft = createAdminAccessoryDraft()
     draft.name = 'Áo mưa xem trước'
     draft.slug = 'ao-mua-xem-truoc'
-    draft.primaryCollectionSlug = 'phong-cach-song'
-    draft.productImageUrls = ['product.jpg']
+    draft.categoryAssignments = [{ categoryId: 'preview-collection-phong-cach-song', compatibilityMode: 'NOT_APPLICABLE', modelIds: [] }]
     draft.optionGroups = [{
       id: 'color', presetCode: 'color', code: 'color', name: 'Màu sắc', displayType: 'SWATCH', required: true,
-      values: [{ id: 'blue', code: 'blue', name: 'Xanh', colorHex: '#0057B8', swatchUrl: '', imageUrls: ['blue.jpg'] }],
+      values: [{ id: 'blue', code: 'blue', name: 'Xanh', colorHex: '#0057B8', swatchUrl: '' }],
     }]
     draft.variants = [{
       id: 'blue-variant', name: 'Xanh', sku: 'RAIN-BLUE', originalPrice: '200000', salePrice: '180000',
@@ -230,7 +244,7 @@ describe('admin accessory draft helpers', () => {
       sku: 'RAIN-BLUE', effectivePrice: 180000, availableQuantity: 25, selectedOptions: { color: 'blue' },
     })
     expect(product.media.byVariant['blue-variant'][0].url).toBe('variant.jpg')
-    expect(product.media.byOptionValue.blue[0].url).toBe('blue.jpg')
+    expect(product.media.byOptionValue).toEqual({})
   })
 
   it('models premium colors as separately priced SKUs without option adjustments', () => {
@@ -244,8 +258,8 @@ describe('admin accessory draft helpers', () => {
       minimumSelections: 1,
       maximumSelections: 1,
       values: [
-        { id: 'standard', code: 'standard', name: 'Màu tiêu chuẩn', colorHex: '#FFFFFF', swatchUrl: '', imageUrls: [] },
-        { id: 'premium', code: 'premium', name: 'Màu cao cấp', colorHex: '#C9A227', swatchUrl: '', imageUrls: [] },
+        { id: 'standard', code: 'standard', name: 'Màu tiêu chuẩn', colorHex: '#FFFFFF', swatchUrl: '' },
+        { id: 'premium', code: 'premium', name: 'Màu cao cấp', colorHex: '#C9A227', swatchUrl: '' },
       ],
     }]
     draft.variants = buildVariantMatrix(draft.optionGroups, []).map((variant) => {
@@ -267,31 +281,12 @@ describe('admin accessory draft helpers', () => {
     expect(product.priceRange).toEqual({ minimum: 2000000, maximum: 2500000 })
   })
 
-  it('derives the media attribute and persists an explicit group selection in preview metadata', () => {
+  it('keeps preview media scoped to direct SKU URLs', () => {
     const draft = createAdminAccessoryDraft()
-    draft.optionGroups = [
-      {
-        id: 'size', presetCode: 'size', code: 'size', name: 'Kích thước', displayType: 'BUTTON',
-        minimumSelections: 1, maximumSelections: 1,
-        values: [{ id: 'm', code: 'm', name: 'M', colorHex: '', swatchUrl: '', imageUrls: [] }],
-      },
-      {
-        id: 'color', presetCode: 'color', code: 'color', name: 'Màu sắc', displayType: 'SWATCH',
-        minimumSelections: 1, maximumSelections: 1,
-        values: [{ id: 'blue', code: 'blue', name: 'Xanh', colorHex: '#0057B8', swatchUrl: '', imageUrls: [] }],
-      },
-    ]
-
-    expect(draftOptionGroupSupportsMedia(draft.optionGroups[0])).toBe(false)
-    expect(draftOptionGroupSupportsMedia(draft.optionGroups[1])).toBe(true)
-    expect(resolvedDraftMediaOptionGroupId(draft)).toBe('color')
-
-    draft.optionGroups[0].mediaEnabled = true
-    draft.mediaOptionGroupId = 'size'
+    draft.variants[0] = { ...draft.variants[0], sku: 'BASE', originalPrice: '100000', imageUrls: ['https://cdn.example.com/base.webp'] }
     const product = adminAccessoryDraftToCatalogProduct(draft, [])
-    expect(product.optionGroups.map((group) => group.metadata.drivesMedia)).toEqual([true, false])
-
-    draft.mediaOptionGroupId = null
-    expect(resolvedDraftMediaOptionGroupId(draft)).toBeNull()
+    expect(product.media.product).toEqual([])
+    expect(product.media.byOptionValue).toEqual({})
+    expect(product.media.byVariant['variant-1'][0].url).toContain('base.webp')
   })
 })

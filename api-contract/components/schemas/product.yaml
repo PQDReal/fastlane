@@ -549,7 +549,7 @@ AdminAccessoryOptionValueInput:
   type: object
   additionalProperties: false
   description: An option value identifies a SKU selection. It never adds price; price is stored on the resulting SKU variant.
-  required: [code, name, colorHex, swatchUrl, displayOrder, imageUrls]
+  required: [code, name, colorHex, swatchUrl, displayOrder]
   properties:
     existingId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
@@ -557,15 +557,10 @@ AdminAccessoryOptionValueInput:
     colorHex: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$' }
     swatchUrl: { type: [string, 'null'], format: uri, maxLength: 2048 }
     displayOrder: { type: integer, minimum: 0 }
-    imageUrls:
-      type: array
-      maxItems: 20
-      uniqueItems: true
-      items: { type: string, format: uri, maxLength: 2048 }
 AdminAccessoryOptionGroupInput:
   type: object
   additionalProperties: false
-  required: [code, name, displayType, minimumSelections, maximumSelections, displayOrder, drivesMedia, values]
+  required: [code, name, displayType, minimumSelections, maximumSelections, displayOrder, values]
   properties:
     existingId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z][a-z0-9_]*$' }
@@ -574,7 +569,6 @@ AdminAccessoryOptionGroupInput:
     minimumSelections: { type: integer, enum: [0, 1] }
     maximumSelections: { type: integer, const: 1 }
     displayOrder: { type: integer, minimum: 0 }
-    drivesMedia: { type: boolean, description: At most one group may drive option-scoped media. }
     values:
       type: array
       minItems: 1
@@ -583,12 +577,11 @@ AdminAccessoryOptionGroupInput:
 AdminAccessoryVariantInput:
   type: object
   additionalProperties: false
-  description: The sellable and inventory-owned SKU. originalPrice and salePrice are whole-VND JSON integers.
-  required: [name, sku, originalPrice, salePrice, isActive, optionValues, imageUrls]
+  description: The sellable and inventory-owned variant. The database assigns a unique ACS SKU when a new variant is saved. Existing variant IDs retain their current SKU. originalPrice and salePrice are whole-VND JSON integers. Included variants must carry 1–20 direct HTTP/HTTPS image URLs; storefront accessory media is variant-only.
+  required: [name, originalPrice, salePrice, isActive, optionValues, imageUrls]
   properties:
     existingId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
     name: { type: string, minLength: 1, maxLength: 200 }
-    sku: { type: string, minLength: 1, maxLength: 80 }
     originalPrice: { type: integer, minimum: 0, maximum: 9007199254740991 }
     salePrice: { type: [integer, 'null'], minimum: 0, maximum: 9007199254740991, description: Must be lower than originalPrice when present. }
     isActive: { type: boolean }
@@ -598,25 +591,44 @@ AdminAccessoryVariantInput:
       description: Exact group-code to value-code selections for this SKU. Every required group must be represented.
     imageUrls:
       type: array
+      minItems: 1
       maxItems: 20
       uniqueItems: true
-      items: { type: string, format: uri, maxLength: 2048 }
-AdminAccessoryWriteRequest:
+      items: { type: string, format: uri, pattern: '^https?://[^\s]+$', maxLength: 2048 }
+AdminAccessoryCompatibilityMode:
+  type: string
+  enum: [ALL_MODELS, SELECTED_MODELS, NOT_APPLICABLE]
+  description: ALL_MODELS applies to every current and future model below the selected category without creating individual model memberships.
+AdminAccessoryCategoryAssignment:
   type: object
   additionalProperties: false
-  description: |
-    Complete ACCESSORY aggregate replacement. The backend validates the entire body before opening the database write and then persists product, taxonomy, service labels, options, SKUs, mappings, inventory initialization and media in one transaction.
-    Option values never add price. Existing variant IDs preserve inventory; new variants start at zero inventory. PATCH requires expectedUpdatedAt.
-  required: [categoryId, primaryCollectionId, modelCollectionIds, name, slug, description, isActive, serviceLabelIds, content, optionGroups, variants, productImageUrls]
+  required: [categoryId, compatibilityMode, modelIds]
   properties:
-    expectedUpdatedAt: { type: string, format: date-time, description: Required by PATCH for optimistic concurrency and omitted by POST. }
     categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    primaryCollectionId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    modelCollectionIds:
+    compatibilityMode: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryCompatibilityMode' }
+    modelIds:
       type: array
       maxItems: 100
       uniqueItems: true
       items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+      description: Required only for SELECTED_MODELS; must otherwise be empty.
+AdminAccessoryWriteRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Complete ACCESSORY aggregate replacement. The backend validates the entire body before opening the database write and then persists product, taxonomy, service labels, options, SKUs, mappings, inventory initialization and direct SKU media in one transaction.
+    Option values never add price. Existing variant IDs preserve inventory; new variants start at zero inventory. PATCH requires expectedUpdatedAt.
+  required: [categoryId, templateCode, templateVersion, categoryAssignments, name, slug, description, isActive, serviceLabelIds, content, optionGroups, variants]
+  properties:
+    expectedUpdatedAt: { type: string, format: date-time, description: Required by PATCH for optimistic concurrency and omitted by POST. }
+    categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    templateCode: { type: string, enum: [vehicle_fit, window_film, apparel, ev_charger, custom] }
+    templateVersion: { type: integer, const: 1 }
+    categoryAssignments:
+      type: array
+      minItems: 1
+      maxItems: 20
+      items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryCategoryAssignment' }
     name: { type: string, minLength: 1, maxLength: 200 }
     slug: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
     description: { type: string, minLength: 1, maxLength: 10000 }
@@ -636,11 +648,6 @@ AdminAccessoryWriteRequest:
       minItems: 1
       maxItems: 500
       items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryVariantInput' }
-    productImageUrls:
-      type: array
-      maxItems: 20
-      uniqueItems: true
-      items: { type: string, format: uri, maxLength: 2048 }
 AdminAccessorySaveResult:
   type: object
   additionalProperties: false
@@ -680,18 +687,17 @@ AdminAccessoryDraftSection:
 AdminAccessoryDraftOptionValue:
   type: object
   additionalProperties: false
-  required: [id, code, name, colorHex, swatchUrl, imageUrls]
+  required: [id, code, name, colorHex, swatchUrl]
   properties:
     id: { type: string, minLength: 1 }
     code: { type: string }
     name: { type: string }
     colorHex: { type: string }
     swatchUrl: { type: string }
-    imageUrls: { type: array, items: { type: string } }
 AdminAccessoryDraftOptionGroup:
   type: object
   additionalProperties: false
-  required: [id, presetCode, code, name, displayType, minimumSelections, maximumSelections, mediaEnabled, values]
+  required: [id, presetCode, code, name, displayType, minimumSelections, maximumSelections, values]
   properties:
     id: { type: string, minLength: 1 }
     presetCode: { type: string }
@@ -700,7 +706,6 @@ AdminAccessoryDraftOptionGroup:
     displayType: { type: string, enum: [BUTTON, SWATCH, SELECT] }
     minimumSelections: { type: integer, enum: [0, 1] }
     maximumSelections: { type: integer, const: 1 }
-    mediaEnabled: { type: boolean }
     values:
       type: array
       items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryDraftOptionValue' }
@@ -723,11 +728,14 @@ AdminAccessoryDraftVariant:
 AdminAccessoryDraft:
   type: object
   additionalProperties: false
-  required: [rootCategoryId, primaryCollectionSlug, modelCollectionSlugs, name, slug, description, isActive, serviceLabelIds, sections, optionGroups, variants, productImageUrls]
+  required: [rootCategoryId, templateCode, templateVersion, categoryAssignments, name, slug, description, isActive, serviceLabelIds, sections, optionGroups, variants]
   properties:
     rootCategoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    primaryCollectionSlug: { type: string }
-    modelCollectionSlugs: { type: array, items: { type: string } }
+    templateCode: { type: string, enum: [vehicle_fit, window_film, apparel, ev_charger, custom] }
+    templateVersion: { type: integer, const: 1 }
+    categoryAssignments:
+      type: array
+      items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryCategoryAssignment' }
     name: { type: string }
     slug: { type: string }
     description: { type: string }
@@ -735,9 +743,7 @@ AdminAccessoryDraft:
     serviceLabelIds: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' } }
     sections: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryDraftSection' } }
     optionGroups: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryDraftOptionGroup' } }
-    mediaOptionGroupId: { type: [string, 'null'] }
     variants: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryDraftVariant' } }
-    productImageUrls: { type: array, items: { type: string } }
 AdminAccessoryEditorData:
   type: object
   additionalProperties: false

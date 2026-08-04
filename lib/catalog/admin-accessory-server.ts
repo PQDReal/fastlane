@@ -19,6 +19,8 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   image_urls,
   is_active,
   product_type,
+  accessory_template_code,
+  accessory_template_version,
   updated_at,
   service_label_assignments:product_service_label_assignments(
     service_label_id,
@@ -26,8 +28,10 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   ),
   collection_memberships:product_collection_memberships(
     id,
+    source_system,
     is_primary,
     is_active,
+    metadata,
     collection:catalog_collections(
       id,
       parent_id,
@@ -90,7 +94,7 @@ export class AdminAccessoryPersistenceError extends Error {
 }
 
 function rpcError(error: { code?: string; message?: string }) {
-  if (error.code === 'PGRST202' || error.message?.includes('save_admin_accessory_product')) {
+  if (error.code === 'PGRST202' || error.message?.includes('save_admin_accessory_product_v3')) {
     return new AdminAccessoryPersistenceError(
       503,
       'CATALOG_WRITE_MIGRATION_REQUIRED',
@@ -110,7 +114,7 @@ function rpcError(error: { code?: string; message?: string }) {
   if (error.code === '23505') {
     return new AdminAccessoryPersistenceError(409, 'CATALOG_IDENTITY_CONFLICT', 'Slug hoặc SKU đã được sử dụng.')
   }
-  if (error.code === '22P02' || error.code === '22023' || error.code === '23514' || error.code === '23503') {
+  if (error.code === '22P02' || error.code === '22003' || error.code === '22023' || error.code === '23514' || error.code === '23503') {
     return new AdminAccessoryPersistenceError(
       422,
       'CATALOG_RULE_VIOLATION',
@@ -144,7 +148,7 @@ export async function saveAdminAccessoryProduct(
   request: AdminAccessoryWriteRequest,
   productId: string | null,
 ): Promise<AdminAccessorySaveResult> {
-  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product', {
+  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v3', {
     target_product_id: productId,
     expected_updated_at: request.expectedUpdatedAt ?? null,
     target_payload: adminAccessoryRpcPayload(request),

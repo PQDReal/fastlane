@@ -20,8 +20,9 @@ import { POST } from '@/app/api/v1/admin/products/route'
 function payload() {
   return {
     categoryId: '11111111-1111-1111-1111-111111111111',
-    primaryCollectionId: '22222222-2222-2222-2222-222222222222',
-    modelCollectionIds: [],
+    templateCode: 'custom',
+    templateVersion: 1,
+    categoryAssignments: [{ categoryId: '22222222-2222-2222-2222-222222222222', compatibilityMode: 'ALL_MODELS', modelIds: [] }],
     name: 'Ốp gương',
     slug: 'op-guong',
     description: 'Phụ kiện chính hãng.',
@@ -31,14 +32,12 @@ function payload() {
     optionGroups: [],
     variants: [{
       name: 'Mặc định',
-      sku: 'ACC-001',
       originalPrice: 500000,
       salePrice: null,
       isActive: true,
       optionValues: {},
-      imageUrls: [],
+      imageUrls: ['https://cdn.example.com/sku.webp'],
     }],
-    productImageUrls: ['https://cdn.example.com/product.webp'],
   }
 }
 
