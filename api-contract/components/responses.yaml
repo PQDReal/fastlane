@@ -171,12 +171,12 @@ Conflict:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
       example: { error: { code: CONFLICT, message: Request conflicts with current state., requestId: req_01J00000000000000000000000 } }
 OutOfStock:
-  description: Requested quantity is unavailable.
+  description: Đã đạt giới hạn tối đa của mặt hàng này
   x-error-codes: [OUT_OF_STOCK]
   content:
     application/json:
       schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
-      example: { error: { code: OUT_OF_STOCK, message: Requested quantity is unavailable., requestId: req_01J00000000000000000000000 } }
+      example: { error: { code: OUT_OF_STOCK, message: Đã đạt giới hạn tối đa của mặt hàng này, requestId: req_01J00000000000000000000000 } }
 CheckoutConflict:
   description: Cart, configured price, stock, or idempotency fingerprint changed and checkout cannot complete.
   x-error-codes: [CART_CHANGED, PRICE_CHANGED, OUT_OF_STOCK, IDEMPOTENCY_KEY_REUSED]

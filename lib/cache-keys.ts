@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 export const PRODUCT_SEARCH_CACHE_PREFIX = 'fastlane:product-search:v1:'
 export const CUSTOMER_CART_CACHE_PREFIX = 'fastlane:customer-cart:v1:'
 export const MOTORBIKE_CATALOG_CACHE_KEY = 'fastlane:motorbike-catalog:v1'
+export const MOTORBIKE_DETAIL_CACHE_PREFIX = 'fastlane:motorbike-detail:v1:'
 export const ACCESSORY_CATALOG_SUMMARY_CACHE_KEY =
   'fastlane:accessory-catalog-summary:v1'
 export const ACCESSORY_PRODUCT_CACHE_PREFIX = 'fastlane:accessory-product:v1:'
@@ -33,4 +34,8 @@ export function carCatalogCacheKey(page: number, pageSize: number) {
 
 export function carDetailCacheKey(slug: string) {
   return `${CAR_DETAIL_CACHE_PREFIX}${slug.trim().toLocaleLowerCase('vi')}`
+}
+
+export function motorbikeDetailCacheKey(slug: string) {
+  return `${MOTORBIKE_DETAIL_CACHE_PREFIX}${slug.trim().toLocaleLowerCase('vi')}`
 }

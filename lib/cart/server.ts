@@ -189,7 +189,7 @@ export async function addCustomerCartItem(
     throw new ApiRouteError(
       409,
       'OUT_OF_STOCK',
-      'Requested quantity is unavailable.',
+      'Đã đạt giới hạn tối đa của mặt hàng này',
     )
   }
 
@@ -218,7 +218,7 @@ export async function updateCustomerCartItem(
     throw new ApiRouteError(
       409,
       'OUT_OF_STOCK',
-      'Requested quantity is unavailable.',
+      'Đã đạt giới hạn tối đa của mặt hàng này',
     )
   }
 
