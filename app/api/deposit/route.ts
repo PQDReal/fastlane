@@ -100,12 +100,18 @@ async function requestHash(input: DepositOrderInput) {
     .join('')
 }
 
-async function existingOrder(idempotencyKey: string): Promise<DepositOrderRow | null> {
-  const result = await getSupabaseAdmin()
+async function existingOrder(
+  idempotencyKey: string,
+  customerId: string | null,
+): Promise<DepositOrderRow | null> {
+  let query = getSupabaseAdmin()
     .from('deposit_orders')
     .select(RESPONSE_COLUMNS)
     .eq('idempotency_key', idempotencyKey)
-    .maybeSingle<DepositOrderRow>()
+  query = customerId
+    ? query.eq('customer_id', customerId)
+    : query.is('customer_id', null)
+  const result = await query.maybeSingle<DepositOrderRow>()
   if (result.error) throw result.error
   return result.data
 }
@@ -135,7 +141,9 @@ export async function POST(request: Request) {
 
   try {
     const hash = await requestHash(input)
-    const replay = await existingOrder(idempotencyKey)
+    const currentUser = await getCurrentUser().catch(() => null)
+    const customerId = currentUser?.id ?? null
+    const replay = await existingOrder(idempotencyKey, customerId)
     if (replay) {
       if (replay.request_hash && replay.request_hash !== hash) {
         return errorResponse(
@@ -154,7 +162,6 @@ export async function POST(request: Request) {
     } catch (error) {
       depositQuoteError(error)
     }
-    const currentUser = await getCurrentUser().catch(() => null)
     const now = new Date().toISOString()
 
     // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
@@ -232,8 +239,17 @@ export async function POST(request: Request) {
 
     if (insertResult.error) {
       if (insertResult.error.code === '23505') {
-        const replay = await existingOrder(idempotencyKey)
-        if (replay) return NextResponse.json(responseData(replay, true))
+        const replay = await existingOrder(idempotencyKey, customerId)
+        if (replay) {
+          if (replay.request_hash && replay.request_hash !== hash) {
+            return errorResponse(
+              409,
+              'IDEMPOTENCY_CONFLICT',
+              'Yêu cầu này đã được dùng cho một nội dung đặt cọc khác.',
+            )
+          }
+          return NextResponse.json(responseData(replay, true))
+        }
       }
       if (insertResult.error.code === '23514') {
         return errorResponse(
