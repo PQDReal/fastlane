@@ -12,6 +12,15 @@ export type AccessorySearchParams = Record<
   string | string[] | undefined
 >
 
+export type AccessoryVehicleContext = {
+  id: string
+  parentId: string | null
+  slug: string
+  name: string
+  code: string
+  displayOrder: number
+}
+
 const SORT_VALUES = new Set<AccessoryCatalogSort>([
   'name-asc',
   'price-asc',
@@ -100,9 +109,19 @@ function categoryFacetValues(product: CatalogProduct): FacetValue[] {
   )))
 }
 
-function vehicleAwareCategoryFacetValues(product: CatalogProduct): FacetValue[] {
+function vehicleAwareCategoryFacetValues(
+  product: CatalogProduct,
+  vehicleContext: AccessoryVehicleContext[] = [],
+): FacetValue[] {
   return uniqueFacetValues(product.collectionMemberships.flatMap(({ collection }) => (
-    collection.kind === 'CATEGORY' && collection.vehicleFilterMode !== 'NONE'
+    collection.kind === 'CATEGORY'
+    && (
+      collection.vehicleFilterMode !== 'NONE'
+      || product.collectionMemberships.some(({ collection: model }) => model.kind === 'MODEL' && model.parentId === collection.id)
+      || (product.collectionMemberships.some(({ collection: category, metadata }) => (
+        category.id === collection.id && metadata.compatibilityMode === 'ALL_MODELS'
+      )) && vehicleContext.some((model) => model.parentId === collection.id))
+    )
       ? [{
           value: collection.name,
           label: collection.name,
@@ -112,15 +131,28 @@ function vehicleAwareCategoryFacetValues(product: CatalogProduct): FacetValue[] 
   )))
 }
 
-function vehicleFacetValues(product: CatalogProduct): FacetValue[] {
-  return uniqueFacetValues(product.collectionMemberships.flatMap(({ collection }) => {
+function vehicleFacetValues(
+  product: CatalogProduct,
+  vehicleContext: AccessoryVehicleContext[] = [],
+): FacetValue[] {
+  const direct = product.collectionMemberships.flatMap(({ collection }) => {
     if (collection.kind !== 'MODEL' || !collection.vehicleModel) return []
     return [{
       value: collection.vehicleModel.name,
       label: collection.vehicleModel.name,
       order: collection.displayOrder,
     }]
-  }))
+  })
+  const universal = product.collectionMemberships.flatMap(({ collection, metadata }) => (
+    collection.kind === 'CATEGORY' && metadata.compatibilityMode === 'ALL_MODELS'
+      ? vehicleContext.filter((model) => model.parentId === collection.id).map((model) => ({
+          value: model.name,
+          label: model.name,
+          order: model.displayOrder,
+        }))
+      : []
+  ))
+  return uniqueFacetValues([...direct, ...universal])
 }
 
 export function accessoryCategoryLabels(product: CatalogProduct): string[] {
@@ -164,8 +196,12 @@ function matchesCategory(product: CatalogProduct, category: string): boolean {
   ))
 }
 
-function matchesVehicle(product: CatalogProduct, vehicle: string): boolean {
-  return product.collectionMemberships.some(({ collection }) => {
+function matchesVehicle(
+  product: CatalogProduct,
+  vehicle: string,
+  vehicleContext: AccessoryVehicleContext[] = [],
+): boolean {
+  const directMatch = product.collectionMemberships.some(({ collection }) => {
     if (collection.kind !== 'MODEL' || !collection.vehicleModel) return false
     const facet = {
       value: collection.vehicleModel.slug,
@@ -174,14 +210,26 @@ function matchesVehicle(product: CatalogProduct, vehicle: string): boolean {
     }
     return matchesFacetValue(vehicle, facet, [collection.vehicleModel.code, collection.slug])
   })
+  if (directMatch) return true
+  const selectedModel = vehicleContext.find((model) => matchesFacetValue(vehicle, {
+    value: model.slug,
+    label: model.name,
+    order: model.displayOrder,
+  }, [model.code, model.slug]))
+  return Boolean(selectedModel && product.collectionMemberships.some(({ collection, metadata }) => (
+    collection.kind === 'CATEGORY'
+    && collection.id === selectedModel.parentId
+    && metadata.compatibilityMode === 'ALL_MODELS'
+  )))
 }
 
 export function filterAccessoryProducts(
   products: CatalogProduct[],
   filters: AccessoryCatalogFilters,
+  vehicleContext: AccessoryVehicleContext[] = [],
 ): CatalogProduct[] {
   const vehicleFilterApplicable = !filters.category || products.some((product) => (
-    vehicleAwareCategoryFacetValues(product).some((category) => (
+    vehicleAwareCategoryFacetValues(product, vehicleContext).some((category) => (
       matchesFacetValue(filters.category!, category)
     ))
   ))
@@ -193,7 +241,7 @@ export function filterAccessoryProducts(
     }
 
     if (filters.vehicle && vehicleFilterApplicable
-      && !matchesVehicle(product, filters.vehicle)) return false
+      && !matchesVehicle(product, filters.vehicle, vehicleContext)) return false
 
     if (filters.services.length > 0 && !filters.services.every(
       (selectedService) => product.serviceLabels.some(
@@ -243,18 +291,19 @@ function countFacetValues(values: FacetValue[]): AccessoryCatalogFacetOption[] {
 
 export function buildAccessoryFacets(
   products: CatalogProduct[],
+  vehicleContext: AccessoryVehicleContext[] = [],
 ): AccessoryCatalogFacets {
   const vehicleRelevantCategories = countFacetValues(
-    products.flatMap(vehicleAwareCategoryFacetValues),
+    products.flatMap((product) => vehicleAwareCategoryFacetValues(product, vehicleContext)),
   )
   const vehiclesByCategory = Object.fromEntries(
     vehicleRelevantCategories.map((category) => [
       category.value,
       countFacetValues(products.flatMap((product) => (
-        vehicleAwareCategoryFacetValues(product).some(
+        vehicleAwareCategoryFacetValues(product, vehicleContext).some(
           (candidate) => same(candidate.value, category.value),
         )
-          ? vehicleFacetValues(product)
+          ? vehicleFacetValues(product, vehicleContext)
           : []
       ))),
     ]),
@@ -262,7 +311,7 @@ export function buildAccessoryFacets(
 
   return {
     categories: countFacetValues(products.flatMap(categoryFacetValues)),
-    vehicles: countFacetValues(products.flatMap(vehicleFacetValues)),
+    vehicles: countFacetValues(products.flatMap((product) => vehicleFacetValues(product, vehicleContext))),
     vehicleRelevantCategories: vehicleRelevantCategories.map(
       (category) => category.value,
     ),
@@ -287,10 +336,11 @@ export type AccessoryFitmentStatus =
 export function accessoryFitmentStatus(
   product: CatalogProduct,
   vehicle: string | null | undefined,
+  vehicleContext: AccessoryVehicleContext[] = [],
 ): AccessoryFitmentStatus {
   if (!vehicle) return 'not-selected'
-  if (vehicleFacetValues(product).length === 0) return 'unknown'
-  return matchesVehicle(product, vehicle)
+  if (vehicleFacetValues(product, vehicleContext).length === 0) return 'unknown'
+  return matchesVehicle(product, vehicle, vehicleContext)
     ? 'compatible'
     : 'incompatible'
 }

@@ -31,6 +31,11 @@ describe('mapAdminAccessoryEditorRow', () => {
         is_active: true,
         is_primary: true,
         collection: { id: 'collection-1', kind: 'CATEGORY', slug: 'phong-cach-song', is_active: true },
+      }, {
+        is_active: true,
+        is_primary: false,
+        metadata: { compatibilityMode: 'NOT_APPLICABLE' },
+        collection: { id: 'collection-2', kind: 'CATEGORY', slug: 'qua-tang', display_order: 20, is_active: true },
       }],
       option_groups: [{
         id: 'group-1',
@@ -40,7 +45,7 @@ describe('mapAdminAccessoryEditorRow', () => {
         minimum_selections: 1,
         display_order: 10,
         is_active: true,
-        metadata: { drivesMedia: false },
+      metadata: {},
         option_values: [{ id: 'value-1', code: 'm', name: 'M', display_order: 10, is_active: true }],
       }],
       variants: [{
@@ -65,12 +70,15 @@ describe('mapAdminAccessoryEditorRow', () => {
     expect(data.updatedAt).toBe('2026-07-31T03:00:00.123456+00:00')
     expect(data.draft).toMatchObject({
       rootCategoryId: 'category-1',
-      primaryCollectionSlug: 'phong-cach-song',
+      templateCode: 'custom',
+      categoryAssignments: [
+        { categoryId: 'collection-1', compatibilityMode: 'ALL_MODELS', modelIds: [] },
+        { categoryId: 'collection-2', compatibilityMode: 'NOT_APPLICABLE', modelIds: [] },
+      ],
       name: 'Áo khoác',
       serviceLabelIds: ['label-1'],
-      productImageUrls: [''],
     })
-    expect(data.draft.optionGroups[0]).toMatchObject({ id: 'group-1', code: 'size', mediaEnabled: false })
+    expect(data.draft.optionGroups[0]).toMatchObject({ id: 'group-1', code: 'size' })
     expect(data.draft.variants[0]).toMatchObject({
       id: 'variant-1',
       sku: 'JACKET-M',
@@ -135,9 +143,8 @@ describe('mapAdminAccessoryEditorRow', () => {
     expect(data.draft.serviceLabelIds).toEqual(['label-active'])
     expect(data.draft.optionGroups[0]).toMatchObject({
       id: 'group-color',
-      mediaEnabled: undefined,
-      values: [{ id: 'value-blue', imageUrls: ['https://cdn.example.com/blue.webp'] }],
+      values: [{ id: 'value-blue' }],
     })
-    expect(data.draft.mediaOptionGroupId).toBeUndefined()
+    expect(data.draft.variants[0].imageUrls).toEqual([''])
   })
 })

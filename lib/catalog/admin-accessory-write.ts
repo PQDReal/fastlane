@@ -3,10 +3,15 @@ import {
   draftOptionGroupIsRequired,
   isSectionComplete,
   nonEmptyUrls,
-  resolvedDraftMediaOptionGroupId,
   type AdminAccessoryDraft,
+  type CompatibilityMode,
   type DraftCollection,
 } from '@/lib/catalog/admin-accessory-draft'
+import {
+  accessoryTemplate,
+  isTemplateSectionKey,
+  type AccessoryTemplateCode,
+} from '@/lib/catalog/admin-accessory-templates'
 import type {
   CatalogAccessoryContentSectionType,
   CatalogProductContent,
@@ -19,7 +24,6 @@ export type AdminAccessoryOptionValueInput = {
   colorHex: string | null
   swatchUrl: string | null
   displayOrder: number
-  imageUrls: string[]
 }
 
 export type AdminAccessoryOptionGroupInput = {
@@ -30,14 +34,12 @@ export type AdminAccessoryOptionGroupInput = {
   minimumSelections: 0 | 1
   maximumSelections: 1
   displayOrder: number
-  drivesMedia: boolean
   values: AdminAccessoryOptionValueInput[]
 }
 
 export type AdminAccessoryVariantInput = {
   existingId?: string
   name: string
-  sku: string
   originalPrice: number
   salePrice: number | null
   isActive: boolean
@@ -45,11 +47,20 @@ export type AdminAccessoryVariantInput = {
   imageUrls: string[]
 }
 
+export type AdminAccessoryCategoryAssignmentInput = {
+  categoryId: string
+  compatibilityMode: CompatibilityMode
+  modelIds: string[]
+}
+
 export type AdminAccessoryWriteRequest = {
   expectedUpdatedAt?: string
+  /** Internal rollout marker; never emitted by the new admin client. */
+  legacyTaxonomy?: true
   categoryId: string
-  primaryCollectionId: string
-  modelCollectionIds: string[]
+  templateCode: AccessoryTemplateCode
+  templateVersion: number
+  categoryAssignments: AdminAccessoryCategoryAssignmentInput[]
   name: string
   slug: string
   description: string
@@ -58,7 +69,6 @@ export type AdminAccessoryWriteRequest = {
   content: CatalogProductContent
   optionGroups: AdminAccessoryOptionGroupInput[]
   variants: AdminAccessoryVariantInput[]
-  productImageUrls: string[]
 }
 
 export type AdminAccessorySaveResult = {
@@ -260,7 +270,7 @@ function parseOptionGroups(value: unknown): AdminAccessoryOptionGroupInput[] {
   const groups = value.map((item, groupIndex) => {
     const path = `optionGroups.${groupIndex}`
     const group = record(item, path)
-    exactKeys(group, ['existingId', 'code', 'name', 'displayType', 'minimumSelections', 'maximumSelections', 'displayOrder', 'drivesMedia', 'values'], path)
+    exactKeys(group, ['existingId', 'code', 'name', 'displayType', 'minimumSelections', 'maximumSelections', 'displayOrder', 'values'], path)
     const code = requiredString(group.code, `${path}.code`, { max: 80, pattern: GROUP_CODE_PATTERN })
     const name = requiredString(group.name, `${path}.name`, { max: 160 })
     if (group.displayType !== 'BUTTON' && group.displayType !== 'SWATCH' && group.displayType !== 'SELECT') {
@@ -277,7 +287,7 @@ function parseOptionGroups(value: unknown): AdminAccessoryOptionGroupInput[] {
     const values = group.values.map((entry, valueIndex) => {
       const valuePath = `${path}.values.${valueIndex}`
       const option = record(entry, valuePath)
-      exactKeys(option, ['existingId', 'code', 'name', 'colorHex', 'swatchUrl', 'displayOrder', 'imageUrls'], valuePath)
+      exactKeys(option, ['existingId', 'code', 'name', 'colorHex', 'swatchUrl', 'displayOrder'], valuePath)
       const optionCode = requiredString(option.code, `${valuePath}.code`, { max: 80, pattern: VALUE_CODE_PATTERN })
       valueCodes.push(optionCode)
       const existingId = optionalUuid(option.existingId, `${valuePath}.existingId`)
@@ -288,7 +298,6 @@ function parseOptionGroups(value: unknown): AdminAccessoryOptionGroupInput[] {
         colorHex: optionalString(option.colorHex, `${valuePath}.colorHex`, { max: 7, pattern: COLOR_PATTERN }),
         swatchUrl: option.swatchUrl === null ? null : httpUrl(option.swatchUrl, `${valuePath}.swatchUrl`),
         displayOrder: integer(option.displayOrder, `${valuePath}.displayOrder`, 0, 1_000_000),
-        imageUrls: urlArray(option.imageUrls, `${valuePath}.imageUrls`),
       }
     })
     unique(valueCodes, `${path}.values`, 'OPTION_VALUE_CODE_DUPLICATE')
@@ -302,20 +311,10 @@ function parseOptionGroups(value: unknown): AdminAccessoryOptionGroupInput[] {
       minimumSelections,
       maximumSelections,
       displayOrder,
-      drivesMedia: boolean(group.drivesMedia, `${path}.drivesMedia`),
       values,
     }
   })
   unique(groupCodes, 'optionGroups', 'OPTION_GROUP_CODE_DUPLICATE')
-  if (groups.filter((group) => group.drivesMedia).length > 1) {
-    fail('optionGroups', 'MEDIA_GROUP_DUPLICATE', 'Chỉ một nhóm tùy chọn được điều khiển hình ảnh.')
-  }
-  const mediaOutsideDriver = groups.find((group) => (
-    !group.drivesMedia && group.values.some((option) => option.imageUrls.length > 0)
-  ))
-  if (mediaOutsideDriver) {
-    fail('optionGroups', 'OPTION_MEDIA_GROUP_INVALID', 'Ảnh theo giá trị chỉ được lưu ở nhóm điều khiển hình ảnh.')
-  }
   return groups
 }
 
@@ -324,13 +323,11 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
     fail('variants', 'VARIANTS_INVALID', 'Sản phẩm cần từ 1 đến 500 SKU.')
   }
   const groupByCode = new Map(groups.map((group) => [group.code, group]))
-  const skus: string[] = []
   const signatures: string[] = []
   const variants = value.map((item, variantIndex) => {
     const path = `variants.${variantIndex}`
     const variant = record(item, path)
-    exactKeys(variant, ['existingId', 'name', 'sku', 'originalPrice', 'salePrice', 'isActive', 'optionValues', 'imageUrls'], path)
-    const sku = requiredString(variant.sku, `${path}.sku`, { max: 80 })
+    exactKeys(variant, ['existingId', 'name', 'originalPrice', 'salePrice', 'isActive', 'optionValues', 'imageUrls'], path)
     const originalPrice = integer(variant.originalPrice, `${path}.originalPrice`, 0, MAX_MONEY)
     const salePrice = variant.salePrice === null
       ? null
@@ -358,13 +355,11 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([groupCode, valueCode]) => `${groupCode}=${valueCode}`)
       .join('|')
-    skus.push(sku)
     signatures.push(signature || '<default>')
     const existingId = optionalUuid(variant.existingId, `${path}.existingId`)
     return {
       ...(existingId ? { existingId } : {}),
       name: requiredString(variant.name, `${path}.name`, { max: 200 }),
-      sku,
       originalPrice,
       salePrice,
       isActive: boolean(variant.isActive, `${path}.isActive`),
@@ -372,9 +367,45 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
       imageUrls: urlArray(variant.imageUrls, `${path}.imageUrls`),
     }
   })
-  unique(skus, 'variants', 'VARIANT_SKU_DUPLICATE')
   unique(signatures, 'variants', 'VARIANT_SIGNATURE_DUPLICATE')
   return variants
+}
+
+function validateVariantMediaCoverage(variants: AdminAccessoryVariantInput[]) {
+  variants.forEach((variant, index) => {
+    if (variant.imageUrls.length === 0) fail(`variants.${index}.imageUrls`, 'VARIANT_MEDIA_REQUIRED', `Biến thể ${index + 1} cần ít nhất một ảnh trực tiếp.`)
+    if (variant.imageUrls.length > 20) fail(`variants.${index}.imageUrls`, 'VARIANT_MEDIA_LIMIT_INVALID', 'Mỗi SKU chỉ được có tối đa 20 ảnh.')
+  })
+}
+
+function parseCompatibilityMode(value: unknown, path: string): CompatibilityMode {
+  if (value === 'ALL_MODELS' || value === 'SELECTED_MODELS' || value === 'NOT_APPLICABLE') return value
+  return fail(path, 'COMPATIBILITY_MODE_INVALID', 'Chế độ tương thích dòng xe không hợp lệ.')
+}
+
+function parseCategoryAssignments(value: unknown): AdminAccessoryCategoryAssignmentInput[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20) {
+    fail('categoryAssignments', 'CATEGORY_ASSIGNMENTS_INVALID', 'Cần chọn từ 1 đến 20 danh mục phụ kiện.')
+  }
+  const categoryIds: string[] = []
+  const assignments = value.map((entry, index) => {
+    const path = `categoryAssignments.${index}`
+    const assignment = record(entry, path)
+    exactKeys(assignment, ['categoryId', 'compatibilityMode', 'modelIds'], path)
+    const categoryId = uuid(assignment.categoryId, `${path}.categoryId`)
+    const compatibilityMode = parseCompatibilityMode(assignment.compatibilityMode, `${path}.compatibilityMode`)
+    const modelIds = uuidArray(assignment.modelIds, `${path}.modelIds`, 100)
+    if ((compatibilityMode === 'ALL_MODELS' || compatibilityMode === 'NOT_APPLICABLE') && modelIds.length > 0) {
+      fail(`${path}.modelIds`, 'COMPATIBILITY_MODE_MODEL_MISMATCH', 'Chế độ đã chọn không nhận danh sách dòng xe cụ thể.')
+    }
+    if (compatibilityMode === 'SELECTED_MODELS' && modelIds.length === 0) {
+      fail(`${path}.modelIds`, 'COMPATIBILITY_MODE_MODEL_REQUIRED', 'Cần chọn ít nhất một dòng xe tương thích.')
+    }
+    categoryIds.push(categoryId)
+    return { categoryId, compatibilityMode, modelIds }
+  })
+  unique(categoryIds, 'categoryAssignments', 'CATEGORY_ASSIGNMENT_DUPLICATE')
+  return assignments
 }
 
 export function parseAdminAccessoryWriteRequest(
@@ -383,9 +414,11 @@ export function parseAdminAccessoryWriteRequest(
 ): AdminAccessoryWriteRequest {
   const input = record(value, 'body')
   exactKeys(input, [
-    'expectedUpdatedAt', 'categoryId', 'primaryCollectionId', 'modelCollectionIds',
+    'expectedUpdatedAt', 'categoryId', 'templateCode', 'templateVersion', 'categoryAssignments',
+    // Legacy v1 taxonomy shape. It remains accepted only during rollout.
+    'primaryCollectionId', 'modelCollectionIds',
     'name', 'slug', 'description', 'isActive', 'serviceLabelIds', 'content',
-    'optionGroups', 'variants', 'productImageUrls',
+    'optionGroups', 'variants',
   ], 'body')
   const expectedUpdatedAt = optionalString(input.expectedUpdatedAt, 'expectedUpdatedAt', { max: 50 })
   if (options.requireExpectedUpdatedAt && !expectedUpdatedAt) {
@@ -394,31 +427,54 @@ export function parseAdminAccessoryWriteRequest(
   if (expectedUpdatedAt && !Number.isFinite(Date.parse(expectedUpdatedAt))) {
     fail('expectedUpdatedAt', 'EXPECTED_UPDATED_AT_INVALID', 'Phiên bản cập nhật không hợp lệ.')
   }
-  const modelCollectionIds = uuidArray(input.modelCollectionIds, 'modelCollectionIds', 100)
-  const primaryCollectionId = uuid(input.primaryCollectionId, 'primaryCollectionId')
-  if (modelCollectionIds.includes(primaryCollectionId)) {
-    fail('modelCollectionIds', 'COLLECTION_DUPLICATE', 'Danh mục chính không được lặp trong dòng xe liên quan.')
+  const usesNewTaxonomy = input.categoryAssignments !== undefined
+    || input.templateCode !== undefined
+    || input.templateVersion !== undefined
+  const usesLegacyTaxonomy = input.primaryCollectionId !== undefined || input.modelCollectionIds !== undefined
+  if (usesNewTaxonomy && usesLegacyTaxonomy) {
+    fail('body', 'TAXONOMY_SHAPE_CONFLICT', 'Không thể gửi đồng thời cấu trúc phân loại cũ và mới.')
+  }
+  let templateCode: AccessoryTemplateCode
+  let templateVersion: number
+  let categoryAssignments: AdminAccessoryCategoryAssignmentInput[]
+  if (usesNewTaxonomy) {
+    templateCode = typeof input.templateCode === 'string' ? input.templateCode as AccessoryTemplateCode : fail('templateCode', 'TEMPLATE_CODE_REQUIRED', 'Cần chọn mẫu nhập phụ kiện.')
+    templateVersion = integer(input.templateVersion, 'templateVersion', 1, 100)
+    if (!accessoryTemplate(templateCode, templateVersion)) {
+      fail('templateCode', 'TEMPLATE_VERSION_UNSUPPORTED', 'Mẫu nhập phụ kiện hoặc phiên bản không được hỗ trợ.')
+    }
+    categoryAssignments = parseCategoryAssignments(input.categoryAssignments)
+  } else {
+    const modelCollectionIds = uuidArray(input.modelCollectionIds, 'modelCollectionIds', 100)
+    const primaryCollectionId = uuid(input.primaryCollectionId, 'primaryCollectionId')
+    if (modelCollectionIds.includes(primaryCollectionId)) {
+      fail('modelCollectionIds', 'COLLECTION_DUPLICATE', 'Danh mục không được lặp trong dòng xe liên quan.')
+    }
+    templateCode = 'custom'
+    templateVersion = 1
+    categoryAssignments = [{
+      categoryId: primaryCollectionId,
+      compatibilityMode: modelCollectionIds.length > 0 ? 'SELECTED_MODELS' : 'ALL_MODELS',
+      modelIds: modelCollectionIds,
+    }]
   }
   const optionGroups = parseOptionGroups(input.optionGroups)
   const variants = parseVariants(input.variants, optionGroups)
   const isActive = boolean(input.isActive, 'isActive')
-  const productImageUrls = urlArray(input.productImageUrls, 'productImageUrls')
-  const totalMedia = productImageUrls.length
-    + optionGroups.reduce((total, group) => total + group.values.reduce((sum, option) => sum + option.imageUrls.length, 0), 0)
-    + variants.reduce((total, variant) => total + variant.imageUrls.length, 0)
+  const totalMedia = variants.reduce((total, variant) => total + variant.imageUrls.length, 0)
   if (totalMedia > 1_000) fail('body', 'MEDIA_LIMIT_EXCEEDED', 'Sản phẩm không được vượt quá 1.000 media.')
+  validateVariantMediaCoverage(variants)
   if (isActive && !variants.some((variant) => variant.isActive)) {
     fail('variants', 'ACTIVE_VARIANT_REQUIRED', 'Sản phẩm hoạt động cần ít nhất một SKU hoạt động.')
-  }
-  if (isActive && totalMedia === 0) {
-    fail('productImageUrls', 'ACTIVE_PRODUCT_MEDIA_REQUIRED', 'Sản phẩm hoạt động cần ít nhất một hình ảnh.')
   }
 
   return {
     ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+    ...(!usesNewTaxonomy ? { legacyTaxonomy: true as const } : {}),
     categoryId: uuid(input.categoryId, 'categoryId'),
-    primaryCollectionId,
-    modelCollectionIds,
+    templateCode,
+    templateVersion,
+    categoryAssignments,
     name: requiredString(input.name, 'name', { max: 200 }),
     slug: requiredString(input.slug, 'slug', { max: 220, pattern: SLUG_PATTERN }),
     description: requiredString(input.description, 'description', { max: 10_000 }),
@@ -427,7 +483,6 @@ export function parseAdminAccessoryWriteRequest(
     content: parseContent(input.content),
     optionGroups,
     variants,
-    productImageUrls,
   }
 }
 
@@ -449,9 +504,13 @@ function contentFromDraft(draft: AdminAccessoryDraft): CatalogProductContent {
       return {
         key,
         type: section.type,
-        title: section.type === 'OTHER'
+        title: isTemplateSectionKey(section.id)
           ? section.title.trim()
-          : ACCESSORY_SECTION_TYPES.find((item) => item.value === section.type)?.defaultTitle || section.title.trim(),
+            || ACCESSORY_SECTION_TYPES.find((item) => item.value === section.type)?.defaultTitle
+            || 'Thông tin khác'
+          : section.type === 'OTHER'
+            ? section.title.trim()
+            : ACCESSORY_SECTION_TYPES.find((item) => item.value === section.type)?.defaultTitle || section.title.trim(),
         displayOrder: (index + 1) * 10,
         body: section.body.trim() || null,
         items: section.itemsText.split('\n').map((item) => item.trim()).filter(Boolean),
@@ -470,19 +529,31 @@ export function adminAccessoryDraftToWriteRequest(
   collections: DraftCollection[],
   expectedUpdatedAt?: string,
 ): AdminAccessoryWriteRequest {
-  const primaryCollection = collections.find((collection) => (
-    collection.kind === 'CATEGORY' && collection.slug === draft.primaryCollectionSlug
-  ))
-  if (!primaryCollection) {
-    fail('primaryCollectionId', 'PRIMARY_COLLECTION_REQUIRED', 'Danh mục phụ kiện chính không tồn tại.')
-  }
-  const modelCollections = draft.modelCollectionSlugs.map((slug) => collections.find((collection) => (
-    collection.kind === 'MODEL' && collection.slug === slug && collection.parentId === primaryCollection.id
-  )))
-  if (modelCollections.some((collection) => !collection)) {
-    fail('modelCollectionIds', 'MODEL_COLLECTION_INVALID', 'Có dòng xe không thuộc danh mục phụ kiện đã chọn.')
-  }
-  const mediaGroupId = resolvedDraftMediaOptionGroupId(draft)
+  const categoryAssignments = draft.categoryAssignments.map((assignment, assignmentIndex) => {
+    const category = collections.find((collection) => (
+      collection.kind === 'CATEGORY'
+      && (collection.id === assignment.categoryId || collection.slug === assignment.categoryId)
+    ))
+    if (!category) {
+      fail(`categoryAssignments.${assignmentIndex}.categoryId`, 'CATEGORY_ASSIGNMENT_INVALID', 'Danh mục phụ kiện không tồn tại.')
+    }
+    if (!assignment.compatibilityMode) {
+      fail(`categoryAssignments.${assignmentIndex}.compatibilityMode`, 'COMPATIBILITY_MODE_REQUIRED', 'Hãy chọn phạm vi tương thích dòng xe.')
+    }
+    const modelCollections = assignment.modelIds.map((modelId) => collections.find((collection) => (
+      collection.kind === 'MODEL'
+      && (collection.id === modelId || collection.slug === modelId)
+      && collection.parentId === category.id
+    )))
+    if (modelCollections.some((collection) => !collection)) {
+      fail(`categoryAssignments.${assignmentIndex}.modelIds`, 'MODEL_COLLECTION_INVALID', 'Có dòng xe không thuộc danh mục phụ kiện đã chọn.')
+    }
+    return {
+      categoryId: category.id,
+      compatibilityMode: assignment.compatibilityMode,
+      modelIds: modelCollections.map((collection) => collection!.id),
+    }
+  })
   const groupById = new Map(draft.optionGroups.map((group) => [group.id, group]))
   const optionGroups: AdminAccessoryOptionGroupInput[] = draft.optionGroups.map((group, groupIndex) => ({
     ...(persistedId(group.id) ? { existingId: persistedId(group.id) } : {}),
@@ -492,7 +563,6 @@ export function adminAccessoryDraftToWriteRequest(
     minimumSelections: draftOptionGroupIsRequired(group) ? 1 : 0,
     maximumSelections: 1,
     displayOrder: (groupIndex + 1) * 10,
-    drivesMedia: group.id === mediaGroupId,
     values: group.values.map((option, valueIndex) => ({
       ...(persistedId(option.id) ? { existingId: persistedId(option.id) } : {}),
       code: option.code.trim(),
@@ -500,7 +570,6 @@ export function adminAccessoryDraftToWriteRequest(
       colorHex: option.colorHex.trim() || null,
       swatchUrl: option.swatchUrl.trim() || null,
       displayOrder: (valueIndex + 1) * 10,
-      imageUrls: group.id === mediaGroupId ? nonEmptyUrls(option.imageUrls) : [],
     })),
   }))
   const variants: AdminAccessoryVariantInput[] = draft.variants
@@ -516,7 +585,6 @@ export function adminAccessoryDraftToWriteRequest(
       return {
         ...(persistedId(variant.id) ? { existingId: persistedId(variant.id) } : {}),
         name: variant.name.trim(),
-        sku: variant.sku.trim(),
         originalPrice: Number(variant.originalPrice),
         salePrice: variant.salePrice.trim() ? Number(variant.salePrice) : null,
         isActive: variant.isActive,
@@ -528,8 +596,9 @@ export function adminAccessoryDraftToWriteRequest(
   return parseAdminAccessoryWriteRequest({
     ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
     categoryId: draft.rootCategoryId,
-    primaryCollectionId: primaryCollection.id,
-    modelCollectionIds: modelCollections.map((collection) => collection!.id),
+    templateCode: draft.templateCode,
+    templateVersion: draft.templateVersion,
+    categoryAssignments,
     name: draft.name,
     slug: draft.slug,
     description: draft.description,
@@ -538,11 +607,20 @@ export function adminAccessoryDraftToWriteRequest(
     content: contentFromDraft(draft),
     optionGroups,
     variants,
-    productImageUrls: nonEmptyUrls(draft.productImageUrls),
   }, { requireExpectedUpdatedAt: Boolean(expectedUpdatedAt) })
 }
 
 export function adminAccessoryRpcPayload(request: AdminAccessoryWriteRequest) {
   const { expectedUpdatedAt: _expectedUpdatedAt, ...payload } = request
-  return payload
+  const sourceVariants = payload.variants.filter((variant) => variant.isActive)
+  const representative = sourceVariants[0] ?? payload.variants[0]
+  return {
+    ...payload,
+    productImageUrls: representative?.imageUrls ?? [],
+    optionGroups: payload.optionGroups.map((group) => ({
+      ...group,
+      drivesMedia: false,
+      values: group.values.map((value) => ({ ...value, imageUrls: [] })),
+    })),
+  }
 }
