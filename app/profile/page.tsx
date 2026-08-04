@@ -201,7 +201,7 @@ function ProfileContent() {
           DiditSdk.shared.onComplete = async (result: any) => {
             if (result.type === 'completed') {
               hasCompleted = true;
-              
+
               if (typeof (DiditSdk.shared as any).close === 'function') {
                 (DiditSdk.shared as any).close();
               }
@@ -213,7 +213,7 @@ function ProfileContent() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ orderId: order.id, sessionId: data.sessionId }),
                 })
-                
+
                 if (!res.ok) {
                   const errData = await res.json()
                   if (errData.mismatch) {
@@ -236,7 +236,7 @@ function ProfileContent() {
               } catch (e: any) {
                 console.error('Lỗi khi cập nhật trạng thái đơn hàng', e)
                 if (e.message !== 'Failed to complete KYC' && !e.message.includes('Quá trình xác minh cần') && !e.message.includes('Schema cache') && !e.message.includes('schema cache')) {
-                   showToast('error', 'Lỗi hệ thống', 'Không thể hoàn tất quá trình KYC lúc này.')
+                  showToast('error', 'Lỗi hệ thống', 'Không thể hoàn tất quá trình KYC lúc này.')
                 }
               }
             } else if (result.type === 'cancelled') {
@@ -247,9 +247,9 @@ function ProfileContent() {
               showToast('error', 'Thất bại', 'Quá trình xác thực gặp lỗi')
             }
           }
-          DiditSdk.shared.startVerification({ 
+          DiditSdk.shared.startVerification({
             url: data.url || undefined,
-            sessionId: data.sessionId || undefined 
+            sessionId: data.sessionId || undefined
           } as any)
         }).catch(err => {
           showToast('error', 'Lỗi tải SDK', 'Không thể khởi tạo nền tảng xác thực.')
@@ -274,6 +274,37 @@ function ProfileContent() {
       window.location.assign(payload.data.paymentUrl)
     } catch (error) {
       showToast('error', 'Không thể thanh toán đơn hàng', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
+      setOrderAction(null)
+    }
+  }
+
+  async function payDepositOrder(order: AccessoryOrderSummary) {
+    setOrderAction({ id: order.id, type: 'payment' })
+    try {
+      const response = await fetch(`/api/v1/deposit-orders/${encodeURIComponent(order.id)}/payment`, { method: 'POST' })
+      const payload = await response.json().catch(() => ({})) as {
+        data?: { paymentUrl?: string }
+        error?: { message?: string }
+      }
+      if (!response.ok || !payload.data?.paymentUrl) {
+        throw new Error(payload.error?.message || 'Không thể tạo lại giao dịch đặt cọc.')
+      }
+      window.location.assign(payload.data.paymentUrl)
+    } catch (error) {
+      showToast('error', 'Không thể thanh toán lại', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
+      setOrderAction(null)
+    }
+  }
+
+  async function payVehicleBalance(order: AccessoryOrderSummary) {
+    setOrderAction({ id: order.id, type: 'payment' })
+    try {
+      const response = await fetch(`/api/v1/deposit-orders/${encodeURIComponent(order.id)}/balance-payment`, { method: 'POST' })
+      const payload = await response.json().catch(() => ({})) as { data?: { paymentUrl?: string }; error?: { message?: string } }
+      if (!response.ok || !payload.data?.paymentUrl) throw new Error(payload.error?.message || 'Không thể tạo giao dịch thanh toán.')
+      window.location.assign(payload.data.paymentUrl)
+    } catch (error) {
+      showToast('error', 'Không thể thanh toán phần còn lại', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
       setOrderAction(null)
     }
   }
@@ -306,6 +337,49 @@ function ProfileContent() {
       showToast('success', cancelled.refundStatus === 'Pending' ? 'Đã hủy - Chờ hoàn tiền' : 'Đã hủy đơn hàng')
     } catch (error) {
       showToast('error', 'Không thể hủy đơn hàng', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
+    } finally {
+      setOrderAction(null)
+    }
+  }
+
+  function requestCancelDepositOrder(order: AccessoryOrderSummary) {
+    showToast(
+      'warning',
+      'Xác nhận hủy đơn đặt cọc',
+      order.paymentStatus === 'Paid'
+        ? 'Đơn đã thanh toán tiền cọc. Khoản cọc sẽ được xử lý theo chính sách hủy.'
+        : 'Đơn chưa thanh toán sẽ được chuyển sang trạng thái đã hủy.',
+      {
+        secondaryAction: { label: 'Giữ đơn', onClick: () => undefined },
+        action: { label: 'Hủy đơn', variant: 'danger', onClick: () => void cancelDepositOrder(order) },
+      },
+    )
+  }
+
+  async function cancelDepositOrder(order: AccessoryOrderSummary) {
+    setOrderAction({ id: order.id, type: 'cancel' })
+    try {
+      const response = await fetch(`/api/v1/deposit-orders/${encodeURIComponent(order.id)}`, { method: 'DELETE' })
+      const payload = await response.json().catch(() => ({})) as {
+        data?: { status: string; updated_at: string }
+        error?: { message?: string }
+      }
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error?.message || 'Không thể hủy đơn đặt cọc.')
+      }
+      setUserOrders((current) => current.map((item) => item.id === order.id ? {
+        ...item,
+        status: 'CANCELLED',
+        refundStatus: order.paymentStatus === 'Paid' ? 'Pending' : 'None',
+        statusUpdatedAt: payload.data?.updated_at || item.statusUpdatedAt,
+      } : item))
+      showToast(
+        'success',
+        order.paymentStatus === 'Paid' ? 'Đã hủy - Chờ hoàn tiền' : 'Đã hủy đơn đặt cọc',
+        order.paymentStatus === 'Paid' ? 'Khoản tiền cọc đang chờ được xử lý hoàn tiền.' : undefined,
+      )
+    } catch (error) {
+      showToast('error', 'Không thể hủy đơn đặt cọc', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
     } finally {
       setOrderAction(null)
     }
@@ -518,16 +592,23 @@ function ProfileContent() {
 
                       switch (status) {
                         case 'PENDING_DEPOSIT':
-                        case 'PENDING_CONFIRMATION':
                         case 'PENDING':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-blue-500" />;
-                          stateText = 'Chờ xét duyệt: Đã gửi yêu cầu đặt cọc. Đang chờ VinFast xét duyệt & xác nhận đơn cọc.';
+                          stateText = 'Chờ thanh toán tiền đặt cọc.';
+                          break;
+                        case 'PENDING_CONFIRMATION':
+                          stateIcon = order.paymentStatus === 'Paid'
+                            ? <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />
+                            : <Clock className="w-5 h-5 shrink-0 text-amber-500" />;
+                          stateText = order.paymentStatus === 'Paid'
+                            ? 'Đã thanh toán. Đang chờ FastLane xét duyệt và xác nhận đơn đặt cọc.'
+                            : 'Chưa thanh toán tiền đặt cọc.';
                           break;
                         case 'CONFIRMED':
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
                           stateText = 'Xác thực KYC: Đã xét duyệt đơn cọc. Vui lòng tải lên CCCD/CMND để xác thực KYC & hoàn thiện hồ sơ.';
                           actionBtn = (
-                            <button 
+                            <button
                               onClick={() => handleStartKyc(order)}
                               disabled={kycLoadingId === order.id}
                               className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
@@ -540,7 +621,7 @@ function ProfileContent() {
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
                           stateText = 'Ký hợp đồng: Hợp đồng mua xe điện tử đã sẵn sàng. Vui lòng xem & ký hợp đồng.';
                           actionBtn = (
-                            <button 
+                            <button
                               onClick={() => router.push(`/profile/contract/${order.id}`)}
                               className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
                             >
@@ -553,7 +634,13 @@ function ProfileContent() {
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
                           stateText = 'Thanh toán phần còn lại: Đang chờ thanh toán số tiền còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
                           actionBtn = (
-                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all">
+                            <button
+                              type="button"
+                              onClick={() => void payVehicleBalance(order)}
+                              disabled={orderAction?.id === order.id}
+                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {orderAction?.id === order.id && orderAction.type === 'payment' && <Loader2 className="h-4 w-4 animate-spin" />}
                               Thanh toán phần còn lại
                             </button>
                           );
@@ -570,7 +657,11 @@ function ProfileContent() {
                           break;
                         case 'CANCELLED':
                           stateIcon = <XCircle className="w-5 h-5 shrink-0 text-red-500" />;
-                          stateText = 'Đơn hàng đã bị hủy.';
+                          stateText = order.refundStatus === 'Completed'
+                            ? 'Đơn đã hủy và tiền đặt cọc đã được hoàn.'
+                            : order.paymentStatus === 'Paid'
+                              ? 'Đơn đã hủy, đang chờ hoàn tiền đặt cọc.'
+                              : 'Đơn hàng đã bị hủy.';
                           break;
                       }
 
@@ -578,7 +669,8 @@ function ProfileContent() {
                         if (['PENDING_CONFIRMATION', 'PENDING_DEPOSIT', 'PENDING'].includes(status)) return 1;
                         if (['CONFIRMED'].includes(status)) return 2;
                         if (['PENDING_CONTRACT'].includes(status)) return 3;
-                        if (['CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 4;
+                        if (['CONTRACT_SIGNED', 'PENDING_PAYMENT'].includes(status)) return 4;
+                        if (['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 5;
                         return 1;
                       })();
 
@@ -618,7 +710,7 @@ function ProfileContent() {
                         </div>
                       );
 
-                      const showPaidBadge = ['PENDING_CONFIRMATION', 'CONFIRMED', 'PENDING_CONTRACT', 'CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status);
+                      const showPaidBadge = order.paymentStatus === 'Paid';
                       const displayColor = (order as any).exteriorColor || vVariant?.color || '';
 
                       return (
@@ -639,7 +731,7 @@ function ProfileContent() {
                             </div>
                             {showPaidBadge && (
                               <div className="mt-4 bg-green-500 text-white text-sm font-bold px-4 py-1.5 rounded-full shadow-sm flex items-center justify-center gap-1.5 h-8 w-fit mx-auto">
-                                <CheckCircle2 className="w-4 h-4" /> Đã đặt cọc
+                                <CheckCircle2 className="w-4 h-4" /> {status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đã thanh toán'}
                               </div>
                             )}
                           </div>
@@ -652,7 +744,7 @@ function ProfileContent() {
                             <p className="text-[15px] leading-relaxed text-gray-500 font-medium mb-6 text-balance max-w-sm mx-auto line-clamp-3">
                               {cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}
                             </p>
-                            
+
                             <div className="mb-6 flex flex-col items-center gap-4 w-full px-4">
                               <div className="flex flex-col items-center">
                                 <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Tiền cọc</p>
@@ -700,6 +792,32 @@ function ProfileContent() {
                                   {actionBtn}
                                 </div>
                               )}
+                              {status === 'PENDING_DEPOSIT' && order.paymentStatus === 'Pending' && (
+                                <button
+                                  type="button"
+                                  onClick={() => void payDepositOrder(order)}
+                                  disabled={orderAction?.id === order.id}
+                                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-[#836100] font-bold text-sm text-white transition-all hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
+                                >
+                                  {orderAction?.id === order.id && orderAction.type === 'payment'
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <CreditCard className="h-4 w-4" />}
+                                  Thanh toán lại
+                                </button>
+                              )}
+                              {['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING', 'CONFIRMED'].includes(status) && (
+                                <button
+                                  type="button"
+                                  onClick={() => requestCancelDepositOrder(order)}
+                                  disabled={orderAction?.id === order.id}
+                                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-red-300 font-bold text-sm text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60"
+                                >
+                                  {orderAction?.id === order.id && orderAction.type === 'cancel'
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <Trash2 className="h-4 w-4" />}
+                                  Hủy đơn đặt cọc
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -721,11 +839,11 @@ function ProfileContent() {
                       ? 'border-orange-200 bg-orange-50 text-orange-700'
                       : isCancelled
                         ? 'border-red-200 bg-red-50 text-red-700'
-                      : paymentFailed
-                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                        : order.paymentStatus === 'Paid'
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                          : 'border-amber-200 bg-amber-50 text-amber-700'
+                        : paymentFailed
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : order.paymentStatus === 'Paid'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-amber-200 bg-amber-50 text-amber-700'
                     return (
                       <article key={order.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-[#836100]/30 hover:shadow-md">
                         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-5 py-4">
@@ -743,17 +861,17 @@ function ProfileContent() {
                           <section className="min-w-0">
                             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Sản phẩm</p>
                             <div className="min-w-0">
-                            <ul className="min-w-0 flex-1 divide-y divide-gray-100">
-                              {(order.items ?? []).map((item) => (
-                                <li key={item.id} className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0 text-sm text-gray-700">
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <OrderItemThumbnail src={item.thumbnailUrl} productName={item.productName} />
-                                    <span className="min-w-0 font-semibold text-gray-900">{item.productName}</span>
-                                  </div>
-                                  <span className="shrink-0 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">× {item.quantity}</span>
-                                </li>
-                              ))}
-                            </ul>
+                              <ul className="min-w-0 flex-1 divide-y divide-gray-100">
+                                {(order.items ?? []).map((item) => (
+                                  <li key={item.id} className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0 text-sm text-gray-700">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      <OrderItemThumbnail src={item.thumbnailUrl} productName={item.productName} />
+                                      <span className="min-w-0 font-semibold text-gray-900">{item.productName}</span>
+                                    </div>
+                                    <span className="shrink-0 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">× {item.quantity}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
                           </section>
                           <div className="md:min-w-36 md:text-right">
@@ -763,29 +881,29 @@ function ProfileContent() {
                         </div>
 
                         <footer className="flex flex-wrap justify-end gap-2 border-t border-gray-200 bg-gray-50/70 px-5 py-3.5">
-                              {canPay && (
-                                <button type="button" onClick={() => void payAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#836100] px-4 text-sm font-bold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60">
-                                  {paymentBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                                  {paymentFailed ? 'Thanh toán lại' : 'Thanh toán'}
-                                </button>
-                              )}
-                              {canCancel && (
-                                <button type="button" onClick={() => requestCancelAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-300 px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60">
-                                  {cancellationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                  Hủy đơn hàng
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => void openAccessoryOrder(order.id)}
-                                disabled={accessoryOrderLoadingId === order.id}
-                                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#836100] px-4 text-sm font-bold text-[#836100] transition hover:bg-[#836100] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
-                              >
-                                {accessoryOrderLoadingId === order.id
-                                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                                  : <ArrowRight className="h-4 w-4" />}
-                                Xem chi tiết
-                              </button>
+                          {canPay && (
+                            <button type="button" onClick={() => void payAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#836100] px-4 text-sm font-bold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60">
+                              {paymentBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                              {paymentFailed ? 'Thanh toán lại' : 'Thanh toán'}
+                            </button>
+                          )}
+                          {canCancel && (
+                            <button type="button" onClick={() => requestCancelAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-300 px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60">
+                              {cancellationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                              Hủy đơn hàng
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void openAccessoryOrder(order.id)}
+                            disabled={accessoryOrderLoadingId === order.id}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#836100] px-4 text-sm font-bold text-[#836100] transition hover:bg-[#836100] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            {accessoryOrderLoadingId === order.id
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <ArrowRight className="h-4 w-4" />}
+                            Xem chi tiết
+                          </button>
                         </footer>
                       </article>
                     )
@@ -1032,6 +1150,57 @@ function ProfileContent() {
                         <span className="text-gray-600">Tổng giá trị dự kiến</span>
                         <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
                       </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Trạng thái đặt cọc</span>
+                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${selectedOrder.status === 'CANCELLED'
+                          ? 'bg-red-100 text-red-700'
+                          : selectedOrder.paymentStatus === 'Paid'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-amber-100 text-amber-700'
+                          }`}>
+                          {selectedOrder.status === 'CANCELLED'
+                            ? selectedOrder.refundStatus === 'Completed'
+                              ? 'Đã hủy, đã hoàn tiền'
+                              : selectedOrder.paymentStatus === 'Paid'
+                                ? 'Đã hủy, chờ hoàn tiền'
+                                : 'Đã hủy cọc'
+                            : selectedOrder.paymentStatus === 'Paid'
+                              ? 'Đã thanh toán'
+                              : 'Chờ thanh toán'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center gap-4">
+                        <span className="text-gray-600">Thanh toán phần còn lại</span>
+                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${
+                          ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
+                            ? 'bg-green-100 text-green-700'
+                            : selectedOrder.depositDetails.balancePaymentStatus === 'FAILED'
+                              ? 'bg-red-100 text-red-700'
+                              : ['CONTRACT_SIGNED', 'PENDING_PAYMENT'].includes(String(selectedOrder.status))
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
+                            ? 'Đã thanh toán'
+                            : selectedOrder.depositDetails.balancePaymentStatus === 'FAILED'
+                              ? 'Thanh toán thất bại'
+                              : ['CONTRACT_SIGNED', 'PENDING_PAYMENT'].includes(String(selectedOrder.status))
+                                ? 'Chờ thanh toán'
+                                : 'Chưa đến hạn'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center gap-4">
+                        <span className="text-gray-600">Thanh toán toàn bộ đơn xe</span>
+                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${
+                          ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
+                            ? 'Đã thanh toán toàn bộ'
+                            : 'Chưa thanh toán toàn bộ'}
+                        </span>
+                      </div>
                       <div className="border-t border-gray-200 pt-4 flex justify-between items-center">
                         <span className="text-gray-600 font-medium">Số tiền đã cọc</span>
                         <span className="font-bold text-[#836100] text-lg">{formatPrice(selectedOrder.pricing.amountDueNow)}</span>
@@ -1057,7 +1226,9 @@ function ProfileContent() {
                       </div>
                       <div className="sm:col-span-2">
                         <p className="text-xs text-gray-500 mb-1">Khu vực</p>
-                        <p className="font-semibold text-gray-900">{selectedOrder.depositDetails.district}, {selectedOrder.depositDetails.province}</p>
+                        <p className="font-semibold text-gray-900">
+                          {[selectedOrder.depositDetails.ward, selectedOrder.depositDetails.province].filter(Boolean).join(', ') || 'Chưa cập nhật'}
+                        </p>
                       </div>
                     </div>
                   </section>

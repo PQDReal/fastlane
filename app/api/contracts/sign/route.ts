@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
     revalidatePath('/profile')
     
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, redirectUrl: '/profile?tab=car-orders' })
   } catch (error: any) {
     console.error('Error in sign contract API:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

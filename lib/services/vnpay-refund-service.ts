@@ -11,6 +11,10 @@ type RefundAttempt = {
 
 const REFUND_QUERY_INTERVAL_MS = 310_000
 const nextQueryAt = (from = new Date()) => new Date(from.getTime() + REFUND_QUERY_INTERVAL_MS).toISOString()
+const sandboxAutoComplete = (apiUrl: string, transactionStatus: string) =>
+  process.env.VNPAY_SANDBOX_AUTO_COMPLETE_REFUNDS === 'true'
+  && new URL(apiUrl).hostname === 'sandbox.vnpayment.vn'
+  && ['05', '06'].includes(transactionStatus)
 
 export class VnPayRefundError extends Error {
   constructor(message: string, public readonly code = 'VNPAY_REFUND_FAILED') {
@@ -118,7 +122,8 @@ export async function refundCancelledOrder(input: { orderId: string; requestedBy
   const validHash = verifyApiResponse(response, config.hashSecret)
   const responseCode = response.vnp_ResponseCode || 'UNKNOWN'
   const transactionStatus = response.vnp_TransactionStatus || ''
-  const completed = validHash && responseCode === '00' && transactionStatus === '00'
+  const completed = validHash && responseCode === '00'
+    && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
   const processing = validHash && (responseCode === '94' || (responseCode === '00' && ['05', '06'].includes(transactionStatus)))
   const attemptStatus = completed ? 'COMPLETED' : processing ? 'PROCESSING' : 'FAILED'
   const updatedAt = new Date().toISOString()
@@ -140,6 +145,118 @@ export async function refundCancelledOrder(input: { orderId: string; requestedBy
   if (!validHash) throw new VnPayRefundError('Chữ ký phản hồi hoàn tiền VNPay không hợp lệ.', 'INVALID_VNPAY_SIGNATURE')
   if (attemptStatus === 'FAILED') throw new VnPayRefundError(`VNPay từ chối hoàn tiền (mã ${responseCode}).`)
   return { refundStatus: completed ? 'COMPLETED' : 'PENDING', attemptStatus, requestId, nextCheckAt: completed ? null : nextQueryAt(now) }
+}
+
+export async function refundCancelledDepositOrder(input: { orderId: string; requestedBy: string; clientIp: string }) {
+  const supabase = getSupabaseAdmin()
+  const orderResult = await supabase.from('deposit_orders')
+    .select('id,order_number,status,refund_status,deposit_amount')
+    .eq('id', input.orderId).maybeSingle()
+  if (orderResult.error) throw orderResult.error
+  const order = orderResult.data
+  if (!order) throw new VnPayRefundError('Không tìm thấy đơn đặt cọc.', 'ORDER_NOT_FOUND')
+  if (order.status !== 'CANCELLED' || order.refund_status === 'COMPLETED') {
+    throw new VnPayRefundError('Đơn đặt cọc không ở trạng thái chờ hoàn tiền.', 'REFUND_NOT_PENDING')
+  }
+
+  const existing = await supabase.from('vnpay_deposit_refund_attempts')
+    .select('id,status,request_id').eq('deposit_order_id', input.orderId)
+    .in('status', ['PENDING', 'PROCESSING', 'COMPLETED']).maybeSingle<RefundAttempt>()
+  if (existing.error) throw existing.error
+  if (existing.data) {
+    if (existing.data.status === 'COMPLETED') {
+      await supabase.from('deposit_orders').update({ refund_status: 'COMPLETED', refunded_at: new Date().toISOString() }).eq('id', input.orderId)
+    }
+    return {
+      refundStatus: existing.data.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+      attemptStatus: existing.data.status,
+      requestId: existing.data.request_id,
+    }
+  }
+
+  const paymentResult = await supabase.from('vnpay_deposit_attempts')
+    .select('id,transaction_reference,amount_vnd,vnpay_transaction_no,created_at,paid_at')
+    .eq('deposit_order_id', input.orderId).eq('status', 'PAID')
+    .order('paid_at', { ascending: false }).limit(1).maybeSingle()
+  if (paymentResult.error) throw paymentResult.error
+  const payment = paymentResult.data
+  if (!payment?.vnpay_transaction_no) {
+    throw new VnPayRefundError('Không tìm thấy mã giao dịch VNPay đã thanh toán.', 'PAID_TRANSACTION_NOT_FOUND')
+  }
+
+  const amountVnd = Number(payment.amount_vnd)
+  const requestId = crypto.randomUUID().replaceAll('-', '').slice(0, 32)
+  const inserted = await supabase.from('vnpay_deposit_refund_attempts').insert({
+    deposit_order_id: input.orderId,
+    payment_attempt_id: payment.id,
+    request_id: requestId,
+    transaction_type: '02',
+    amount_vnd: amountVnd,
+    requested_by: input.requestedBy.slice(0, 245),
+  }).select('id,status,request_id').single<RefundAttempt>()
+  if (inserted.error) throw inserted.error
+
+  const config = vnPayConfig()
+  const now = new Date()
+  const params: VnPayParams = {
+    vnp_RequestId: requestId, vnp_Version: '2.1.0', vnp_Command: 'refund',
+    vnp_TmnCode: config.tmnCode, vnp_TransactionType: '02',
+    vnp_TxnRef: payment.transaction_reference,
+    vnp_Amount: String(Math.round(amountVnd * 100)),
+    vnp_TransactionNo: payment.vnpay_transaction_no,
+    vnp_TransactionDate: vnPayDate(new Date(payment.created_at)),
+    vnp_CreateBy: input.requestedBy.slice(0, 245), vnp_CreateDate: vnPayDate(now),
+    vnp_IpAddr: normalizeIp(input.clientIp),
+    vnp_OrderInfo: `Hoan tien dat coc ${order.order_number}`,
+  }
+  params.vnp_SecureHash = createVnPayPipeHash([
+    params.vnp_RequestId, params.vnp_Version, params.vnp_Command, params.vnp_TmnCode,
+    params.vnp_TransactionType, params.vnp_TxnRef, params.vnp_Amount, params.vnp_TransactionNo,
+    params.vnp_TransactionDate, params.vnp_CreateBy, params.vnp_CreateDate, params.vnp_IpAddr, params.vnp_OrderInfo,
+  ], config.hashSecret)
+
+  let response: VnPayParams
+  try {
+    const result = await fetch(config.apiUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params), cache: 'no-store',
+    })
+    response = await result.json() as VnPayParams
+    if (!result.ok) throw new Error(`HTTP ${result.status}`)
+  } catch (error) {
+    await supabase.from('vnpay_deposit_refund_attempts').update({
+      status: 'FAILED', response_code: 'NETWORK_ERROR',
+      response_payload: { message: error instanceof Error ? error.message : 'Network error' },
+      updated_at: new Date().toISOString(),
+    }).eq('id', inserted.data.id)
+    throw new VnPayRefundError('Không thể kết nối API hoàn tiền VNPay.')
+  }
+
+  const validHash = verifyApiResponse(response, config.hashSecret)
+  const responseCode = response.vnp_ResponseCode || 'UNKNOWN'
+  const transactionStatus = response.vnp_TransactionStatus || ''
+  const completed = validHash && responseCode === '00'
+    && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
+  const processing = validHash && (responseCode === '94' || (responseCode === '00' && ['05', '06'].includes(transactionStatus)))
+  const attemptStatus = completed ? 'COMPLETED' : processing ? 'PROCESSING' : 'FAILED'
+  const updatedAt = new Date().toISOString()
+  const attemptUpdate = await supabase.from('vnpay_deposit_refund_attempts').update({
+    status: attemptStatus, response_code: validHash ? responseCode : 'INVALID_SIGNATURE',
+    transaction_status: transactionStatus || null,
+    vnpay_refund_transaction_no: response.vnp_TransactionNo || null,
+    response_payload: response, completed_at: completed ? updatedAt : null, updated_at: updatedAt,
+  }).eq('id', inserted.data.id)
+  if (attemptUpdate.error) throw attemptUpdate.error
+
+  if (completed) {
+    const orderUpdate = await supabase.from('deposit_orders').update({
+      refund_status: 'COMPLETED', refunded_at: updatedAt, updated_at: updatedAt,
+    }).eq('id', input.orderId).neq('refund_status', 'COMPLETED')
+    if (orderUpdate.error) throw orderUpdate.error
+  }
+  if (!validHash) throw new VnPayRefundError('Chữ ký phản hồi hoàn tiền VNPay không hợp lệ.', 'INVALID_VNPAY_SIGNATURE')
+  if (attemptStatus === 'FAILED') throw new VnPayRefundError(`VNPay từ chối hoàn tiền (mã ${responseCode}).`)
+  return { refundStatus: completed ? 'COMPLETED' : 'PENDING', attemptStatus, requestId }
 }
 
 export async function reconcileVnPayRefund(input: { orderId: string; clientIp: string }) {
@@ -214,7 +331,8 @@ export async function reconcileVnPayRefund(input: { orderId: string; clientIp: s
 
   const transactionStatus = response.vnp_TransactionStatus || ''
   const isRefund = ['02', '03'].includes(response.vnp_TransactionType || '')
-  const completed = response.vnp_ResponseCode === '00' && isRefund && transactionStatus === '00'
+  const completed = response.vnp_ResponseCode === '00' && isRefund
+    && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
   const failed = response.vnp_ResponseCode !== '00' || transactionStatus === '09'
   const attemptStatus = completed ? 'COMPLETED' : failed ? 'FAILED' : 'PROCESSING'
   const updatedAt = new Date().toISOString()
