@@ -63,6 +63,9 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     ...JSON.parse(fs.readFileSync(specsDataPath, 'utf8')),
     ...buildMotorbikeDepositSpecs(motorbikesData),
   }
+  if (specsData['VF 8'] && !specsData['VinFast VF 8 The All-New 2026']) {
+    specsData['VinFast VF 8 The All-New 2026'] = specsData['VF 8']
+  }
 
   const initialCar = Array.isArray(params.model) ? params.model[0] : params.model
   const requestedType = Array.isArray(params.type) ? params.type[0] : params.type

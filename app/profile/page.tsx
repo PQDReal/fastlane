@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, Suspense, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -29,6 +29,7 @@ function ProfileContent() {
   const requestedTab = searchParams?.get('tab')
   const initialTab = validTabs.includes(requestedTab || '') ? requestedTab : 'info'
   const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'car-orders' | 'addresses'>(initialTab as any)
+  const router = useRouter()
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -43,7 +44,13 @@ function ProfileContent() {
   const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
   const [selectedAccessoryOrder, setSelectedAccessoryOrder] = useState<AccessoryOrder | null>(null)
   const [accessoryOrderLoadingId, setAccessoryOrderLoadingId] = useState<string | null>(null)
+  const [kycLoadingId, setKycLoadingId] = useState<string | null>(null)
   const [orderAction, setOrderAction] = useState<{ id: string; type: 'payment' | 'cancel' } | null>(null)
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab)
+    router.push(`/profile?tab=${tab}`, { scroll: false })
+  }
 
   function showToast(
     kind: ToastMessage['kind'],
@@ -168,6 +175,95 @@ function ProfileContent() {
       setAccessoryOrderLoadingId(null)
     }
   }
+
+  const handleStartKyc = async (order: AccessoryOrderSummary) => {
+    setKycLoadingId(order.id)
+    try {
+      const res = await fetch('/api/kyc/create-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          customerName: profile?.fullName || user?.name || '',
+          customerId: '', // Can be populated if user has ID stored
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Có lỗi khi tạo phiên KYC')
+      }
+
+      if (data.url || data.sessionId) {
+        import('@didit-protocol/sdk-web').then(({ DiditSdk }) => {
+          let hasCompleted = false;
+          DiditSdk.shared.onComplete = async (result: any) => {
+            if (result.type === 'completed') {
+              hasCompleted = true;
+              
+              if (typeof (DiditSdk.shared as any).close === 'function') {
+                (DiditSdk.shared as any).close();
+              }
+
+              try {
+                // Update order status to PENDING_CONTRACT in backend
+                const res = await fetch('/api/kyc/complete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orderId: order.id, sessionId: data.sessionId }),
+                })
+                
+                if (!res.ok) {
+                  const errData = await res.json()
+                  if (errData.mismatch) {
+                    showToast('error', 'Thông tin không khớp', 'Họ tên hoặc CCCD trên thẻ không khớp với thông tin đặt cọc ban đầu!')
+                    return
+                  } else {
+                    showToast('error', 'Lỗi hệ thống', errData.error || 'Có lỗi xảy ra, vui lòng thử lại sau.')
+                    throw new Error(errData.error || 'Failed to complete KYC')
+                  }
+                }
+
+                showToast('success', 'KYC Thành công', 'Bạn đã vượt qua quá trình xác minh!')
+
+                // Refetch orders list to reflect the new state (bypass cache)
+                const response = await fetch(`/api/v1/orders?limit=20&type=${activeTab === 'orders' ? 'accessory' : 'car'}&_t=${Date.now()}`)
+                if (response.ok) {
+                  const payload = await response.json()
+                  if (payload.data) setUserOrders(payload.data)
+                }
+              } catch (e: any) {
+                console.error('Lỗi khi cập nhật trạng thái đơn hàng', e)
+                if (e.message !== 'Failed to complete KYC' && !e.message.includes('Quá trình xác minh cần') && !e.message.includes('Schema cache') && !e.message.includes('schema cache')) {
+                   showToast('error', 'Lỗi hệ thống', 'Không thể hoàn tất quá trình KYC lúc này.')
+                }
+              }
+            } else if (result.type === 'cancelled') {
+              if (!hasCompleted) {
+                showToast('warning', 'Đã hủy', 'Bạn đã đóng quá trình xác thực KYC')
+              }
+            } else {
+              showToast('error', 'Thất bại', 'Quá trình xác thực gặp lỗi')
+            }
+          }
+          DiditSdk.shared.startVerification({ 
+            url: data.url || undefined,
+            sessionId: data.sessionId || undefined 
+          } as any)
+        }).catch(err => {
+          showToast('error', 'Lỗi tải SDK', 'Không thể khởi tạo nền tảng xác thực.')
+        })
+      } else {
+        throw new Error('Didit API trả về kết quả không hợp lệ (không tìm thấy URL session)')
+      }
+    } catch (err: any) {
+      showToast('error', 'Lỗi', err.message || 'Lỗi khi khởi tạo KYC')
+    } finally {
+      setKycLoadingId(null)
+    }
+  }
+
 
   async function payAccessoryOrder(order: AccessoryOrderSummary) {
     setOrderAction({ id: order.id, type: 'payment' })
@@ -330,10 +426,10 @@ function ProfileContent() {
                 <p className="mt-1 truncate text-xs text-gray-500">{profile?.email || user.email}</p>
               </div>
               <div className="p-2">
-                <button onClick={() => setActiveTab('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
-                <button onClick={() => setActiveTab('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
-                <button onClick={() => setActiveTab('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
-                <button onClick={() => setActiveTab('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử mua xe</button>
+                <button onClick={() => handleTabChange('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
+                <button onClick={() => handleTabChange('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
+                <button onClick={() => handleTabChange('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
+                <button onClick={() => handleTabChange('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử mua xe</button>
               </div>
             </div>
           </aside>
@@ -431,21 +527,28 @@ function ProfileContent() {
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
                           stateText = 'Xác thực KYC: Đã xét duyệt đơn cọc. Vui lòng tải lên CCCD/CMND để xác thực KYC & hoàn thiện hồ sơ.';
                           actionBtn = (
-                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md">
-                              Tải lên CCCD (KYC)
+                            <button 
+                              onClick={() => handleStartKyc(order)}
+                              disabled={kycLoadingId === order.id}
+                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                              {kycLoadingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Tải lên CCCD (KYC)'}
                             </button>
                           );
                           break;
                         case 'PENDING_CONTRACT':
-                        case 'CONTRACT_SIGNED':
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
                           stateText = 'Ký hợp đồng: Hợp đồng mua xe điện tử đã sẵn sàng. Vui lòng xem & ký hợp đồng.';
                           actionBtn = (
-                            <button className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                            <button 
+                              onClick={() => router.push(`/profile/contract/${order.id}`)}
+                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
+                            >
                               Xem & Ký HĐ
                             </button>
                           );
                           break;
+                        case 'CONTRACT_SIGNED':
                         case 'PENDING_PAYMENT':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
                           stateText = 'Thanh toán phần còn lại: Đang chờ thanh toán số tiền còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
@@ -474,8 +577,8 @@ function ProfileContent() {
                       const currentStepIdx = (() => {
                         if (['PENDING_CONFIRMATION', 'PENDING_DEPOSIT', 'PENDING'].includes(status)) return 1;
                         if (['CONFIRMED'].includes(status)) return 2;
-                        if (['PENDING_CONTRACT', 'CONTRACT_SIGNED'].includes(status)) return 3;
-                        if (['PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 4;
+                        if (['PENDING_CONTRACT'].includes(status)) return 3;
+                        if (['CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 4;
                         return 1;
                       })();
 
@@ -546,15 +649,25 @@ function ProfileContent() {
                             <h3 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight mb-2">
                               VinFast {cleanCarModel}
                             </h3>
-                            <p className="text-lg text-gray-500 font-medium mb-6">
+                            <p className="text-[15px] leading-relaxed text-gray-500 font-medium mb-6 text-balance max-w-sm mx-auto line-clamp-3">
                               {cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}
                             </p>
-
-                            <div className="mb-6 flex flex-col items-center">
-                              <p className="text-sm uppercase tracking-wider text-gray-400 font-bold mb-1">Tiền cọc</p>
-                              <p className="text-[#836100] text-4xl font-bold">
-                                {formatPrice(order.pricing.amountDueNow)}
-                              </p>
+                            
+                            <div className="mb-6 flex flex-col items-center gap-4 w-full px-4">
+                              <div className="flex flex-col items-center">
+                                <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Tiền cọc</p>
+                                <p className="text-[#836100] text-3xl font-bold">
+                                  {formatPrice(order.pricing.amountDueNow)}
+                                </p>
+                              </div>
+                              {Number(order.pricing.balanceDue) > 0 && (
+                                <div className="flex flex-col items-center">
+                                  <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Còn lại cần thanh toán</p>
+                                  <p className="text-gray-900 text-xl font-bold">
+                                    {formatPrice(order.pricing.balanceDue)}
+                                  </p>
+                                </div>
+                              )}
                             </div>
 
                             <div className="mt-auto flex justify-center">

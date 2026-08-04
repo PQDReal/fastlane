@@ -109,13 +109,16 @@ export default function AdminProductsPage() {
         const params = new URLSearchParams({ page: String(page), limit: '10' })
         if (debouncedSearch) params.set('q', debouncedSearch)
         if (categoryFilter !== 'All') params.set('categoryId', categoryFilter)
-        const res = await fetch(`/api/v1/admin/products?${params}`, { cache: 'no-store', signal: controller.signal })
-        if (!res.ok) throw new Error('Không thể tải sản phẩm')
+        const res = await fetch(`/api/v1/admin/products?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
+        if (!res.ok) throw new Error(await responseError(res))
         const payload = await res.json()
         setProducts(Array.isArray(payload.data) ? payload.data : [])
         setMeta(payload.meta ?? { page, limit: 10, total: 0, totalPages: 1 })
       } catch (error) {
-        if ((error as Error).name !== 'AbortError') console.error('Failed to fetch products:', error)
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Failed to fetch products:', error)
+          notify('error', 'Không thể tải sản phẩm', (error as Error).message)
+        }
       } finally {
         if (!controller.signal.aborted) setIsLoading(false)
       }

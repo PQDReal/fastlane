@@ -30,7 +30,6 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
   const nextActionMap: Record<string, { label: string; icon: any; nextStatus: string }> = {
     'PENDING_DEPOSIT': { label: 'Xác nhận thanh toán cọc', icon: <CheckCircle2 size={16}/>, nextStatus: 'PENDING_CONFIRMATION' },
     'PENDING_CONFIRMATION': { label: 'Xác nhận đơn & duyệt', icon: <CheckCircle2 size={16}/>, nextStatus: 'CONFIRMED' },
-    'CONFIRMED': { label: 'Tạo Hợp đồng', icon: <FileText size={16}/>, nextStatus: 'PENDING_CONTRACT' },
     'PENDING_CONTRACT': { label: 'Khách đã ký Hợp đồng', icon: <FileText size={16}/>, nextStatus: 'CONTRACT_SIGNED' },
     'CONTRACT_SIGNED': { label: 'Yêu cầu thanh toán xe', icon: <CreditCard size={16}/>, nextStatus: 'PENDING_PAYMENT' },
     'PENDING_PAYMENT': { label: 'Xác nhận đã thanh toán', icon: <CheckCircle2 size={16}/>, nextStatus: 'PAID' },
@@ -101,7 +100,32 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                     <User size={18} />
                   </div>
                   <h3 className="font-semibold text-slate-800">Thông tin Khách hàng</h3>
+                  {order.kyc_status === 'APPROVED' ? (
+                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                      <CheckCircle2 size={12} /> KYC
+                    </span>
+                  ) : order.kyc_status === 'REVIEW' ? (
+                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full">
+                      ⚠️ Cần duyệt KYC
+                    </span>
+                  ) : order.kyc_status === 'DECLINED' ? (
+                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                      <XCircle size={12} /> KYC Thất bại
+                    </span>
+                  ) : null}
                 </div>
+                {order.kyc_status === 'REVIEW' && order.kyc_session_id && (
+                  <div className="mb-4">
+                    <a 
+                      href={`https://business.didit.me/sessions/${order.kyc_session_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-full text-center py-2 px-4 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-sm font-semibold hover:bg-yellow-100 transition-colors"
+                    >
+                      Duyệt KYC trên Didit ↗
+                    </a>
+                  </div>
+                )}
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Loại khách:</span>
@@ -218,6 +242,13 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                     {isUpdating ? 'Đang xử lý...' : nextAction.label}
                   </button>
                 )}
+
+                {!nextAction && order.status === 'CONFIRMED' && (
+                  <div className="w-full text-center py-2.5 text-sm text-slate-500 font-medium bg-slate-50 rounded-lg border border-slate-200">
+                    Đang chờ khách hàng xác minh KYC
+                  </div>
+                )}
+
                 
                 {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
                   <button

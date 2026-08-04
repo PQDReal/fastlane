@@ -14,6 +14,8 @@ export type AdminOrderRow = {
   amount: number
   status: string
   payment: string
+  kyc_status?: string | null
+  kyc_session_id?: string | null
   createdAt: string
   isCar: boolean
   vehicleType?: string
@@ -220,10 +222,15 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                   <td className="px-6 py-4 text-slate-700 max-w-[200px] truncate" title={order.customerName}>{order.customerName}</td>
                   <td className="px-6 py-4 text-slate-600 max-w-[250px] truncate" title={order.vehicle}>{order.vehicle}</td>
                   <td className="px-6 py-4 font-semibold text-slate-900">{formatMoney(order.amount)}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${getStatusStyle(order.status)}`}>
                       {translateAdminStatus(order.status, order.isCar)}
                     </span>
+                    {order.kyc_status === 'REVIEW' && (
+                      <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200">
+                        ⚠️ Cần duyệt KYC
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
@@ -232,7 +239,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                       {order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-500 text-xs">{formatDate(order.createdAt)}</td>
+                  <td className="px-6 py-4 text-slate-50-50 text-xs">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4 text-right">
                     {renderActions(order)}
                   </td>

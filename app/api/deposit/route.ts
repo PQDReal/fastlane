@@ -217,6 +217,7 @@ export async function POST(request: Request) {
         optional_packages: input.optionalPackages,
         subtotal: quote.subtotal,
         discount_amount: quote.discountAmount,
+        total_estimated_price: quote.totalEstimatedPrice,
         promotion_id: quote.promotion?.id ?? null,
         promotion_code: quote.promotion?.code ?? null,
         showroom: input.showroom || 'VinFast Landmark 81',
@@ -285,6 +286,6 @@ export async function POST(request: Request) {
       )
     }
     console.error('Unable to create deposit order:', error)
-    return errorResponse(500, 'INTERNAL_SERVER_ERROR', 'Không thể tạo đơn đặt cọc.')
+    return errorResponse(500, 'INTERNAL_SERVER_ERROR', 'Không thể tạo đơn đặt cọc. ' + (error instanceof Error ? error.message : JSON.stringify(error)))
   }
 }
