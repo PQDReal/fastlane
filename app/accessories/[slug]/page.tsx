@@ -4,12 +4,13 @@ import { AccessoryDetailClient } from '@/components/accessory-detail-client'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import {
-  accessoryPrimaryCategoryLabel,
+  accessoryCategoryLabels,
   parseAccessoryFilters,
 } from '@/lib/catalog/accessory-filters'
 import {
   getAccessoryCatalogProductBySlug,
   listAccessoryCatalog,
+  listAccessoryVehicleContext,
 } from '@/lib/catalog/server'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,10 @@ export default async function AccessoryDetailPage({
   const resolvedSearchParams = await searchParams
   const requestedSku = resolvedSearchParams?.variant?.trim().toUpperCase()
   const selectedVehicle = resolvedSearchParams?.vehicle?.trim() || undefined
-  const product = await getAccessoryCatalogProductBySlug(slug)
+  const [product, vehicleContext] = await Promise.all([
+    getAccessoryCatalogProductBySlug(slug),
+    listAccessoryVehicleContext(),
+  ])
 
   if (!product || product.variants.length === 0) notFound()
 
@@ -34,7 +38,7 @@ export default async function AccessoryDetailPage({
     : undefined
   const relatedFilters = parseAccessoryFilters(selectedVehicle
     ? { vehicle: selectedVehicle }
-    : { category: accessoryPrimaryCategoryLabel(product) ?? undefined })
+    : { category: accessoryCategoryLabels(product)[0] ?? undefined })
   const relatedPage = await listAccessoryCatalog({
     pageSize: 8,
     filters: relatedFilters,
@@ -50,6 +54,7 @@ export default async function AccessoryDetailPage({
         product={product}
         initialVariantId={initialVariantId}
         selectedVehicle={selectedVehicle}
+        vehicleContext={vehicleContext}
         relatedProducts={relatedProducts}
       />
       <Footer />

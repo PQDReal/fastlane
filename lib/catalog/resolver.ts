@@ -155,6 +155,26 @@ function resolvedRows(
   }))
 }
 
+function accessoryPlaceholder(
+  product: CatalogProduct,
+  variantId: string | null | undefined,
+  placeholderUrl?: string,
+): CatalogResolvedMedia[] {
+  if (variantId) {
+    console.error('Accessory variant is missing direct media', {
+      productId: product.id,
+      variantId,
+    })
+  }
+  return [{
+    url: placeholderUrl ?? CATALOG_PLACEHOLDER_IMAGE,
+    altText: product.name,
+    mediaType: 'IMAGE',
+    role: 'THUMBNAIL',
+    source: 'PLACEHOLDER',
+  }]
+}
+
 /**
  * Resolves one complete media scope in canonical fallback order: variant,
  * primary/color option value, product, legacy cache, then placeholder.
@@ -171,6 +191,13 @@ export function resolveCatalogMedia(
     ? product.media.byVariant[options.variantId] ?? []
     : []
   if (variantMedia.length > 0) return resolvedRows(variantMedia, 'VARIANT')
+
+  // Accessories use a strict SKU-only invariant. Product, option-value and
+  // legacy image scopes remain available to non-accessory catalog types, but
+  // must never silently mask a missing direct SKU image.
+  if (product.productType === 'ACCESSORY') {
+    return accessoryPlaceholder(product, options.variantId, options.placeholderUrl)
+  }
 
   const variantSelection = options.variantId
     ? product.variants.find((variant) => variant.id === options.variantId)?.selectedOptions
@@ -214,6 +241,11 @@ export function resolveCatalogImageUrl(
   const variantMedia = options.variantId
     ? product.media.byVariant[options.variantId] ?? []
     : []
+  if (product.productType === 'ACCESSORY') {
+    const directImage = variantMedia.find((item) => item.mediaType === 'IMAGE')?.url
+    if (directImage) return directImage
+    return accessoryPlaceholder(product, options.variantId, options.placeholderUrl)[0].url
+  }
   const variantSelection = options.variantId
     ? product.variants.find((variant) => variant.id === options.variantId)?.selectedOptions
     : undefined

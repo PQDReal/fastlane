@@ -215,6 +215,27 @@ describe('accessory filters', () => {
       .not.toContain('Phong cách sống')
   })
 
+  it('resolves ALL_MODELS through the taxonomy context without model memberships', () => {
+    const universalCategory = {
+      ...carCategory,
+      isPrimary: false,
+      metadata: { compatibilityMode: 'ALL_MODELS' },
+    }
+    const universal = product({
+      id: 'universal-charger',
+      collectionMemberships: [universalCategory],
+    })
+    const vehicles = [
+      { id: 'model-vf-7', parentId: 'category-car', slug: 'vf-7', name: 'VF 7', code: 'VF_7', displayOrder: 30 },
+      { id: 'model-vf-8', parentId: 'category-car', slug: 'vf-8', name: 'VF 8', code: 'VF_8', displayOrder: 20 },
+    ]
+    expect(filterAccessoryProducts([universal], parseAccessoryFilters({ vehicle: 'VF 8' }), vehicles).map((item) => item.id))
+      .toEqual(['universal-charger'])
+    expect(accessoryFitmentStatus(universal, 'VF 7', vehicles)).toBe('compatible')
+    expect(buildAccessoryFacets([universal], vehicles).vehicles)
+      .toEqual([{ value: 'VF 8', label: 'VF 8', count: 1 }, { value: 'VF 7', label: 'VF 7', count: 1 }])
+  })
+
   it('keeps products without a price last for both price sorts', () => {
     const priced = product()
     const withoutPrice = product({

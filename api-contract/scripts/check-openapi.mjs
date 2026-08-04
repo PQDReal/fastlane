@@ -896,8 +896,9 @@ function checkSchemas(specPath) {
   };
   const adminAccessoryWrite = {
     categoryId: u1,
-    primaryCollectionId: u2,
-    modelCollectionIds: [],
+    templateCode: "vehicle_fit",
+    templateVersion: 1,
+    categoryAssignments: [{ categoryId: u2, compatibilityMode: "ALL_MODELS", modelIds: [] }],
     name: "Ốp gương",
     slug: "op-guong",
     description: "Phụ kiện chính hãng.",
@@ -922,26 +923,22 @@ function checkSchemas(specPath) {
       minimumSelections: 1,
       maximumSelections: 1,
       displayOrder: 10,
-      drivesMedia: true,
       values: [{
         code: "black",
         name: "Đen",
         colorHex: "#000000",
         swatchUrl: null,
         displayOrder: 10,
-        imageUrls: ["https://example.com/black.webp"],
       }],
     }],
     variants: [{
       name: "Đen",
-      sku: "ACC-BLACK",
       originalPrice: 500000,
       salePrice: 450000,
       isActive: true,
       optionValues: { color: "black" },
-      imageUrls: [],
+      imageUrls: ["https://example.com/black-sku.webp"],
     }],
-    productImageUrls: ["https://example.com/product.webp"],
   };
   const testDriveLocation = {
     name: "FASTLANE Central",

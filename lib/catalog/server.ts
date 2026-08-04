@@ -5,6 +5,7 @@ import { mapCatalogProduct } from '@/lib/catalog/mapper'
 import {
   buildAccessoryFacets,
   filterAccessoryProducts,
+  type AccessoryVehicleContext,
 } from '@/lib/catalog/accessory-filters'
 import type {
   AccessoryCatalogFilters,
@@ -228,6 +229,29 @@ async function loadActiveServiceLabels(): Promise<CatalogServiceLabel[]> {
   }))
 }
 
+export async function listAccessoryVehicleContext(): Promise<AccessoryVehicleContext[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('catalog_collections')
+    .select('id,parent_id,slug,name,display_order,vehicle_model:vehicle_models(code,is_active)')
+    .eq('kind', 'MODEL')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
+    .order('name', { ascending: true })
+  if (error) throw new Error(`Unable to list accessory vehicle context: ${error.message}`)
+  return (data ?? []).flatMap((row) => {
+    const vehicleModel = Array.isArray(row.vehicle_model) ? row.vehicle_model[0] : row.vehicle_model
+    if (!vehicleModel || vehicleModel.is_active === false) return []
+    return [{
+      id: String(row.id),
+      parentId: row.parent_id === null ? null : String(row.parent_id),
+      slug: String(row.slug),
+      name: String(row.name),
+      code: String(vehicleModel.code ?? row.slug),
+      displayOrder: Number(row.display_order) || 0,
+    }]
+  })
+}
+
 const loadNextCachedAccessoryCatalogSummary = unstable_cache(
   async () => {
     const [serviceLabels, catalogResult] = await Promise.all([
@@ -300,12 +324,15 @@ export async function listAccessoryCatalog(options: {
 } = {}): Promise<AccessoryCatalogPage> {
   const page = positiveInteger(options.page, 1)
   const pageSize = Math.min(100, positiveInteger(options.pageSize, 12))
-  const summary = await loadAccessoryCatalogSummary()
+  const [summary, vehicleContext] = await Promise.all([
+    loadAccessoryCatalogSummary(),
+    listAccessoryVehicleContext(),
+  ])
   const categoryProducts = options.categorySlug
     ? summary.products.filter((product) => product.category?.slug === options.categorySlug)
     : summary.products
   const products = options.filters
-    ? filterAccessoryProducts(categoryProducts, options.filters)
+    ? filterAccessoryProducts(categoryProducts, options.filters, vehicleContext)
     : categoryProducts
   const total = products.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -334,7 +361,7 @@ export async function listAccessoryCatalog(options: {
     pageSize,
     total,
     totalPages,
-    facets: buildAccessoryFacets(categoryProducts),
+    facets: buildAccessoryFacets(categoryProducts, vehicleContext),
   }
 }
 
