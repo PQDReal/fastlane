@@ -11,6 +11,10 @@ type RefundAttempt = {
 
 const REFUND_QUERY_INTERVAL_MS = 310_000
 const nextQueryAt = (from = new Date()) => new Date(from.getTime() + REFUND_QUERY_INTERVAL_MS).toISOString()
+const sandboxAutoComplete = (apiUrl: string, transactionStatus: string) =>
+  process.env.VNPAY_SANDBOX_AUTO_COMPLETE_REFUNDS === 'true'
+  && new URL(apiUrl).hostname === 'sandbox.vnpayment.vn'
+  && ['05', '06'].includes(transactionStatus)
 
 export class VnPayRefundError extends Error {
   constructor(message: string, public readonly code = 'VNPAY_REFUND_FAILED') {
@@ -118,7 +122,8 @@ export async function refundCancelledOrder(input: { orderId: string; requestedBy
   const validHash = verifyApiResponse(response, config.hashSecret)
   const responseCode = response.vnp_ResponseCode || 'UNKNOWN'
   const transactionStatus = response.vnp_TransactionStatus || ''
-  const completed = validHash && responseCode === '00' && transactionStatus === '00'
+  const completed = validHash && responseCode === '00'
+    && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
   const processing = validHash && (responseCode === '94' || (responseCode === '00' && ['05', '06'].includes(transactionStatus)))
   const attemptStatus = completed ? 'COMPLETED' : processing ? 'PROCESSING' : 'FAILED'
   const updatedAt = new Date().toISOString()
@@ -214,7 +219,8 @@ export async function reconcileVnPayRefund(input: { orderId: string; clientIp: s
 
   const transactionStatus = response.vnp_TransactionStatus || ''
   const isRefund = ['02', '03'].includes(response.vnp_TransactionType || '')
-  const completed = response.vnp_ResponseCode === '00' && isRefund && transactionStatus === '00'
+  const completed = response.vnp_ResponseCode === '00' && isRefund
+    && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
   const failed = response.vnp_ResponseCode !== '00' || transactionStatus === '09'
   const attemptStatus = completed ? 'COMPLETED' : failed ? 'FAILED' : 'PROCESSING'
   const updatedAt = new Date().toISOString()

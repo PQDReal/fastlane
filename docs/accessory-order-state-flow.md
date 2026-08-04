@@ -112,6 +112,16 @@ orders.refund_status: PENDING → COMPLETED
 
 Trong lúc attempt là `PENDING` hoặc `PROCESSING`, giao diện hiển thị **Đang chờ hoàn tiền** và tự động đối soát VNPay định kỳ.
 
+### Chế độ kiểm thử Sandbox
+
+VNPay Sandbox có thể giữ refund ở trạng thái `05` hoặc `06` mà không mô phỏng bước ngân hàng hoàn tất. Có thể bật:
+
+```env
+VNPAY_SANDBOX_AUTO_COMPLETE_REFUNDS=true
+```
+
+Khi bật, hệ thống chỉ mô phỏng hoàn tất nếu API URL thực sự thuộc `sandbox.vnpayment.vn`, chữ ký hợp lệ, response code là `00`, loại giao dịch là refund (`02`/`03`) và trạng thái là `05` hoặc `06`. Cấu hình này không được sử dụng ở production VNPay.
+
 ## 4. Ma trận chuyển trạng thái hợp lệ
 
 | Từ trạng thái | Hành động | Sang trạng thái | Refund |
@@ -132,4 +142,3 @@ Các chuyển trạng thái ngoài ma trận phải trả HTTP `409` với mã `
 - `DELIVERED`: đơn đã giao thành công.
 - `CANCELLED` + `refund_status = NONE`: đơn chưa thanh toán đã hủy, không cần hoàn tiền.
 - `CANCELLED` + `refund_status = COMPLETED`: đơn đã hủy và đã hoàn tiền.
-
