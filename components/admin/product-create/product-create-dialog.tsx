@@ -57,7 +57,7 @@ export function ProductCreateDialog({
     window.setTimeout(() => dismissToast(id), 4200)
   }, [dismissToast])
 
-  const confirmWorkflow = useCallback((title: string, message: string, onConfirm: () => void) => {
+  const confirmWorkflow = useCallback((title: string, message: string, onConfirm: () => void, confirmLabel = 'Tiếp tục') => {
     const id = Date.now() + Math.random()
     const closeWarning = () => dismissToast(id)
     setToasts((current) => [
@@ -69,7 +69,7 @@ export function ProductCreateDialog({
         message,
         secondaryAction: { label: 'Giữ lại', onClick: closeWarning },
         action: {
-          label: 'Tiếp tục',
+          label: confirmLabel,
           variant: 'danger',
           onClick: () => {
             closeWarning()

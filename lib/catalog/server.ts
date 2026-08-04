@@ -4,6 +4,7 @@ import { mapCatalogProduct } from '@/lib/catalog/mapper'
 import {
   buildAccessoryFacets,
   filterAccessoryProducts,
+  type AccessoryVehicleContext,
 } from '@/lib/catalog/accessory-filters'
 import type {
   AccessoryCatalogFilters,
@@ -222,6 +223,29 @@ async function listActiveServiceLabels(): Promise<CatalogServiceLabel[]> {
   }))
 }
 
+export async function listAccessoryVehicleContext(): Promise<AccessoryVehicleContext[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('catalog_collections')
+    .select('id,parent_id,slug,name,display_order,vehicle_model:vehicle_models(code,is_active)')
+    .eq('kind', 'MODEL')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
+    .order('name', { ascending: true })
+  if (error) throw new Error(`Unable to list accessory vehicle context: ${error.message}`)
+  return (data ?? []).flatMap((row) => {
+    const vehicleModel = Array.isArray(row.vehicle_model) ? row.vehicle_model[0] : row.vehicle_model
+    if (!vehicleModel || vehicleModel.is_active === false) return []
+    return [{
+      id: String(row.id),
+      parentId: row.parent_id === null ? null : String(row.parent_id),
+      slug: String(row.slug),
+      name: String(row.name),
+      code: String(vehicleModel.code ?? row.slug),
+      displayOrder: Number(row.display_order) || 0,
+    }]
+  })
+}
+
 export async function listAccessoryCatalog(options: {
   page?: number
   pageSize?: number
@@ -230,7 +254,10 @@ export async function listAccessoryCatalog(options: {
 } = {}): Promise<AccessoryCatalogPage> {
   const page = positiveInteger(options.page, 1)
   const pageSize = Math.min(100, positiveInteger(options.pageSize, 12))
-  const serviceLabels = await listActiveServiceLabels()
+  const [serviceLabels, vehicleContext] = await Promise.all([
+    listActiveServiceLabels(),
+    listAccessoryVehicleContext(),
+  ])
   let query = getSupabaseAdmin()
     .from('products')
     .select(ACCESSORY_CATALOG_SUMMARY_SELECT)
@@ -245,7 +272,7 @@ export async function listAccessoryCatalog(options: {
   if (error) throw new Error(`Unable to list accessory catalog: ${error.message}`)
   const allProducts = (data ?? []).map(mapCatalogProduct)
   const products = options.filters
-    ? filterAccessoryProducts(allProducts, options.filters)
+    ? filterAccessoryProducts(allProducts, options.filters, vehicleContext)
     : allProducts
   const total = products.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -281,7 +308,7 @@ export async function listAccessoryCatalog(options: {
     pageSize,
     total,
     totalPages,
-    facets: buildAccessoryFacets(allProducts),
+    facets: buildAccessoryFacets(allProducts, vehicleContext),
   }
 }
 
