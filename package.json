@@ -69,7 +69,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "latest",
-    "postcss": "8.5.20",
+    "postcss": "8.5.25",
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3",
     "vitest": "3.2.7"
