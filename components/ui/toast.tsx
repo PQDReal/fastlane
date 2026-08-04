@@ -38,7 +38,6 @@ export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onC
           const { box, Icon, iconColor, titleColor, msgColor, closeColor, closeHover } = styles[toast.kind]
           return (
             <motion.div
-              layout="position"
               key={toast.id}
               initial={{ opacity: 0, x: 28, y: -8, scale: 0.96 }}
               animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
