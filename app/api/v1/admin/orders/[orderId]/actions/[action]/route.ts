@@ -36,34 +36,35 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ data: { status: result.data.status, refundStatus: result.data.refund_status } })
     }
 
-    if (action === 'complete') {
+    if (action === 'ship') {
       const current = await supabase.from('orders').select('status,refund_status').eq('id', orderId).maybeSingle()
       if (current.error) throw current.error
       if (!current.data) throw new ApiRouteError(404, 'ORDER_NOT_FOUND', 'Không tìm thấy đơn hàng.')
-      if (current.data.status !== 'CONFIRMED' && current.data.status !== 'READY') {
-        throw new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Chỉ đơn đã xác nhận mới có thể hoàn thành.')
+      if (current.data.status !== 'CONFIRMED') {
+        throw new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Chỉ đơn đã xác nhận và chờ lấy hàng mới có thể chuyển sang giao hàng.')
       }
 
-      if (current.data.status === 'CONFIRMED') {
-        const ready = await supabase.from('orders')
-          .update({ status: 'READY', updated_at: new Date().toISOString() })
-          .eq('id', orderId)
-          .eq('status', 'CONFIRMED')
-          .select('id')
-          .maybeSingle()
-        if (ready.error) throw ready.error
-        if (!ready.data) throw new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Trạng thái đơn hàng vừa được thay đổi. Vui lòng thử lại.')
-      }
+      const shipping = await supabase.from('orders')
+        .update({ status: 'READY', updated_at: new Date().toISOString() })
+        .eq('id', orderId)
+        .eq('status', 'CONFIRMED')
+        .select('status,refund_status')
+        .maybeSingle()
+      if (shipping.error) throw shipping.error
+      if (!shipping.data) throw new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Trạng thái đơn hàng vừa được thay đổi. Vui lòng thử lại.')
+      return NextResponse.json({ data: { status: shipping.data.status, refundStatus: shipping.data.refund_status } })
+    }
 
-      const delivered = await supabase.from('orders')
+    if (action === 'complete') {
+      const completed = await supabase.from('orders')
         .update({ status: 'DELIVERED', updated_at: new Date().toISOString() })
         .eq('id', orderId)
         .eq('status', 'READY')
         .select('status,refund_status')
         .maybeSingle()
-      if (delivered.error) throw delivered.error
-      if (!delivered.data) throw new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Không thể hoàn thành đơn hàng ở trạng thái hiện tại.')
-      return NextResponse.json({ data: { status: delivered.data.status, refundStatus: delivered.data.refund_status } })
+      if (completed.error) throw completed.error
+      if (!completed.data) throw new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Chỉ đơn đang giao hàng mới có thể chuyển sang hoàn thành.')
+      return NextResponse.json({ data: { status: completed.data.status, refundStatus: completed.data.refund_status } })
     }
 
     if (action === 'refund') {

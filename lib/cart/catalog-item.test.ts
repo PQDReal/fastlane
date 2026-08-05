@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { mapCatalogProduct } from '@/lib/catalog/mapper'
-import { mapCatalogCartItem } from '@/lib/cart/catalog-item'
+import {
+  mapCartVariantProjectionItem,
+  mapCatalogCartItem,
+} from '@/lib/cart/catalog-item'
 
 describe('mapCatalogCartItem', () => {
   it('maps normalized option details, attributes, media and server prices', () => {
@@ -78,6 +81,42 @@ describe('mapCatalogCartItem', () => {
       lineTotal: '450000',
       imageUrl: 'https://example.com/shirt-red.jpg',
       availableQuantity: 4,
+    })
+  })
+
+  it('maps the thin SKU projection without product or option media fallback', () => {
+    expect(mapCartVariantProjectionItem({
+      product: {
+        id: '223e4567-e89b-12d3-a456-426614174002',
+        name: 'Áo VF 7',
+        slug: 'ao-vf-7',
+      },
+      variant: {
+        id: '123e4567-e89b-12d3-a456-426614174002',
+        productId: '223e4567-e89b-12d3-a456-426614174002',
+        sku: 'SHIRT-RED',
+        originalPrice: 250000,
+        salePrice: 225000,
+        availableQuantity: 4,
+        selectedOptions: [{
+          groupId: '323e4567-e89b-12d3-a456-426614174002',
+          groupCode: 'color',
+          groupName: 'Màu sắc',
+          valueId: '423e4567-e89b-12d3-a456-426614174002',
+          valueCode: 'red',
+          valueName: 'Đỏ',
+          priceAdjustment: '10000',
+        }],
+        imageUrls: ['https://example.com/shirt-red.jpg'],
+      },
+    }, 2)).toMatchObject({
+      sku: 'SHIRT-RED',
+      variantAttributes: { color: 'red' },
+      selectedOptions: [{ groupCode: 'color', valueCode: 'red' }],
+      quantity: 2,
+      unitPrice: '225000',
+      lineTotal: '450000',
+      imageUrl: 'https://example.com/shirt-red.jpg',
     })
   })
 })

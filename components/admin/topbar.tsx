@@ -2,6 +2,7 @@
 
 import { Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { CustomerNotifications } from '@/components/customer-notifications'
 
 export function AdminTopbar({ onMenuClick, onToggleDesktop }: { onMenuClick?: () => void, onToggleDesktop?: () => void }) {
   const pathname = usePathname()
@@ -46,6 +47,7 @@ export function AdminTopbar({ onMenuClick, onToggleDesktop }: { onMenuClick?: ()
       </div>
 
       <div className="flex items-center gap-6">
+        <CustomerNotifications userSubject="admin" admin />
       </div>
     </header>
   )

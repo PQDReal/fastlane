@@ -1,6 +1,6 @@
 'use client'
 
-import { type MouseEvent, useMemo, useState } from 'react'
+import { type MouseEvent, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@auth0/nextjs-auth0/client'
+import { getMyProfile } from '@/lib/api/profile-client'
 
 import { AccessoryCard } from '@/components/accessory-card'
 import { startNavigationLoading } from '@/components/navigation-loading-indicator'
@@ -268,6 +270,8 @@ export function AccessoryDetailClient({
   previewMode?: boolean
 }) {
   const router = useRouter()
+  const { user } = useUser()
+  const [isAdmin, setIsAdmin] = useState(false)
   const { addToCart } = useAppStore()
   const defaultVariant = initialVariant(product, initialVariantId)
   const [selection, setSelection] = useState<CatalogSelection>(
@@ -280,6 +284,13 @@ export function AccessoryDetailClient({
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const submitting = submittingAction !== null
   const reduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return }
+    let active = true
+    getMyProfile().then((profile) => { if (active) setIsAdmin(profile.role.toUpperCase() === 'ADMIN') }).catch(() => undefined)
+    return () => { active = false }
+  }, [user])
 
   const selectedVariant = useMemo(
     () => resolveExactVariant(product, selection),
@@ -631,7 +642,7 @@ export function AccessoryDetailClient({
               </div>
               {previewMode && <p className="mt-3 rounded-sm bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Tồn kho 25 sản phẩm/biến thể chỉ là dữ liệu giả lập xem trước.</p>}
 
-              <div className="mt-4 grid gap-3">
+              {!isAdmin && <div className="mt-4 grid gap-3">
                 <button
                   type="button"
                   onClick={handleBuyNow}
@@ -658,7 +669,7 @@ export function AccessoryDetailClient({
                           ? 'Thêm vào giỏ hàng'
                           : 'Tạm hết hàng'}
                 </button>
-              </div>
+              </div>}
 
             {feedback && (
               <div role="status" className={`mt-4 rounded-sm px-4 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
@@ -732,7 +743,7 @@ export function AccessoryDetailClient({
         )}
       </div>
 
-      <div className={`${previewMode ? 'sticky bottom-0' : 'fixed inset-x-0 bottom-0'} z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden`}>
+      {!isAdmin && <div className={`${previewMode ? 'sticky bottom-0' : 'fixed inset-x-0 bottom-0'} z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden`}>
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11px] font-semibold text-slate-400">{selectedVariant?.sku ?? 'Chọn cấu hình'}</p>
@@ -758,7 +769,7 @@ export function AccessoryDetailClient({
             <span className="hidden sm:inline">Thêm vào giỏ</span>
           </button>
         </div>
-      </div>
+      </div>}
     </>
   )
 }

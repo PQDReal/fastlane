@@ -179,6 +179,9 @@ export async function POST(request: Request) {
   try {
     const hash = await requestHash(input)
     const currentUser = await getCurrentUser().catch(() => null)
+    if (currentUser?.role === 'ADMIN') {
+      return errorResponse(403, 'ADMIN_DEPOSIT_FORBIDDEN', 'Tài khoản quản trị không được tạo đơn đặt cọc xe.')
+    }
     const customerId = currentUser?.id ?? null
     const guestEmail = input.email
     const replay = await existingOrder(idempotencyKey, customerId, guestEmail)

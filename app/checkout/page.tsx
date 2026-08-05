@@ -349,9 +349,11 @@ export default function CheckoutPage() {
       setSubmitError(
         failure.error?.message || 'Không thể hoàn tất đơn hàng.',
       )
-      if (['CART_CHANGED', 'PRICE_CHANGED', 'OUT_OF_STOCK'].includes(code)) {
+      if (['CART_CHANGED', 'PRICE_CHANGED', 'OUT_OF_STOCK', 'IDEMPOTENCY_KEY_REUSED', 'CHECKOUT_CONFLICT'].includes(code)) {
         idempotencyKey.current = null
-        if (userSubject) await loadCart(userSubject)
+        if (userSubject && ['CART_CHANGED', 'PRICE_CHANGED', 'OUT_OF_STOCK'].includes(code)) {
+          await loadCart(userSubject)
+        }
       }
       setSubmitting(false)
       return

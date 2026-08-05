@@ -9,6 +9,8 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
+import { CustomerNotifications } from '@/components/customer-notifications'
+import { getMyProfile } from '@/lib/api/profile-client'
 import {
   CART_ANIMATION_CANCEL,
   CART_ANIMATION_COMPLETE,
@@ -36,6 +38,7 @@ export function Header() {
   const { user, isLoading: userLoading } = useUser()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const {
@@ -58,6 +61,13 @@ export function Header() {
   // Header is transparent on homepage and car/bike detail pages
   const isTransparentPage = pathname === '/' || /^\/(cars|bikes)\/[^\/]+$/.test(pathname)
   const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
+
+  useEffect(() => {
+    if (!userSubject) { setIsAdmin(null); return }
+    let active = true
+    getMyProfile().then((profile) => { if (active) setIsAdmin(profile.role.toUpperCase() === 'ADMIN') }).catch(() => undefined)
+    return () => { active = false }
+  }, [userSubject])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -217,7 +227,7 @@ export function Header() {
 
         <div className={`flex shrink-0 items-center justify-end gap-3 transition-colors duration-500 xl:gap-5 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={23} strokeWidth={2} /></button>
-          <Link
+          {(!userSubject || isAdmin === false) && <Link
             aria-label="Giỏ hàng"
             href="/cart"
             onClick={handleCartClick}
@@ -239,7 +249,8 @@ export function Header() {
                 </motion.span>
               )}
             </AnimatePresence>
-          </Link>
+          </Link>}
+          {userSubject && isAdmin === false && <CustomerNotifications userSubject={userSubject} />}
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               <UserAvatar picture={user.picture} name={user.name} />
@@ -252,12 +263,12 @@ export function Header() {
                 <Link href="/profile" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Hồ sơ của tôi
                 </Link>
-                <Link href="/profile?tab=orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                {isAdmin === false && <Link href="/profile?tab=orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Lịch sử mua hàng
-                </Link>
-                <Link href="/profile?tab=car-orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                </Link>}
+                {isAdmin === false && <Link href="/profile?tab=car-orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Lịch sử mua xe
-                </Link>
+                </Link>}
                 <div className="my-1 border-t border-gray-100"></div>
                 <a href="/auth/logout-cleanup" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
                   Đăng xuất

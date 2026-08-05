@@ -5,6 +5,7 @@ import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
 import { parseItemId } from '@/lib/cart/validation'
 import { readCustomerOrder } from '@/lib/orders/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { notifyAdminCustomerCancelledOrder } from '@/lib/notifications/server'
 
 type RouteContext = { params: Promise<{ orderId: string }> }
 
@@ -34,7 +35,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     if (lookup.error) throw lookup.error
     if (!lookup.data) throw new ApiRouteError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy đơn hàng.')
-    if (lookup.data.status !== 'PENDING' && lookup.data.status !== 'PAID') {
+    if (!['PENDING', 'PAID', 'CONFIRMED'].includes(lookup.data.status)) {
       throw new ApiRouteError(409, 'ORDER_CANNOT_BE_CANCELLED', 'Đơn hàng ở trạng thái hiện tại không thể hủy.')
     }
 
@@ -64,7 +65,11 @@ export async function DELETE(_request: Request, context: RouteContext) {
       )
     }
 
-    return NextResponse.json({ data: await readCustomerOrder(customer.id, orderId) })
+    const cancelledOrder = await readCustomerOrder(customer.id, orderId)
+    await notifyAdminCustomerCancelledOrder({ id: orderId, orderNumber: cancelledOrder.orderNumber }).catch((error) => {
+      console.error('Unable to notify admins about customer cancellation:', { orderId, error })
+    })
+    return NextResponse.json({ data: cancelledOrder })
   } catch (error) {
     return apiErrorResponse(error)
   }
