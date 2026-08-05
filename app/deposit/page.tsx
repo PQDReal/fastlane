@@ -36,6 +36,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     return c
   })
   const motorbikesData = motorbikeCatalog.map((motorbike) => ({
+    product_id: motorbike.productId,
     name: motorbike.name,
     slug: motorbike.slug,
     product_type: 'motorbike' as const,

@@ -1,6 +1,8 @@
 import { Auth0Client } from '@auth0/nextjs-auth0/server'
 import { NextResponse } from 'next/server'
 
+import { withLocalUserId } from '@/lib/auth/session-identity'
+import { isCartMutationRequest } from '@/lib/auth/middleware-policy'
 import { Auth0EmailUnverifiedError, syncAuth0User } from '@/lib/services/user-service'
 
 const POPUP_COMPLETE_PATH = '/auth/popup-complete'
@@ -22,6 +24,15 @@ export const auth0 = new Auth0Client({
     ui_locales: 'vi',
   },
   enableAccessTokenEndpoint: true,
+  session: {
+    // Cart quantity changes are high-frequency requests. Keep the encrypted
+    // session valid, but avoid re-encrypting/rolling the cookie on every click.
+    // Page navigations and auth flows still roll the session normally.
+    beforeSessionRolled: (request) => !isCartMutationRequest(
+      request.nextUrl.pathname,
+      request.method,
+    ),
+  },
   onCallback: async (error, context, session) => {
     const baseUrl = context.appBaseUrl ?? process.env.APP_BASE_URL
     if (!baseUrl) throw new Error('Missing APP_BASE_URL for the Auth0 callback redirect')
@@ -77,6 +88,10 @@ export const auth0 = new Auth0Client({
     if (localUser.status === 'INACTIVE') {
       return NextResponse.redirect(new URL('/auth/account-disabled', baseUrl))
     }
+
+    // Keep only the stable local identity pointer in the encrypted application
+    // session. Authorization remains a live database concern in cart RPCs.
+    Object.assign(session, withLocalUserId(session, localUser.id))
 
     if (isWindowPopup) return NextResponse.redirect(new URL(POPUP_COMPLETE_PATH, baseUrl))
     const returnTo = localUser.role === 'ADMIN' ? '/admin' : context.returnTo ?? '/'

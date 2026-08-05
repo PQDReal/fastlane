@@ -10,14 +10,17 @@ export async function GET(request: Request) {
 
   let dbQuery = supabase
     .from('vehicle_variants')
-    .select('*')
+    .select('id,product_id,product_name,product_type,variant_name,sku,price,deposit_amount,color,image_car_url,image_color_url,version,is_active,created_at,updated_at')
+    .eq('is_active', true)
     .order('created_at', { ascending: false })
 
   if (productId) {
     dbQuery = dbQuery.eq('product_id', productId)
   }
   if (productName) {
-    dbQuery = dbQuery.ilike('product_name', `%${productName}%`)
+    // Product names such as Evo, Evo Lite and Evo Neo overlap. A fuzzy match
+    // mixes their variants and can display a price belonging to another model.
+    dbQuery = dbQuery.ilike('product_name', productName.trim())
   }
 
   const { data, error } = await dbQuery

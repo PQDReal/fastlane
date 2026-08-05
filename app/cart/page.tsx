@@ -34,6 +34,7 @@ export default function CartPage() {
     cartLoading,
     cartLoaded,
     cartError,
+    cartPendingItemIds,
     cartOwnerSubject,
     syncCartOwner,
     loadCart,
@@ -115,6 +116,7 @@ export default function CartPage() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   )
+  const hasPendingCartMutations = Object.keys(cartPendingItemIds).length > 0
 
   const toggleAll = () => {
     setSelectedIds(
@@ -321,7 +323,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         aria-label={`Tăng số lượng ${item.name}`}
-                        disabled={cartLoading || item.quantity >= item.availableQuantity || item.quantity >= 99}
+                        disabled={Boolean(cartPendingItemIds[item.id]) || item.quantity >= item.availableQuantity || item.quantity >= 99}
                         onClick={() => void changeQuantity(item.id, item.quantity + 1)}
                         className="grid h-9 w-9 place-items-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -338,7 +340,7 @@ export default function CartPage() {
                   <button
                     type="button"
                     aria-label={`Xóa ${item.name}`}
-                    disabled={cartLoading}
+                    disabled={Boolean(cartPendingItemIds[item.id])}
                     onClick={() => requestRemove(item.id, item.name)}
                     className={`col-start-2 mt-2 inline-flex w-fit items-center gap-2 text-sm hover:text-red-700 disabled:opacity-40 md:col-auto md:mt-0 md:grid md:h-10 md:w-10 md:place-items-center ${outOfStock ? 'font-semibold text-red-600' : 'text-slate-400'}`}
                   >
@@ -361,7 +363,7 @@ export default function CartPage() {
               </div>
               <button
                 type="button"
-                disabled={selectedItems.length === 0 || cartLoading}
+                disabled={selectedItems.length === 0 || hasPendingCartMutations}
                 onClick={proceedToCheckout}
                 className="min-h-12 rounded-lg bg-brand-600 px-8 py-3.5 font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
