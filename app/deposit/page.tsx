@@ -8,10 +8,30 @@ import {
 } from '../../lib/deposit-vehicles'
 import { getSupabaseAdmin } from '../../lib/supabase-admin'
 import { listMotorbikeCatalog } from '../../lib/motorbike-catalog'
+import { getCurrentUser } from '../../lib/auth/current-user'
+import { Header } from '../../components/header'
+import { Footer } from '../../components/footer'
+import Link from 'next/link'
+import { CarFront } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DepositPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const currentUser = await getCurrentUser().catch(() => null)
+  if (currentUser?.role === 'ADMIN') {
+    return (
+      <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">
+        <Header />
+        <section className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-5 py-20 text-center">
+          <CarFront className="h-14 w-14 text-red-300" />
+          <h1 className="mt-5 text-2xl font-bold text-slate-900">Không thể đặt cọc xe</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Tài khoản quản trị không được tạo hoặc thanh toán đơn đặt cọc xe.</p>
+          <Link href="/admin" className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-800 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">Quay về trang quản trị</Link>
+        </section>
+        <Footer />
+      </main>
+    )
+  }
   const params = await searchParams
   const carsDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json')
   const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
