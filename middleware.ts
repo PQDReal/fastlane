@@ -11,7 +11,10 @@ import {
   isDeploymentBasicAuthExempt,
   readDeploymentBasicAuthConfig,
 } from './lib/auth/deployment-basic-auth'
-import { requiresLocalUserValidation } from './lib/auth/middleware-policy'
+import {
+  isCartMutationRequest,
+  requiresLocalUserValidation,
+} from './lib/auth/middleware-policy'
 import { findUserByAuth0Subject, findUserByEmail } from './lib/services/user-service'
 
 const swaggerOrigins = new Set(['http://127.0.0.1:8080'])
@@ -154,7 +157,14 @@ export async function middleware(request: NextRequest) {
     return applyCorsHeaders(new NextResponse(null, { status: 204 }), origin)
   }
 
-  const session = await auth0.getSession(request)
+  // Cart mutations authenticate in the route and in the RPC. Avoid a second
+  // cookie decrypt before the request reaches the handler; this path is hit on
+  // every quantity click.
+  const isCartMutation = isCartMutationRequest(
+    request.nextUrl.pathname,
+    request.method,
+  )
+  const session = isCartMutation ? null : await auth0.getSession(request)
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth/')
 
   if (
