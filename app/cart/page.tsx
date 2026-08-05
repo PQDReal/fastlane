@@ -165,6 +165,14 @@ export default function CartPage() {
     }])
   }
 
+  const decreaseQuantity = (itemId: string, itemName: string, quantity: number) => {
+    if (quantity === 1) {
+      requestRemove(itemId, itemName)
+      return
+    }
+    void changeQuantity(itemId, quantity - 1)
+  }
+
   const proceedToCheckout = () => {
     if (selectedIds.size === 0) return
     const params = new URLSearchParams()
@@ -303,8 +311,8 @@ export default function CartPage() {
                       <button
                         type="button"
                         aria-label={`Giảm số lượng ${item.name}`}
-                        disabled={cartLoading || item.quantity <= 1}
-                        onClick={() => void changeQuantity(item.id, item.quantity - 1)}
+                        disabled={cartLoading}
+                        onClick={() => decreaseQuantity(item.id, item.name, item.quantity)}
                         className="grid h-9 w-9 place-items-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Minus size={15} />
