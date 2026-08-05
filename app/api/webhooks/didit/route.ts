@@ -1,19 +1,38 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
+import { verifyDiditWebhook } from '@/lib/didit/webhook'
 
 export async function POST(request: Request) {
   try {
-    const payload = await request.json()
-    console.log('Didit Webhook Payload:', payload)
+    const rawBody = await request.text()
+    const verified = verifyDiditWebhook(
+      rawBody,
+      request.headers.get('x-signature'),
+      request.headers.get('x-timestamp'),
+    )
+    if (!verified) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    let payload: Record<string, unknown>
+    try {
+      const parsed: unknown = JSON.parse(rawBody)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Webhook body must be an object')
+      }
+      payload = parsed as Record<string, unknown>
+    } catch {
+      return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 })
+    }
 
     // Example payload from Didit Webhook:
     // { webhook_type: 'status.updated', status: 'Approved', session_id: '...', vendor_data: '...', ... }
 
-    const webhookType = payload.webhook_type
-    const status = payload.status ? payload.status.toLowerCase() : ''
-    const sessionId = payload.session_id
-    const orderId = payload.vendor_data // We passed orderId in vendor_data
+    const webhookType = typeof payload.webhook_type === 'string' ? payload.webhook_type : ''
+    const status = typeof payload.status === 'string' ? payload.status.toLowerCase() : ''
+    const sessionId = typeof payload.session_id === 'string' ? payload.session_id : ''
+    const orderId = typeof payload.vendor_data === 'string' ? payload.vendor_data : ''
 
     if (!sessionId || !orderId) {
       return NextResponse.json({ error: 'Missing sessionId or vendor_data' }, { status: 400 })
