@@ -9,6 +9,7 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
+import { CustomerNotifications } from '@/components/customer-notifications'
 import {
   CART_ANIMATION_CANCEL,
   CART_ANIMATION_COMPLETE,
@@ -192,6 +193,7 @@ export function Header() {
               )}
             </AnimatePresence>
           </Link>
+          {userSubject && <CustomerNotifications userSubject={userSubject} />}
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               <UserAvatar picture={user.picture} name={user.name} />
