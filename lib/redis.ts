@@ -2,16 +2,19 @@ import 'server-only'
 
 import Redis from 'ioredis'
 
-const DEFAULT_CONNECT_TIMEOUT_MS = 1_500
+const DEFAULT_CONNECT_TIMEOUT_MS = 500
+const REDIS_FAILURE_COOLDOWN_MS = 15_000
 
 type RedisGlobal = typeof globalThis & {
   fastlaneRedis?: Redis
   fastlaneRedisWarningShown?: boolean
+  fastlaneRedisUnavailableUntil?: number
 }
 
 const redisGlobal = globalThis as RedisGlobal
 
 function reportRedisFallback(error: unknown) {
+  redisGlobal.fastlaneRedisUnavailableUntil = Date.now() + REDIS_FAILURE_COOLDOWN_MS
   if (redisGlobal.fastlaneRedisWarningShown) return
   redisGlobal.fastlaneRedisWarningShown = true
   const message = error instanceof Error ? error.message : String(error)
@@ -47,12 +50,18 @@ export function getRedisClient() {
 }
 
 async function connectedRedis() {
+  if ((redisGlobal.fastlaneRedisUnavailableUntil ?? 0) > Date.now()) return null
+
   const client = getRedisClient()
   if (!client) return null
 
   try {
     if (client.status === 'wait') await client.connect()
-    if (client.status !== 'ready') return null
+    if (client.status !== 'ready') {
+      reportRedisFallback(new Error(`Redis client is ${client.status}`))
+      return null
+    }
+    redisGlobal.fastlaneRedisUnavailableUntil = 0
     return client
   } catch (error) {
     reportRedisFallback(error)

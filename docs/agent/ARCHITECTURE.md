@@ -460,6 +460,17 @@ Tính tổng tiền
 
 Redis được ưu tiên lưu Cart.
 
+## Runtime path và hiệu năng (cart phụ kiện)
+
+- PostgreSQL là nguồn sự thật cho `carts` và `cart_items`; Redis chỉ là cache có thể mất. Khi Redis lỗi hoặc quá thời gian kết nối, request chuyển sang DB với timeout ngắn và cooldown để không lặp lại timeout trên từng round-trip.
+- Cart read/mutation dùng projection tối thiểu gồm variant, product, inventory, option mapping và media trực tiếp của variant. Không gọi catalog aggregate đầy đủ trong đường dẫn giỏ hàng.
+- Cart item mutation có fast path `public.mutate_accessory_cart_item_v1`: Next API xác thực Auth0 rồi gọi một RPC service-role-only. RPC khóa active cart, kiểm tra variant/inventory, ghi `cart_items`, touch `updated_at` và dựng canonical `CartResponse` trong cùng transaction. REST contract không đổi.
+- Đây là đường ghi chuẩn v1, không còn feature flag hoặc fallback application-level. Mỗi ADD/SET/REMOVE gọi đúng một RPC; API không re-fetch cart. Redis chỉ invalidate/write best-effort ngoài critical path. Lỗi RPC được trả về trực tiếp để không che giấu lỗi hoặc retry ADD gây nhân đôi quantity.
+- Auth0 application session giữ `localUserId` top-level để bỏ lượt gọi `/rest/v1/users` trong các request sau. Đây chỉ là con trỏ định danh; RPC vẫn khóa và kiểm tra `users.status`/`users.role` trong cùng transaction trước khi ghi.
+- Với endpoint mutation tần suất cao, middleware bỏ preflight session decrypt và Auth0 passive rolling; route vẫn kiểm tra email verification, còn RPC là lớp authorization cuối cùng. API phát `Server-Timing` cho `session`, `parse`, `rpc` và `total` để đo end-to-end.
+- Client dùng optimistic state theo từng dòng. Chỉ dòng đang mutate bị khóa; các dòng khác vẫn thao tác được. Response cũ không được ghi đè quantity intent mới hơn; checkout chờ toàn bộ mutation đang pending.
+- Migration `035_cart_item_mutation_rpc`, repair `036_cart_item_mutation_rpc_record_fix` và guard `037_cart_mutation_session_identity_guard` đã được áp dụng trên Supabase. Monotonic `carts.version` được giữ cho phase checkout-v2 vì checkout hiện tại vẫn derive version từ `updated_at`.
+
 ---
 
 # 14. Module Khuyến mãi

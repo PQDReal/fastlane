@@ -1,6 +1,6 @@
 # Kiến trúc Database FASTLANE
 
-> Phần schema nền phản ánh Supabase Data API ngày 21/07/2026. Các thay đổi catalog mới hơn được định nghĩa tuần tự trong `migrations/003`–`011`; migration `010` xóa hai cột variant legacy và `011` bổ sung taxonomy normalized.
+> Phần schema nền phản ánh Supabase Data API ngày 21/07/2026. Các thay đổi catalog mới hơn được định nghĩa tuần tự trong `migrations/003`–`011`; migration `010` xóa hai cột variant legacy và `011` bổ sung taxonomy normalized. Cart mutation hiện có thêm RPC tại `migrations/035`–`036`.
 
 ## 1. Tổng quan
 
@@ -60,7 +60,8 @@ erDiagram
 | updated_at | timestamptz | Không | clock_timestamp() | — |
 
 - PK: `id`. FK: không có.
-- Unique/index phụ: Cần xác nhận với Developer.
+- Unique/index phụ: live audit xác nhận hai partial unique index giống nhau
+  (`carts_one_active_per_customer_idx` và `_uq`); chưa gộp trong ticket này.
 - Quan hệ: được nhiều carts và orders tham chiếu.
 
 ### categories
@@ -204,8 +205,20 @@ erDiagram
 
 - PK ghép: `(cart_id, variant_id)`.
 - FK: `cart_id → carts.id`; `variant_id → product_variants.id`.
-- Index phụ: chưa xác nhận.
+- PK ghép đã là lookup chính cho cart item; mutation RPC khóa cart bằng `FOR UPDATE`
+  và lookup variant/inventory theo khóa chính. Chưa thêm index mới trong ticket này.
 - Quan hệ: bảng nối cart–variant có thuộc tính quantity.
+
+Cart item add/set/remove luôn đi qua `public.mutate_accessory_cart_item_v1`; không
+còn feature flag hay fallback nhiều lượt. Function chỉ cấp quyền cho `service_role`,
+kiểm tra user active/role trong transaction và trả snapshot tương thích
+`CartResponse`. `carts.version` chưa tồn tại vì checkout hiện derive version từ
+`updated_at`; chỉ thêm khi triển khai checkout-v2 đồng bộ.
+
+Migration `037_cart_mutation_session_identity_guard` giữ nguyên tên/signature v1
+nhưng bổ sung guard `users.id`, `status = ACTIVE` và role `CUSTOMER/ADMIN` trước
+khi khóa cart. Auth0 session có thể truyền `localUserId` đã hydrate để bỏ lượt
+lookup user qua Data API; session không được dùng làm nguồn phân quyền.
 
 ### orders
 
