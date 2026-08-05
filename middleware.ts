@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 
 import { auth0 } from './lib/auth0'
 import {
+  createDeploymentBasicAuthCookie,
+  DEPLOYMENT_BASIC_AUTH_COOKIE,
+  DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
   hasValidDeploymentBasicAuth,
+  hasValidDeploymentBasicAuthCookie,
   isDeploymentBasicAuthExempt,
   readDeploymentBasicAuthConfig,
 } from './lib/auth/deployment-basic-auth'
@@ -42,17 +46,54 @@ function clearSessionCookies(request: NextRequest, response: NextResponse) {
 export async function middleware(request: NextRequest) {
   if (!isDeploymentBasicAuthExempt(request.nextUrl.pathname, request.method)) {
     const basicAuthConfig = readDeploymentBasicAuthConfig()
-    if (!hasValidDeploymentBasicAuth(
-      request.headers.get('authorization'),
+    const authorization = request.headers.get('authorization')
+    const hasValidCookie = await hasValidDeploymentBasicAuthCookie(
+      request.cookies.get(DEPLOYMENT_BASIC_AUTH_COOKIE)?.value,
       basicAuthConfig,
-    )) {
-      return new NextResponse('Yêu cầu xác thực để truy cập môi trường này.', {
-        status: 401,
-        headers: {
-          'cache-control': 'no-store',
-          'www-authenticate': 'Basic realm="FastLane Preview", charset="UTF-8"',
+    )
+    const hasValidCredentials = hasValidDeploymentBasicAuth(
+      authorization,
+      basicAuthConfig,
+    )
+    if (!hasValidCookie && !hasValidCredentials) {
+      const credentialsWereSupplied = authorization?.startsWith('Basic ') === true
+      return new NextResponse(
+        credentialsWereSupplied
+          ? 'Tên đăng nhập hoặc mật khẩu môi trường không đúng.'
+          : 'Yêu cầu xác thực để truy cập môi trường này.',
+        {
+          status: credentialsWereSupplied ? 403 : 401,
+          headers: {
+            'cache-control': 'no-store',
+            ...(credentialsWereSupplied
+              ? {}
+              : { 'www-authenticate': 'Basic realm="FastLane Preview", charset="UTF-8"' }),
+          },
         },
-      })
+      )
+    }
+
+    if (
+      basicAuthConfig.enabled
+      && !hasValidCookie
+      && hasValidCredentials
+      && (request.method === 'GET' || request.method === 'HEAD')
+    ) {
+      const cookie = await createDeploymentBasicAuthCookie(basicAuthConfig)
+      if (cookie) {
+        const response = NextResponse.redirect(request.nextUrl)
+        response.cookies.set({
+          name: DEPLOYMENT_BASIC_AUTH_COOKIE,
+          value: cookie,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
+        })
+        response.headers.set('cache-control', 'no-store')
+        return response
+      }
     }
   }
 
