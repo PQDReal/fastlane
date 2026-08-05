@@ -1103,6 +1103,15 @@ export function DepositClient({
   const localSubtotal = basePrice + colorPrice + packagesPrice
   const displayedTotal =
     promotionQuote?.totalEstimatedPrice ?? localSubtotal
+  const hasAppliedDiscount = Boolean(
+    promotionQuote?.promotion &&
+    promotionQuote.discountAmount > 0 &&
+    displayedTotal < localSubtotal,
+  )
+  const formatVnd = (amount: number) => new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+  }).format(amount)
 
   useEffect(() => {
     setPromotionQuote(null)
@@ -2250,17 +2259,37 @@ export function DepositClient({
               <div className="flex items-center justify-between gap-2 sm:gap-4">
                 {currentStep < 4 ? (
                  <>
-                   <div>
-                     <div className="text-xs sm:text-sm font-medium text-slate-500 mb-0.5 whitespace-nowrap">Tổng dự tính</div>
-                     <div className="text-lg sm:text-xl font-black text-slate-900 whitespace-nowrap">
-                       {displayedTotal > 0
-                         ? new Intl.NumberFormat('vi-VN', {
-                             style: 'currency',
-                             currency: 'VND',
-                           }).format(displayedTotal)
-                         : 'Liên hệ'}
-                     </div>
-                   </div>
+                   <motion.div layout className="min-w-0">
+                     <motion.div
+                       layout
+                       transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                       className="mb-0.5 text-xs font-medium text-slate-500 sm:text-sm whitespace-nowrap"
+                     >
+                       Tổng dự tính
+                     </motion.div>
+                     <AnimatePresence initial={false} mode="popLayout">
+                       {hasAppliedDiscount && (
+                         <motion.div
+                           key="original-total"
+                           initial={{ opacity: 0, y: 7, scale: 1.08 }}
+                           animate={{ opacity: 1, y: 0, scale: 1 }}
+                           exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                           transition={{ duration: 0.2, ease: 'easeOut' }}
+                           className="w-fit text-xs font-semibold text-slate-800 line-through decoration-slate-800 decoration-1 sm:text-sm"
+                           aria-label={`Giá gốc ${formatVnd(localSubtotal)}`}
+                         >
+                           {formatVnd(localSubtotal)}
+                         </motion.div>
+                       )}
+                     </AnimatePresence>
+                     <motion.div
+                       layout
+                       transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                       className={`text-lg font-black whitespace-nowrap sm:text-xl ${hasAppliedDiscount ? 'text-amber-600' : 'text-slate-900'}`}
+                     >
+                       {displayedTotal > 0 ? formatVnd(displayedTotal) : 'Liên hệ'}
+                     </motion.div>
+                   </motion.div>
                    
                    <div className="flex gap-2 sm:gap-3 shrink-0">
                      {currentStep > 1 && (
