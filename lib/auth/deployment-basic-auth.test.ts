@@ -46,7 +46,7 @@ describe('deployment Basic Auth', () => {
     expect(cookie).toBeTruthy()
     expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 60)).toBe(true)
     expect(await hasValidDeploymentBasicAuthCookie(`${cookie}x`, config, now + 60)).toBe(false)
-    expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 86_401)).toBe(false)
+    expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 1_801)).toBe(false)
     expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, {
       ...config,
       password: 'rotated-secret',

@@ -1,6 +1,6 @@
 const VNPAY_IPN_PATH = '/api/v1/payments/vnpay/ipn'
 export const DEPLOYMENT_BASIC_AUTH_COOKIE = 'fastlane_preview_access'
-export const DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE = 24 * 60 * 60
+export const DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE = 30 * 60
 const COOKIE_VERSION = 'v1'
 
 export type DeploymentBasicAuthConfig = {
