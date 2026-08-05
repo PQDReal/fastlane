@@ -18,6 +18,9 @@ function clientIp(request: Request) {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const customer = await requireCurrentCustomer()
+    if (customer.role !== 'CUSTOMER') {
+      throw new ApiRouteError(403, 'ADMIN_DEPOSIT_FORBIDDEN', 'Tài khoản quản trị không được thanh toán đơn đặt cọc.')
+    }
     const { orderId: rawOrderId } = await context.params
     const orderId = parseItemId(rawOrderId)
     const supabase = getSupabaseAdmin()

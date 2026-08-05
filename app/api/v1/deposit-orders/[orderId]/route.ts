@@ -11,6 +11,9 @@ type RouteContext = { params: Promise<{ orderId: string }> }
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const customer = await requireCurrentCustomer()
+    if (customer.role !== 'CUSTOMER') {
+      throw new ApiRouteError(403, 'ADMIN_DEPOSIT_FORBIDDEN', 'Tài khoản quản trị không được hủy đơn đặt cọc.')
+    }
     const { orderId: rawOrderId } = await context.params
     const orderId = parseItemId(rawOrderId)
     const supabase = getSupabaseAdmin()
