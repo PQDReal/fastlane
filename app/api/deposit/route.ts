@@ -11,6 +11,7 @@ import {
   DepositLocationUnavailableError,
   validateDepositLocation,
 } from '@/lib/deposit/location'
+import { decideDepositReplay } from '@/lib/deposit/idempotency'
 import {
   buildDepositVehicleQuote,
   depositQuoteError,
@@ -116,12 +117,21 @@ async function requestHash(input: DepositOrderInput) {
     .join('')
 }
 
-async function existingOrder(idempotencyKey: string): Promise<DepositOrderRow | null> {
-  const result = await getSupabaseAdmin()
+async function existingOrder(
+  idempotencyKey: string,
+  customerId: string | null,
+  guestEmail: string,
+): Promise<DepositOrderRow | null> {
+  let query = getSupabaseAdmin()
     .from('deposit_orders')
     .select(RESPONSE_COLUMNS)
     .eq('idempotency_key', idempotencyKey)
-    .maybeSingle<DepositOrderRow>()
+
+  query = customerId
+    ? query.eq('customer_id', customerId)
+    : query.is('customer_id', null).ilike('email', guestEmail)
+
+  const result = await query.maybeSingle<DepositOrderRow>()
   if (result.error) throw result.error
   return result.data
 }
@@ -151,9 +161,12 @@ export async function POST(request: Request) {
 
   try {
     const hash = await requestHash(input)
-    const replay = await existingOrder(idempotencyKey)
+    const currentUser = await getCurrentUser().catch(() => null)
+    const customerId = currentUser?.id ?? null
+    const guestEmail = input.email
+    const replay = await existingOrder(idempotencyKey, customerId, guestEmail)
     if (replay) {
-      if (replay.request_hash && replay.request_hash !== hash) {
+      if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
         return errorResponse(
           409,
           'IDEMPOTENCY_CONFLICT',
@@ -174,7 +187,6 @@ export async function POST(request: Request) {
     } catch (error) {
       depositQuoteError(error)
     }
-    const currentUser = await getCurrentUser().catch(() => null)
     const now = new Date().toISOString()
 
     // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
@@ -219,7 +231,7 @@ export async function POST(request: Request) {
         order_number: generateOrderNumber(),
         idempotency_key: idempotencyKey,
         request_hash: hash,
-        customer_id: currentUser?.id ?? null,
+        customer_id: customerId,
         customer_type: input.customerType,
         full_name: input.fullName || input.companyName || '',
         company_name: input.companyName,
@@ -231,9 +243,8 @@ export async function POST(request: Request) {
         ward: input.ward,
         ward_code: input.wardCode,
         product_id: quote.productId,
-        // Vehicle orders use vehicle_variant_id. product_variants is reserved
-        // for accessories, so the legacy order relation stays empty here.
-        variant_id: null,
+        // Vehicle orders only use vehicle_variant_id. The deprecated variant_id
+        // column is intentionally omitted so its historical values stay read-only.
         vehicle_variant_id: vehicleVariantId,
         vehicle_type: input.vehicleType,
         car_model: input.vehicleModel,
@@ -258,8 +269,19 @@ export async function POST(request: Request) {
 
     if (insertResult.error) {
       if (insertResult.error.code === '23505') {
-        const replay = await existingOrder(idempotencyKey)
+        const replay = await existingOrder(
+          idempotencyKey,
+          customerId,
+          guestEmail,
+        )
         if (replay) {
+          if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
+            return errorResponse(
+              409,
+              'IDEMPOTENCY_CONFLICT',
+              'Yêu cầu này đã được dùng cho một nội dung đặt cọc khác.',
+            )
+          }
           const paymentUrl = await createOrReuseVnPayDepositPayment(
             { id: replay.id, orderNumber: replay.order_number },
             clientIp(request),

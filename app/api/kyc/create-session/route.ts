@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { updateDepositOrderWithKycFallback } from '@/lib/deposit/kyc-persistence'
 
 export async function POST(request: Request) {
   try {
@@ -41,7 +43,29 @@ export async function POST(request: Request) {
     const data = await response.json()
     const sessionId = data.session_id
 
-    // Database tracking disabled: the schema lacks kyc_session_id and kyc_status columns.
+    if (sessionId) {
+      const { error: trackingError } = await updateDepositOrderWithKycFallback(
+        getSupabaseAdmin(),
+        orderId,
+        {
+          kyc_session_id: sessionId,
+          kyc_status: 'PENDING',
+          updated_at: new Date().toISOString(),
+        },
+      )
+
+      // The verification session remains usable before migration 036 is run.
+      // Do not discard a successfully-created Didit session solely because an
+      // older database schema cannot persist its tracking fields yet.
+      if (trackingError) {
+        console.error('Unable to persist Didit session:', {
+          code: trackingError.code,
+          message: trackingError.message,
+          details: trackingError.details,
+          hint: trackingError.hint,
+        })
+      }
+    }
     
     // didit v3 session API usually returns { url: '...' } or { session_id: '...' }
     return NextResponse.json({

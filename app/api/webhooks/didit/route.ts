@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { updateDepositOrderWithKycFallback } from '@/lib/deposit/kyc-persistence'
 import { revalidatePath } from 'next/cache'
 import { verifyDiditWebhook } from '@/lib/didit/webhook'
 
@@ -60,27 +61,33 @@ export async function POST(request: Request) {
 
         const updatePayload: any = {
           status: 'PENDING_CONTRACT',
+          kyc_status: 'APPROVED',
+          kyc_session_id: sessionId,
           updated_at: new Date().toISOString()
         }
 
         if (verifiedName) updatePayload.full_name = verifiedName
         if (verifiedId) updatePayload.id_card_number = verifiedId
 
-        await supabase.from('deposit_orders').update(updatePayload).eq('id', orderId)
+        await updateDepositOrderWithKycFallback(supabase, orderId, updatePayload)
         console.log(`Order ${orderId} KYC approved via webhook.`)
       }
 
     } else if (webhookType === 'status.updated' && (status === 'declined' || status === 'rejected')) {
       // The admin manually declined the session
-      await supabase.from('deposit_orders').update({
+      await updateDepositOrderWithKycFallback(supabase, orderId, {
+        kyc_status: 'DECLINED',
+        kyc_session_id: sessionId,
         updated_at: new Date().toISOString()
-      }).eq('id', orderId)
+      })
       console.log(`Order ${orderId} KYC declined via webhook.`)
     } else if (webhookType === 'status.updated' && (status === 'review' || status === 'manual_review')) {
       // Just in case it's triggered
-      await supabase.from('deposit_orders').update({
+      await updateDepositOrderWithKycFallback(supabase, orderId, {
+        kyc_status: 'REVIEW',
+        kyc_session_id: sessionId,
         updated_at: new Date().toISOString()
-      }).eq('id', orderId)
+      })
     }
 
     revalidatePath('/admin/orders')

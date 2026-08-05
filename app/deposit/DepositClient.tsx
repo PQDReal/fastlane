@@ -374,7 +374,10 @@ export function DepositClient({
   }, [])
 
   useEffect(() => {
+    const controller = new AbortController()
+
     async function fetchVariants() {
+      setDbVariants([])
       try {
         const vehicles = vehicleType === 'motorbike' ? motorbikesData : carsData
         const currentCarObj = vehicles.find(c => c.name === selectedCarId) || vehicles[0]
@@ -382,15 +385,25 @@ export function DepositClient({
           setDbVariants([])
           return
         }
-        const res = await fetch(`/api/v1/vehicle-variants?product_name=${encodeURIComponent(currentCarObj.name)}`)
+        const query = currentCarObj.product_id
+          ? `product_id=${encodeURIComponent(currentCarObj.product_id)}`
+          : `product_name=${encodeURIComponent(currentCarObj.name)}`
+        const res = await fetch(`/api/v1/vehicle-variants?${query}`, {
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error('Không thể tải biến thể xe.')
         const data = await res.json()
-        setDbVariants(Array.isArray(data) ? data : [])
+        if (!controller.signal.aborted) {
+          setDbVariants(Array.isArray(data) ? data : [])
+        }
       } catch (err) {
+        if (controller.signal.aborted) return
         console.error(err)
         setDbVariants([])
       }
     }
     fetchVariants()
+    return () => controller.abort()
   }, [selectedCarId, vehicleType, carsData, motorbikesData])
 
   useEffect(() => {
@@ -1897,9 +1910,6 @@ export function DepositClient({
                       <span className="font-semibold text-slate-800">{selectedVariant}</span>
                       <span className="font-semibold text-slate-800 text-right">
                         {(() => {
-                           const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
-                           const variantData = currentSpecs.variants?.[selectedVariantName]
-                           const basePrice = variantData?.price || currentCar.displayed_price || 0
                            return basePrice > 0 ? new Intl.NumberFormat('vi-VN').format(basePrice) : 'Liên hệ'
                         })()}
                       </span>

@@ -18,7 +18,7 @@ describe('deposit route safety contract', () => {
   })
 
   it('does not write canonical motorbike IDs into the legacy product variant relation', () => {
-    expect(source).toContain('variant_id: null')
+    expect(source).not.toMatch(/\n\s*variant_id\s*:/)
     expect(source).toMatch(
       /vehicleVariantId: string \| null = input\.vehicleType === 'motorbike'[\s\S]*\? quote\.variantId/,
     )

@@ -15,6 +15,7 @@ import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrder, AccessoryOrderSummary } from '@/lib/cart/types'
+import { contractStageCopy, getDepositContractMode } from '@/lib/deposit/contract-workflow'
 
 function OrderItemThumbnail({ src, productName }: { src: string | null; productName: string }) {
   const [failed, setFailed] = useState(false)
@@ -619,15 +620,19 @@ function ProfileContent() {
                           break;
                         case 'PENDING_CONTRACT':
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
-                          stateText = 'Ký hợp đồng: Hợp đồng mua xe điện tử đã sẵn sàng. Vui lòng xem & ký hợp đồng.';
-                          actionBtn = (
-                            <button
-                              onClick={() => router.push(`/profile/contract/${order.id}`)}
-                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
-                            >
-                              Xem & Ký HĐ
-                            </button>
-                          );
+                          {
+                            const contractCopy = contractStageCopy(getDepositContractMode({
+                              vehicle_type: (order as any).vehicleType,
+                              car_variant: (order as any).carVariant,
+                              vehicle_variants: (order as any).depositDetails?.vehicleVariant,
+                            }))
+                            stateText = contractCopy.status;
+                            actionBtn = (
+                              <button onClick={() => router.push(`/profile/contract/${order.id}`)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                                {contractCopy.action}
+                              </button>
+                            );
+                          }
                           break;
                         case 'CONTRACT_SIGNED':
                         case 'PENDING_PAYMENT':

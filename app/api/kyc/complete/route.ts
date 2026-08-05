@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { updateDepositOrderWithKycFallback } from '@/lib/deposit/kyc-persistence'
 import { revalidatePath } from 'next/cache'
 
 export async function POST(request: Request) {
@@ -28,8 +29,18 @@ export async function POST(request: Request) {
           const decisionStatus = (decision.status || '').toLowerCase()
 
           if (decisionStatus === 'review' || decisionStatus === 'manual_review') {
+            await updateDepositOrderWithKycFallback(getSupabaseAdmin(), orderId, {
+              kyc_status: 'REVIEW',
+              kyc_session_id: sessionId,
+              updated_at: new Date().toISOString(),
+            })
             return NextResponse.json({ error: 'Quá trình xác minh cần được nhân viên xét duyệt thủ công. Vui lòng chờ.' }, { status: 400 })
           } else if (decisionStatus === 'declined' || decisionStatus === 'rejected') {
+            await updateDepositOrderWithKycFallback(getSupabaseAdmin(), orderId, {
+              kyc_status: 'DECLINED',
+              kyc_session_id: sessionId,
+              updated_at: new Date().toISOString(),
+            })
             return NextResponse.json({ error: 'Xác minh thất bại. Vui lòng thử lại bằng CCCD hợp lệ.' }, { status: 400 })
           } else if (decisionStatus !== 'approved') {
             return NextResponse.json({ error: 'Trạng thái xác minh chưa hoàn tất hoặc không thành công.' }, { status: 400 })
@@ -79,6 +90,8 @@ export async function POST(request: Request) {
 
     const updatePayload: any = {
       status: 'PENDING_CONTRACT',
+      kyc_status: 'APPROVED',
+      kyc_session_id: sessionId || null,
       updated_at: new Date().toISOString()
     }
 
@@ -86,10 +99,7 @@ export async function POST(request: Request) {
     if (verifiedId) updatePayload.id_card_number = verifiedId
 
     // Update order status to PENDING_CONTRACT after KYC is completed
-    const { error } = await supabase
-      .from('deposit_orders')
-      .update(updatePayload)
-      .eq('id', orderId)
+    const { error } = await updateDepositOrderWithKycFallback(supabase, orderId, updatePayload)
 
     if (error) {
       console.error('Error updating order after KYC:', error)

@@ -160,12 +160,6 @@ function accessoryPlaceholder(
   variantId: string | null | undefined,
   placeholderUrl?: string,
 ): CatalogResolvedMedia[] {
-  if (variantId) {
-    console.error('Accessory variant is missing direct media', {
-      productId: product.id,
-      variantId,
-    })
-  }
   return [{
     url: placeholderUrl ?? CATALOG_PLACEHOLDER_IMAGE,
     altText: product.name,
@@ -173,6 +167,27 @@ function accessoryPlaceholder(
     role: 'THUMBNAIL',
     source: 'PLACEHOLDER',
   }]
+}
+
+function accessoryFallbackMedia(
+  product: CatalogProduct,
+  placeholderUrl?: string,
+): CatalogResolvedMedia[] {
+  if (product.media.product.length > 0) {
+    return resolvedRows(product.media.product, 'PRODUCT')
+  }
+
+  if (product.legacyImageUrls.length > 0) {
+    return product.legacyImageUrls.map((url) => ({
+      url,
+      altText: product.name,
+      mediaType: 'IMAGE' as const,
+      role: 'GALLERY' as const,
+      source: 'LEGACY' as const,
+    }))
+  }
+
+  return accessoryPlaceholder(product, null, placeholderUrl)
 }
 
 /**
@@ -193,10 +208,10 @@ export function resolveCatalogMedia(
   if (variantMedia.length > 0) return resolvedRows(variantMedia, 'VARIANT')
 
   // Accessories use a strict SKU-only invariant. Product, option-value and
-  // legacy image scopes remain available to non-accessory catalog types, but
-  // must never silently mask a missing direct SKU image.
+  // legacy image scopes are transitional fallbacks for old accessory rows that
+  // have not yet been backfilled into product_media.
   if (product.productType === 'ACCESSORY') {
-    return accessoryPlaceholder(product, options.variantId, options.placeholderUrl)
+    return accessoryFallbackMedia(product, options.placeholderUrl)
   }
 
   const variantSelection = options.variantId
@@ -244,7 +259,8 @@ export function resolveCatalogImageUrl(
   if (product.productType === 'ACCESSORY') {
     const directImage = variantMedia.find((item) => item.mediaType === 'IMAGE')?.url
     if (directImage) return directImage
-    return accessoryPlaceholder(product, options.variantId, options.placeholderUrl)[0].url
+    const fallback = accessoryFallbackMedia(product, options.placeholderUrl)
+    return fallback[0].url
   }
   const variantSelection = options.variantId
     ? product.variants.find((variant) => variant.id === options.variantId)?.selectedOptions
