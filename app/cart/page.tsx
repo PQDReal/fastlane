@@ -78,21 +78,35 @@ export default function CartPage() {
 
     setSelectedIds((current) => {
       if (!selectionInitialized) {
-        return new Set(cartItems.map((item) => item.id))
+        return new Set(
+          cartItems
+            .filter((item) => item.availableQuantity > 0)
+            .map((item) => item.id),
+        )
       }
-      const validIds = new Set(cartItems.map((item) => item.id))
+      const validIds = new Set(
+        cartItems
+          .filter((item) => item.availableQuantity > 0)
+          .map((item) => item.id),
+      )
       return new Set([...current].filter((id) => validIds.has(id)))
     })
     setSelectionInitialized(true)
   }, [cartItems, cartLoaded, selectionInitialized])
 
   const selectedItems = useMemo(
-    () => cartItems.filter((item) => selectedIds.has(item.id)),
+    () => cartItems.filter(
+      (item) => selectedIds.has(item.id) && item.availableQuantity > 0,
+    ),
     [cartItems, selectedIds],
   )
 
+  const availableItems = useMemo(
+    () => cartItems.filter((item) => item.availableQuantity > 0),
+    [cartItems],
+  )
   const allSelected =
-    cartItems.length > 0 && selectedIds.size === cartItems.length
+    availableItems.length > 0 && selectedIds.size === availableItems.length
   const selectedQuantity = selectedItems.reduce(
     (sum, item) => sum + item.quantity,
     0,
@@ -104,7 +118,7 @@ export default function CartPage() {
 
   const toggleAll = () => {
     setSelectedIds(
-      allSelected ? new Set() : new Set(cartItems.map((item) => item.id)),
+      allSelected ? new Set() : new Set(availableItems.map((item) => item.id)),
     )
   }
 
@@ -236,46 +250,56 @@ export default function CartPage() {
                 <span className="sr-only">Xóa</span>
               </div>
 
-              {cartItems.map((item) => (
+              {cartItems.map((item) => {
+                const outOfStock = item.availableQuantity <= 0
+                return (
                 <article
                   key={item.id}
-                  className="grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b border-slate-100 px-4 py-5 last:border-0 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:items-center md:px-6"
+                  className={`grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b border-slate-100 px-4 py-5 last:border-0 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:items-center md:px-6 ${outOfStock ? 'bg-slate-100/80' : ''}`}
                 >
                   <input
                     type="checkbox"
                     aria-label={`Chọn ${item.name}`}
                     checked={selectedIds.has(item.id)}
                     onChange={() => toggleItem(item.id)}
-                    className="mt-6 h-5 w-5 accent-brand-600 md:mt-0"
+                    disabled={outOfStock}
+                    className="mt-6 h-5 w-5 accent-brand-600 disabled:cursor-not-allowed disabled:opacity-30 md:mt-0"
                   />
 
                   <div className="flex min-w-0 gap-4">
                     <Link
                       href={`/accessories/${item.productSlug}`}
-                      className="h-20 w-20 shrink-0 rounded-xl bg-slate-50 p-2"
+                      className={`h-20 w-20 shrink-0 rounded-xl bg-slate-50 p-2 ${outOfStock ? 'opacity-40 grayscale' : ''}`}
                     >
                       <img src={item.image} alt={item.name} className="h-full w-full object-contain" />
                     </Link>
                     <div className="min-w-0 self-center">
                       <Link
                         href={`/accessories/${item.productSlug}`}
-                        className="line-clamp-2 font-semibold text-slate-900 hover:text-brand-700"
+                        className={`line-clamp-2 font-semibold text-slate-900 hover:text-brand-700 ${outOfStock ? 'opacity-40' : ''}`}
                       >
                         {item.name}
                       </Link>
-                      <p className="mt-1 text-xs text-slate-500">SKU: {item.sku}</p>
-                      <ProductOptionSummary
-                        options={item.selectedOptions}
-                        className="mt-2"
-                      />
-                      <p className="mt-2 font-bold text-brand-700 md:hidden">{formatPrice(item.price)}</p>
+                      <div className={outOfStock ? 'opacity-40' : ''}>
+                        <p className="mt-1 text-xs text-slate-500">SKU: {item.sku}</p>
+                        <ProductOptionSummary
+                          options={item.selectedOptions}
+                          className="mt-2"
+                        />
+                      </div>
+                      {outOfStock && (
+                        <p className="mt-2 text-sm font-semibold text-red-600" role="status">
+                          Số lượng hàng đã hết
+                        </p>
+                      )}
+                      <p className={`mt-2 font-bold text-brand-700 md:hidden ${outOfStock ? 'opacity-30' : ''}`}>{formatPrice(item.price)}</p>
                     </div>
                   </div>
 
-                  <p className="hidden font-medium text-slate-700 md:block">{formatPrice(item.price)}</p>
+                  <p className={`hidden font-medium text-slate-700 md:block ${outOfStock ? 'opacity-30' : ''}`}>{formatPrice(item.price)}</p>
 
                   <div className="col-start-2 mt-2 flex items-center md:col-auto md:mt-0 md:justify-center">
-                    <div className="inline-flex items-center rounded-lg border border-slate-200">
+                    <div className={`inline-flex items-center rounded-lg border border-slate-200 ${outOfStock ? 'pointer-events-none opacity-25' : ''}`}>
                       <button
                         type="button"
                         aria-label={`Giảm số lượng ${item.name}`}
@@ -298,7 +322,7 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <p className="col-start-2 mt-2 text-base font-bold text-brand-700 md:col-auto md:mt-0 md:text-right">
+                  <p className={`col-start-2 mt-2 text-base font-bold text-brand-700 md:col-auto md:mt-0 md:text-right ${outOfStock ? 'opacity-30' : ''}`}>
                     <span className="mr-2 font-normal text-slate-500 md:hidden">Thành tiền:</span>
                     {formatPrice(item.price * item.quantity)}
                   </p>
@@ -308,13 +332,14 @@ export default function CartPage() {
                     aria-label={`Xóa ${item.name}`}
                     disabled={cartLoading}
                     onClick={() => requestRemove(item.id, item.name)}
-                    className="col-start-2 mt-2 inline-flex w-fit items-center gap-2 text-sm text-slate-400 hover:text-red-600 disabled:opacity-40 md:col-auto md:mt-0 md:grid md:h-10 md:w-10 md:place-items-center"
+                    className={`col-start-2 mt-2 inline-flex w-fit items-center gap-2 text-sm hover:text-red-700 disabled:opacity-40 md:col-auto md:mt-0 md:grid md:h-10 md:w-10 md:place-items-center ${outOfStock ? 'font-semibold text-red-600' : 'text-slate-400'}`}
                   >
                     <Trash2 size={18} />
                     <span className="md:sr-only">Xóa</span>
                   </button>
                 </article>
-              ))}
+                )
+              })}
             </section>
 
             <section className="mt-6 flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">

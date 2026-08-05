@@ -556,8 +556,8 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
               </table>
               
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-                <Button className="bg-[#1b5bf7] hover:bg-blue-700 text-white rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">NHẬN TƯ VẤN</Button>
-                <Button variant="outline" className="border-[#1b5bf7] text-[#1b5bf7] hover:bg-blue-50 rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">XEM CHI TIẾT</Button>
+                <Button className="bg-[#e19200] hover:bg-blue-700 text-white rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">NHẬN TƯ VẤN</Button>
+                <Button variant="outline" className="border-[#e19200] text-[#e19200] hover:bg-blue-50 rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">XEM CHI TIẾT</Button>
               </div>
             </div>
           </div>

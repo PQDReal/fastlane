@@ -1327,7 +1327,7 @@ export function DepositClient({
                   <button 
                     key={idx} 
                     onClick={() => setInteriorImageIndex(idx)} 
-                    className={`w-28 aspect-[16/9] rounded-xl overflow-hidden border-[3px] transition-all ${interiorImageIndex === idx ? 'border-blue-500 scale-110 shadow-[0_0_20px_rgba(59,130,246,0.5)]' : 'border-white/10 opacity-50 hover:opacity-100 hover:border-white/30'}`}
+                    className={`w-28 aspect-[16/9] rounded-xl overflow-hidden border-[3px] transition-all ${interiorImageIndex === idx ? 'border-blue-500 scale-110 shadow-[0_0_20px_rgba(225,146,0,0.5)]' : 'border-white/10 opacity-50 hover:opacity-100 hover:border-white/30'}`}
                   >
                     <img src={img} className="w-full h-full object-cover" />
                   </button>

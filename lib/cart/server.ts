@@ -99,10 +99,15 @@ function cartItemQuantity(row: CartItemRow): number {
   return quantity
 }
 
-export async function readCustomerCart(customerId: string): Promise<ApiCart> {
+export async function readCustomerCart(
+  customerId: string,
+  options: { fresh?: boolean } = {},
+): Promise<ApiCart> {
   const cacheKey = customerCartCacheKey(customerId)
-  const cachedCart = await readRedisJson<ApiCart>(cacheKey)
-  if (cachedCart) return cachedCart
+  if (!options.fresh) {
+    const cachedCart = await readRedisJson<ApiCart>(cacheKey)
+    if (cachedCart) return cachedCart
+  }
 
   const cart = await ensureActiveCart(customerId)
   const rows = await readCartItems(cart.id)

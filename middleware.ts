@@ -2,6 +2,15 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 import { auth0 } from './lib/auth0'
+import {
+  createDeploymentBasicAuthCookie,
+  DEPLOYMENT_BASIC_AUTH_COOKIE,
+  DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
+  hasValidDeploymentBasicAuth,
+  hasValidDeploymentBasicAuthCookie,
+  isDeploymentBasicAuthExempt,
+  readDeploymentBasicAuthConfig,
+} from './lib/auth/deployment-basic-auth'
 import { requiresLocalUserValidation } from './lib/auth/middleware-policy'
 import { findUserByAuth0Subject, findUserByEmail } from './lib/services/user-service'
 
@@ -33,7 +42,61 @@ function clearSessionCookies(request: NextRequest, response: NextResponse) {
     response.cookies.delete({ name, path: '/' })
   }
 }
+
 export async function middleware(request: NextRequest) {
+  if (!isDeploymentBasicAuthExempt(request.nextUrl.pathname, request.method)) {
+    const basicAuthConfig = readDeploymentBasicAuthConfig()
+    const authorization = request.headers.get('authorization')
+    const hasValidCookie = await hasValidDeploymentBasicAuthCookie(
+      request.cookies.get(DEPLOYMENT_BASIC_AUTH_COOKIE)?.value,
+      basicAuthConfig,
+    )
+    const hasValidCredentials = hasValidDeploymentBasicAuth(
+      authorization,
+      basicAuthConfig,
+    )
+    if (!hasValidCookie && !hasValidCredentials) {
+      const credentialsWereSupplied = authorization?.startsWith('Basic ') === true
+      return new NextResponse(
+        credentialsWereSupplied
+          ? 'Tên đăng nhập hoặc mật khẩu môi trường không đúng.'
+          : 'Yêu cầu xác thực để truy cập môi trường này.',
+        {
+          status: credentialsWereSupplied ? 403 : 401,
+          headers: {
+            'cache-control': 'no-store',
+            ...(credentialsWereSupplied
+              ? {}
+              : { 'www-authenticate': 'Basic realm="FastLane Preview", charset="UTF-8"' }),
+          },
+        },
+      )
+    }
+
+    if (
+      basicAuthConfig.enabled
+      && !hasValidCookie
+      && hasValidCredentials
+      && (request.method === 'GET' || request.method === 'HEAD')
+    ) {
+      const cookie = await createDeploymentBasicAuthCookie(basicAuthConfig)
+      if (cookie) {
+        const response = NextResponse.redirect(request.nextUrl)
+        response.cookies.set({
+          name: DEPLOYMENT_BASIC_AUTH_COOKIE,
+          value: cookie,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
+        })
+        response.headers.set('cache-control', 'no-store')
+        return response
+      }
+    }
+  }
+
   const origin = request.headers.get('origin')
   const isApiRequest = request.nextUrl.pathname.startsWith('/api/v1/')
   const isSwaggerOrigin = origin !== null && swaggerOrigins.has(origin)
@@ -91,6 +154,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Avoid multiple native Basic Auth prompts from parallel asset requests.
+  // Pages and API routes remain protected; static files contain no secrets.
   matcher: [
     '/((?!_next/static(?:/|$)|_next/image(?:/|$)|images(?:/|$)|favicon\\.ico$|sitemap\\.xml$|robots\\.txt$).*)',
   ],
