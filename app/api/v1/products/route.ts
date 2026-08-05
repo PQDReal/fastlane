@@ -5,7 +5,10 @@ import {
   productSearchCacheKey,
 } from '@/lib/cache-keys'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { toNamePrefixTsQuery } from '@/lib/catalog/search'
+import {
+  matchesProductSearch,
+  toNamePrefixTsQuery,
+} from '@/lib/catalog/search'
 import { listMotorbikeCatalog } from '@/lib/motorbike-catalog'
 import { readRedisJson, writeRedisJson } from '@/lib/redis'
 
@@ -59,10 +62,7 @@ export async function GET(request: Request) {
     }))
   const normalizedQuery = normalizeSearchQuery(query)
   const motorbikeResults = motorbikes
-    .filter((motorbike) =>
-      !normalizedQuery ||
-      motorbike.name.toLocaleLowerCase('vi').includes(normalizedQuery),
-    )
+    .filter((motorbike) => matchesProductSearch(motorbike.name, normalizedQuery))
     .map((motorbike) => ({
       id: motorbike.productId,
       name: motorbike.name,

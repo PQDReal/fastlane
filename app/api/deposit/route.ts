@@ -109,6 +109,23 @@ function isDepositPaymentSchemaMissing(error: unknown): boolean {
     || /vnpay_deposit_attempts/i.test(String(candidate.message ?? ''))
 }
 
+function depositPromotionError(error: unknown) {
+  if (!error || typeof error !== 'object') return null
+  const message = String((error as { message?: unknown }).message ?? '')
+  const messages: Record<string, string> = {
+    PROMOTION_NOT_FOUND: 'Mã ưu đãi không còn tồn tại.',
+    PROMOTION_INACTIVE: 'Mã ưu đãi đã ngừng áp dụng.',
+    PROMOTION_NOT_STARTED: 'Mã ưu đãi chưa đến thời gian áp dụng.',
+    PROMOTION_EXPIRED: 'Mã ưu đãi đã hết hạn.',
+    PROMOTION_USAGE_EXHAUSTED: 'Mã ưu đãi đã hết lượt sử dụng.',
+    PROMOTION_MINIMUM_NOT_MET: 'Đơn đặt cọc chưa đạt giá trị tối thiểu của mã ưu đãi.',
+    PROMOTION_SNAPSHOT_MISMATCH: 'Giá trị mã ưu đãi đã thay đổi. Vui lòng áp dụng lại mã.',
+    PROMOTION_SNAPSHOT_REQUIRED: 'Thông tin mã ưu đãi của đơn đặt cọc chưa đầy đủ.',
+  }
+  const code = Object.keys(messages).find((candidate) => message.includes(candidate))
+  return code ? { code, message: messages[code] } : null
+}
+
 async function requestHash(input: DepositOrderInput) {
   const bytes = new TextEncoder().encode(JSON.stringify(input))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -186,6 +203,17 @@ export async function POST(request: Request) {
       quote = await buildDepositVehicleQuote(input)
     } catch (error) {
       depositQuoteError(error)
+    }
+    if (
+      !Number.isFinite(quote.totalEstimatedPrice) || quote.totalEstimatedPrice <= 0 ||
+      !Number.isFinite(quote.depositAmount) || quote.depositAmount <= 0
+    ) {
+      return errorResponse(
+        422,
+        'INVALID_PAYMENT_AMOUNT',
+        'Mẫu xe hoặc ưu đãi đang chọn không có số tiền thanh toán hợp lệ.',
+        'car_variant',
+      )
     }
     const now = new Date().toISOString()
 
@@ -306,19 +334,21 @@ export async function POST(request: Request) {
       throw insertResult.error
     }
 
-    if (input.promotionCode && quote.discountAmount > 0) {
-      const supabase = getSupabaseAdmin()
-      const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
-      if (promo) {
-        await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
-      }
-    }
     const paymentUrl = await createOrReuseVnPayDepositPayment(
       { id: insertResult.data.id, orderNumber: insertResult.data.order_number },
       clientIp(request),
     )
     return NextResponse.json(responseData(insertResult.data, false, paymentUrl), { status: 201 })
   } catch (error) {
+    const promotionError = depositPromotionError(error)
+    if (promotionError) {
+      return errorResponse(
+        422,
+        promotionError.code,
+        promotionError.message,
+        'promotion_code',
+      )
+    }
     if (error instanceof DepositInputError) {
       return errorResponse(
         error.field === 'promotion_code' ? 422 : 409,

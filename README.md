@@ -73,6 +73,7 @@ Copy-Item .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, chỉ dùng phía server |
 | `REDIS_URL` | Kết nối Redis; không khai báo thì ứng dụng tự dùng Supabase mà không cache phân tán |
+| `DEPOSIT_DRAFT_ENCRYPTION_KEY` | Khóa riêng tối thiểu 32 ký tự để mã hóa bản nháp đặt cọc trong Redis; nếu bỏ trống sẽ dẫn xuất khóa tách biệt từ `AUTH0_SECRET` |
 
 Không commit `.env`, `.env.local`, client secret, service-role key hoặc access token.
 
@@ -88,7 +89,7 @@ Các địa chỉ chính:
 
 - Web: `http://localhost:3000`
 - Đăng nhập: `http://localhost:3000/auth/login`
-- Đăng xuất: `http://localhost:3000/auth/logout`
+- Đăng xuất và xóa bản nháp đặt cọc: `http://localhost:3000/auth/logout-cleanup`
 - Quản trị: `http://localhost:3000/admin`
 - Đặt lịch lái thử: `http://localhost:3000/test-drive`
 - So sánh xe: `http://localhost:3000/compare`
@@ -123,7 +124,9 @@ Các bảng chính đang được sử dụng:
 
 ## Redis
 
-Redis là lớp tăng tốc tùy chọn cho kết quả tìm kiếm sản phẩm, catalog xe máy/phụ kiện và giỏ hàng theo từng tài khoản. Dữ liệu sản phẩm và giỏ hàng vẫn được ghi bền vững trong Supabase; Redis hỏng hoặc restart không làm mất dữ liệu và ứng dụng tự chuyển về đọc database.
+Redis là lớp tăng tốc tùy chọn cho kết quả tìm kiếm sản phẩm, catalog xe máy/phụ kiện và giỏ hàng theo từng tài khoản. Dữ liệu sản phẩm và giỏ hàng vẫn được ghi bền vững trong Supabase; Redis hỏng hoặc restart không làm mất dữ liệu chính và ứng dụng tự chuyển về đọc database.
+
+Bản nháp ba bước đặt cọc là dữ liệu tạm thời chỉ lưu trong Redis tối đa 24 giờ. Nội dung được mã hóa AES-256-GCM, khóa Redis dùng mã băm của Auth0 subject và bản nháp bị xóa khi tạo đơn hoặc đăng xuất qua giao diện. Không lưu bản nháp vào Supabase và không khôi phục ô xác nhận điều khoản pháp lý.
 
 Chạy Redis riêng khi phát triển bằng npm:
 

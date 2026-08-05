@@ -52,7 +52,7 @@ export function AdminSidebar({ open = false, collapsed = false, onClose, user }:
       </div>
 
       <div className="space-y-1 border-t border-slate-800 p-3">
-        <a href="/auth/logout" title={collapsed ? 'Đăng xuất' : undefined} className={`flex h-10 w-full items-center rounded-md text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400 gap-3 px-3`}><LogOut size={19} className="shrink-0 text-slate-500"/><span className={`overflow-hidden whitespace-nowrap transition-[width,opacity] duration-200 ${collapsed ? 'md:w-0 md:opacity-0' : ''}`}>Đăng xuất</span></a>
+        <a href="/auth/logout-cleanup" title={collapsed ? 'Đăng xuất' : undefined} className={`flex h-10 w-full items-center rounded-md text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400 gap-3 px-3`}><LogOut size={19} className="shrink-0 text-slate-500"/><span className={`overflow-hidden whitespace-nowrap transition-[width,opacity] duration-200 ${collapsed ? 'md:w-0 md:opacity-0' : ''}`}>Đăng xuất</span></a>
       </div>
 
       <div className={`flex min-h-16 items-center border-t border-slate-900 bg-slate-950 p-3 gap-3`} title={collapsed ? `${user.fullName} – ${user.email}` : undefined}>

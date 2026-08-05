@@ -212,6 +212,22 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                     <span className="text-slate-500">Tổng giá trị:</span>
                     <span className="font-bold text-slate-900">{formatMoney(Number(d.total_estimated_price || 0))}</span>
                   </div>
+                  {Number(d.discount_amount || 0) > 0 && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Giá trước ưu đãi:</span>
+                        <span className="font-medium text-slate-700">{formatMoney(Number(d.subtotal || 0))}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Mã ưu đãi:</span>
+                        <span className="font-semibold text-emerald-700">{d.promotion_code || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Số tiền giảm:</span>
+                        <span className="font-bold text-emerald-700">-{formatMoney(Number(d.discount_amount))}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-500">Phương thức TT cọc:</span>
                     <span className="font-medium text-slate-900">

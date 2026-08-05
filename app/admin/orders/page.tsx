@@ -3,7 +3,7 @@ import { AdminOrdersClient, AdminOrderRow } from './orders-client'
 
 export const dynamic = 'force-dynamic'
 
-const depositOrderBaseColumns = 'id,order_number,status,customer_type,full_name,phone_number,email,id_card_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,interior_color,deposit_amount,total_estimated_price,payment_method,showroom,created_at,vehicle_variants(deposit_amount,product_name,variant_name)'
+const depositOrderBaseColumns = 'id,order_number,status,customer_type,full_name,phone_number,email,id_card_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,interior_color,deposit_amount,subtotal,discount_amount,total_estimated_price,promotion_code,payment_method,showroom,created_at,vehicle_variants(deposit_amount,product_name,variant_name)'
 const depositOrderTrackingColumns = `${depositOrderBaseColumns},refund_status,kyc_status,kyc_session_id`
 
 function databaseErrorDetails(error: any) {

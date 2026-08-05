@@ -219,6 +219,9 @@ export type AccessoryOrderSummary = Pick<
     province: string
     ward: string
     customerType: string
+    subtotal?: string
+    discountAmount?: string
+    promotionCode?: string | null
     totalEstimatedPrice: string
     balancePaymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | null
     vehicleVariant?: any

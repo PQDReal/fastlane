@@ -1155,6 +1155,22 @@ function ProfileContent() {
                         <span className="text-gray-600">Tổng giá trị dự kiến</span>
                         <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
                       </div>
+                      {Number(selectedOrder.depositDetails.discountAmount || 0) > 0 && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Giá trước ưu đãi</span>
+                            <span className="font-semibold text-gray-700">{formatPrice(selectedOrder.depositDetails.subtotal || '0')}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Mã ưu đãi</span>
+                            <span className="font-bold text-emerald-700">{selectedOrder.depositDetails.promotionCode || '-'}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Số tiền giảm</span>
+                            <span className="font-bold text-emerald-700">-{formatPrice(selectedOrder.depositDetails.discountAmount || '0')}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Trạng thái đặt cọc</span>
                         <span className={`rounded-full px-3 py-1 text-sm font-bold ${selectedOrder.status === 'CANCELLED'

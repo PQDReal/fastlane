@@ -49,7 +49,9 @@ export function Header() {
   const cartCount = getCartCount()
   const cartCountRef = useRef(cartCount)
   const pendingCartAnimationsRef = useRef(0)
+  const launchedCartAnimationIdsRef = useRef(new Set<string>())
   const pendingCartNavigationRef = useRef(false)
+  const cartNavigationFallbackRef = useRef<number | null>(null)
   const [displayedCartCount, setDisplayedCartCount] = useState(cartCount)
   cartCountRef.current = cartCount
 
@@ -79,10 +81,27 @@ export function Header() {
   }, [cartCount])
 
   useEffect(() => {
-    const handlePrepare = (_event: Event) => {
+    const clearNavigationFallback = () => {
+      if (cartNavigationFallbackRef.current === null) return
+      window.clearTimeout(cartNavigationFallbackRef.current)
+      cartNavigationFallbackRef.current = null
+    }
+
+    const finishPendingCartNavigation = () => {
+      if (!pendingCartNavigationRef.current) return
+      pendingCartNavigationRef.current = false
+      clearNavigationFallback()
+      router.push('/cart')
+    }
+
+    const handlePrepare = (event: Event) => {
+      const { id } = (event as CustomEvent<{ id: string }>).detail
+      launchedCartAnimationIdsRef.current.delete(id)
       pendingCartAnimationsRef.current += 1
     }
-    const handleCancel = (_event: Event) => {
+    const handleCancel = (event: Event) => {
+      const { id } = (event as CustomEvent<{ id: string }>).detail
+      launchedCartAnimationIdsRef.current.delete(id)
       pendingCartAnimationsRef.current = Math.max(
         0,
         pendingCartAnimationsRef.current - 1,
@@ -92,11 +111,13 @@ export function Header() {
           setDisplayedCartCount(cartCountRef.current)
         }, 0)
       }
+      finishPendingCartNavigation()
     }
     const handleComplete = (event: Event) => {
-      const { quantity } = (
+      const { id, quantity } = (
         event as CustomEvent<CartAnimationResolutionDetail>
       ).detail
+      launchedCartAnimationIdsRef.current.delete(id)
       pendingCartAnimationsRef.current = Math.max(
         0,
         pendingCartAnimationsRef.current - 1,
@@ -108,10 +129,12 @@ export function Header() {
       }
     }
 
-    const handleLaunch = () => {
-      if (!pendingCartNavigationRef.current) return
-      pendingCartNavigationRef.current = false
-      router.push('/cart')
+    const handleLaunch = (event: Event) => {
+      const { id } = (
+        event as CustomEvent<CartAnimationResolutionDetail>
+      ).detail
+      launchedCartAnimationIdsRef.current.add(id)
+      finishPendingCartNavigation()
     }
 
     window.addEventListener(CART_ANIMATION_PREPARE, handlePrepare)
@@ -123,13 +146,38 @@ export function Header() {
       window.removeEventListener(CART_ANIMATION_LAUNCH, handleLaunch)
       window.removeEventListener(CART_ANIMATION_CANCEL, handleCancel)
       window.removeEventListener(CART_ANIMATION_COMPLETE, handleComplete)
+      clearNavigationFallback()
     }
   }, [router])
 
   const handleCartClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (pendingCartAnimationsRef.current === 0) return
+    if (
+      pendingCartAnimationsRef.current === 0
+      || launchedCartAnimationIdsRef.current.size > 0
+    ) return
+
     event.preventDefault()
+
+    // Keep the icon anchored to its source until the add-to-cart request
+    // launches the flight. A short fallback prevents a failed/missed event
+    // from trapping the user on the current page indefinitely.
+    if (pendingCartNavigationRef.current) {
+      pendingCartNavigationRef.current = false
+      if (cartNavigationFallbackRef.current !== null) {
+        window.clearTimeout(cartNavigationFallbackRef.current)
+        cartNavigationFallbackRef.current = null
+      }
+      router.push('/cart')
+      return
+    }
+
     pendingCartNavigationRef.current = true
+    cartNavigationFallbackRef.current = window.setTimeout(() => {
+      cartNavigationFallbackRef.current = null
+      if (!pendingCartNavigationRef.current) return
+      pendingCartNavigationRef.current = false
+      router.push('/cart')
+    }, 1800)
   }
 
   const headerSolid = scrolled || !isTransparentPage
@@ -211,7 +259,7 @@ export function Header() {
                   Lịch sử mua xe
                 </Link>
                 <div className="my-1 border-t border-gray-100"></div>
-                <a href="/auth/logout" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                <a href="/auth/logout-cleanup" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
                   Đăng xuất
                 </a>
               </div>
@@ -248,7 +296,7 @@ export function Header() {
                 {link.name}
               </Link>
             ))}
-            {user ? <a className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600" href="/auth/logout">Đăng xuất</a> : <PopupLoginButton onSuccess={()=>setOpen(false)} className="border-t border-slate-200 pt-6 text-left text-lg font-bold text-brand-600">Đăng nhập</PopupLoginButton>}
+            {user ? <a className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600" href="/auth/logout-cleanup">Đăng xuất</a> : <PopupLoginButton onSuccess={()=>setOpen(false)} className="border-t border-slate-200 pt-6 text-left text-lg font-bold text-brand-600">Đăng nhập</PopupLoginButton>}
           </motion.nav>
         )}
       </AnimatePresence>
