@@ -39,14 +39,6 @@ function clearSessionCookies(request: NextRequest, response: NextResponse) {
   }
 }
 
-function isStaticAsset(pathname: string) {
-  return pathname.startsWith('/_next/')
-    || pathname.startsWith('/images/')
-    || pathname === '/favicon.ico'
-    || pathname === '/sitemap.xml'
-    || pathname === '/robots.txt'
-}
-
 export async function middleware(request: NextRequest) {
   if (!isDeploymentBasicAuthExempt(request.nextUrl.pathname, request.method)) {
     const basicAuthConfig = readDeploymentBasicAuthConfig()
@@ -63,9 +55,6 @@ export async function middleware(request: NextRequest) {
       })
     }
   }
-
-  // Static files are protected by Basic Auth but do not need Auth0 processing.
-  if (isStaticAsset(request.nextUrl.pathname)) return NextResponse.next()
 
   const origin = request.headers.get('origin')
   const isApiRequest = request.nextUrl.pathname.startsWith('/api/v1/')
@@ -124,5 +113,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/:path*',
+  // Avoid multiple native Basic Auth prompts from parallel asset requests.
+  // Pages and API routes remain protected; static files contain no secrets.
+  matcher: [
+    '/((?!_next/static(?:/|$)|_next/image(?:/|$)|images(?:/|$)|favicon\\.ico$|sitemap\\.xml$|robots\\.txt$).*)',
+  ],
 }

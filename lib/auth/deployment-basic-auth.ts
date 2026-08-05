@@ -17,7 +17,9 @@ export function readDeploymentBasicAuthConfig(
 }
 
 export function isDeploymentBasicAuthExempt(pathname: string, method: string) {
-  return pathname === VNPAY_IPN_PATH && method.toUpperCase() === 'GET'
+  const normalizedMethod = method.toUpperCase()
+  return (pathname === VNPAY_IPN_PATH && normalizedMethod === 'GET')
+    || (pathname === '/api/webhooks/didit' && normalizedMethod === 'POST')
 }
 
 export function hasValidDeploymentBasicAuth(

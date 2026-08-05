@@ -27,10 +27,12 @@ describe('deployment Basic Auth', () => {
     expect(hasValidDeploymentBasicAuth('Bearer token', config)).toBe(false)
   })
 
-  it('exempts only the exact VNPay GET callback', () => {
+  it('exempts only the exact signed provider callback methods', () => {
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn', 'GET')).toBe(true)
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn', 'POST')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn/extra', 'GET')).toBe(false)
-    expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'POST')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'POST')).toBe(true)
+    expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'GET')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/webhooks/didit/extra', 'POST')).toBe(false)
   })
 })
