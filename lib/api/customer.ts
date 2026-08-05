@@ -32,6 +32,10 @@ export async function requireCurrentCustomer() {
 }
 
 export async function requireCurrentCartCustomerId() {
+  const currentUser = await getCurrentUser()
+  if (currentUser?.role === 'ADMIN') {
+    throw new ApiRouteError(403, 'ADMIN_CART_FORBIDDEN', 'Tài khoản quản trị không được sử dụng giỏ hàng.')
+  }
   const session = await auth0.getSession()
 
   if (!session) {

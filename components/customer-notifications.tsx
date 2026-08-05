@@ -29,10 +29,11 @@ function relativeTime(value: string) {
   return 'vừa xong'
 }
 
-export function CustomerNotifications({ userSubject }: { userSubject: string }) {
+export function CustomerNotifications({ userSubject, admin = false }: { userSubject: string; admin?: boolean }) {
   const router = useRouter()
   const rootRef = useRef<HTMLDivElement>(null)
   const requestRef = useRef<AbortController | null>(null)
+  const accessDeniedRef = useRef(false)
   const [isCustomer, setIsCustomer] = useState(false)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -45,17 +46,20 @@ export function CustomerNotifications({ userSubject }: { userSubject: string }) 
   }, [])
 
   const refresh = useCallback(async (quiet = false) => {
+    if (accessDeniedRef.current) return
     requestRef.current?.abort()
     const controller = new AbortController()
     requestRef.current = controller
     if (!quiet) setLoading(true)
 
     try {
-      const response = await fetch('/api/v1/notifications?limit=20', {
+      const endpoint = admin ? '/api/v1/admin/notifications' : '/api/v1/notifications?limit=20'
+      const response = await fetch(endpoint, {
         cache: 'no-store',
         signal: controller.signal,
       })
       if (response.status === 401 || response.status === 403) {
+        accessDeniedRef.current = true
         setIsCustomer(false)
         return
       }
@@ -74,9 +78,10 @@ export function CustomerNotifications({ userSubject }: { userSubject: string }) 
         setLoading(false)
       }
     }
-  }, [showError])
+  }, [admin, showError])
 
   useEffect(() => {
+    accessDeniedRef.current = false
     void refresh()
     const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(CHANNEL_NAME)
     const sync = () => {
@@ -123,7 +128,7 @@ export function CustomerNotifications({ userSubject }: { userSubject: string }) 
     setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })))
     setUnreadCount(0)
     try {
-      const response = await fetch('/api/v1/notifications', {
+      const response = await fetch(admin ? '/api/v1/admin/notifications' : '/api/v1/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'READ_ALL' }),
@@ -142,7 +147,8 @@ export function CustomerNotifications({ userSubject }: { userSubject: string }) 
       const readAt = new Date().toISOString()
       setItems((current) => current.map((item) => item.id === notification.id ? { ...item, readAt } : item))
       setUnreadCount((count) => Math.max(0, count - 1))
-      void fetch(`/api/v1/notifications/${notification.id}/read`, { method: 'PATCH' })
+      const readEndpoint = admin ? `/api/v1/admin/notifications/${notification.id}/read` : `/api/v1/notifications/${notification.id}/read`
+      void fetch(readEndpoint, { method: 'PATCH' })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`)
           notifyOtherTabs()
@@ -198,7 +204,7 @@ export function CustomerNotifications({ userSubject }: { userSubject: string }) 
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>
                 <h2 className="font-semibold">Thông báo</h2>
-                <p className="text-xs text-slate-500">Cập nhật trạng thái đơn hàng</p>
+                <p className="text-xs text-slate-500">{admin ? 'Hoạt động mới từ khách hàng' : 'Cập nhật trạng thái đơn hàng'}</p>
               </div>
               {unreadCount > 0 && (
                 <button type="button" onClick={() => void markAllRead()} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-[#9b7200] transition hover:bg-amber-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e19200]">

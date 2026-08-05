@@ -1,6 +1,6 @@
 export type CustomerNotification = {
   id: string
-  type: 'ORDER_STATUS_CHANGED'
+  type: 'ORDER_STATUS_CHANGED' | 'ORDER_CREATED' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'DEPOSIT_CREATED' | 'DEPOSIT_PAID' | 'DEPOSIT_CANCELLED'
   title: string
   message: string
   orderType: 'ACCESSORY' | 'DEPOSIT'
