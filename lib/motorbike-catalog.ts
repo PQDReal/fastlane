@@ -207,13 +207,11 @@ async function loadDistributedMotorbikeCatalog() {
     MOTORBIKE_CATALOG_CACHE_KEY,
   )
   if (cached) {
-    await Promise.all(cached.map((item) => writeRedisJson(motorbikeDetailCacheKey(item.slug), item, 300)))
     return cached
   }
 
   const items = await loadCachedMotorbikeCatalog()
   await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, items, 300)
-  await Promise.all(items.map((item) => writeRedisJson(motorbikeDetailCacheKey(item.slug), item, 300)))
   return items
 }
 
@@ -222,8 +220,14 @@ async function loadDistributedMotorbikeCatalog() {
 export const listMotorbikeCatalog = cache(loadDistributedMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
+  const detailKey = motorbikeDetailCacheKey(slug)
+  const cached = await readRedisJson<MotorbikeCatalogItem>(detailKey)
+  if (cached) return cached
+
   const items = await listMotorbikeCatalog()
-  return items.find((item) => item.slug === slug) ?? null
+  const item = items.find((entry) => entry.slug === slug) ?? null
+  if (item) await writeRedisJson(detailKey, item, 300)
+  return item
 }
 
 export async function getMotorbikeCatalogByName(name: string) {

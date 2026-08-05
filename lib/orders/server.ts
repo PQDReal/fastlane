@@ -380,6 +380,7 @@ export async function listCustomerOrders(
         orderType: 'deposit',
         carModel: deposit.car_model,
         carVariant: deposit.car_variant,
+        vehicleType: deposit.vehicle_type,
         status: orderStatus as AccessoryOrderSummary['status'],
         refundStatus: deposit.refund_status === 'COMPLETED'
           ? 'Completed'

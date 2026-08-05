@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await getSupabaseAdmin()
     .from('categories')
-    .select('*')
+    .select('id,name,slug,description,is_active,created_at,updated_at')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const { data, error } = await getSupabaseAdmin()
       .from('categories')
       .insert({ name, slug, description: description || null, is_active: body.isActive !== false })
-      .select()
+      .select('id,name,slug,description,is_active,created_at,updated_at')
       .single()
 
     if (error) {

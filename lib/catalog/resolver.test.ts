@@ -155,11 +155,11 @@ describe('catalog combination resolver', () => {
 })
 
 describe('catalog media resolver', () => {
-  it('does not fall back across scopes for accessories', () => {
+  it('uses legacy product media while accessory variants are being backfilled', () => {
     const accessory = { ...product(), productType: 'ACCESSORY' as const }
     expect(resolveCatalogMedia(accessory, { selectedOptions: { color: 'red' } })[0])
-      .toMatchObject({ url: '/images/vf8.png', source: 'PLACEHOLDER' })
-    expect(resolveCatalogImageUrl(accessory, { variantId: 'red-s' })).toBe('/images/vf8.png')
+      .toMatchObject({ url: 'product.jpg', source: 'PRODUCT' })
+    expect(resolveCatalogImageUrl(accessory, { variantId: 'red-s' })).toBe('product.jpg')
   })
   it('uses variant media first', () => {
     expect(resolveCatalogMedia(product(), {

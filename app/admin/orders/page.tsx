@@ -3,16 +3,43 @@ import { AdminOrdersClient, AdminOrderRow } from './orders-client'
 
 export const dynamic = 'force-dynamic'
 
+const depositOrderBaseColumns = 'id,order_number,status,customer_type,full_name,phone_number,email,id_card_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,interior_color,deposit_amount,total_estimated_price,payment_method,showroom,created_at,vehicle_variants(deposit_amount,product_name,variant_name)'
+const depositOrderTrackingColumns = `${depositOrderBaseColumns},refund_status,kyc_status,kyc_session_id`
+
+function databaseErrorDetails(error: any) {
+  return {
+    code: error?.code ?? null,
+    message: error?.message ?? 'Unknown database error',
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+  }
+}
+
 export default async function AdminOrdersPage() {
   const supabase = getSupabaseAdmin()
-  
-  const { data: depositData, error: depositError } = await supabase
+
+  const depositResult = await supabase
     .from('deposit_orders')
-    .select('*, vehicle_variants(*)')
+    .select(depositOrderTrackingColumns)
     .order('created_at', { ascending: false })
+  let depositData: any[] | null = depositResult.data as any[] | null
+  let depositError = depositResult.error
+
+  // Keep the order dashboard usable while migration 036 is still pending on an
+  // existing Supabase project. KYC/refund data is treated as unavailable only;
+  // the order rows themselves must still be displayed.
+  if (depositError?.code === '42703') {
+    const legacyResult = await supabase
+      .from('deposit_orders')
+      .select(depositOrderBaseColumns)
+      .order('created_at', { ascending: false })
+
+    depositData = legacyResult.data
+    depositError = legacyResult.error
+  }
 
   if (depositError) {
-    console.error('Failed to fetch deposit orders:', depositError)
+    console.error('Failed to fetch deposit orders:', databaseErrorDetails(depositError))
   }
 
   const paidDepositOrderIds = new Set<string>()
