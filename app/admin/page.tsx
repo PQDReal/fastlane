@@ -22,7 +22,7 @@ const MODULES = {
 } as const
 
 const ORDER_STATUS: Record<string, string> = {
-  PENDING: 'Chờ xử lý', CONFIRMED: 'Đã xác nhận', READY: 'Sẵn sàng giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy',
+  PENDING: 'Chưa thanh toán', PAID: 'Đã thanh toán', CONFIRMED: 'Đã xác nhận, chờ lấy hàng', READY: 'Đang giao hàng', DELIVERED: 'Hoàn thành', CANCELLED: 'Đã hủy',
 }
 const TEST_DRIVE_STATUS: Record<string, string> = {
   REQUESTED: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', DECLINED: 'Từ chối', CANCELLED: 'Đã hủy', COMPLETED: 'Hoàn thành', NO_SHOW: 'Không đến',

@@ -4,6 +4,7 @@ import { requireCurrentCustomer } from '@/lib/api/customer'
 import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
 import { parseItemId } from '@/lib/cart/validation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { notifyAdminCustomerCancelledDeposit } from '@/lib/notifications/server'
 
 type RouteContext = { params: Promise<{ orderId: string }> }
 
@@ -15,18 +16,18 @@ export async function DELETE(_request: Request, context: RouteContext) {
     const supabase = getSupabaseAdmin()
 
     let lookup = await supabase.from('deposit_orders')
-      .select('id,status')
+      .select('id,order_number,status')
       .eq('id', orderId)
       .eq('customer_id', customer.id)
-      .maybeSingle<{ id: string; status: string }>()
+      .maybeSingle<{ id: string; order_number: string; status: string }>()
     if (lookup.error) throw lookup.error
 
     if (!lookup.data) {
       lookup = await supabase.from('deposit_orders')
-        .select('id,status')
+        .select('id,order_number,status')
         .eq('id', orderId)
         .eq('email', customer.email)
-        .maybeSingle<{ id: string; status: string }>()
+        .maybeSingle<{ id: string; order_number: string; status: string }>()
       if (lookup.error) throw lookup.error
     }
 
@@ -59,6 +60,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
     if (!update.data) {
       throw new ApiRouteError(409, 'DEPOSIT_CANNOT_BE_CANCELLED', 'Trạng thái đơn vừa thay đổi. Vui lòng tải lại trang.')
     }
+
+    await notifyAdminCustomerCancelledDeposit({ id: orderId, orderNumber: lookup.data.order_number }).catch((error) => {
+      console.error('Unable to notify admins about customer deposit cancellation:', { orderId, error })
+    })
 
     return NextResponse.json({ data: update.data })
   } catch (error) {

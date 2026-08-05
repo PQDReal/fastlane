@@ -93,3 +93,49 @@ export async function markAllCustomerNotificationsRead(customerId: string) {
     .is('read_at', null)
   if (error) throw new Error(`Unable to update notifications: ${error.message}`)
 }
+
+type AdminNotificationRow = Omit<NotificationRow, 'notification_type' | 'order_type' | 'current_status'> & {
+  notification_type: 'ORDER_CREATED' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'DEPOSIT_CREATED' | 'DEPOSIT_PAID' | 'DEPOSIT_CANCELLED'
+}
+
+const mapAdminNotification = (row: AdminNotificationRow): CustomerNotification => ({
+  id: row.id, type: row.notification_type, title: row.title, message: row.message,
+  orderType: 'ACCESSORY', orderId: row.order_id, orderNumber: row.order_number,
+  currentStatus: '', actionUrl: row.action_url, readAt: row.read_at, createdAt: row.created_at,
+})
+
+export async function listAdminNotifications(limit: number) {
+  const supabase = getSupabaseAdmin()
+  const [items, unread] = await Promise.all([
+    supabase.from('admin_notifications').select('id,notification_type,title,message,order_id,order_number,action_url,read_at,created_at').order('created_at', { ascending: false }).limit(limit),
+    supabase.from('admin_notifications').select('*', { count: 'exact', head: true }).is('read_at', null),
+  ])
+  if (items.error) throw items.error
+  if (unread.error) throw unread.error
+  return { items: (items.data as AdminNotificationRow[]).map(mapAdminNotification), unreadCount: unread.count ?? 0, nextCursor: null }
+}
+
+export async function markAdminNotificationRead(notificationId?: string) {
+  let query = getSupabaseAdmin().from('admin_notifications').update({ read_at: new Date().toISOString() }).is('read_at', null)
+  if (notificationId) query = query.eq('id', notificationId)
+  const result = await query
+  if (result.error) throw result.error
+}
+
+export async function notifyAdminCustomerCancelledOrder(order: { id: string; orderNumber: string }) {
+  const result = await getSupabaseAdmin().from('admin_notifications').upsert({
+    event_key: `ORDER_CANCELLED:${order.id}`, notification_type: 'ORDER_CANCELLED',
+    title: 'Khách hàng đã hủy đơn', message: `Khách hàng vừa hủy đơn ${order.orderNumber}.`,
+    order_id: order.id, order_number: order.orderNumber,
+  }, { onConflict: 'event_key', ignoreDuplicates: true })
+  if (result.error) throw result.error
+}
+
+export async function notifyAdminCustomerCancelledDeposit(order: { id: string; orderNumber: string }) {
+  const result = await getSupabaseAdmin().from('admin_notifications').upsert({
+    event_key: `DEPOSIT_CANCELLED:${order.id}`, notification_type: 'DEPOSIT_CANCELLED',
+    title: 'Khách hàng đã hủy đơn đặt cọc', message: `Khách hàng vừa hủy đơn đặt cọc ${order.orderNumber}.`,
+    order_id: order.id, order_number: order.orderNumber, action_url: '/admin/orders',
+  }, { onConflict: 'event_key', ignoreDuplicates: true })
+  if (result.error) throw result.error
+}

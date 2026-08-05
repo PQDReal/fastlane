@@ -18,6 +18,7 @@ import { Header } from '@/components/header'
 import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { useAppStore } from '@/lib/store'
+import { getMyProfile } from '@/lib/api/profile-client'
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('vi-VN', {
@@ -46,6 +47,7 @@ export default function CartPage() {
   const [selectionInitialized, setSelectionInitialized] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [accountRole, setAccountRole] = useState<'ADMIN' | 'CUSTOMER' | null>(null)
   const closeToast = useCallback((id: number) => {
     setToasts((items) => items.filter((item) => item.id !== id))
   }, [])
@@ -63,11 +65,31 @@ export default function CartPage() {
   }, [user, userLoading])
 
   useEffect(() => {
-    if (!userSubject) return
+    if (!user) { setAccountRole(null); return }
+    let active = true
+    getMyProfile()
+      .then((profile) => {
+        if (!active) return
+        const role = profile.role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'
+        setAccountRole(role)
+        if (role === 'ADMIN') {
+          notify({
+            kind: 'error',
+            title: 'Không thể truy cập giỏ hàng',
+            message: 'Tài khoản quản trị không được sử dụng chức năng mua hàng.',
+          })
+        }
+      })
+      .catch(() => { if (active) setAccountRole('CUSTOMER') })
+    return () => { active = false }
+  }, [notify, user])
+
+  useEffect(() => {
+    if (!userSubject || accountRole !== 'CUSTOMER') return
 
     const ownerChanged = syncCartOwner(userSubject)
     if (ownerChanged || !cartLoaded) void loadCart(userSubject)
-  }, [cartLoaded, loadCart, syncCartOwner, userSubject])
+  }, [accountRole, cartLoaded, loadCart, syncCartOwner, userSubject])
 
   useEffect(() => {
     setSelectedIds(new Set())
@@ -183,7 +205,7 @@ export default function CartPage() {
     router.push(`/checkout?${params.toString()}`)
   }
 
-  if (userLoading || (user && !cartLoaded && cartLoading)) {
+  if (userLoading || (user && accountRole === null) || (user && accountRole === 'CUSTOMER' && !cartLoaded && cartLoading)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
@@ -192,6 +214,23 @@ export default function CartPage() {
   }
 
   if (!user) return null
+
+  if (accountRole === 'ADMIN') {
+    return (
+      <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">
+        <Header />
+        <ToastViewport toasts={toasts} onClose={closeToast} />
+        <section className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-5 py-20 text-center">
+          <ShoppingBag className="h-14 w-14 text-red-300" />
+          <h1 className="mt-5 text-2xl font-bold text-slate-900">Không thể truy cập giỏ hàng</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Tài khoản quản trị không được sử dụng chức năng mua hàng hoặc thanh toán.</p>
+          <Link href="/admin" className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-800 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+            Quay về trang quản trị
+          </Link>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">
