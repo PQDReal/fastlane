@@ -21,17 +21,39 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   const supabase = getSupabaseAdmin()
   let dbProducts: any[] = []
   try {
-    const { data } = await supabase.from('products').select('name, advanced_color_price').eq('product_type', 'CAR')
+    const { data } = await supabase.from('products').select('id, name, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active)').eq('product_type', 'CAR')
     if (data) dbProducts = data
   } catch (e) {
-    console.error('Error fetching advanced_color_price', e)
+    console.error('Error fetching products with variants', e)
   }
 
   const rawCarsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
   const carsData = rawCarsData.map((c: any) => {
     const dbP = dbProducts.find(p => p.name === c.name || c.name.includes(p.name) || p.name.includes(c.name))
-    if (dbP && dbP.advanced_color_price !== null) {
-      c.advanced_color_price = dbP.advanced_color_price
+    if (dbP) {
+      if (dbP.advanced_color_price !== null) {
+        c.advanced_color_price = dbP.advanced_color_price
+      }
+      if (dbP.vehicle_variants && dbP.vehicle_variants.length > 0) {
+        const dbColors = dbP.vehicle_variants
+          .filter((v: any) => v.is_active !== false && v.color && v.image_car_url)
+          .map((v: any) => ({
+            name: v.color,
+            image: v.image_car_url,
+            swatch: v.image_color_url
+          }))
+        
+        const uniqueColorsMap = new Map()
+        dbColors.forEach((colorObj: any) => {
+          if (!uniqueColorsMap.has(colorObj.name)) {
+            uniqueColorsMap.set(colorObj.name, colorObj)
+          }
+        })
+        
+        if (uniqueColorsMap.size > 0) {
+          c.colors = Array.from(uniqueColorsMap.values())
+        }
+      }
     }
     return c
   })

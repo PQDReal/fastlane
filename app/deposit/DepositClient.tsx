@@ -917,63 +917,73 @@ export function DepositClient({
   
   const allExterior = stringArray(currentCar.gallery?.exterior_images)
   const nonLogoExterior = allExterior.find((img: string) => !img.toLowerCase().includes('logo') && !img.toLowerCase().endsWith('.svg') && !img.toLowerCase().includes('icon') && !img.toLowerCase().includes('uu-diem') && !img.toLowerCase().includes('tuy-chon'))
-  let displayImage = activeColorObj?.image || nonLogoExterior || currentCar.image_url || allExterior[0]
+  
+  const exactDbVariant = dbVariants.find(
+    (variant) =>
+      variant.version === selectedVariantName &&
+      variant.color === selectedColor &&
+      variant.image_car_url
+  )
 
-  if (currentCar.name === 'VF 8') {
-    const isEco = selectedVariant.toLowerCase().includes('eco')
-    const typeFolder = isEco ? 'ND31V' : 'ND32V'
-    let code = ''
-    if (selectedColor === 'Jet Black') code = 'CE11'
-    else if (selectedColor === 'Ivy Green') code = 'CE22'
-    else if (selectedColor === 'Infinity Blanc') code = 'CE18'
-    else if (selectedColor === 'Crimson Red') code = 'CE1M'
-    else if (selectedColor === 'Zenith Grey - Desat Silver Roof') code = '171V'
-    else if (selectedColor === 'Infinity Blanc - Zenith Grey Roof') code = '1V18'
-    else if (selectedColor === 'Crimson Velvet - Mystery Bronze Roof') code = '2927'
-    else if (selectedColor === 'Jet Black - Mystery Bronze Roof') code = '2911'
-    
-    if (code) {
-      displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/${typeFolder}/${code}.webp`
-    }
-  } else if (currentCar.name === 'VF 3' && selectedVariant.toLowerCase().includes('plus')) {
-    let code = ''
-    if (selectedColor === 'Summer Yellow') code = '181U'
-    else if (selectedColor === 'Rose Pink') code = '1821'
-    else if (selectedColor === 'Zenith Grey') code = 'CE1V'
-    else if (selectedColor === 'Solar Ruby') code = 'CE2Q'
-    else if (selectedColor === 'Sky Blue') code = '181Y'
-    else if (selectedColor === 'Urban Mint') code = 'CE1W'
-    else if (selectedColor === 'Infinity Blanc') code = 'CE18'
+  let displayImage = exactDbVariant?.image_car_url || activeColorObj?.image || nonLogoExterior || currentCar.image_url || allExterior[0]
 
-    if (code) {
-      displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/${code}.webp`
-    }
-  } else if (currentCar.name === 'VF 6' && selectedVariant.toLowerCase().includes('plus')) {
-    let code = ''
-    if (selectedColor === 'Infinity Blanc') code = 'CE18'
-    else if (selectedColor === 'Jet Black') code = 'CE11'
-    else if (selectedColor === 'Zenith Grey') code = 'CE1V'
-    else if (selectedColor === 'Urban Mint') code = 'CE1W'
-    else if (selectedColor === 'Crimson Red') code = 'CE2Q'
+  if (!exactDbVariant) {
+    if (currentCar.name === 'VF 8') {
+      const isEco = selectedVariant.toLowerCase().includes('eco')
+      const typeFolder = isEco ? 'ND31V' : 'ND32V'
+      let code = ''
+      if (selectedColor === 'Jet Black') code = 'CE11'
+      else if (selectedColor === 'Ivy Green') code = 'CE22'
+      else if (selectedColor === 'Infinity Blanc') code = 'CE18'
+      else if (selectedColor === 'Crimson Red') code = 'CE1M'
+      else if (selectedColor === 'Zenith Grey - Desat Silver Roof') code = '171V'
+      else if (selectedColor === 'Infinity Blanc - Zenith Grey Roof') code = '1V18'
+      else if (selectedColor === 'Crimson Velvet - Mystery Bronze Roof') code = '2927'
+      else if (selectedColor === 'Jet Black - Mystery Bronze Roof') code = '2911'
+      
+      if (code) {
+        displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF8/${typeFolder}/${code}.webp`
+      }
+    } else if (currentCar.name === 'VF 3' && selectedVariant.toLowerCase().includes('plus')) {
+      let code = ''
+      if (selectedColor === 'Summer Yellow') code = '181U'
+      else if (selectedColor === 'Rose Pink') code = '1821'
+      else if (selectedColor === 'Zenith Grey') code = 'CE1V'
+      else if (selectedColor === 'Solar Ruby') code = 'CE2Q'
+      else if (selectedColor === 'Sky Blue') code = '181Y'
+      else if (selectedColor === 'Urban Mint') code = 'CE1W'
+      else if (selectedColor === 'Infinity Blanc') code = 'CE18'
 
-    if (code) {
-      displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/${code}.webp`
-    }
-  } else if (currentCar.name === 'VF 9') {
-    const isEco = selectedVariant.toLowerCase().includes('eco')
-    const typeFolder = isEco ? 'NE3LV' : 'NE3MV'
+      if (code) {
+        displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF3/TI1BV/${code}.webp`
+      }
+    } else if (currentCar.name === 'VF 6' && selectedVariant.toLowerCase().includes('plus')) {
+      let code = ''
+      if (selectedColor === 'Infinity Blanc') code = 'CE18'
+      else if (selectedColor === 'Jet Black') code = 'CE11'
+      else if (selectedColor === 'Zenith Grey') code = 'CE1V'
+      else if (selectedColor === 'Urban Mint') code = 'CE1W'
+      else if (selectedColor === 'Crimson Red' || selectedColor === 'Solar Ruby') code = 'CE2Q'
 
-    let code = ''
-    if (selectedColor === 'Infinity Blanc') code = 'CE18'
-    else if (selectedColor === 'Desat Silver') code = 'CE17'
-    else if (selectedColor === 'Urban Mint') code = 'CE1W'
-    else if (selectedColor === 'Jet Black') code = 'CE11'
-    else if (selectedColor === 'Ivy Green') code = 'CE22'
-    else if (selectedColor === 'Zenith Grey') code = 'CE1V'
-    else if (selectedColor === 'Crimson Red') code = 'CE1M'
+      if (code) {
+        displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF6/JB12V/${code}.webp`
+      }
+    } else if (currentCar.name === 'VF 9') {
+      const isEco = selectedVariant.toLowerCase().includes('eco')
+      const typeFolder = isEco ? 'NE3LV' : 'NE3MV'
 
-    if (code) {
-      displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/${typeFolder}/${code}.webp`
+      let code = ''
+      if (selectedColor === 'Infinity Blanc') code = 'CE18'
+      else if (selectedColor === 'Desat Silver') code = 'CE17'
+      else if (selectedColor === 'Urban Mint') code = 'CE1W'
+      else if (selectedColor === 'Jet Black') code = 'CE11'
+      else if (selectedColor === 'Ivy Green') code = 'CE22'
+      else if (selectedColor === 'Zenith Grey') code = 'CE1V'
+      else if (selectedColor === 'Crimson Red') code = 'CE1M'
+
+      if (code) {
+        displayImage = `https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/VF9/${typeFolder}/${code}.webp`
+      }
     }
   }
 
