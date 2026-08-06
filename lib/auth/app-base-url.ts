@@ -36,3 +36,26 @@ export function resolveAppBaseUrl(
   // lets the Auth0 SDK defer request-origin resolution until runtime.
   return undefined
 }
+
+export function toPublicAppUrl(
+  requestUrl: string | URL,
+  env: Record<string, string | undefined> = process.env,
+): URL {
+  const internalUrl = new URL(requestUrl)
+  const publicBaseUrl = resolveAppBaseUrl(env)
+  if (!publicBaseUrl) return internalUrl
+
+  const returnTo = internalUrl.searchParams.get('returnTo')
+  if (returnTo) {
+    try {
+      const returnToUrl = new URL(returnTo)
+      if (WILDCARD_HOSTS.has(returnToUrl.hostname)) {
+        internalUrl.searchParams.set('returnTo', publicBaseUrl)
+      }
+    } catch {
+      // Relative returnTo values are handled by the route that owns them.
+    }
+  }
+
+  return new URL(`${internalUrl.pathname}${internalUrl.search}${internalUrl.hash}`, publicBaseUrl)
+}
