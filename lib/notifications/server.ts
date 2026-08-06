@@ -8,7 +8,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 type NotificationRow = {
   id: string
-  notification_type: 'ORDER_STATUS_CHANGED'
+  notification_type: 'ORDER_STATUS_CHANGED' | 'REFUND_STATUS_CHANGED'
   title: string
   message: string
   order_type: 'ACCESSORY' | 'DEPOSIT'

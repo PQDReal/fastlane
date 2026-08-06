@@ -15,6 +15,9 @@ const formatPrice = (price: string) =>
     maximumFractionDigits: 0,
   }).format(Number(price))
 
+const displayStatus = (status: string) =>
+  status.toUpperCase() === 'PAID' ? 'Đã thanh toán' : status
+
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
@@ -48,7 +51,7 @@ export default async function CheckoutSuccessPage({
             <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">Trạng thái</p>
-                <p className="mt-1 font-bold text-[#836100]">{order.status}</p>
+                <p className="mt-1 font-bold text-[#836100]">{displayStatus(order.status)}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Tổng tiền</p>
