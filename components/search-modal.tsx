@@ -23,25 +23,38 @@ export function SearchModal() {
   useEffect(() => {
     if (!query.trim()) {
       setResults([])
+      setIsSearching(false)
       return
     }
 
+    let isCurrentSearch = true
+    const controller = new AbortController()
     setIsSearching(true)
     const timeoutId = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v1/products?q=${encodeURIComponent(query)}`)
+        const res = await fetch(`/api/v1/products?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        })
         if (res.ok) {
           const data = await res.json()
-          setResults(data)
+          if (isCurrentSearch) setResults(data)
+        } else if (isCurrentSearch) {
+          setResults([])
         }
       } catch (error) {
-        console.error('Search error:', error)
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('Search error:', error)
+        }
       } finally {
-        setIsSearching(false)
+        if (isCurrentSearch) setIsSearching(false)
       }
     }, 300)
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      isCurrentSearch = false
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
   }, [query])
 
   if (!searchModalOpen) return null

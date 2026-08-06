@@ -16,7 +16,7 @@ export default async function ContractPage({ params }: { params: Promise<{ order
   const supabase = getSupabaseAdmin()
   const { data: order, error } = await supabase
     .from('deposit_orders')
-    .select('id,order_number,status,customer_id,email,full_name,id_card_number,phone_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,total_estimated_price,deposit_amount,created_at,vehicle_variants(product_name,variant_name,deposit_amount)')
+    .select('id,order_number,status,customer_id,email,full_name,id_card_number,phone_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,subtotal,discount_amount,total_estimated_price,promotion_code,deposit_amount,created_at,vehicle_variants(product_name,variant_name,deposit_amount)')
     .eq('id', orderId)
     .single()
 

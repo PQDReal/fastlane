@@ -408,6 +408,9 @@ export async function listCustomerOrders(
           province: deposit.province,
           ward: deposit.ward,
           customerType: deposit.customer_type,
+          subtotal: deposit.subtotal,
+          discountAmount: deposit.discount_amount,
+          promotionCode: deposit.promotion_code,
           totalEstimatedPrice: deposit.total_estimated_price,
           balancePaymentStatus: latestBalanceAttemptByOrder.get(deposit.id) ?? null,
           vehicleVariant: deposit.vehicle_variants

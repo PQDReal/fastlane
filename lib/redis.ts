@@ -175,6 +175,7 @@ export async function getRedisMonitoring() {
           key.includes('motorbike-detail') ? 'Xe máy điện · Chi tiết' :
           key.includes('product-search') ? 'Tìm kiếm sản phẩm' :
           key.includes('accessory-catalog') ? 'Phụ kiện · Danh sách' :
+          key.includes('deposit-draft') ? 'Đặt cọc · Bản nháp mã hóa' :
           key.includes('customer-cart') ? 'Giỏ hàng khách hàng' : 'Khác'
         keys.push({ key, page, type, ttlSeconds, bytes: typeof memory === 'number' ? memory : null })
       }

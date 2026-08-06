@@ -25,7 +25,7 @@ export default function ForbiddenPage() {
             Về trang chủ
           </Link>
           <a
-            href="/auth/logout"
+            href="/auth/logout-cleanup"
             className="rounded-full border border-slate-300 px-6 py-3 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-100"
           >
             Đăng xuất
