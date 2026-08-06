@@ -414,10 +414,11 @@ export async function buildDepositVehicleQuote(
           key(row.color) === key(input.exteriorColor)
         )?.id ?? selectedVariant?.id ?? null
       : selectedVariant?.id ?? null,
-    depositAmount: Math.min(
-      configuredDeposit || defaultDeposit,
-      totalEstimatedPrice,
-    ),
+    // A promotion reduces the vehicle/configuration price, never the agreed
+    // deposit amount for its selected variant. Keeping this value independent
+    // also keeps the VNPAY deposit charge and the order summary consistent.
+    // Any overage simply means there is no balance payment remaining.
+    depositAmount: configuredDeposit || defaultDeposit,
     subtotal,
     discountAmount: promotion?.discountAmount ?? 0,
     totalEstimatedPrice,
