@@ -21,7 +21,7 @@ function parsePublicHttpUrl(value: string | undefined): string | undefined {
  */
 export function resolveAppBaseUrl(
   env: Record<string, string | undefined> = process.env,
-): string {
+): string | undefined {
   const configuredUrl = parsePublicHttpUrl(env.APP_BASE_URL)
   if (configuredUrl) return configuredUrl
 
@@ -31,7 +31,8 @@ export function resolveAppBaseUrl(
     : undefined
   if (railwayUrl) return railwayUrl
 
-  throw new Error(
-    'APP_BASE_URL must be a public http(s) URL. On Railway, expose the service domain or set APP_BASE_URL to its https URL.',
-  )
+  // Environment variables configured on Railway are runtime variables and may
+  // be absent while the Docker builder runs `next build`. Returning undefined
+  // lets the Auth0 SDK defer request-origin resolution until runtime.
+  return undefined
 }

@@ -38,6 +38,7 @@ export const auth0 = new Auth0Client({
   },
   onCallback: async (error, context, session) => {
     const baseUrl = context.appBaseUrl ?? appBaseUrl
+    if (!baseUrl) throw new Error('Unable to resolve the public application URL')
 
     const isWindowPopup = context.returnTo?.startsWith(POPUP_COMPLETE_PATH) === true
     const errorDestination = (code: string) => {
