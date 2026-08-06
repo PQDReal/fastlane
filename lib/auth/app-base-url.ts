@@ -14,6 +14,20 @@ function parsePublicHttpUrl(value: string | undefined): string | undefined {
   }
 }
 
+type HeaderReader = Pick<Headers, 'get'>
+
+function firstHeaderValue(value: string | null): string | undefined {
+  return value?.split(',')[0]?.trim() || undefined
+}
+
+function resolveForwardedBaseUrl(headers: HeaderReader | undefined): string | undefined {
+  if (!headers) return undefined
+  const host = firstHeaderValue(headers.get('x-forwarded-host'))
+    ?? firstHeaderValue(headers.get('host'))
+  const protocol = firstHeaderValue(headers.get('x-forwarded-proto')) ?? 'https'
+  return host ? parsePublicHttpUrl(`${protocol}://${host}`) : undefined
+}
+
 /**
  * Resolve the browser-facing origin used by Auth0 redirects.
  * Railway's HOSTNAME/PORT describe the container listener and must never be
@@ -40,9 +54,10 @@ export function resolveAppBaseUrl(
 export function toPublicAppUrl(
   requestUrl: string | URL,
   env: Record<string, string | undefined> = process.env,
+  headers?: HeaderReader,
 ): URL {
   const internalUrl = new URL(requestUrl)
-  const publicBaseUrl = resolveAppBaseUrl(env)
+  const publicBaseUrl = resolveAppBaseUrl(env) ?? resolveForwardedBaseUrl(headers)
   if (!publicBaseUrl) return internalUrl
 
   const returnTo = internalUrl.searchParams.get('returnTo')
