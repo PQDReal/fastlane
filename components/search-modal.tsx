@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Search, X, Loader2 } from 'lucide-react'
+import { Bot, Loader2, Search, Send, X } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import Link from 'next/link'
 
 export function SearchModal() {
   const { searchModalOpen, setSearchModalOpen } = useAppStore()
   const [query, setQuery] = useState('')
+  const [submittedQuery, setSubmittedQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
+  const [assistantMessage, setAssistantMessage] = useState<string | null>(null)
+  const [searchNonce, setSearchNonce] = useState(0)
   const [isSearching, setIsSearching] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -17,12 +20,16 @@ export function SearchModal() {
       setTimeout(() => inputRef.current?.focus(), 100)
     } else {
       setQuery('')
+      setSubmittedQuery('')
+      setResults([])
+      setAssistantMessage(null)
     }
   }, [searchModalOpen])
 
   useEffect(() => {
-    if (!query.trim()) {
+    if (!submittedQuery) {
       setResults([])
+      setAssistantMessage(null)
       setIsSearching(false)
       return
     }
@@ -32,14 +39,21 @@ export function SearchModal() {
     setIsSearching(true)
     const timeoutId = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v1/products?q=${encodeURIComponent(query)}`, {
+        const res = await fetch(`/api/v1/search/assistant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ query: submittedQuery, limit: 12 }),
           signal: controller.signal,
         })
         if (res.ok) {
-          const data = await res.json()
-          if (isCurrentSearch) setResults(data)
+          const payload = await res.json()
+          if (isCurrentSearch) {
+            setResults(payload?.data?.products ?? [])
+            setAssistantMessage(payload?.data?.message ?? null)
+          }
         } else if (isCurrentSearch) {
           setResults([])
+          setAssistantMessage(null)
         }
       } catch (error) {
         if (error instanceof Error && error.name !== 'AbortError') {
@@ -48,14 +62,21 @@ export function SearchModal() {
       } finally {
         if (isCurrentSearch) setIsSearching(false)
       }
-    }, 300)
+    }, 0)
 
     return () => {
       isCurrentSearch = false
       clearTimeout(timeoutId)
       controller.abort()
     }
-  }, [query])
+  }, [submittedQuery, searchNonce])
+
+  const submitSearch = () => {
+    const nextQuery = query.trim()
+    if (!nextQuery || isSearching) return
+    setSubmittedQuery(nextQuery)
+    setSearchNonce((value) => value + 1)
+  }
 
   if (!searchModalOpen) return null
 
@@ -77,40 +98,60 @@ export function SearchModal() {
         onClick={() => setSearchModalOpen(false)}
       />
       <div className="relative w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all mx-4">
-        <div className="relative flex items-center border-b border-gray-100 px-4 py-4">
-          <Search className="h-5 w-5 text-gray-400" />
-          <input
-            ref={inputRef}
-            type="text"
-            className="w-full bg-transparent px-4 py-2 text-base text-gray-900 placeholder-gray-400 focus:outline-none"
-            placeholder="Tìm kiếm dòng xe, phụ kiện..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <div className="border-b border-gray-100 px-4 py-4">
+          <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+            <Bot className="h-5 w-5 text-[#836100]" aria-hidden="true" />
+            <span>Xin chào! Mình có thể giúp bạn tìm xe và phụ kiện.</span>
+          </div>
+          <form className="relative flex items-center" onSubmit={(event) => { event.preventDefault(); submitSearch() }}>
+            <Search className="h-5 w-5 shrink-0 text-gray-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              className="w-full bg-transparent px-4 py-2 text-base text-gray-900 placeholder-gray-400 focus:outline-none"
+              placeholder="Tìm kiếm dòng xe, phụ kiện..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Tìm kiếm sản phẩm"
+            />
           {query && (
             <button
-              onClick={() => setQuery('')}
+              type="button"
+              onClick={() => { setQuery(''); setSubmittedQuery(''); setResults([]); setAssistantMessage(null) }}
               className="mr-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+              aria-label="Xóa nội dung tìm kiếm"
             >
               <X className="h-4 w-4" />
             </button>
           )}
+          <button type="submit" disabled={!query.trim() || isSearching} className="mr-1 inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Gửi
+          </button>
           <button
+            type="button"
             onClick={() => setSearchModalOpen(false)}
             className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           >
             Đóng
           </button>
+          </form>
         </div>
 
-        {query.trim() && (
+        {submittedQuery && (
           <div className="max-h-[60vh] overflow-y-auto p-4">
             {isSearching ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
             ) : results.length > 0 ? (
-              <ul className="space-y-4">
+              <>
+                {assistantMessage && (
+                  <div className="mb-4 rounded-xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+                    {assistantMessage}
+                  </div>
+                )}
+                <ul className="space-y-4">
                 {results.map((product) => (
                   <li key={product.id}>
                     <Link
@@ -135,10 +176,11 @@ export function SearchModal() {
                     </Link>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </>
             ) : (
               <div className="py-10 text-center text-gray-500">
-                Không tìm thấy kết quả nào cho "{query}"
+                {assistantMessage ? <p>{assistantMessage}</p> : <>Không tìm thấy kết quả nào cho "{submittedQuery}"</>}
               </div>
             )}
           </div>

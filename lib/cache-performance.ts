@@ -49,6 +49,7 @@ export function cacheKeyGroup(key: string) {
   if (key.includes('product-search')) return 'Tìm kiếm sản phẩm'
   if (key.includes('accessory-catalog')) return 'Phụ kiện · Danh sách'
   if (key.includes('accessory-product')) return 'Phụ kiện · Chi tiết'
+  if (key.includes('assistant-search')) return 'Trợ lý tìm kiếm'
   if (key.includes('customer-cart')) return 'Giỏ hàng khách hàng'
   return 'Khác'
 }
