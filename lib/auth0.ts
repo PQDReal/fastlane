@@ -1,11 +1,13 @@
 import { Auth0Client } from '@auth0/nextjs-auth0/server'
 import { NextResponse } from 'next/server'
 
-import { withLocalUserId } from '@/lib/auth/session-identity'
+import { resolveAppBaseUrl } from '@/lib/auth/app-base-url'
 import { isCartMutationRequest } from '@/lib/auth/middleware-policy'
+import { withLocalUserId } from '@/lib/auth/session-identity'
 import { Auth0EmailUnverifiedError, syncAuth0User } from '@/lib/services/user-service'
 
 const POPUP_COMPLETE_PATH = '/auth/popup-complete'
+const appBaseUrl = resolveAppBaseUrl()
 
 function isAuthorizationDenied(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -18,6 +20,7 @@ function isAuthorizationDenied(error: unknown): boolean {
 }
 
 export const auth0 = new Auth0Client({
+  appBaseUrl,
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
     scope: 'openid profile email',
@@ -34,8 +37,8 @@ export const auth0 = new Auth0Client({
     ),
   },
   onCallback: async (error, context, session) => {
-    const baseUrl = context.appBaseUrl ?? process.env.APP_BASE_URL
-    if (!baseUrl) throw new Error('Missing APP_BASE_URL for the Auth0 callback redirect')
+    const baseUrl = context.appBaseUrl ?? appBaseUrl
+    if (!baseUrl) throw new Error('Unable to resolve the public application URL')
 
     const isWindowPopup = context.returnTo?.startsWith(POPUP_COMPLETE_PATH) === true
     const errorDestination = (code: string) => {
