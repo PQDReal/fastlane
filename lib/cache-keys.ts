@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
 
-export const PRODUCT_SEARCH_CACHE_PREFIX = 'fastlane:product-search:v1:'
+import { normalizeProductSearchText } from '@/lib/catalog/search'
+
+export const PRODUCT_SEARCH_CACHE_PREFIX = 'fastlane:product-search:v2:'
 export const CUSTOMER_CART_CACHE_PREFIX = 'fastlane:customer-cart:v1:'
+export const DEPOSIT_DRAFT_CACHE_PREFIX = 'fastlane:deposit-draft:v1:'
 export const MOTORBIKE_CATALOG_CACHE_KEY = 'fastlane:motorbike-catalog:v1'
 export const MOTORBIKE_DETAIL_CACHE_PREFIX = 'fastlane:motorbike-detail:v1:'
 export const ACCESSORY_CATALOG_SUMMARY_CACHE_KEY =
@@ -11,7 +14,7 @@ export const CAR_CATALOG_CACHE_PREFIX = 'fastlane:car-catalog:v1:'
 export const CAR_DETAIL_CACHE_PREFIX = 'fastlane:car-detail:v1:'
 
 export function normalizeSearchQuery(query: string | null | undefined) {
-  return query?.trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi') ?? ''
+  return normalizeProductSearchText(query)
 }
 
 export function productSearchCacheKey(query: string | null | undefined) {
@@ -22,6 +25,11 @@ export function productSearchCacheKey(query: string | null | undefined) {
 
 export function customerCartCacheKey(customerId: string) {
   return `${CUSTOMER_CART_CACHE_PREFIX}${customerId}`
+}
+
+export function depositDraftCacheKey(auth0Subject: string) {
+  const ownerDigest = createHash('sha256').update(auth0Subject).digest('hex')
+  return `${DEPOSIT_DRAFT_CACHE_PREFIX}${ownerDigest}`
 }
 
 export function accessoryProductCacheKey(slug: string) {

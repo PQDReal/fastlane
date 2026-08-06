@@ -24,4 +24,16 @@ describe('deposit route safety contract', () => {
     )
     expect(source).not.toContain('vehicleVariantId = quote.variantId')
   })
+
+  it('stores the authoritative promotion quote without incrementing quota in application code', () => {
+    expect(source).toContain('discount_amount: quote.discountAmount')
+    expect(source).toContain('promotion_id: quote.promotion?.id ?? null')
+    expect(source).toContain('promotion_code: quote.promotion?.code ?? null')
+    expect(source).not.toMatch(/from\('promotions'\)[\s\S]{0,300}used_count/)
+  })
+
+  it('rejects zero-value deposits before creating a payment attempt', () => {
+    expect(source).toContain("'INVALID_PAYMENT_AMOUNT'")
+    expect(source).toMatch(/quote\.totalEstimatedPrice <= 0[\s\S]{0,180}quote\.depositAmount <= 0/)
+  })
 })

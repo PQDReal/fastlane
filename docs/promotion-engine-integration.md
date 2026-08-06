@@ -195,9 +195,10 @@ lock row, consume quota, idempotency hoặc transaction.
   promotion engine. Endpoint này không consume quota.
 - `POST /api/deposit` định giá lại toàn bộ phía server, không nhận giá hay
   discount từ browser.
-- `022_deposit_order_integrity.sql` lưu `subtotal`, `discount_amount`,
-  `promotion_id`; cột `promotion_code` hiện có được giữ làm snapshot mã tại
-  thời điểm đặt cọc. Trigger `deposit_orders_consume_promotion` dùng để
+- Đơn đặt cọc lưu `subtotal`, `discount_amount`, `promotion_id`; cột
+  `promotion_code` được giữ làm snapshot mã tại thời điểm đặt cọc. Migration
+  `038_atomic_deposit_promotion.sql` cài trigger
+  `deposit_orders_consume_promotion` để
   lock promotion, kiểm tra lại cửa sổ hiệu lực/quota, tăng `used_count` trong
   cùng transaction với insert đơn.
 - `request_hash` ngăn cùng một `Idempotency-Key` bị dùng lại với nội dung khác.

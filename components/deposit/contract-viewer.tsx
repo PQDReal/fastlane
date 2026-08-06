@@ -70,6 +70,8 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
   }
 
   const remainingBalance = Math.max(0, totalPrice - depositAmount)
+  const subtotal = Number(order?.subtotal || totalPrice)
+  const discountAmount = Number(order?.discount_amount || 0)
   
   // Use province and ward from deposit order
   let address = '[●]'
@@ -146,6 +148,14 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
                 ? 'Thỏa thuận này mô phỏng việc xác nhận thuê pin; phí thuê pin và các điều kiện áp dụng thực hiện theo chính sách VinFast hiện hành.'
                 : 'Thỏa thuận này mô phỏng việc xác nhận đặt mua; các khoản phí đăng ký, bảo hiểm và chi phí khác thực hiện theo chính sách VinFast hiện hành.'}
           </p>
+          {discountAmount > 0 && (
+            <p className="mt-2">
+              Giá trước ưu đãi: <strong>{formatMoney(subtotal)}</strong>;
+              {' '}mã ưu đãi <strong>{order?.promotion_code || '[●]'}</strong> giảm
+              {' '}<strong>{formatMoney(discountAmount)}</strong>. Giá trị sau ưu đãi
+              được dùng làm giá trị Hợp đồng nêu trên.
+            </p>
+          )}
         </div>
 
         {/* ĐIỀU 2 */}
