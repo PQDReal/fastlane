@@ -22,8 +22,8 @@ describe('resolveAppBaseUrl', () => {
       .toBe('http://localhost:3000')
   })
 
-  it('fails early when no browser-facing URL can be resolved', () => {
-    expect(() => resolveAppBaseUrl({ APP_BASE_URL: 'http://0.0.0.0:3000' }))
-      .toThrow(/public http\(s\) URL/)
+  it('defers resolution when build-time variables are unavailable', () => {
+    expect(resolveAppBaseUrl({ APP_BASE_URL: 'http://0.0.0.0:3000' }))
+      .toBeUndefined()
   })
 })
