@@ -20,6 +20,9 @@ function clientIp(request: Request) {
 export async function POST(request: Request) {
   try {
     const customer = await requireCurrentCustomer()
+    if (customer.role !== 'CUSTOMER') {
+      throw new ApiRouteError(403, 'ADMIN_CHECKOUT_FORBIDDEN', 'Tài khoản quản trị không được đặt hàng.')
+    }
     const idempotencyKey = parseIdempotencyKey(
       request.headers.get('Idempotency-Key'),
     )

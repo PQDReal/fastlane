@@ -380,6 +380,7 @@ export async function listCustomerOrders(
         orderType: 'deposit',
         carModel: deposit.car_model,
         carVariant: deposit.car_variant,
+        vehicleType: deposit.vehicle_type,
         status: orderStatus as AccessoryOrderSummary['status'],
         refundStatus: deposit.refund_status === 'COMPLETED'
           ? 'Completed'
@@ -407,6 +408,9 @@ export async function listCustomerOrders(
           province: deposit.province,
           ward: deposit.ward,
           customerType: deposit.customer_type,
+          subtotal: deposit.subtotal,
+          discountAmount: deposit.discount_amount,
+          promotionCode: deposit.promotion_code,
           totalEstimatedPrice: deposit.total_estimated_price,
           balancePaymentStatus: latestBalanceAttemptByOrder.get(deposit.id) ?? null,
           vehicleVariant: deposit.vehicle_variants

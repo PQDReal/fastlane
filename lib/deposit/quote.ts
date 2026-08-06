@@ -316,7 +316,16 @@ export async function buildDepositVehicleQuote(
     ...namedOptions(specifications.colors),
     ...namedOptions(specifications.color_details),
   ]
-  const exteriorOptions = exteriorGroup ? valuesFor(exteriorGroup) : fallbackExterior
+  // Motorbike selections are rendered from vehicle_variants. Those rows are the
+  // authoritative catalog for the bike flow, and can be newer than the legacy
+  // product option groups (for example, "Đen" versus the old "Đen nhám").
+  // Validating against the same source prevents a restored or newly selected
+  // vehicle color from being rejected only when a promotion is applied.
+  const exteriorOptions = product.motorbike
+    ? namedOptions(product.motorbike.colors)
+    : exteriorGroup
+      ? valuesFor(exteriorGroup)
+      : fallbackExterior
   const selectedExterior = exactOption(exteriorOptions, input.exteriorColor)
   if (exteriorOptions.length > 0 && !selectedExterior) {
     throw new DepositInputError(
@@ -405,10 +414,11 @@ export async function buildDepositVehicleQuote(
           key(row.color) === key(input.exteriorColor)
         )?.id ?? selectedVariant?.id ?? null
       : selectedVariant?.id ?? null,
-    depositAmount: Math.min(
-      configuredDeposit || defaultDeposit,
-      totalEstimatedPrice,
-    ),
+    // A promotion reduces the vehicle/configuration price, never the agreed
+    // deposit amount for its selected variant. Keeping this value independent
+    // also keeps the VNPAY deposit charge and the order summary consistent.
+    // Any overage simply means there is no balance payment remaining.
+    depositAmount: configuredDeposit || defaultDeposit,
     subtotal,
     discountAmount: promotion?.discountAmount ?? 0,
     totalEstimatedPrice,

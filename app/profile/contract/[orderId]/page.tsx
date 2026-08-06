@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import ContractPageClient from './contract-client'
+import { getDepositContractMode } from '@/lib/deposit/contract-workflow'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export default async function ContractPage({ params }: { params: Promise<{ order
   const supabase = getSupabaseAdmin()
   const { data: order, error } = await supabase
     .from('deposit_orders')
-    .select('*, vehicle_variants(*)')
+    .select('id,order_number,status,customer_id,email,full_name,id_card_number,phone_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,subtotal,discount_amount,total_estimated_price,promotion_code,deposit_amount,created_at,vehicle_variants(product_name,variant_name,deposit_amount)')
     .eq('id', orderId)
     .single()
 
@@ -41,5 +42,5 @@ export default async function ContractPage({ params }: { params: Promise<{ order
     redirect('/profile')
   }
 
-  return <ContractPageClient order={order} />
+  return <ContractPageClient order={{ ...order, contractMode: getDepositContractMode(order) }} />
 }

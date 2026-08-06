@@ -8,7 +8,10 @@ Sentry.init({
   dsn,
   enabled: isSentryEnabled(dsn, process.env.NODE_ENV),
   environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
-  release: process.env.SENTRY_RELEASE || process.env.RENDER_GIT_COMMIT,
+  release:
+    process.env.SENTRY_RELEASE
+    || process.env.RAILWAY_GIT_COMMIT_SHA
+    || process.env.RENDER_GIT_COMMIT,
   sendDefaultPii: false,
   tracesSampleRate: sentrySampleRate(
     process.env.SENTRY_TRACES_SAMPLE_RATE,

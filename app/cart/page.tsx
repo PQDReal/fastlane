@@ -18,6 +18,7 @@ import { Header } from '@/components/header'
 import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { useAppStore } from '@/lib/store'
+import { getMyProfile } from '@/lib/api/profile-client'
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('vi-VN', {
@@ -25,6 +26,9 @@ const formatPrice = (price: number) =>
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(price)
+
+const isPurchasable = (item: { quantity: number; availableQuantity: number }) =>
+  item.availableQuantity > 0 && item.quantity <= item.availableQuantity
 
 export default function CartPage() {
   const router = useRouter()
@@ -34,6 +38,7 @@ export default function CartPage() {
     cartLoading,
     cartLoaded,
     cartError,
+    cartPendingItemIds,
     cartOwnerSubject,
     syncCartOwner,
     loadCart,
@@ -45,6 +50,7 @@ export default function CartPage() {
   const [selectionInitialized, setSelectionInitialized] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [accountRole, setAccountRole] = useState<'ADMIN' | 'CUSTOMER' | null>(null)
   const closeToast = useCallback((id: number) => {
     setToasts((items) => items.filter((item) => item.id !== id))
   }, [])
@@ -62,11 +68,31 @@ export default function CartPage() {
   }, [user, userLoading])
 
   useEffect(() => {
-    if (!userSubject) return
+    if (!user) { setAccountRole(null); return }
+    let active = true
+    getMyProfile()
+      .then((profile) => {
+        if (!active) return
+        const role = profile.role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'
+        setAccountRole(role)
+        if (role === 'ADMIN') {
+          notify({
+            kind: 'error',
+            title: 'Không thể truy cập giỏ hàng',
+            message: 'Tài khoản quản trị không được sử dụng chức năng mua hàng.',
+          })
+        }
+      })
+      .catch(() => { if (active) setAccountRole('CUSTOMER') })
+    return () => { active = false }
+  }, [notify, user])
+
+  useEffect(() => {
+    if (!userSubject || accountRole !== 'CUSTOMER') return
 
     const ownerChanged = syncCartOwner(userSubject)
     if (ownerChanged || !cartLoaded) void loadCart(userSubject)
-  }, [cartLoaded, loadCart, syncCartOwner, userSubject])
+  }, [accountRole, cartLoaded, loadCart, syncCartOwner, userSubject])
 
   useEffect(() => {
     setSelectedIds(new Set())
@@ -78,21 +104,35 @@ export default function CartPage() {
 
     setSelectedIds((current) => {
       if (!selectionInitialized) {
-        return new Set(cartItems.map((item) => item.id))
+        return new Set(
+          cartItems
+            .filter(isPurchasable)
+            .map((item) => item.id),
+        )
       }
-      const validIds = new Set(cartItems.map((item) => item.id))
+      const validIds = new Set(
+        cartItems
+          .filter(isPurchasable)
+          .map((item) => item.id),
+      )
       return new Set([...current].filter((id) => validIds.has(id)))
     })
     setSelectionInitialized(true)
   }, [cartItems, cartLoaded, selectionInitialized])
 
   const selectedItems = useMemo(
-    () => cartItems.filter((item) => selectedIds.has(item.id)),
+    () => cartItems.filter(
+      (item) => selectedIds.has(item.id) && isPurchasable(item),
+    ),
     [cartItems, selectedIds],
   )
 
+  const availableItems = useMemo(
+    () => cartItems.filter(isPurchasable),
+    [cartItems],
+  )
   const allSelected =
-    cartItems.length > 0 && selectedIds.size === cartItems.length
+    availableItems.length > 0 && selectedIds.size === availableItems.length
   const selectedQuantity = selectedItems.reduce(
     (sum, item) => sum + item.quantity,
     0,
@@ -101,10 +141,11 @@ export default function CartPage() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   )
+  const hasPendingCartMutations = Object.keys(cartPendingItemIds).length > 0
 
   const toggleAll = () => {
     setSelectedIds(
-      allSelected ? new Set() : new Set(cartItems.map((item) => item.id)),
+      allSelected ? new Set() : new Set(availableItems.map((item) => item.id)),
     )
   }
 
@@ -151,6 +192,22 @@ export default function CartPage() {
     }])
   }
 
+  const decreaseQuantity = (
+    itemId: string,
+    itemName: string,
+    quantity: number,
+    availableQuantity: number,
+  ) => {
+    if (quantity === 1) {
+      requestRemove(itemId, itemName)
+      return
+    }
+    const nextQuantity = quantity > availableQuantity && availableQuantity > 0
+      ? availableQuantity
+      : quantity - 1
+    void changeQuantity(itemId, nextQuantity)
+  }
+
   const proceedToCheckout = () => {
     if (selectedIds.size === 0) return
     const params = new URLSearchParams()
@@ -159,7 +216,7 @@ export default function CartPage() {
     router.push(`/checkout?${params.toString()}`)
   }
 
-  if (userLoading || (user && !cartLoaded && cartLoading)) {
+  if (userLoading || (user && accountRole === null) || (user && accountRole === 'CUSTOMER' && !cartLoaded && cartLoading)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
@@ -168,6 +225,23 @@ export default function CartPage() {
   }
 
   if (!user) return null
+
+  if (accountRole === 'ADMIN') {
+    return (
+      <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">
+        <Header />
+        <ToastViewport toasts={toasts} onClose={closeToast} />
+        <section className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-5 py-20 text-center">
+          <ShoppingBag className="h-14 w-14 text-red-300" />
+          <h1 className="mt-5 text-2xl font-bold text-slate-900">Không thể truy cập giỏ hàng</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Tài khoản quản trị không được sử dụng chức năng mua hàng hoặc thanh toán.</p>
+          <Link href="/admin" className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-800 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+            Quay về trang quản trị
+          </Link>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">
@@ -236,51 +310,73 @@ export default function CartPage() {
                 <span className="sr-only">Xóa</span>
               </div>
 
-              {cartItems.map((item) => (
+              {cartItems.map((item) => {
+                const outOfStock = item.availableQuantity <= 0
+                const exceedsStock = !outOfStock && item.quantity > item.availableQuantity
+                const unavailable = outOfStock || exceedsStock
+                return (
                 <article
                   key={item.id}
-                  className="grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b border-slate-100 px-4 py-5 last:border-0 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:items-center md:px-6"
+                  className={`grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b border-slate-100 px-4 py-5 last:border-0 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:items-center md:px-6 ${outOfStock ? 'bg-slate-100/80' : exceedsStock ? 'bg-amber-50/70' : ''}`}
                 >
                   <input
                     type="checkbox"
                     aria-label={`Chọn ${item.name}`}
                     checked={selectedIds.has(item.id)}
                     onChange={() => toggleItem(item.id)}
-                    className="mt-6 h-5 w-5 accent-brand-600 md:mt-0"
+                    disabled={unavailable}
+                    className="mt-6 h-5 w-5 accent-brand-600 disabled:cursor-not-allowed disabled:opacity-30 md:mt-0"
                   />
 
                   <div className="flex min-w-0 gap-4">
                     <Link
                       href={`/accessories/${item.productSlug}`}
-                      className="h-20 w-20 shrink-0 rounded-xl bg-slate-50 p-2"
+                      className={`h-20 w-20 shrink-0 rounded-xl bg-slate-50 p-2 ${outOfStock ? 'opacity-40 grayscale' : ''}`}
                     >
                       <img src={item.image} alt={item.name} className="h-full w-full object-contain" />
                     </Link>
                     <div className="min-w-0 self-center">
                       <Link
                         href={`/accessories/${item.productSlug}`}
-                        className="line-clamp-2 font-semibold text-slate-900 hover:text-brand-700"
+                        className={`line-clamp-2 font-semibold text-slate-900 hover:text-brand-700 ${outOfStock ? 'opacity-40' : ''}`}
                       >
                         {item.name}
                       </Link>
-                      <p className="mt-1 text-xs text-slate-500">SKU: {item.sku}</p>
-                      <ProductOptionSummary
-                        options={item.selectedOptions}
-                        className="mt-2"
-                      />
-                      <p className="mt-2 font-bold text-brand-700 md:hidden">{formatPrice(item.price)}</p>
+                      <div className={outOfStock ? 'opacity-40' : ''}>
+                        <p className="mt-1 text-xs text-slate-500">SKU: {item.sku}</p>
+                        <ProductOptionSummary
+                          options={item.selectedOptions}
+                          className="mt-2"
+                        />
+                      </div>
+                      {outOfStock && (
+                        <p className="mt-2 text-sm font-semibold text-red-600" role="status">
+                          Số lượng hàng đã hết
+                        </p>
+                      )}
+                      {exceedsStock && (
+                        <p className="mt-2 text-sm font-semibold text-amber-700" role="alert">
+                          Số lượng trong giỏ vượt quá tồn kho. Chỉ còn {item.availableQuantity} sản phẩm.
+                        </p>
+                      )}
+                      <p className={`mt-2 font-bold text-brand-700 md:hidden ${outOfStock ? 'opacity-30' : ''}`}>{formatPrice(item.price)}</p>
                     </div>
                   </div>
 
-                  <p className="hidden font-medium text-slate-700 md:block">{formatPrice(item.price)}</p>
+                  <p className={`hidden font-medium text-slate-700 md:block ${outOfStock ? 'opacity-30' : ''}`}>{formatPrice(item.price)}</p>
 
                   <div className="col-start-2 mt-2 flex items-center md:col-auto md:mt-0 md:justify-center">
-                    <div className="inline-flex items-center rounded-lg border border-slate-200">
+                    <div className={`inline-flex items-center rounded-lg border border-slate-200 ${outOfStock ? 'pointer-events-none opacity-25' : ''}`}>
                       <button
                         type="button"
                         aria-label={`Giảm số lượng ${item.name}`}
-                        disabled={cartLoading || item.quantity <= 1}
-                        onClick={() => void changeQuantity(item.id, item.quantity - 1)}
+                        disabled={cartLoading}
+                        onClick={() => decreaseQuantity(
+                          item.id,
+                          item.name,
+                          item.quantity,
+                          item.availableQuantity,
+                        )}
                         className="grid h-9 w-9 place-items-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Minus size={15} />
@@ -289,7 +385,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         aria-label={`Tăng số lượng ${item.name}`}
-                        disabled={cartLoading || item.quantity >= item.availableQuantity || item.quantity >= 99}
+                        disabled={Boolean(cartPendingItemIds[item.id]) || item.quantity >= item.availableQuantity || item.quantity >= 99}
                         onClick={() => void changeQuantity(item.id, item.quantity + 1)}
                         className="grid h-9 w-9 place-items-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -298,7 +394,7 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <p className="col-start-2 mt-2 text-base font-bold text-brand-700 md:col-auto md:mt-0 md:text-right">
+                  <p className={`col-start-2 mt-2 text-base font-bold text-brand-700 md:col-auto md:mt-0 md:text-right ${outOfStock ? 'opacity-30' : ''}`}>
                     <span className="mr-2 font-normal text-slate-500 md:hidden">Thành tiền:</span>
                     {formatPrice(item.price * item.quantity)}
                   </p>
@@ -306,15 +402,16 @@ export default function CartPage() {
                   <button
                     type="button"
                     aria-label={`Xóa ${item.name}`}
-                    disabled={cartLoading}
+                    disabled={Boolean(cartPendingItemIds[item.id])}
                     onClick={() => requestRemove(item.id, item.name)}
-                    className="col-start-2 mt-2 inline-flex w-fit items-center gap-2 text-sm text-slate-400 hover:text-red-600 disabled:opacity-40 md:col-auto md:mt-0 md:grid md:h-10 md:w-10 md:place-items-center"
+                    className={`col-start-2 mt-2 inline-flex w-fit items-center gap-2 text-sm hover:text-red-700 disabled:opacity-40 md:col-auto md:mt-0 md:grid md:h-10 md:w-10 md:place-items-center ${outOfStock ? 'font-semibold text-red-600' : 'text-slate-400'}`}
                   >
                     <Trash2 size={18} />
                     <span className="md:sr-only">Xóa</span>
                   </button>
                 </article>
-              ))}
+                )
+              })}
             </section>
 
             <section className="mt-6 flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -328,7 +425,7 @@ export default function CartPage() {
               </div>
               <button
                 type="button"
-                disabled={selectedItems.length === 0 || cartLoading}
+                disabled={selectedItems.length === 0 || hasPendingCartMutations}
                 onClick={proceedToCheckout}
                 className="min-h-12 rounded-lg bg-brand-600 px-8 py-3.5 font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { contractStageCopy, getDepositContractMode, type DepositContractMode } from '@/lib/deposit/contract-workflow'
 
 export type ContractViewerProps = {
   order: any
@@ -37,7 +38,9 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
   const productName = order?.vehicle_variants?.product_name || order?.car_model || '[●]'
   const variantName = order?.vehicle_variants?.variant_name || order?.car_variant || '[●]'
   const color = order?.exterior_color || '[●]'
-  const batteryType = order?.battery_type === 'RENT' ? 'Không gồm pin' : 'Kèm pin'
+  const contractMode: DepositContractMode = order?.contractMode || getDepositContractMode(order)
+  const copy = contractStageCopy(contractMode)
+  const batteryType = contractMode === 'BIKE_BATTERY_RENTAL' ? 'Không gồm pin (thuê pin)' : 'Kèm pin'
   
   // Default values assuming these are returned by Supabase
   const customerName = order?.full_name || '[●]'
@@ -69,6 +72,8 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
   }
 
   const remainingBalance = Math.max(0, totalPrice - depositAmount)
+  const subtotal = Number(order?.subtotal || totalPrice)
+  const discountAmount = Number(order?.discount_amount || 0)
   
   // Use province and ward from deposit order
   let address = '[●]'
@@ -82,7 +87,7 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
     <div className="mx-auto max-w-4xl bg-white p-6 shadow-sm sm:p-10 md:border md:border-slate-200 text-slate-800" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
       {/* HEADER */}
       <div className="text-center">
-        <h1 className="text-xl font-bold uppercase sm:text-2xl">HỢP ĐỒNG MUA BÁN XE Ô TÔ ĐIỆN VINFAST</h1>
+        <h1 className="text-xl font-bold uppercase sm:text-2xl">{copy.title}</h1>
         <p className="mt-2 text-sm italic">Số: {order?.order_number || order?.id?.substring(0, 8) || '[●]'}/HĐMB</p>
       </div>
 
@@ -139,13 +144,25 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
             </table>
           </div>
           <p className="mt-2 italic">
-            Giá trị Hợp đồng đã bao gồm thuế tiêu thụ đặc biệt, thuế giá trị gia tăng, nhưng không bao gồm lệ phí trước bạ, chi phí đăng ký, lưu hành, bảo hiểm xe, phí dịch vụ thuê pin và các chi phí khác.
+            {contractMode === 'CAR_SALES'
+              ? 'Giá trị Hợp đồng đã bao gồm thuế tiêu thụ đặc biệt, thuế giá trị gia tăng, nhưng không bao gồm lệ phí trước bạ, chi phí đăng ký, lưu hành, bảo hiểm xe và các chi phí khác.'
+              : contractMode === 'BIKE_BATTERY_RENTAL'
+                ? 'Thỏa thuận này mô phỏng việc xác nhận thuê pin; phí thuê pin và các điều kiện áp dụng thực hiện theo chính sách VinFast hiện hành.'
+                : 'Thỏa thuận này mô phỏng việc xác nhận đặt mua; các khoản phí đăng ký, bảo hiểm và chi phí khác thực hiện theo chính sách VinFast hiện hành.'}
           </p>
+          {discountAmount > 0 && (
+            <p className="mt-2">
+              Giá trước ưu đãi: <strong>{formatMoney(subtotal)}</strong>;
+              {' '}mã ưu đãi <strong>{order?.promotion_code || '[●]'}</strong> giảm
+              {' '}<strong>{formatMoney(discountAmount)}</strong>. Giá trị sau ưu đãi
+              được dùng làm giá trị Hợp đồng nêu trên.
+            </p>
+          )}
         </div>
 
         {/* ĐIỀU 2 */}
         <div className="mt-6 space-y-2">
-          <h2 className="font-bold">Điều 2. Thanh toán</h2>
+          <h2 className="font-bold">Điều 2. Thanh toán và điều kiện áp dụng</h2>
           <p>
             Khách Hàng thanh toán đợt 1 (tiền cọc) số tiền <strong>{formatMoney(depositAmount)}</strong> trong vòng 03 ngày làm việc kể từ ngày ký Hợp đồng này hoặc được chuyển thành thanh toán trước từ Thỏa thuận Đặt cọc trước đó (Đã thanh toán).
           </p>
@@ -238,7 +255,7 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
               className="mt-1 h-5 w-5 rounded border-gray-300 text-[#1e4d2b] focus:ring-[#1e4d2b]"
             />
             <div className="leading-snug">
-              <p className="font-medium text-slate-900">Tôi đã đọc, hiểu rõ và đồng ý với toàn bộ các điều khoản của Hợp đồng mua bán xe ô tô điện VinFast.</p>
+              <p className="font-medium text-slate-900">{copy.consent}</p>
               <p className="mt-1 text-xs text-slate-500">Giao dịch này tương đương chữ ký số có giá trị pháp lý.</p>
             </div>
           </label>
@@ -249,7 +266,7 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
             size="default" 
             className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
           >
-            {isSigning ? 'Đang xử lý...' : 'Ký Hợp Đồng'}
+            {isSigning ? 'Đang xử lý...' : contractMode === 'CAR_SALES' ? 'Ký Hợp Đồng' : 'Xác nhận thỏa thuận'}
           </Button>
         </div>
       )}

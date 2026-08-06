@@ -5,7 +5,7 @@ export async function GET() {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('categories')
-    .select('*')
+    .select('id,name,slug,description,is_active,created_at,updated_at')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 

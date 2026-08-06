@@ -15,6 +15,28 @@ function requestHash(customerId: string, request: CheckoutRequest) {
     .digest('hex')
 }
 
+function sourceCartIdFromUniqueViolation(details: string | null | undefined) {
+  const match = details?.match(/Key \(source_cart_id\)=\(([0-9a-f-]{36})\) already exists/i)
+  return match?.[1] ?? null
+}
+
+async function recoverPendingOrderForSourceCart(
+  customerId: string,
+  sourceCartId: string,
+) {
+  const result = await getSupabaseAdmin()
+    .from('orders')
+    .select('id,status')
+    .eq('customer_id', customerId)
+    .eq('source_cart_id', sourceCartId)
+    .maybeSingle<{ id: string; status: string }>()
+
+  if (result.error) throw new Error(`Unable to recover checkout order: ${result.error.message}`)
+  if (!result.data || result.data.status !== 'PENDING') return null
+  await deleteRedisKey(customerCartCacheKey(customerId))
+  return readCustomerOrder(customerId, result.data.id)
+}
+
 function checkoutError(message: string) {
   const code = [
     'CART_CHANGED',
@@ -122,10 +144,34 @@ export async function checkoutCustomerCart(
         await deleteRedisKey(customerCartCacheKey(customerId))
         return readCustomerOrder(customerId, existing.id)
       }
+      if (existing) {
+        throw new ApiRouteError(
+          409,
+          'IDEMPOTENCY_KEY_REUSED',
+          'Yêu cầu thanh toán này đã được gửi trước đó với dữ liệu khác. Vui lòng tải lại trang trước khi thử lại.',
+        )
+      }
+
+      const sourceCartId = sourceCartIdFromUniqueViolation(error.details)
+      if (sourceCartId) {
+        const recovered = await recoverPendingOrderForSourceCart(customerId, sourceCartId)
+        if (recovered) return recovered
+      }
+
+      console.error('Unexpected unique constraint violation during accessory checkout:', {
+        customerId,
+        idempotencyKey,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      })
       throw new ApiRouteError(
         409,
-        'IDEMPOTENCY_KEY_REUSED',
-        'Yêu cầu thanh toán này đã được gửi trước đó. Vui lòng kiểm tra lại đơn hàng trước khi thử lại.',
+        'CHECKOUT_CONFLICT',
+        process.env.NODE_ENV === 'development'
+          ? `Không thể tạo đơn do dữ liệu bị trùng: ${error.details || error.message}`
+          : 'Không thể tạo đơn do dữ liệu bị trùng. Vui lòng thử lại; nếu lỗi tiếp diễn, hãy liên hệ hỗ trợ.',
       )
     }
 

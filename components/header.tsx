@@ -9,6 +9,8 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
+import { CustomerNotifications } from '@/components/customer-notifications'
+import { getMyProfile } from '@/lib/api/profile-client'
 import {
   CART_ANIMATION_CANCEL,
   CART_ANIMATION_COMPLETE,
@@ -36,6 +38,7 @@ export function Header() {
   const { user, isLoading: userLoading } = useUser()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const {
@@ -49,13 +52,22 @@ export function Header() {
   const cartCount = getCartCount()
   const cartCountRef = useRef(cartCount)
   const pendingCartAnimationsRef = useRef(0)
+  const launchedCartAnimationIdsRef = useRef(new Set<string>())
   const pendingCartNavigationRef = useRef(false)
+  const cartNavigationFallbackRef = useRef<number | null>(null)
   const [displayedCartCount, setDisplayedCartCount] = useState(cartCount)
   cartCountRef.current = cartCount
 
   // Header is transparent on homepage and car/bike detail pages
   const isTransparentPage = pathname === '/' || /^\/(cars|bikes)\/[^\/]+$/.test(pathname)
   const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
+
+  useEffect(() => {
+    if (!userSubject) { setIsAdmin(null); return }
+    let active = true
+    getMyProfile().then((profile) => { if (active) setIsAdmin(profile.role.toUpperCase() === 'ADMIN') }).catch(() => undefined)
+    return () => { active = false }
+  }, [userSubject])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -79,10 +91,27 @@ export function Header() {
   }, [cartCount])
 
   useEffect(() => {
-    const handlePrepare = (_event: Event) => {
+    const clearNavigationFallback = () => {
+      if (cartNavigationFallbackRef.current === null) return
+      window.clearTimeout(cartNavigationFallbackRef.current)
+      cartNavigationFallbackRef.current = null
+    }
+
+    const finishPendingCartNavigation = () => {
+      if (!pendingCartNavigationRef.current) return
+      pendingCartNavigationRef.current = false
+      clearNavigationFallback()
+      router.push('/cart')
+    }
+
+    const handlePrepare = (event: Event) => {
+      const { id } = (event as CustomEvent<{ id: string }>).detail
+      launchedCartAnimationIdsRef.current.delete(id)
       pendingCartAnimationsRef.current += 1
     }
-    const handleCancel = (_event: Event) => {
+    const handleCancel = (event: Event) => {
+      const { id } = (event as CustomEvent<{ id: string }>).detail
+      launchedCartAnimationIdsRef.current.delete(id)
       pendingCartAnimationsRef.current = Math.max(
         0,
         pendingCartAnimationsRef.current - 1,
@@ -92,11 +121,13 @@ export function Header() {
           setDisplayedCartCount(cartCountRef.current)
         }, 0)
       }
+      finishPendingCartNavigation()
     }
     const handleComplete = (event: Event) => {
-      const { quantity } = (
+      const { id, quantity } = (
         event as CustomEvent<CartAnimationResolutionDetail>
       ).detail
+      launchedCartAnimationIdsRef.current.delete(id)
       pendingCartAnimationsRef.current = Math.max(
         0,
         pendingCartAnimationsRef.current - 1,
@@ -108,10 +139,12 @@ export function Header() {
       }
     }
 
-    const handleLaunch = () => {
-      if (!pendingCartNavigationRef.current) return
-      pendingCartNavigationRef.current = false
-      router.push('/cart')
+    const handleLaunch = (event: Event) => {
+      const { id } = (
+        event as CustomEvent<CartAnimationResolutionDetail>
+      ).detail
+      launchedCartAnimationIdsRef.current.add(id)
+      finishPendingCartNavigation()
     }
 
     window.addEventListener(CART_ANIMATION_PREPARE, handlePrepare)
@@ -123,13 +156,38 @@ export function Header() {
       window.removeEventListener(CART_ANIMATION_LAUNCH, handleLaunch)
       window.removeEventListener(CART_ANIMATION_CANCEL, handleCancel)
       window.removeEventListener(CART_ANIMATION_COMPLETE, handleComplete)
+      clearNavigationFallback()
     }
   }, [router])
 
   const handleCartClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (pendingCartAnimationsRef.current === 0) return
+    if (
+      pendingCartAnimationsRef.current === 0
+      || launchedCartAnimationIdsRef.current.size > 0
+    ) return
+
     event.preventDefault()
+
+    // Keep the icon anchored to its source until the add-to-cart request
+    // launches the flight. A short fallback prevents a failed/missed event
+    // from trapping the user on the current page indefinitely.
+    if (pendingCartNavigationRef.current) {
+      pendingCartNavigationRef.current = false
+      if (cartNavigationFallbackRef.current !== null) {
+        window.clearTimeout(cartNavigationFallbackRef.current)
+        cartNavigationFallbackRef.current = null
+      }
+      router.push('/cart')
+      return
+    }
+
     pendingCartNavigationRef.current = true
+    cartNavigationFallbackRef.current = window.setTimeout(() => {
+      cartNavigationFallbackRef.current = null
+      if (!pendingCartNavigationRef.current) return
+      pendingCartNavigationRef.current = false
+      router.push('/cart')
+    }, 1800)
   }
 
   const headerSolid = scrolled || !isTransparentPage
@@ -169,7 +227,7 @@ export function Header() {
 
         <div className={`flex shrink-0 items-center justify-end gap-3 transition-colors duration-500 xl:gap-5 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Search size={23} strokeWidth={2} /></button>
-          <Link
+          {(!userSubject || isAdmin === false) && <Link
             aria-label="Giỏ hàng"
             href="/cart"
             onClick={handleCartClick}
@@ -191,7 +249,8 @@ export function Header() {
                 </motion.span>
               )}
             </AnimatePresence>
-          </Link>
+          </Link>}
+          {userSubject && isAdmin === false && <CustomerNotifications userSubject={userSubject} />}
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               <UserAvatar picture={user.picture} name={user.name} />
@@ -204,14 +263,14 @@ export function Header() {
                 <Link href="/profile" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Hồ sơ của tôi
                 </Link>
-                <Link href="/profile?tab=orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                {isAdmin === false && <Link href="/profile?tab=orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Lịch sử mua hàng
-                </Link>
-                <Link href="/profile?tab=car-orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
+                </Link>}
+                {isAdmin === false && <Link href="/profile?tab=car-orders" className="block px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#836100]">
                   Lịch sử mua xe
-                </Link>
+                </Link>}
                 <div className="my-1 border-t border-gray-100"></div>
-                <a href="/auth/logout" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                <a href="/auth/logout-cleanup" className="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
                   Đăng xuất
                 </a>
               </div>
@@ -248,7 +307,7 @@ export function Header() {
                 {link.name}
               </Link>
             ))}
-            {user ? <a className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600" href="/auth/logout">Đăng xuất</a> : <PopupLoginButton onSuccess={()=>setOpen(false)} className="border-t border-slate-200 pt-6 text-left text-lg font-bold text-brand-600">Đăng nhập</PopupLoginButton>}
+            {user ? <a className="border-t border-slate-200 pt-6 text-lg font-bold text-brand-600" href="/auth/logout-cleanup">Đăng xuất</a> : <PopupLoginButton onSuccess={()=>setOpen(false)} className="border-t border-slate-200 pt-6 text-left text-lg font-bold text-brand-600">Đăng nhập</PopupLoginButton>}
           </motion.nav>
         )}
       </AnimatePresence>

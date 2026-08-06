@@ -91,6 +91,7 @@ describe('useAppStore cart cache', () => {
       cartLoading: false,
       cartLoaded: false,
       cartError: null,
+      cartPendingItemIds: {},
       cartOwnerSubject: null,
       cartCacheGeneration: 0,
     })
@@ -242,5 +243,163 @@ describe('useAppStore cart cache', () => {
       cartLoaded: false,
       cartOwnerSubject: 'auth0|admin',
     })
+  })
+
+  it('deduplicates concurrent cart hydration requests for the same owner', async () => {
+    let resolveRequest: ((response: Response) => void) | undefined
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveRequest = resolve
+    })
+    const fetchMock = vi.fn().mockReturnValue(pendingResponse)
+    vi.stubGlobal('fetch', fetchMock)
+
+    useAppStore.getState().syncCartOwner('auth0|customer')
+    const firstRequest = useAppStore.getState().loadCart('auth0|customer')
+    const secondRequest = useAppStore.getState().loadCart('auth0|customer')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    resolveRequest?.(
+      new Response(JSON.stringify({ data: apiCart(1) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await Promise.all([firstRequest, secondRequest])
+
+    expect(useAppStore.getState()).toMatchObject({
+      cartLoaded: true,
+      cartItems: [expect.objectContaining({ quantity: 1 })],
+    })
+  })
+
+  it('ignores a hydration response after a newer cart mutation starts', async () => {
+    let resolveHydration: ((response: Response) => void) | undefined
+    let resolveMutation: ((response: Response) => void) | undefined
+    const hydrationResponse = new Promise<Response>((resolve) => {
+      resolveHydration = resolve
+    })
+    const mutationResponse = new Promise<Response>((resolve) => {
+      resolveMutation = resolve
+    })
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(hydrationResponse)
+      .mockReturnValueOnce(mutationResponse)
+    vi.stubGlobal('fetch', fetchMock)
+
+    useAppStore.getState().syncCartOwner('auth0|customer')
+    useAppStore.setState({
+      cartItems: [{
+        id: catalogItem.variantId,
+        variantId: catalogItem.variantId,
+        productId: catalogItem.productId,
+        productSlug: catalogItem.productSlug,
+        name: catalogItem.name,
+        price: catalogItem.priceAmount,
+        image: catalogItem.image,
+        quantity: 1,
+        sku: catalogItem.sku,
+        selectedOptions: catalogItem.selectedOptions,
+        availableQuantity: 5,
+      }],
+      cartLoaded: true,
+    })
+
+    const hydrationRequest = useAppStore.getState().loadCart('auth0|customer')
+    const mutationRequest = useAppStore
+      .getState()
+      .updateQuantity(catalogItem.variantId, 2)
+
+    expect(useAppStore.getState().cartItems[0]?.quantity).toBe(2)
+
+    resolveHydration?.(
+      new Response(JSON.stringify({ data: apiCart(1) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await hydrationRequest
+
+    expect(useAppStore.getState().cartItems[0]?.quantity).toBe(2)
+
+    resolveMutation?.(
+      new Response(JSON.stringify({ data: apiCart(2) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await Promise.all([hydrationRequest, mutationRequest])
+
+    expect(useAppStore.getState().cartItems[0]?.quantity).toBe(2)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the latest quantity intent while an older mutation response is pending', async () => {
+    let resolveFirst: ((response: Response) => void) | undefined
+    let resolveSecond: ((response: Response) => void) | undefined
+    const firstResponse = new Promise<Response>((resolve) => {
+      resolveFirst = resolve
+    })
+    const secondResponse = new Promise<Response>((resolve) => {
+      resolveSecond = resolve
+    })
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstResponse)
+      .mockReturnValueOnce(secondResponse)
+    vi.stubGlobal('fetch', fetchMock)
+
+    useAppStore.getState().syncCartOwner('auth0|customer')
+    useAppStore.setState({
+      cartItems: [
+        {
+          id: catalogItem.variantId,
+          variantId: catalogItem.variantId,
+          productId: catalogItem.productId,
+          productSlug: catalogItem.productSlug,
+          name: catalogItem.name,
+          price: catalogItem.priceAmount,
+          image: catalogItem.image,
+          quantity: 1,
+          sku: catalogItem.sku,
+          selectedOptions: catalogItem.selectedOptions,
+          availableQuantity: 5,
+        },
+      ],
+      cartLoaded: true,
+    })
+
+    const firstMutation = useAppStore.getState().updateQuantity(catalogItem.variantId, 2)
+    const secondMutation = useAppStore.getState().updateQuantity(catalogItem.variantId, 3)
+
+    expect(useAppStore.getState().cartItems[0]?.quantity).toBe(3)
+    expect(useAppStore.getState().cartPendingItemIds).toEqual({
+      [catalogItem.variantId]: true,
+    })
+
+    resolveFirst?.(
+      new Response(JSON.stringify({ data: apiCart(2) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await firstMutation
+
+    expect(useAppStore.getState().cartItems[0]?.quantity).toBe(3)
+    expect(useAppStore.getState().cartPendingItemIds).toEqual({
+      [catalogItem.variantId]: true,
+    })
+
+    resolveSecond?.(
+      new Response(JSON.stringify({ data: apiCart(3) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    await Promise.all([firstMutation, secondMutation])
+
+    expect(useAppStore.getState().cartItems[0]?.quantity).toBe(3)
+    expect(useAppStore.getState().cartPendingItemIds).toEqual({})
   })
 })

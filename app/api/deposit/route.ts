@@ -11,6 +11,7 @@ import {
   DepositLocationUnavailableError,
   validateDepositLocation,
 } from '@/lib/deposit/location'
+import { decideDepositReplay } from '@/lib/deposit/idempotency'
 import {
   buildDepositVehicleQuote,
   depositQuoteError,
@@ -108,6 +109,23 @@ function isDepositPaymentSchemaMissing(error: unknown): boolean {
     || /vnpay_deposit_attempts/i.test(String(candidate.message ?? ''))
 }
 
+function depositPromotionError(error: unknown) {
+  if (!error || typeof error !== 'object') return null
+  const message = String((error as { message?: unknown }).message ?? '')
+  const messages: Record<string, string> = {
+    PROMOTION_NOT_FOUND: 'Mã ưu đãi không còn tồn tại.',
+    PROMOTION_INACTIVE: 'Mã ưu đãi đã ngừng áp dụng.',
+    PROMOTION_NOT_STARTED: 'Mã ưu đãi chưa đến thời gian áp dụng.',
+    PROMOTION_EXPIRED: 'Mã ưu đãi đã hết hạn.',
+    PROMOTION_USAGE_EXHAUSTED: 'Mã ưu đãi đã hết lượt sử dụng.',
+    PROMOTION_MINIMUM_NOT_MET: 'Đơn đặt cọc chưa đạt giá trị tối thiểu của mã ưu đãi.',
+    PROMOTION_SNAPSHOT_MISMATCH: 'Giá trị mã ưu đãi đã thay đổi. Vui lòng áp dụng lại mã.',
+    PROMOTION_SNAPSHOT_REQUIRED: 'Thông tin mã ưu đãi của đơn đặt cọc chưa đầy đủ.',
+  }
+  const code = Object.keys(messages).find((candidate) => message.includes(candidate))
+  return code ? { code, message: messages[code] } : null
+}
+
 async function requestHash(input: DepositOrderInput) {
   const bytes = new TextEncoder().encode(JSON.stringify(input))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -116,12 +134,21 @@ async function requestHash(input: DepositOrderInput) {
     .join('')
 }
 
-async function existingOrder(idempotencyKey: string): Promise<DepositOrderRow | null> {
-  const result = await getSupabaseAdmin()
+async function existingOrder(
+  idempotencyKey: string,
+  customerId: string | null,
+  guestEmail: string,
+): Promise<DepositOrderRow | null> {
+  let query = getSupabaseAdmin()
     .from('deposit_orders')
     .select(RESPONSE_COLUMNS)
     .eq('idempotency_key', idempotencyKey)
-    .maybeSingle<DepositOrderRow>()
+
+  query = customerId
+    ? query.eq('customer_id', customerId)
+    : query.is('customer_id', null).ilike('email', guestEmail)
+
+  const result = await query.maybeSingle<DepositOrderRow>()
   if (result.error) throw result.error
   return result.data
 }
@@ -151,9 +178,15 @@ export async function POST(request: Request) {
 
   try {
     const hash = await requestHash(input)
-    const replay = await existingOrder(idempotencyKey)
+    const currentUser = await getCurrentUser().catch(() => null)
+    if (currentUser?.role === 'ADMIN') {
+      return errorResponse(403, 'ADMIN_DEPOSIT_FORBIDDEN', 'Tài khoản quản trị không được tạo đơn đặt cọc xe.')
+    }
+    const customerId = currentUser?.id ?? null
+    const guestEmail = input.email
+    const replay = await existingOrder(idempotencyKey, customerId, guestEmail)
     if (replay) {
-      if (replay.request_hash && replay.request_hash !== hash) {
+      if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
         return errorResponse(
           409,
           'IDEMPOTENCY_CONFLICT',
@@ -174,7 +207,17 @@ export async function POST(request: Request) {
     } catch (error) {
       depositQuoteError(error)
     }
-    const currentUser = await getCurrentUser().catch(() => null)
+    if (
+      !Number.isFinite(quote.totalEstimatedPrice) || quote.totalEstimatedPrice <= 0 ||
+      !Number.isFinite(quote.depositAmount) || quote.depositAmount <= 0
+    ) {
+      return errorResponse(
+        422,
+        'INVALID_PAYMENT_AMOUNT',
+        'Mẫu xe hoặc ưu đãi đang chọn không có số tiền thanh toán hợp lệ.',
+        'car_variant',
+      )
+    }
     const now = new Date().toISOString()
 
     // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
@@ -219,7 +262,7 @@ export async function POST(request: Request) {
         order_number: generateOrderNumber(),
         idempotency_key: idempotencyKey,
         request_hash: hash,
-        customer_id: currentUser?.id ?? null,
+        customer_id: customerId,
         customer_type: input.customerType,
         full_name: input.fullName || input.companyName || '',
         company_name: input.companyName,
@@ -231,7 +274,8 @@ export async function POST(request: Request) {
         ward: input.ward,
         ward_code: input.wardCode,
         product_id: quote.productId,
-        variant_id: input.vehicleType === 'motorbike' ? null : quote.variantId,
+        // Vehicle orders only use vehicle_variant_id. The deprecated variant_id
+        // column is intentionally omitted so its historical values stay read-only.
         vehicle_variant_id: vehicleVariantId,
         vehicle_type: input.vehicleType,
         car_model: input.vehicleModel,
@@ -256,8 +300,19 @@ export async function POST(request: Request) {
 
     if (insertResult.error) {
       if (insertResult.error.code === '23505') {
-        const replay = await existingOrder(idempotencyKey)
+        const replay = await existingOrder(
+          idempotencyKey,
+          customerId,
+          guestEmail,
+        )
         if (replay) {
+          if (decideDepositReplay(replay.request_hash, hash) === 'CONFLICT') {
+            return errorResponse(
+              409,
+              'IDEMPOTENCY_CONFLICT',
+              'Yêu cầu này đã được dùng cho một nội dung đặt cọc khác.',
+            )
+          }
           const paymentUrl = await createOrReuseVnPayDepositPayment(
             { id: replay.id, orderNumber: replay.order_number },
             clientIp(request),
@@ -282,19 +337,21 @@ export async function POST(request: Request) {
       throw insertResult.error
     }
 
-    if (input.promotionCode && quote.discountAmount > 0) {
-      const supabase = getSupabaseAdmin()
-      const { data: promo } = await supabase.from('promotions').select('id, used_count').eq('code', input.promotionCode).single()
-      if (promo) {
-        await supabase.from('promotions').update({ used_count: (promo.used_count || 0) + 1 }).eq('id', promo.id)
-      }
-    }
     const paymentUrl = await createOrReuseVnPayDepositPayment(
       { id: insertResult.data.id, orderNumber: insertResult.data.order_number },
       clientIp(request),
     )
     return NextResponse.json(responseData(insertResult.data, false, paymentUrl), { status: 201 })
   } catch (error) {
+    const promotionError = depositPromotionError(error)
+    if (promotionError) {
+      return errorResponse(
+        422,
+        promotionError.code,
+        promotionError.message,
+        'promotion_code',
+      )
+    }
     if (error instanceof DepositInputError) {
       return errorResponse(
         error.field === 'promotion_code' ? 422 : 409,

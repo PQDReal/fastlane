@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
-import { requireCurrentCustomer } from '@/lib/api/customer'
+import { requireCurrentCartCustomerId } from '@/lib/api/customer'
 import { apiErrorResponse, readJsonBody } from '@/lib/api/errors'
+import { createServerTiming } from '@/lib/api/server-timing'
 import {
   removeCustomerCartItem,
   updateCustomerCartItem,
@@ -14,32 +15,47 @@ import {
 type RouteContext = { params: Promise<{ itemId: string }> }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const timing = createServerTiming()
   try {
-    const customer = await requireCurrentCustomer()
+    const sessionStartedAt = performance.now()
+    const customerId = await requireCurrentCartCustomerId()
+    timing.measure('session', sessionStartedAt)
+    const parseStartedAt = performance.now()
     const { itemId } = await context.params
     const variantId = parseItemId(itemId)
     const body = parseUpdateCartItemRequest(await readJsonBody(request))
+    timing.measure('parse', parseStartedAt)
+    const rpcStartedAt = performance.now()
     const cart = await updateCustomerCartItem(
-      customer.id,
+      customerId,
       variantId,
       body.quantity,
     )
-    return NextResponse.json({ data: cart })
+    timing.measure('rpc', rpcStartedAt)
+    return timing.attach(NextResponse.json({ data: cart }))
   } catch (error) {
-    return apiErrorResponse(error)
+    return timing.attach(apiErrorResponse(error))
   }
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const timing = createServerTiming()
   try {
-    const customer = await requireCurrentCustomer()
+    const sessionStartedAt = performance.now()
+    const customerId = await requireCurrentCartCustomerId()
+    timing.measure('session', sessionStartedAt)
+    const parseStartedAt = performance.now()
     const { itemId } = await context.params
+    const variantId = parseItemId(itemId)
+    timing.measure('parse', parseStartedAt)
+    const rpcStartedAt = performance.now()
     const cart = await removeCustomerCartItem(
-      customer.id,
-      parseItemId(itemId),
+      customerId,
+      variantId,
     )
-    return NextResponse.json({ data: cart })
+    timing.measure('rpc', rpcStartedAt)
+    return timing.attach(NextResponse.json({ data: cart }))
   } catch (error) {
-    return apiErrorResponse(error)
+    return timing.attach(apiErrorResponse(error))
   }
 }

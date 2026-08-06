@@ -15,6 +15,7 @@ import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrder, AccessoryOrderSummary } from '@/lib/cart/types'
+import { contractStageCopy, getDepositContractMode } from '@/lib/deposit/contract-workflow'
 
 function OrderItemThumbnail({ src, productName }: { src: string | null; productName: string }) {
   const [failed, setFailed] = useState(false)
@@ -96,6 +97,13 @@ function ProfileContent() {
     normalizedProfileForm.phoneNumber !== (profile?.phoneNumber ?? '').trim()
   )
   const canUpdateProfile = Boolean(normalizedProfileForm.fullName && hasProfileChanges)
+  const isAdmin = profile?.role.toUpperCase() === 'ADMIN'
+
+  useEffect(() => {
+    if (!isAdmin || !['orders', 'car-orders', 'addresses'].includes(activeTab)) return
+    setActiveTab('info')
+    router.replace('/profile?tab=info', { scroll: false })
+  }, [activeTab, isAdmin, router])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -123,7 +131,7 @@ function ProfileContent() {
   }, [activeTab])
 
   useEffect(() => {
-    if (!user || (activeTab !== 'orders' && activeTab !== 'car-orders')) return
+    if (!user || isAdmin || (activeTab !== 'orders' && activeTab !== 'car-orders')) return
 
     let active = true
     setOrdersLoading(true)
@@ -151,7 +159,7 @@ function ProfileContent() {
     return () => {
       active = false
     }
-  }, [activeTab, ordersPage, user])
+  }, [activeTab, isAdmin, ordersPage, user])
 
   async function openAccessoryOrder(orderId: string) {
     setAccessoryOrderLoadingId(orderId)
@@ -450,16 +458,17 @@ function ProfileContent() {
       }[s] || s
     }
     if ((s === 'Cancelled' || s === 'CANCELLED') && refundStatus === 'Pending') return 'Đã Hủy - Chờ Hoàn Tiền'
+    if ((s === 'Cancelled' || s === 'CANCELLED') && refundStatus === 'Completed') return 'Đã Hủy, Đã Hoàn Tiền'
     return {
-      'Created': 'Chờ Thanh Toán',
+      'Created': 'Chưa Thanh Toán',
       'Paid': 'Đã Thanh Toán',
-      'Pending': 'Chờ Thanh Toán',
+      'Pending': 'Chưa Thanh Toán',
       'Processing': 'Đang chuẩn bị hàng',
       'Shipped': 'Đang giao hàng',
-      'Completed': 'Giao thành công',
+      'Completed': 'Hoàn thành',
       'Cancelled': 'Đã hủy',
       'CANCELLED': 'Đã Hủy',
-      'Confirmed': 'Đã xác nhận',
+      'Confirmed': 'Đã xác nhận, chờ lấy hàng',
     }[s] || s
   }
 
@@ -473,7 +482,7 @@ function ProfileContent() {
       }[s] || s
     }
     return {
-      'Pending': 'Chờ Thanh Toán',
+      'Pending': 'Chưa Thanh Toán',
       'Paid': 'Đã Thanh Toán',
       'Refunded': 'Đã hoàn tiền',
       'Failed': 'Thất bại',
@@ -501,9 +510,9 @@ function ProfileContent() {
               </div>
               <div className="p-2">
                 <button onClick={() => handleTabChange('info')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><User className="mr-3 inline-block h-4 w-4" />Hồ sơ của tôi</button>
-                <button onClick={() => handleTabChange('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>
-                <button onClick={() => handleTabChange('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>
-                <button onClick={() => handleTabChange('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử mua xe</button>
+                {!isAdmin && <button onClick={() => handleTabChange('addresses')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'addresses' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><MapPin className="mr-3 inline-block h-4 w-4" />Địa chỉ của tôi</button>}
+                {!isAdmin && <button onClick={() => handleTabChange('orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><Package className="mr-3 inline-block h-4 w-4" />Lịch sử mua hàng</button>}
+                {!isAdmin && <button onClick={() => handleTabChange('car-orders')} className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'car-orders' ? 'bg-[#836100]/10 text-[#836100]' : 'text-gray-600 hover:bg-gray-50'}`}><CarFront className="mr-3 inline-block h-4 w-4" />Lịch sử mua xe</button>}
               </div>
             </div>
           </aside>
@@ -619,15 +628,19 @@ function ProfileContent() {
                           break;
                         case 'PENDING_CONTRACT':
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
-                          stateText = 'Ký hợp đồng: Hợp đồng mua xe điện tử đã sẵn sàng. Vui lòng xem & ký hợp đồng.';
-                          actionBtn = (
-                            <button
-                              onClick={() => router.push(`/profile/contract/${order.id}`)}
-                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
-                            >
-                              Xem & Ký HĐ
-                            </button>
-                          );
+                          {
+                            const contractCopy = contractStageCopy(getDepositContractMode({
+                              vehicle_type: (order as any).vehicleType,
+                              car_variant: (order as any).carVariant,
+                              vehicle_variants: (order as any).depositDetails?.vehicleVariant,
+                            }))
+                            stateText = contractCopy.status;
+                            actionBtn = (
+                              <button onClick={() => router.push(`/profile/contract/${order.id}`)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
+                                {contractCopy.action}
+                              </button>
+                            );
+                          }
                           break;
                         case 'CONTRACT_SIGNED':
                         case 'PENDING_PAYMENT':
@@ -855,7 +868,7 @@ function ProfileContent() {
                     // Original Accessory Order UI
                     const accessoryStatus = String(order.status)
                     const canPay = ['Created', 'Pending', 'PENDING'].includes(accessoryStatus) && order.paymentStatus === 'Pending'
-                    const canCancel = canPay || ['Paid', 'PAID'].includes(accessoryStatus)
+                    const canCancel = canPay || ['Paid', 'PAID', 'Confirmed', 'CONFIRMED'].includes(accessoryStatus)
                     const paymentFailed = canPay && order.latestPaymentAttemptStatus === 'FAILED'
                     const actionBusy = orderAction?.id === order.id
                     const paymentBusy = actionBusy && orderAction?.type === 'payment'
@@ -1177,6 +1190,22 @@ function ProfileContent() {
                         <span className="text-gray-600">Tổng giá trị dự kiến</span>
                         <span className="font-bold text-gray-900">{formatPrice(selectedOrder.depositDetails.totalEstimatedPrice)}</span>
                       </div>
+                      {Number(selectedOrder.depositDetails.discountAmount || 0) > 0 && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Giá trước ưu đãi</span>
+                            <span className="font-semibold text-gray-700">{formatPrice(selectedOrder.depositDetails.subtotal || '0')}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Mã ưu đãi</span>
+                            <span className="font-bold text-emerald-700">{selectedOrder.depositDetails.promotionCode || '-'}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Số tiền giảm</span>
+                            <span className="font-bold text-emerald-700">-{formatPrice(selectedOrder.depositDetails.discountAmount || '0')}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Trạng thái đặt cọc</span>
                         <span className={`rounded-full px-3 py-1 text-sm font-bold ${selectedOrder.status === 'CANCELLED'
