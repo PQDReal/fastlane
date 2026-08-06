@@ -2,6 +2,12 @@ import 'server-only'
 
 import Redis from 'ioredis'
 
+import {
+  completeCacheSourceLoad,
+  getCachePerformanceSnapshot,
+  recordCacheRead,
+} from '@/lib/cache-performance'
+
 const DEFAULT_CONNECT_TIMEOUT_MS = 500
 const REDIS_FAILURE_COOLDOWN_MS = 15_000
 
@@ -70,13 +76,20 @@ async function connectedRedis() {
 }
 
 export async function readRedisJson<T>(key: string): Promise<T | null> {
+  const startedAt = performance.now()
   try {
     const client = await connectedRedis()
-    if (!client) return null
+    if (!client) {
+      recordCacheRead(key, 'BYPASS', performance.now() - startedAt)
+      return null
+    }
     const value = await client.get(key)
-    return value ? (JSON.parse(value) as T) : null
+    const parsed = value ? (JSON.parse(value) as T) : null
+    recordCacheRead(key, value ? 'HIT' : 'MISS', performance.now() - startedAt)
+    return parsed
   } catch (error) {
     reportRedisFallback(error)
+    recordCacheRead(key, 'BYPASS', performance.now() - startedAt)
     return null
   }
 }
@@ -86,6 +99,7 @@ export async function writeRedisJson(
   value: unknown,
   ttlSeconds: number,
 ): Promise<boolean> {
+  completeCacheSourceLoad(key)
   try {
     const client = await connectedRedis()
     if (!client) return false
@@ -137,7 +151,7 @@ export async function deleteRedisKeysByPrefix(prefix: string): Promise<number> {
 
 export async function getRedisMonitoring() {
   const client = await connectedRedis()
-  if (!client) return { configured: isRedisConfigured(), connected: false, latencyMs: null, keyCount: 0, keys: [] }
+  if (!client) return { configured: isRedisConfigured(), connected: false, latencyMs: null, keyCount: 0, keys: [], performance: getCachePerformanceSnapshot() }
 
   try {
     const started = Date.now()
@@ -165,9 +179,9 @@ export async function getRedisMonitoring() {
         keys.push({ key, page, type, ttlSeconds, bytes: typeof memory === 'number' ? memory : null })
       }
     } while (cursor !== '0')
-    return { configured: true, connected: true, latencyMs: Date.now() - started, keyCount, keys: keys.sort((a, b) => a.page.localeCompare(b.page)) }
+    return { configured: true, connected: true, latencyMs: Date.now() - started, keyCount, keys: keys.sort((a, b) => a.page.localeCompare(b.page)), performance: getCachePerformanceSnapshot() }
   } catch (error) {
     reportRedisFallback(error)
-    return { configured: true, connected: false, latencyMs: null, keyCount: 0, keys: [] }
+    return { configured: true, connected: false, latencyMs: null, keyCount: 0, keys: [], performance: getCachePerformanceSnapshot() }
   }
 }
