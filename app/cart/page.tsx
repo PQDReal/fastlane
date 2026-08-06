@@ -27,6 +27,9 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 0,
   }).format(price)
 
+const isPurchasable = (item: { quantity: number; availableQuantity: number }) =>
+  item.availableQuantity > 0 && item.quantity <= item.availableQuantity
+
 export default function CartPage() {
   const router = useRouter()
   const { user, isLoading: userLoading } = useUser()
@@ -103,13 +106,13 @@ export default function CartPage() {
       if (!selectionInitialized) {
         return new Set(
           cartItems
-            .filter((item) => item.availableQuantity > 0)
+            .filter(isPurchasable)
             .map((item) => item.id),
         )
       }
       const validIds = new Set(
         cartItems
-          .filter((item) => item.availableQuantity > 0)
+          .filter(isPurchasable)
           .map((item) => item.id),
       )
       return new Set([...current].filter((id) => validIds.has(id)))
@@ -119,13 +122,13 @@ export default function CartPage() {
 
   const selectedItems = useMemo(
     () => cartItems.filter(
-      (item) => selectedIds.has(item.id) && item.availableQuantity > 0,
+      (item) => selectedIds.has(item.id) && isPurchasable(item),
     ),
     [cartItems, selectedIds],
   )
 
   const availableItems = useMemo(
-    () => cartItems.filter((item) => item.availableQuantity > 0),
+    () => cartItems.filter(isPurchasable),
     [cartItems],
   )
   const allSelected =
@@ -189,12 +192,20 @@ export default function CartPage() {
     }])
   }
 
-  const decreaseQuantity = (itemId: string, itemName: string, quantity: number) => {
+  const decreaseQuantity = (
+    itemId: string,
+    itemName: string,
+    quantity: number,
+    availableQuantity: number,
+  ) => {
     if (quantity === 1) {
       requestRemove(itemId, itemName)
       return
     }
-    void changeQuantity(itemId, quantity - 1)
+    const nextQuantity = quantity > availableQuantity && availableQuantity > 0
+      ? availableQuantity
+      : quantity - 1
+    void changeQuantity(itemId, nextQuantity)
   }
 
   const proceedToCheckout = () => {
@@ -301,17 +312,19 @@ export default function CartPage() {
 
               {cartItems.map((item) => {
                 const outOfStock = item.availableQuantity <= 0
+                const exceedsStock = !outOfStock && item.quantity > item.availableQuantity
+                const unavailable = outOfStock || exceedsStock
                 return (
                 <article
                   key={item.id}
-                  className={`grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b border-slate-100 px-4 py-5 last:border-0 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:items-center md:px-6 ${outOfStock ? 'bg-slate-100/80' : ''}`}
+                  className={`grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b border-slate-100 px-4 py-5 last:border-0 md:grid-cols-[44px_minmax(280px,1fr)_160px_180px_180px_48px] md:items-center md:px-6 ${outOfStock ? 'bg-slate-100/80' : exceedsStock ? 'bg-amber-50/70' : ''}`}
                 >
                   <input
                     type="checkbox"
                     aria-label={`Chọn ${item.name}`}
                     checked={selectedIds.has(item.id)}
                     onChange={() => toggleItem(item.id)}
-                    disabled={outOfStock}
+                    disabled={unavailable}
                     className="mt-6 h-5 w-5 accent-brand-600 disabled:cursor-not-allowed disabled:opacity-30 md:mt-0"
                   />
 
@@ -341,6 +354,11 @@ export default function CartPage() {
                           Số lượng hàng đã hết
                         </p>
                       )}
+                      {exceedsStock && (
+                        <p className="mt-2 text-sm font-semibold text-amber-700" role="alert">
+                          Số lượng trong giỏ vượt quá tồn kho. Chỉ còn {item.availableQuantity} sản phẩm.
+                        </p>
+                      )}
                       <p className={`mt-2 font-bold text-brand-700 md:hidden ${outOfStock ? 'opacity-30' : ''}`}>{formatPrice(item.price)}</p>
                     </div>
                   </div>
@@ -353,7 +371,12 @@ export default function CartPage() {
                         type="button"
                         aria-label={`Giảm số lượng ${item.name}`}
                         disabled={cartLoading}
-                        onClick={() => decreaseQuantity(item.id, item.name, item.quantity)}
+                        onClick={() => decreaseQuantity(
+                          item.id,
+                          item.name,
+                          item.quantity,
+                          item.availableQuantity,
+                        )}
                         className="grid h-9 w-9 place-items-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Minus size={15} />
