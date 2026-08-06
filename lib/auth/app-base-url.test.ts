@@ -42,4 +42,13 @@ describe('toPublicAppUrl', () => {
     expect(toPublicAppUrl('http://localhost:3000/cart', {}).toString())
       .toBe('http://localhost:3000/cart')
   })
+
+  it('uses Railway forwarded headers when runtime variables are unavailable', () => {
+    const headers = new Headers({
+      'x-forwarded-host': 'fastlane-production-5409.up.railway.app',
+      'x-forwarded-proto': 'https',
+    })
+    expect(toPublicAppUrl('https://0.0.0.0:8080/auth/logout', {}, headers).toString())
+      .toBe('https://fastlane-production-5409.up.railway.app/auth/logout')
+  })
 })
