@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 import { randomUUID } from 'node:crypto'
+import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
+import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -217,7 +219,7 @@ export async function PATCH(request: Request, context: Context) {
     name: version.name,
     original_price: version.price,
     sale_price: null,
-    is_active: true,
+    is_active: is_active,
     option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
     metadata: { source: 'admin_motorbike_edit' },
     deposit_amount: version.deposit_amount,
@@ -260,7 +262,7 @@ export async function PATCH(request: Request, context: Context) {
         image_car_url: colorItem.image_url,
         image_color_url: colorItem.swatch,
         version: variantRow.name,
-        is_active: true,
+        is_active: is_active,
       })
     })
   })
@@ -296,10 +298,10 @@ export async function PATCH(request: Request, context: Context) {
     }
   }
 
-  // 5. Upsert new/updated rows mapping conflict on sku
+  // 5. Upsert new/updated rows mapping conflict on id
   const { error: pvUpsertError } = await supabase
     .from('product_variants')
-    .upsert(productVariantRows, { onConflict: 'sku' })
+    .upsert(productVariantRows, { onConflict: 'id' })
 
   if (pvUpsertError) {
     return NextResponse.json({ error: `Lỗi lưu phiên bản sản phẩm: ${pvUpsertError.message}` }, { status: 500 })
@@ -307,12 +309,87 @@ export async function PATCH(request: Request, context: Context) {
 
   const { error: vvUpsertError } = await supabase
     .from('vehicle_variants')
-    .upsert(vehicleVariantRows, { onConflict: 'sku' })
+    .upsert(vehicleVariantRows, { onConflict: 'id' })
 
   if (vvUpsertError) {
     return NextResponse.json({ error: `Lỗi lưu cấu hình xe: ${vvUpsertError.message}` }, { status: 500 })
   }
 
-  await invalidateVehicleCatalogCaches()
+  revalidateTag('motorbike-catalog')
+  await Promise.all([
+    deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
+    deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
+  ])
+
+  return NextResponse.json({ success: true })
+}
+
+export async function DELETE(request: Request, context: Context) {
+  try {
+    await authorizeAdminCatalogRequest(request)
+  } catch (error) {
+    return handleAuthorizationError(error)
+  }
+
+  const { productId } = await context.params
+  if (!UUID_PATTERN.test(productId)) {
+    return NextResponse.json({ error: 'Mã sản phẩm không hợp lệ.' }, { status: 400 })
+  }
+
+  const supabase = getSupabaseAdmin()
+
+  // 1. Get variant IDs to delete child records first
+  const { data: variants } = await supabase
+    .from('product_variants')
+    .select('id')
+    .eq('product_id', productId)
+
+  const variantIds = variants?.map((v) => v.id) || []
+
+  // 2. Clean up child records in related tables
+  if (variantIds.length > 0) {
+    await supabase.from('inventory_items').delete().in('variant_id', variantIds)
+    await supabase.from('cart_items').delete().in('variant_id', variantIds)
+    await supabase.from('product_media').delete().in('variant_id', variantIds)
+  }
+
+  await supabase.from('product_media').delete().eq('product_id', productId)
+
+  // 3. Delete from product tables
+  const { error: vvError } = await supabase
+    .from('vehicle_variants')
+    .delete()
+    .eq('product_id', productId)
+
+  if (vvError) {
+    return NextResponse.json({ error: `Lỗi xóa cấu hình xe: ${vvError.message}` }, { status: 500 })
+  }
+
+  const { error: pvError } = await supabase
+    .from('product_variants')
+    .delete()
+    .eq('product_id', productId)
+
+  if (pvError) {
+    return NextResponse.json({ error: `Lỗi xóa phiên bản sản phẩm: ${pvError.message}` }, { status: 500 })
+  }
+
+  const { error: productError } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', productId)
+
+  if (productError) {
+    return NextResponse.json({ error: `Lỗi xóa sản phẩm xe máy: ${productError.message}` }, { status: 500 })
+  }
+
+  revalidateTag('motorbike-catalog')
+  await Promise.all([
+    deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
+    deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
+  ])
+
   return NextResponse.json({ success: true })
 }

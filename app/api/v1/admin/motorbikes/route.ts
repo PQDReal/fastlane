@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 import { randomUUID } from 'node:crypto'
+import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
+import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
     name: version.name,
     original_price: version.price,
     sale_price: null,
-    is_active: true,
+    is_active: is_active,
     option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
     metadata: { source: 'admin_motorbike_creation' },
     deposit_amount: version.deposit_amount,
@@ -187,7 +189,7 @@ export async function POST(request: Request) {
         image_car_url: colorItem.image_url,
         image_color_url: colorItem.swatch,
         version: variantRow.name,
-        is_active: true,
+        is_active: is_active,
       })
     })
   })
@@ -203,7 +205,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Lỗi tạo cấu hình xe: ${vehicleVariantError.message}` }, { status: 500 })
   }
 
-  await invalidateVehicleCatalogCaches()
+  revalidateTag('motorbike-catalog')
+  await Promise.all([
+    deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
+    deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
+  ])
 
   return NextResponse.json({
     success: true,
