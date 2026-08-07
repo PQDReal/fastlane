@@ -132,9 +132,14 @@ export function ProductCreateDialog({
   }, [activeCategory, onClose, open])
 
   function selectCategory(category: AdminRootCategory) {
-    if (productWorkflowCapability(category).workflow !== 'accessory') return
-    setWorkflowDirty(false)
-    setSelectedCategory(category)
+    const capability = productWorkflowCapability(category)
+    if (capability.workflow === 'accessory') {
+      setWorkflowDirty(false)
+      setSelectedCategory(category)
+    } else if (capability.workflow === 'motorbike') {
+      onClose()
+      window.location.href = '/admin/products/motorbikes/new'
+    }
   }
 
   function returnToTypePicker() {

@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'shop.vinfastauto.com', pathname: '/**' },
       { protocol: 'https', hostname: 'static-cms-prod.vinfastauto.com', pathname: '/**' },
       { protocol: 'https', hostname: 'vinfastauto.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
     ],
   },
 }
