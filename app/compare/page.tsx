@@ -2,8 +2,7 @@ import { listComparableVehicles } from '@/lib/services/compare-service'
 import { CompareVehicles } from './compare-vehicles'
 
 export const revalidate = 300
-// Comparison data includes motorbikes loaded from Supabase.
-export const dynamic = 'force-dynamic'
+// The comparison service supplies a cached public read model.
 
 export default async function ComparePage() {
   try {

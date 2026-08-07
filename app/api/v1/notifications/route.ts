@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireCurrentCustomer } from '@/lib/api/customer'
 import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
 import {
+  countUnreadCustomerNotifications,
   listCustomerNotifications,
   markAllCustomerNotificationsRead,
 } from '@/lib/notifications/server'
@@ -18,6 +19,13 @@ export async function GET(request: Request) {
     const customer = await requireCurrentCustomer()
     requireCustomerRole(customer.role)
     const params = new URL(request.url).searchParams
+    if (params.get('summary') === 'true') {
+      const unreadCount = await countUnreadCustomerNotifications(customer.id)
+      return NextResponse.json(
+        { data: { items: [], unreadCount, nextCursor: null } },
+        { headers: { 'Cache-Control': 'private, no-store' } },
+      )
+    }
     const limit = Math.min(50, Math.max(1, Number.parseInt(params.get('limit') || '20', 10) || 20))
     const cursor = params.get('cursor')?.trim() || undefined
     if (cursor && Number.isNaN(Date.parse(cursor))) {

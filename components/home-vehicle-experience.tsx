@@ -495,3 +495,19 @@ export function HomeVehicleFinder({ vehicles }: { vehicles: HomeVehicle[] }) {
     </section>
   )
 }
+
+/**
+ * Keep the homepage vehicle experience behind one client boundary. Passing the
+ * same catalog to three separate client components makes React serialize the
+ * catalog three times in the RSC payload even though every section reads the
+ * same records.
+ */
+export function HomeVehicleExperience({ vehicles }: { vehicles: HomeVehicle[] }) {
+  return (
+    <>
+      <HomeFeaturedVehicles vehicles={vehicles} />
+      <HomeVehicleFinder vehicles={vehicles} />
+      <HomeVehicleCollection vehicles={vehicles} />
+    </>
+  )
+}
