@@ -56,8 +56,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: response })
   }
   try {
-    const requestedLimit = typeof body.limit === 'number' ? Math.min(Math.max(body.limit, 1), 12) : 8
-    const resultLimit = rule.filters.sort || rule.filters.sortBy ? 1 : /\b(tat ca|toan bo)\b/.test(rule.normalizedQuery) ? 50 : requestedLimit
+    const requestedLimit = typeof body.limit === 'number' ? Math.min(Math.max(body.limit, 1), 100) : 12
+    const broadCatalogRequest =
+      !rule.filters.sort &&
+      !rule.filters.sortBy &&
+      rule.filters.minPrice == null &&
+      rule.filters.maxPrice == null &&
+      /\b(?:liet ke|danh sach|tat ca|toan bo)\b/.test(rule.normalizedQuery) ||
+      (!rule.filters.sort && !rule.filters.sortBy && /\bxe may dien\b/.test(rule.normalizedQuery))
+    const resultLimit = rule.filters.sort || rule.filters.sortBy
+      ? 1
+      : broadCatalogRequest
+        ? 100
+        : requestedLimit
     let products = await retrieveCatalogProducts(rule.catalogQuery, rule.filters, resultLimit)
     if (rule.intent === 'product_faq') products = focusFaqProducts(rule.catalogQuery, products)
     const llm = await summarizeWithOpenAI(rule, products.slice(0, 12))
