@@ -53,11 +53,22 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
   }
 
   // 3. Fallback dùng Nodemailer (nếu cấu hình SMTP)
+  const smtpHost = 'smtp.gmail.com';
+  let resolvedHost = smtpHost;
+  try {
+    const { address } = await dns.promises.lookup(smtpHost, { family: 4 });
+    if (address) resolvedHost = address;
+  } catch (e) {
+    console.error('DNS lookup failed for IPv4, using default host', e);
+  }
+
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: resolvedHost,
     port: 587,
     secure: false, // Port 587 uses STARTTLS
-    family: 4,
+    tls: {
+      servername: smtpHost,
+    },
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS?.replace(/\s+/g, ''),
