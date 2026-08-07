@@ -165,8 +165,12 @@ export default function AdminProductsPage() {
   }
 
   async function openProductEditor(product: AdminProduct) {
+    if (product.product_type === 'BIKE') {
+      window.location.href = `/admin/products/motorbikes/edit/${product.id}`
+      return
+    }
     if (product.product_type !== 'ACCESSORY') {
-      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện.')
+      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện và xe máy điện.')
       return
     }
     setLoadingEditProductId(product.id)

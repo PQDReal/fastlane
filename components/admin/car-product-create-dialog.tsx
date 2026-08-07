@@ -56,7 +56,7 @@ function ClassificationStep({
 }) {
   const categories = useMemo(() => accessoryCategoryCollections(collections), [collections])
   const modelCollections = useMemo(
-    () => accessoryModelCollectionsForCategory(collections, draft.primaryCollectionSlug),
+    () => accessoryModelCollectionsForCategory(collections, draft.primaryCollectionSlug ?? ''),
     [collections, draft.primaryCollectionSlug],
   )
 
@@ -67,7 +67,7 @@ function ClassificationStep({
     onChange({
       ...draft,
       primaryCollectionSlug: categorySlug,
-      modelCollectionSlugs: draft.modelCollectionSlugs.filter((slug) => allowedModelSlugs.has(slug)),
+      modelCollectionSlugs: (draft.modelCollectionSlugs ?? []).filter((slug: string) => allowedModelSlugs.has(slug)),
     })
   }
 
@@ -100,8 +100,8 @@ function ClassificationStep({
           <legend className="text-sm font-semibold text-slate-700">Dòng xe liên quan <span className="font-normal text-slate-400">(không bắt buộc)</span></legend>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {modelCollections.map((collection) => {
-              const selected = draft.modelCollectionSlugs.includes(collection.slug)
-              return <button key={collection.id} type="button" aria-pressed={selected} onClick={() => onChange({ ...draft, modelCollectionSlugs: selected ? draft.modelCollectionSlugs.filter((slug) => slug !== collection.slug) : [...draft.modelCollectionSlugs, collection.slug] })} className={`min-h-10 rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'}`}>{collection.name}</button>
+              const selected = (draft.modelCollectionSlugs ?? []).includes(collection.slug)
+              return <button key={collection.id} type="button" aria-pressed={selected} onClick={() => onChange({ ...draft, modelCollectionSlugs: selected ? (draft.modelCollectionSlugs ?? []).filter((slug: string) => slug !== collection.slug) : [...(draft.modelCollectionSlugs ?? []), collection.slug] })} className={`min-h-10 rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'}`}>{collection.name}</button>
             })}
           </div>
         </fieldset>}
@@ -137,7 +137,7 @@ function GeneralStep({
         <textarea value={draft.description} maxLength={1000} rows={4} onChange={(event) => onChange({ ...draft, description: event.target.value })} placeholder="Mô tả ngắn gọn về xe." className={textareaClass} />
       </label>
       <label className={labelClass}>URL Hình ảnh đại diện
-        <input value={draft.productImageUrls[0] || ''} onChange={(event) => onChange({ ...draft, productImageUrls: [event.target.value] })} placeholder="https://example.com/image.jpg" className={inputClass} />
+        <input value={(draft.productImageUrls ?? [])[0] || ''} onChange={(event) => onChange({ ...draft, productImageUrls: [event.target.value] })} placeholder="https://example.com/image.jpg" className={inputClass} />
       </label>
     </div>
   )
