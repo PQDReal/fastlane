@@ -67,7 +67,7 @@ function ToastItem({ toast, onClose }: { toast: ToastMessage; onClose: (id: numb
 
 export function ToastViewport({ toasts, onClose }: { toasts: ToastMessage[]; onClose: (id: number) => void }) {
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3" aria-live="polite" aria-atomic="false">
+    <div className="pointer-events-none fixed right-4 top-4 z-[9999] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3" aria-live="polite" aria-atomic="false">
       <AnimatePresence initial={false} mode="popLayout">
         {toasts.map((toast) => <ToastItem key={toast.id} toast={toast} onClose={onClose} />)}
       </AnimatePresence>

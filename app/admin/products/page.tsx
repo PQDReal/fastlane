@@ -215,6 +215,7 @@ export default function AdminProductsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full h-10 pl-9 pr-4 rounded-md border border-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm"
+              suppressHydrationWarning
             />
           </div>
           
@@ -225,6 +226,7 @@ export default function AdminProductsPage() {
                 className="bg-transparent focus:outline-none w-full"
                 value={categoryFilter}
                 onChange={(e) => { setCategoryFilter(e.target.value); setPage(1) }}
+                suppressHydrationWarning
               >
                 <option value="All">Tất cả danh mục</option>
                 {/* Dynamically generate categories if needed, but for now hardcoded based on known values is ok, or unique from data */}
