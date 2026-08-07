@@ -548,31 +548,15 @@ export function DepositClient({
       return provName.includes(formProv) || formProv.includes(provName) || addrName.includes(formProv);
     })
     .filter(s => {
-      if (!formData.ward) return false;
-      
-      const normalize = (str: string) => {
-         if (!str) return '';
-         return str
-           .normalize('NFD')
-           .replace(/[\u0300-\u036f]/g, '')
-           .toLowerCase()
-           .replace(/đ/g, 'd')
-           .replace(/^(tỉnh|thành phố|tp|quận|huyện|thị xã|phường|xã|thị trấn)\s+/i, '')
-           .replace(/\s+/g, '')
-           .trim();
-      }
-      
+      if (!formData.ward) return true;
+      const normalize = (str: string) => str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd').replace(/^(tỉnh|thành phố|tp|quận|huyện|thị xã|phường|xã|thị trấn)\s+/i, '').replace(/\s+/g, '').trim() : '';
       const formWard = normalize(formData.ward);
-      if (!formWard) return false;
-
-      const distName = normalize(s.district_name);
-      const addrName = normalize(s.address);
-      const nameStr = normalize(s.name);
-      return distName.includes(formWard) || formWard.includes(distName) || addrName.includes(formWard) || nameStr.includes(formWard);
+      if (!formWard) return true;
+      return normalize(s.district_name).includes(formWard) || formWard.includes(normalize(s.district_name)) || normalize(s.address).includes(formWard) || normalize(s.name).includes(formWard);
     });
 
   useEffect(() => {
-    if (!formData.province || !formData.ward) {
+    if (!formData.province) {
       setSelectedShowroom(null)
       return
     }
@@ -2006,20 +1990,18 @@ export function DepositClient({
                       <div className="relative">
                         <button
                           type="button"
-                          disabled={!formData.ward}
                           onClick={() => setOpenShowroom(!openShowroom)}
                           className={`w-full text-left rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-10 font-normal focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-700 min-h-[46px] ${
-                            !formData.ward ? 'bg-slate-100 opacity-60 cursor-not-allowed' : ''
+                            !formData.province ? 'bg-slate-100 opacity-60 cursor-not-allowed' : ''
                           }`}
+                          disabled={!formData.province}
                         >
                           <span className="block whitespace-normal break-words text-sm">
                             {selectedShowroom
                               ? `${selectedShowroom.name} - ${selectedShowroom.address}`
-                              : formData.ward
+                              : formData.province
                                 ? 'Chọn showroom'
-                                : formData.province
-                                  ? 'Vui lòng chọn Xã/Phường trước'
-                                  : 'Vui lòng chọn Tỉnh/Thành trước'}
+                                : 'Vui lòng chọn Tỉnh/Thành trước'}
                           </span>
                         </button>
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
