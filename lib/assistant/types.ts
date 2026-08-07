@@ -1,0 +1,41 @@
+export type SearchIntent = 'casual' | 'product_search' | 'recommendation' | 'product_faq' | 'unsupported'
+
+export type AssistantFilters = {
+  productType?: 'car' | 'motorbike' | 'accessory'
+  maxPrice?: number
+  minPrice?: number
+  sort?: 'price_asc' | 'price_desc'
+  sortBy?: 'price' | 'top_speed' | 'range' | 'power' | 'battery'
+  sortDirection?: 'asc' | 'desc'
+  color?: string
+  gender?: string
+  terms?: string[]
+}
+
+export type AssistantProduct = {
+  id: string
+  name: string
+  slug: string
+  category: string
+  product_type?: 'CAR' | 'MOTORBIKE' | 'ACCESSORY'
+  displayed_price: number | null
+  image_urls: string[]
+  facts?: Record<string, string>
+  searchableText?: string
+}
+
+export type RuleResult = {
+  intent: SearchIntent
+  confidence: number
+  normalizedQuery: string
+  catalogQuery: string
+  filters: AssistantFilters
+}
+
+export type AssistantResponse = {
+  intent: SearchIntent
+  message: string | null
+  followUpQuestion: string | null
+  products: AssistantProduct[]
+  source: 'rules' | 'rules+llm'
+}

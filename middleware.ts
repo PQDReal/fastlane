@@ -15,6 +15,7 @@ import {
   isCartMutationRequest,
   requiresLocalUserValidation,
 } from './lib/auth/middleware-policy'
+import { toPublicAppUrl } from './lib/auth/app-base-url'
 import { findUserByAuth0Subject, findUserByEmail } from './lib/services/user-service'
 
 const swaggerOrigins = new Set(['http://127.0.0.1:8080'])
@@ -58,7 +59,7 @@ export async function middleware(request: NextRequest) {
         && !requestedReturnTo.startsWith('//')
         ? requestedReturnTo
         : '/'
-      const response = NextResponse.redirect(new URL(returnTo, request.url))
+      const response = NextResponse.redirect(new URL(returnTo, toPublicAppUrl(request.url, process.env, request.headers)))
       if (cookie) {
         response.cookies.set({
           name: DEPLOYMENT_BASIC_AUTH_COOKIE,
@@ -133,7 +134,7 @@ export async function middleware(request: NextRequest) {
     ) {
       const cookie = await createDeploymentBasicAuthCookie(basicAuthConfig)
       if (cookie) {
-        const response = NextResponse.redirect(request.nextUrl)
+        const response = NextResponse.redirect(toPublicAppUrl(request.url, process.env, request.headers))
         response.cookies.set({
           name: DEPLOYMENT_BASIC_AUTH_COOKIE,
           value: cookie,
@@ -177,7 +178,7 @@ export async function middleware(request: NextRequest) {
       const subjectUser = await findUserByAuth0Subject(session.user.sub)
       const localUser = subjectUser || (session.user.email ? await findUserByEmail(session.user.email) : null)
       if (!localUser) {
-        const response = NextResponse.redirect(new URL('/auth/error?code=account_not_found', request.url))
+        const response = NextResponse.redirect(new URL('/auth/error?code=account_not_found', toPublicAppUrl(request.url, process.env, request.headers)))
         clearSessionCookies(request, response)
         response.cookies.set({
           name: 'fastlane_force_login', value: '1', path: '/', maxAge: 600,
@@ -196,7 +197,7 @@ export async function middleware(request: NextRequest) {
     session.user.email_verified !== true &&
     request.nextUrl.pathname !== '/auth/email-unverified'
   ) {
-    const cleanup = new URL('/auth/email-unverified', request.url)
+    const cleanup = new URL('/auth/email-unverified', toPublicAppUrl(request.url, process.env, request.headers))
     if (request.nextUrl.pathname === '/auth/popup-complete') {
       cleanup.searchParams.set('popup', '1')
     }
