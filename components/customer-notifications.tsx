@@ -39,13 +39,14 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<CustomerNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [detailsLoaded, setDetailsLoaded] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   const showError = useCallback((title: string, message?: string) => {
     setToasts((current) => [...current, { id: Date.now(), kind: 'error', title, message }])
   }, [])
 
-  const refresh = useCallback(async (quiet = false) => {
+  const refresh = useCallback(async (quiet = false, includeItems = false) => {
     if (accessDeniedRef.current) return
     requestRef.current?.abort()
     const controller = new AbortController()
@@ -53,7 +54,9 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
     if (!quiet) setLoading(true)
 
     try {
-      const endpoint = admin ? '/api/v1/admin/notifications' : '/api/v1/notifications?limit=20'
+      const endpoint = admin
+        ? `/api/v1/admin/notifications${includeItems ? '' : '?summary=true'}`
+        : `/api/v1/notifications?${includeItems ? 'limit=20' : 'summary=true'}`
       const response = await fetch(endpoint, {
         cache: 'no-store',
         signal: controller.signal,
@@ -65,7 +68,10 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const payload = await response.json() as CustomerNotificationsResponse
-      setItems(payload.data.items)
+      if (includeItems) {
+        setItems(payload.data.items)
+        setDetailsLoaded(true)
+      }
       setUnreadCount(payload.data.unreadCount)
       setIsCustomer(true)
     } catch (error) {
@@ -82,10 +88,12 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
 
   useEffect(() => {
     accessDeniedRef.current = false
+    setDetailsLoaded(false)
+    setItems([])
     void refresh()
     const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(CHANNEL_NAME)
     const sync = () => {
-      if (document.visibilityState === 'visible') void refresh(true)
+      if (document.visibilityState === 'visible') void refresh(true, false)
     }
     channel?.addEventListener('message', sync)
     document.addEventListener('visibilitychange', sync)
@@ -97,6 +105,10 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
       window.clearInterval(interval)
     }
   }, [refresh, userSubject])
+
+  useEffect(() => {
+    if (open && !detailsLoaded) void refresh(false, true)
+  }, [detailsLoaded, open, refresh])
 
   useEffect(() => {
     if (!open) return
@@ -154,7 +166,7 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
           notifyOtherTabs()
         })
         .catch(() => {
-          void refresh(true)
+          void refresh(true, false)
           showError('Chưa thể cập nhật thông báo', 'Trạng thái sẽ được đồng bộ lại.')
         })
     }

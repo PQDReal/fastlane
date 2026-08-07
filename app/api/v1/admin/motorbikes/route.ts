@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 import { randomUUID } from 'node:crypto'
 
 function handleAuthorizationError(error: unknown) {
@@ -201,6 +202,8 @@ export async function POST(request: Request) {
     await supabase.from('products').delete().eq('id', productId)
     return NextResponse.json({ error: `Lỗi tạo cấu hình xe: ${vehicleVariantError.message}` }, { status: 500 })
   }
+
+  await invalidateVehicleCatalogCaches()
 
   return NextResponse.json({
     success: true,

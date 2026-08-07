@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 import { randomUUID } from 'node:crypto'
 
 type Context = { params: Promise<{ productId: string }> }
@@ -312,5 +313,6 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi lưu cấu hình xe: ${vvUpsertError.message}` }, { status: 500 })
   }
 
+  await invalidateVehicleCatalogCaches()
   return NextResponse.json({ success: true })
 }
