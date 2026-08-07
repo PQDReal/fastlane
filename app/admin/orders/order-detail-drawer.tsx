@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, FileText, Truck, XCircle, CreditCard, User, MapPin } from 'lucide-react'
 import { AdminOrderRow } from './orders-client'
-import { confirmDepositRefund, updateOrderStatus } from './actions'
+import { confirmDepositRefund, updateOrderStatus, forceOrderState } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
 
 type OrderDetailDrawerProps = {
@@ -52,6 +52,18 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
       }
     } else {
       onShowToast({ title: 'Lỗi', message: res.error || 'Có lỗi xảy ra khi cập nhật', kind: 'error' })
+    }
+  }
+
+  const handleForceState = async (action: 'mock_deposit_paid' | 'mock_kyc_approved' | 'mock_contract_signed' | 'mock_full_paid') => {
+    setIsUpdating(true)
+    const res = await forceOrderState(order.id, action)
+    setIsUpdating(false)
+    if (res.success) {
+      onShowToast({ title: 'Thành công', message: 'Đã mô phỏng trạng thái (Test)', kind: 'success' })
+      onOrderUpdated()
+    } else {
+      onShowToast({ title: 'Lỗi', message: res.error || 'Có lỗi xảy ra', kind: 'error' })
     }
   }
 
@@ -309,20 +321,41 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                 )}
 
                 {!nextAction && order.status === 'CONFIRMED' && (
-                  <div className="w-full text-center py-2.5 text-sm text-slate-500 font-medium bg-slate-50 rounded-lg border border-slate-200">
-                    Đang chờ khách hàng xác minh KYC
+                  <div className="w-full flex flex-col items-center justify-center gap-2 py-3 px-4 text-sm text-slate-500 font-medium bg-slate-50 rounded-lg border border-slate-200">
+                    <span>Đang chờ khách hàng xác minh KYC</span>
+                    <button
+                      onClick={() => handleForceState('mock_kyc_approved')}
+                      disabled={isUpdating}
+                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      (Test) Bỏ qua KYC
+                    </button>
                   </div>
                 )}
 
                 {!nextAction && ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && order.payment !== 'Paid' && (
-                  <div className="w-full rounded-lg border border-amber-200 bg-amber-50 py-2.5 text-center text-sm font-medium text-amber-700">
-                    Đang chờ khách hàng thanh toán qua VNPAY
+                  <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700">
+                    <span>Đang chờ khách hàng thanh toán qua VNPAY</span>
+                    <button
+                      onClick={() => handleForceState('mock_deposit_paid')}
+                      disabled={isUpdating}
+                      className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      (Test) Đã thanh toán cọc
+                    </button>
                   </div>
                 )}
 
                 {!nextAction && order.status === 'PENDING_PAYMENT' && (
-                  <div className="w-full rounded-lg border border-amber-200 bg-amber-50 py-2.5 text-center text-sm font-medium text-amber-700">
-                    Đang chờ khách hàng thanh toán phần còn lại qua VNPAY
+                  <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700">
+                    <span>Đang chờ khách hàng thanh toán phần còn lại qua VNPAY</span>
+                    <button
+                      onClick={() => handleForceState('mock_full_paid')}
+                      disabled={isUpdating}
+                      className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      (Test) Đã thanh toán toàn bộ
+                    </button>
                   </div>
                 )}
 
