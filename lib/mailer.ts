@@ -64,8 +64,8 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
 
   const transporter = nodemailer.createTransport({
     host: resolvedHost,
-    port: 587,
-    secure: false, // Port 587 uses STARTTLS
+    port: 465,
+    secure: true, // Port 465 uses SSL/TLS
     tls: {
       servername: smtpHost,
     },
