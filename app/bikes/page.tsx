@@ -8,6 +8,9 @@ import { BikeCatalogBrowser } from './bike-catalog-browser'
 export const revalidate = 300
 // Cached public read model (Next + Redis, TTL 300s). Admin mutations invalidate
 // its tag and Redis key.
+// Keep the route runtime-rendered because CI/deploy builds may not have access
+// to Supabase; the read model remains cached after the server starts.
+export const dynamic = 'force-dynamic'
 
 export default async function BikesPage() {
   const bikesData = await listMotorbikeCatalog()
