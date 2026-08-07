@@ -60,7 +60,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
     family: 4,
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      pass: process.env.SMTP_PASS?.replace(/\s+/g, ''),
     },
   } as any)
 
@@ -83,8 +83,8 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
   try {
     await transporter.sendMail(mailOptions)
     return true
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending email:', error)
-    throw new Error('Không thể gửi email OTP. Vui lòng thử lại sau.')
+    throw new Error('Không thể gửi email OTP: ' + (error?.message || 'Unknown error'))
   }
 }
