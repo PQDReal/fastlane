@@ -54,6 +54,7 @@ export type DraftOptionValue = {
   name: string
   colorHex: string
   swatchUrl: string
+  imageUrls?: string[]
 }
 
 export type DraftOptionGroup = {
@@ -67,6 +68,7 @@ export type DraftOptionGroup = {
   /** Legacy prototype field; normalized to minimumSelections when restoring drafts. */
   required?: boolean
   values: DraftOptionValue[]
+  mediaEnabled?: boolean
 }
 
 export type DraftOptionPreset = {
@@ -102,6 +104,10 @@ export type AdminAccessoryDraft = {
   sections: DraftContentSection[]
   optionGroups: DraftOptionGroup[]
   variants: DraftVariant[]
+  primaryCollectionSlug?: string
+  modelCollectionSlugs?: string[]
+  productImageUrls?: string[]
+  mediaOptionGroupId?: string | null
 }
 
 export const ACCESSORY_ROOT_SLUG = 'phu-kien'

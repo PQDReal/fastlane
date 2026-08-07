@@ -79,6 +79,7 @@ export function normalizeAdminCarDraft(
   const row = record(value)
   if (!row) throw new Error('Bản nháp không đúng định dạng.')
   return {
+    ...fallback,
     rootCategoryId,
     primaryCollectionSlug: typeof row.primaryCollectionSlug === 'string' ? row.primaryCollectionSlug : '',
     modelCollectionSlugs: strings(row.modelCollectionSlugs),
