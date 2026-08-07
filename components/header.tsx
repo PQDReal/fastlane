@@ -6,6 +6,7 @@ import { motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
+import useSWR from 'swr'
 import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
@@ -38,7 +39,6 @@ export function Header() {
   const { user, isLoading: userLoading } = useUser()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const {
@@ -49,6 +49,19 @@ export function Header() {
     syncCartOwner,
   } = useAppStore()
   const userSubject = typeof user?.sub === 'string' ? user.sub : null
+  const { data: profile, error: profileError } = useSWR(
+    userSubject ? ['fastlane-profile', userSubject] : null,
+    getMyProfile,
+    { dedupingInterval: 300_000 },
+  )
+  // A transient profile failure must not leave a customer cart blocked forever.
+  // Authorization is still enforced by every API; this fallback only restores
+  // the previous customer-facing header behavior until SWR retries.
+  const isAdmin = profile
+    ? profile.role.toUpperCase() === 'ADMIN'
+    : profileError
+      ? false
+      : null
   const cartCount = getCartCount()
   const cartCountRef = useRef(cartCount)
   const pendingCartAnimationsRef = useRef(0)
@@ -63,13 +76,6 @@ export function Header() {
   const accountLabel = user?.name?.trim() || user?.email?.trim() || 'Tài khoản'
 
   useEffect(() => {
-    if (!userSubject) { setIsAdmin(null); return }
-    let active = true
-    getMyProfile().then((profile) => { if (active) setIsAdmin(profile.role.toUpperCase() === 'ADMIN') }).catch(() => undefined)
-    return () => { active = false }
-  }, [userSubject])
-
-  useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
@@ -78,11 +84,19 @@ export function Header() {
   useEffect(() => {
     if (userLoading) return
 
+    // Wait for the shared profile request before touching account-scoped cart
+    // state. Admin sessions never need a customer cart request.
+    if (userSubject && isAdmin === null) return
+    if (isAdmin === true) {
+      syncCartOwner(null)
+      return
+    }
+
     const ownerChanged = syncCartOwner(userSubject)
     if (userSubject && (ownerChanged || !cartLoaded)) {
       void loadCart(userSubject)
     }
-  }, [cartLoaded, loadCart, syncCartOwner, userLoading, userSubject])
+  }, [cartLoaded, isAdmin, loadCart, syncCartOwner, userLoading, userSubject])
 
   useEffect(() => {
     if (pendingCartAnimationsRef.current === 0) {
@@ -250,7 +264,10 @@ export function Header() {
               )}
             </AnimatePresence>
           </Link>}
-          {userSubject && isAdmin === false && <CustomerNotifications userSubject={userSubject} />}
+          {/* The bell is non-sensitive and can render before role resolution;
+              the API still enforces customer permissions and the component is
+              removed as soon as an admin role is confirmed. */}
+          {userSubject && isAdmin !== true && <CustomerNotifications userSubject={userSubject} />}
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               <UserAvatar picture={user.picture} name={user.name} />
