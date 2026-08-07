@@ -121,6 +121,9 @@ export function normalizeAdminAccessoryDraft(
       ? Number(row.templateVersion)
       : 1,
     categoryAssignments: normalizeCategoryAssignments(row.categoryAssignments, row),
+    primaryCollectionSlug: typeof row.primaryCollectionSlug === 'string' ? row.primaryCollectionSlug : '',
+    modelCollectionSlugs: strings(row.modelCollectionSlugs),
+    productImageUrls: strings(row.productImageUrls).length > 0 ? strings(row.productImageUrls) : [''],
     name: typeof row.name === 'string' ? row.name : '',
     slug: typeof row.slug === 'string' ? row.slug : '',
     description: typeof row.description === 'string' ? row.description : '',

@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     // Lấy thông tin order để kiểm tra quyền
     const { data: orderData, error: fetchError } = await supabase
       .from('deposit_orders')
-      .select('id, customer_id, email, status')
+      .select('id, customer_id, email, status, order_number, full_name, deposit_amount, total_estimated_price, car_model, car_variant')
       .eq('id', orderId)
       .single()
 
@@ -76,6 +76,42 @@ export async function POST(request: Request) {
     if (updateError) {
       console.error('Error signing contract:', updateError)
       return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    // Gửi email thông báo hợp đồng
+    try {
+      const { sendContractSignedEmail } = await import('@/lib/mailer')
+      
+      const now = new Date()
+      const contractDate = now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+      
+      const formatter = new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+      })
+      
+      const amount = orderData.deposit_amount ? formatter.format(Number(orderData.deposit_amount)) : 'Liên hệ'
+      const remainNum = (Number(orderData.total_estimated_price) || 0) - (Number(orderData.deposit_amount) || 0)
+      const remainingAmount = remainNum > 0 ? formatter.format(remainNum) : '0 ₫'
+      
+      const productName = [orderData.car_model, orderData.car_variant].filter(Boolean).join(' - ') || 'Sản phẩm VinFast'
+      const orderNumber = orderData.order_number || orderData.id.substring(0, 8).toUpperCase()
+      
+      const toEmail = orderData.email || user.email;
+      
+      await sendContractSignedEmail(
+        toEmail,
+        orderData.full_name || 'Quý khách',
+        orderNumber,
+        contractDate,
+        productName,
+        amount,
+        remainingAmount,
+        orderId
+      )
+    } catch (e) {
+      console.error('Lỗi khi gửi mail hợp đồng:', e)
+      // Không ném lỗi ra ngoài để luồng ký hợp đồng vẫn thành công
     }
 
     revalidatePath('/profile')

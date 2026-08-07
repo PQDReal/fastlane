@@ -80,6 +80,9 @@ export function normalizeAdminCarDraft(
   if (!row) throw new Error('Bản nháp không đúng định dạng.')
   return {
     rootCategoryId,
+    templateCode: 'custom',
+    templateVersion: 1,
+    categoryAssignments: [],
     primaryCollectionSlug: typeof row.primaryCollectionSlug === 'string' ? row.primaryCollectionSlug : '',
     modelCollectionSlugs: strings(row.modelCollectionSlugs),
     name: typeof row.name === 'string' ? row.name : '',

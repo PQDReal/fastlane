@@ -54,6 +54,7 @@ export type DraftOptionValue = {
   name: string
   colorHex: string
   swatchUrl: string
+  imageUrls?: string[]
 }
 
 export type DraftOptionGroup = {
@@ -64,6 +65,7 @@ export type DraftOptionGroup = {
   displayType: 'BUTTON' | 'SWATCH' | 'SELECT'
   minimumSelections?: number
   maximumSelections?: number
+  mediaEnabled?: boolean
   /** Legacy prototype field; normalized to minimumSelections when restoring drafts. */
   required?: boolean
   values: DraftOptionValue[]
@@ -94,6 +96,10 @@ export type AdminAccessoryDraft = {
   templateCode: AccessoryTemplateCode
   templateVersion: number
   categoryAssignments: DraftCategoryAssignment[]
+  primaryCollectionSlug: string
+  modelCollectionSlugs: string[]
+  productImageUrls: string[]
+  mediaOptionGroupId?: string | null
   name: string
   slug: string
   description: string
@@ -247,6 +253,9 @@ export function createAdminAccessoryDraft(): AdminAccessoryDraft {
     templateCode: 'custom',
     templateVersion: 1,
     categoryAssignments: [],
+    primaryCollectionSlug: '',
+    modelCollectionSlugs: [],
+    productImageUrls: [''],
     name: '',
     slug: '',
     description: '',
@@ -306,6 +315,7 @@ export function createDraftOptionValue(id: string): DraftOptionValue {
     name: '',
     colorHex: '',
     swatchUrl: '',
+    imageUrls: [''],
   }
 }
 

@@ -49,7 +49,13 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
 
   const rawCarsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
   const carsData = rawCarsData.map((c: any) => {
-    const dbP = dbProducts.find(p => p.name === c.name || c.name.includes(p.name) || p.name.includes(c.name))
+    let dbP = dbProducts.find(p => p.name === c.name || p.name === c.name.replace('VinFast ', ''))
+    if (!dbP) {
+      dbP = dbProducts.find(p => {
+        if (c.name.includes('The All-New') && !p.name.includes('The All-New')) return false;
+        return c.name.includes(p.name) || p.name.includes(c.name)
+      })
+    }
     if (dbP) {
       if (dbP.advanced_color_price !== null) {
         c.advanced_color_price = dbP.advanced_color_price

@@ -15,9 +15,13 @@ type RedisGlobal = typeof globalThis & {
   fastlaneRedis?: Redis
   fastlaneRedisWarningShown?: boolean
   fastlaneRedisUnavailableUntil?: number
+  fastlaneMemoryCache?: Map<string, { value: any, expiresAt: number }>
 }
 
 const redisGlobal = globalThis as RedisGlobal
+if (!redisGlobal.fastlaneMemoryCache) {
+  redisGlobal.fastlaneMemoryCache = new Map()
+}
 
 function reportRedisFallback(error: unknown) {
   redisGlobal.fastlaneRedisUnavailableUntil = Date.now() + REDIS_FAILURE_COOLDOWN_MS
@@ -80,6 +84,11 @@ export async function readRedisJson<T>(key: string): Promise<T | null> {
   try {
     const client = await connectedRedis()
     if (!client) {
+      const item = redisGlobal.fastlaneMemoryCache!.get(key)
+      if (item && item.expiresAt > Date.now()) {
+        recordCacheRead(key, 'HIT', performance.now() - startedAt)
+        return item.value as T
+      }
       recordCacheRead(key, 'BYPASS', performance.now() - startedAt)
       return null
     }
@@ -89,6 +98,11 @@ export async function readRedisJson<T>(key: string): Promise<T | null> {
     return parsed
   } catch (error) {
     reportRedisFallback(error)
+    const item = redisGlobal.fastlaneMemoryCache!.get(key)
+    if (item && item.expiresAt > Date.now()) {
+      recordCacheRead(key, 'HIT', performance.now() - startedAt)
+      return item.value as T
+    }
     recordCacheRead(key, 'BYPASS', performance.now() - startedAt)
     return null
   }
@@ -102,31 +116,48 @@ export async function writeRedisJson(
   completeCacheSourceLoad(key)
   try {
     const client = await connectedRedis()
-    if (!client) return false
+    if (!client) {
+      redisGlobal.fastlaneMemoryCache!.set(key, { value, expiresAt: Date.now() + Math.max(1, ttlSeconds) * 1000 })
+      return true
+    }
     await client.set(key, JSON.stringify(value), 'EX', Math.max(1, ttlSeconds))
     return true
   } catch (error) {
     reportRedisFallback(error)
-    return false
+    redisGlobal.fastlaneMemoryCache!.set(key, { value, expiresAt: Date.now() + Math.max(1, ttlSeconds) * 1000 })
+    return true
   }
 }
 
 export async function deleteRedisKey(key: string): Promise<boolean> {
   try {
     const client = await connectedRedis()
-    if (!client) return false
+    if (!client) {
+      redisGlobal.fastlaneMemoryCache!.delete(key)
+      return true
+    }
     await client.del(key)
     return true
   } catch (error) {
     reportRedisFallback(error)
-    return false
+    redisGlobal.fastlaneMemoryCache!.delete(key)
+    return true
   }
 }
 
 export async function deleteRedisKeysByPrefix(prefix: string): Promise<number> {
   try {
     const client = await connectedRedis()
-    if (!client) return 0
+    if (!client) {
+      let deleted = 0
+      for (const k of redisGlobal.fastlaneMemoryCache!.keys()) {
+        if (k.startsWith(prefix)) {
+          redisGlobal.fastlaneMemoryCache!.delete(k)
+          deleted++
+        }
+      }
+      return deleted
+    }
 
     let cursor = '0'
     let deleted = 0

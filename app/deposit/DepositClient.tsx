@@ -634,8 +634,8 @@ export function DepositClient({
 
   const getDepositAmount = () => {
     const selectedVariantName = selectedVariant.replace(currentCar.name + ' ', '')
-    const matchingDbVariant = dbVariants.find(v => v.version === selectedVariantName && v.color === selectedColor)
-      || dbVariants.find(v => v.version === selectedVariantName)
+    const matchingDbVariant = effectiveDbVariants.find((v: any) => v.version === selectedVariantName && v.color === selectedColor)
+      || effectiveDbVariants.find((v: any) => v.version === selectedVariantName)
 
     if (matchingDbVariant && matchingDbVariant.deposit_amount) {
       return Number(matchingDbVariant.deposit_amount)
@@ -911,10 +911,20 @@ export function DepositClient({
   const isMotorbike = currentCar.product_type === 'motorbike'
   const currentSpecs = specsData[currentCar.name] || {}
   
+  const effectiveDbVariants = dbVariants.length > 0 ? dbVariants : (currentCar.dbVariants || [])
+  
+  const activeDbVersions = Array.from(new Set(
+    effectiveDbVariants
+      .filter((v: any) => v.is_active && v.version)
+      .map((v: any) => v.version)
+  ))
+
   let variants = (
-    isMotorbike
-      ? currentCar.variants || []
-      : Object.keys(currentSpecs.variants || {})
+    activeDbVersions.length > 0 
+      ? activeDbVersions as string[]
+      : isMotorbike
+        ? currentCar.variants || []
+        : Object.keys(currentSpecs.variants || {})
   ).sort((a: string, b: string) => {
     if (currentCar.name === 'VF 8') {
       if (a.toLowerCase().includes('plus')) return -1
@@ -1067,12 +1077,12 @@ export function DepositClient({
   const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
   const selectedVariantData = currentSpecs.variants?.[selectedVariantName]
   const matchingDbVariant =
-    dbVariants.find(
-      (variant) =>
+    effectiveDbVariants.find(
+      (variant: any) =>
         variant.version === selectedVariantName &&
         variant.color === selectedColor,
     ) ||
-    dbVariants.find((variant) => variant.version === selectedVariantName)
+    effectiveDbVariants.find((variant: any) => variant.version === selectedVariantName)
   const basePrice =
     matchingDbVariant?.price ||
     selectedVariantData?.price ||
@@ -1131,8 +1141,8 @@ export function DepositClient({
   const allExterior = stringArray(currentCar.gallery?.exterior_images)
   const nonLogoExterior = allExterior.find((img: string) => !img.toLowerCase().includes('logo') && !img.toLowerCase().endsWith('.svg') && !img.toLowerCase().includes('icon') && !img.toLowerCase().includes('uu-diem') && !img.toLowerCase().includes('tuy-chon'))
   
-  const exactDbVariant = dbVariants.find(
-    (variant) =>
+  const exactDbVariant = effectiveDbVariants.find(
+    (variant: any) =>
       variant.version === selectedVariantName &&
       variant.color === selectedColor &&
       variant.image_car_url
