@@ -106,6 +106,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const { productId } = use(params)
   const router = useRouter()
   const [form, setForm] = useState<FormState>(initialFormState)
+  const [originalForm, setOriginalForm] = useState<FormState | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'specs' | 'variants'>('basic')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
@@ -149,6 +150,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
         }
 
         setForm(dbState)
+        setOriginalForm(dbState)
       } catch (e: any) {
         notify('error', 'Tải sản phẩm thất bại', e.message)
       } finally {
@@ -186,13 +188,43 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     notify('warning', 'Bỏ qua bản nháp chỉnh sửa', 'Tiếp tục dùng dữ liệu từ cơ sở dữ liệu.')
   }
 
-  // Cancel action
+  // Cancel action (Ask confirmation via warning toast if draft exists and form is modified)
   const handleCancel = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    notify('success', 'Đã hủy chỉnh sửa', 'Bản nháp chỉnh sửa tạm thời đã được xóa.')
-    setTimeout(() => {
+    const isFormDirty = originalForm ? JSON.stringify(form) !== JSON.stringify(originalForm) : false
+    if (!isFormDirty) {
+      localStorage.removeItem(STORAGE_KEY)
       router.push('/admin/products')
-    }, 800)
+      return
+    }
+
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [
+      ...items,
+      {
+        id: toastId,
+        kind: 'warning',
+        title: 'Xác nhận hủy chỉnh sửa?',
+        message: 'Bản nháp chỉnh sửa tạm thời sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+        action: {
+          label: 'Xóa và hủy',
+          variant: 'danger',
+          onClick: () => {
+            setToasts((current) => current.filter((item) => item.id !== toastId))
+            localStorage.removeItem(STORAGE_KEY)
+            notify('success', 'Đã hủy chỉnh sửa', 'Bản nháp chỉnh sửa tạm thời đã được dọn sạch.')
+            setTimeout(() => {
+              router.push('/admin/products')
+            }, 800)
+          },
+        },
+        secondaryAction: {
+          label: 'Quay lại',
+          onClick: () => {
+            setToasts((current) => current.filter((item) => item.id !== toastId))
+          },
+        },
+      },
+    ])
   }
 
   // Auto fill slug from name
@@ -338,6 +370,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     )
   }
 
+  const isDirty = originalForm ? JSON.stringify(form) !== JSON.stringify(originalForm) : false
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
@@ -373,9 +407,9 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           </Button>
           <Button
             type="button"
-            disabled={isSaving}
+            disabled={isSaving || !isDirty}
             onClick={() => void handleSaveProduct()}
-            className="bg-slate-950 text-white hover:bg-slate-900 font-bold"
+            className="bg-slate-950 text-white hover:bg-slate-900 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
             Lưu thay đổi

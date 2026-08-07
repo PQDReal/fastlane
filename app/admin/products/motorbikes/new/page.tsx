@@ -171,13 +171,42 @@ export default function NewMotorbikePage() {
     notify('warning', 'Bỏ qua bản nháp', 'Bắt đầu điền thông tin mới.')
   }
 
-  // Cancel action (Ask confirmation via custom toast or just perform it since we clear storage)
+  // Cancel action (Ask confirmation via warning toast if draft exists)
   const handleCancel = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    notify('success', 'Đã hủy tạo mới', 'Bộ nhớ tạm đã được dọn sạch.')
-    setTimeout(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved) {
       router.push('/admin/products')
-    }, 800)
+      return
+    }
+
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [
+      ...items,
+      {
+        id: toastId,
+        kind: 'warning',
+        title: 'Xác nhận hủy tạo mới?',
+        message: 'Bản nháp lưu tạm thời sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+        action: {
+          label: 'Xóa và hủy',
+          variant: 'danger',
+          onClick: () => {
+            setToasts((current) => current.filter((item) => item.id !== toastId))
+            localStorage.removeItem(STORAGE_KEY)
+            notify('success', 'Đã hủy tạo mới', 'Bản nháp lưu tạm đã được dọn sạch.')
+            setTimeout(() => {
+              router.push('/admin/products')
+            }, 800)
+          },
+        },
+        secondaryAction: {
+          label: 'Quay lại',
+          onClick: () => {
+            setToasts((current) => current.filter((item) => item.id !== toastId))
+          },
+        },
+      },
+    ])
   }
 
   // Auto fill slug from name
