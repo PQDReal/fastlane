@@ -647,26 +647,53 @@ function ProfileContent() {
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
                           stateText = 'Thanh toán phần còn lại: Đang chờ thanh toán số tiền còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
                           actionBtn = (
-                            <button
-                              type="button"
-                              onClick={() => void payVehicleBalance(order)}
-                              disabled={orderAction?.id === order.id}
-                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all disabled:cursor-wait disabled:opacity-60"
-                            >
-                              {orderAction?.id === order.id && orderAction.type === 'payment' && <Loader2 className="h-4 w-4 animate-spin" />}
-                              Thanh toán phần còn lại
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void payVehicleBalance(order)}
+                                disabled={orderAction?.id === order.id}
+                                className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all disabled:cursor-wait disabled:opacity-60"
+                              >
+                                {orderAction?.id === order.id && orderAction.type === 'payment' && <Loader2 className="h-4 w-4 animate-spin" />}
+                                Thanh toán phần còn lại
+                              </button>
+                              <button 
+                                onClick={() => router.push(`/profile/contract/${order.id}`)}
+                                className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+                              >
+                                <FileText className="w-4 h-4" />
+                                Xem hợp đồng
+                              </button>
+                            </div>
                           );
                           break;
                         case 'PAID':
                         case 'PREPARING_DELIVERY':
                           stateIcon = <Package className="w-5 h-5 shrink-0 text-purple-500" />;
                           stateText = 'Đã thanh toán thành công. Xe đang được chuẩn bị bàn giao!';
+                          actionBtn = (
+                            <button 
+                              onClick={() => router.push(`/profile/contract/${order.id}`)}
+                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Xem lại hợp đồng
+                            </button>
+                          );
                           break;
                         case 'DELIVERED':
                         case 'COMPLETED':
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
                           stateText = 'Đã nhận xe thành công. Chúc bạn có những chuyến đi tuyệt vời!';
+                          actionBtn = (
+                            <button 
+                              onClick={() => router.push(`/profile/contract/${order.id}`)}
+                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Xem lại hợp đồng
+                            </button>
+                          );
                           break;
                         case 'CANCELLED':
                           stateIcon = <XCircle className="w-5 h-5 shrink-0 text-red-500" />;

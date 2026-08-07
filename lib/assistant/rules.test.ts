@@ -68,6 +68,31 @@ describe('assistant rule engine', () => {
     expect(classifySearchQuery('xe máy điện rẻ nhất').filters.sort).toBe('price_asc')
     expect(classifySearchQuery('xe máy điện đắt nhất').filters.sort).toBe('price_desc')
   })
+  it('recognizes gender phrases with gioi', () => {
+    expect(classifySearchQuery('phu kien danh cho nam gioi').filters.gender).toBe('nam')
+    expect(classifySearchQuery('phu kien cho nu gioi').filters.gender).toBe('nu')
+  })
+  it.each([
+    ['xe ô tô nhanh nhất', 'car', 'top_speed', 'desc'],
+    ['xe ô tô tốc độ cao nhất', 'car', 'top_speed', 'desc'],
+    ['xe máy điện tầm hoạt động xa nhất', 'motorbike', 'range', 'desc'],
+    ['mẫu xe ô tô quãng đường lớn nhất', 'car', 'range', 'desc'],
+    ['phụ kiện rẻ nhất', 'accessory', 'price', 'asc'],
+    ['phụ kiện đắt nhất', 'accessory', 'price', 'desc'],
+    ['xe máy công suất cao nhất', 'motorbike', 'power', 'desc'],
+    ['xe máy dung lượng pin lớn nhất', 'motorbike', 'battery', 'desc'],
+  ])('handles cross-category superlatives: %s', (query, productType, sortBy, direction) => {
+    expect(classifySearchQuery(query)).toMatchObject({
+      intent: 'recommendation',
+      filters: { productType, sortBy, sortDirection: direction },
+    })
+  })
+  it('removes superlative words from the catalog query', () => {
+    expect(classifySearchQuery('xe máy nhanh nhất')).toMatchObject({
+      catalogQuery: '',
+      filters: { productType: 'motorbike', sortBy: 'top_speed', sortDirection: 'desc' },
+    })
+  })
   it('keeps only the model name in natural specification questions', () => {
     expect(classifySearchQuery('Amio công suất bao nhiêu').catalogQuery).toBe('amio')
     expect(classifySearchQuery('Evo tốc độ tối đa bao nhiêu')).toMatchObject({

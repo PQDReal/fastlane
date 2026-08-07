@@ -150,6 +150,9 @@ export type CatalogAccessoryContentSectionType =
   | 'SHIPPING_NOTE'
   | 'SAFETY_NOTE'
   | 'PURCHASE_NOTE'
+  | 'CAR_HERO'
+  | 'CAR_FEATURE_SPLIT'
+  | 'CAR_GALLERY'
   | 'OTHER'
 
 export type CatalogAccessoryContentAttribute = {

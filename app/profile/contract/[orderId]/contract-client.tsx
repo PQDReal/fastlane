@@ -10,7 +10,6 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 export default function ContractPageClient({ order }: { order: any }) {
   const router = useRouter()
   const [toasts, setToasts] = useState<ToastMessage[]>([])
-  const [isSigning, setIsSigning] = useState(false)
   
   function showToast(
     kind: ToastMessage['kind'],
@@ -23,13 +22,29 @@ export default function ContractPageClient({ order }: { order: any }) {
     window.setTimeout(dismiss, 4500)
   }
 
+  const handleSendOtp = async () => {
+    try {
+      const res = await fetch('/api/contracts/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Lỗi khi gửi mã OTP')
+      
+      showToast('success', 'Đã gửi mã OTP', 'Vui lòng kiểm tra email của bạn.')
+    } catch (err: any) {
+      showToast('error', 'Lỗi', err.message || 'Không thể gửi mã OTP lúc này')
+      throw err // Ném lỗi để ContractViewer xử lý (ví dụ bỏ loading state)
+    }
+  }
   
-  const handleSign = async () => {
+  const handleSign = async (otp: string) => {
     try {
       const res = await fetch('/api/contracts/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: order.id, otp }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Lỗi khi ký hợp đồng')
@@ -42,6 +57,7 @@ export default function ContractPageClient({ order }: { order: any }) {
       }, 1500)
     } catch (err: any) {
       showToast('error', 'Lỗi', err.message || 'Không thể ký hợp đồng lúc này')
+      throw err // Để bên trong component ngừng isSigning
     }
   }
 
@@ -57,7 +73,7 @@ export default function ContractPageClient({ order }: { order: any }) {
           Quay lại hồ sơ
         </button>
       </div>
-      <ContractViewer order={order} onSign={handleSign} />
+      <ContractViewer order={order} onSign={handleSign} onSendOtp={handleSendOtp} />
     </div>
   )
 }

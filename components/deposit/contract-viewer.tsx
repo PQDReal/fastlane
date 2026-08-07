@@ -1,12 +1,14 @@
 'use client'
 
 import React, { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { contractStageCopy, getDepositContractMode, type DepositContractMode } from '@/lib/deposit/contract-workflow'
 
 export type ContractViewerProps = {
   order: any
-  onSign: () => Promise<void>
+  onSign: (otp: string) => Promise<void>
+  onSendOtp?: () => Promise<void>
 }
 
 const formatMoney = (value: number) => {
@@ -19,15 +21,41 @@ const formatDateStr = (isoString?: string) => {
   return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`
 }
 
-export function ContractViewer({ order, onSign }: ContractViewerProps) {
+export function ContractViewer({ order, onSign, onSendOtp }: ContractViewerProps) {
   const [agreed, setAgreed] = useState(false)
   const [isSigning, setIsSigning] = useState(false)
+  const [isOtpStep, setIsOtpStep] = useState(false)
+  const [otpValue, setOtpValue] = useState('')
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+
+  const isSigned = ['CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order?.status)
 
   const handleSign = async () => {
     if (!agreed) return
+    
+    if (onSendOtp && !isOtpStep) {
+      setIsSendingOtp(true)
+      try {
+        await onSendOtp()
+        setIsOtpStep(true)
+      } finally {
+        setIsSendingOtp(false)
+      }
+    } else {
+      setIsSigning(true)
+      try {
+        await onSign(otpValue || '000000')
+      } finally {
+        setIsSigning(false)
+      }
+    }
+  }
+
+  const handleVerifyAndSign = async () => {
+    if (!otpValue || otpValue.length < 6) return
     setIsSigning(true)
     try {
-      await onSign()
+      await onSign(otpValue)
     } finally {
       setIsSigning(false)
     }
@@ -235,30 +263,195 @@ export function ContractViewer({ order, onSign }: ContractViewerProps) {
       </div>
 
       {/* Hành động Ký hợp đồng */}
-      <div className="mt-8 flex flex-col items-center space-y-6 border-t border-slate-200 pt-8 sm:px-6 font-sans">
-        <label className="flex cursor-pointer items-start space-x-3 rounded-lg border border-transparent p-3 transition-colors hover:bg-slate-50">
-          <input 
-            type="checkbox"
-            id="agree-contract" 
-            checked={agreed} 
-            onChange={(e) => setAgreed(e.target.checked)} 
-            className="mt-1 h-5 w-5 rounded border-gray-300 text-[#1e4d2b] focus:ring-[#1e4d2b]"
-          />
-          <div className="leading-snug">
-            <p className="font-medium text-slate-900">{copy.consent}</p>
-            <p className="mt-1 text-xs text-slate-500">Giao dịch này tương đương chữ ký số có giá trị pháp lý.</p>
+      {isSigned ? (
+        <div className="mt-8 flex flex-col items-center space-y-4 border-t border-slate-200 pt-8 sm:px-6 font-sans">
+          <div className="rounded-lg bg-green-50 p-4 border border-green-200 text-center w-full sm:w-auto">
+            <p className="font-semibold text-green-800">Hợp đồng này đã được ký</p>
+            <p className="mt-1 text-sm text-green-700">Được kí bởi <strong>{customerName}</strong> ngày <strong>{formatDateStr(order?.updated_at || order?.created_at)}</strong></p>
           </div>
-        </label>
-        
-        <Button 
-          onClick={handleSign} 
-          disabled={!agreed || isSigning} 
-          size="default" 
-          className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
-        >
-          {isSigning ? 'Đang xử lý...' : contractMode === 'CAR_SALES' ? 'Ký Hợp Đồng' : 'Xác nhận thỏa thuận'}
-        </Button>
-      </div>
+        </div>
+      ) : (
+        <div className="mt-8 flex flex-col items-center space-y-6 border-t border-slate-200 pt-8 sm:px-6 font-sans">
+          <label className="flex cursor-pointer items-start space-x-3 rounded-lg border border-transparent p-3 transition-colors hover:bg-slate-50">
+            <input 
+              type="checkbox"
+              id="agree-contract" 
+              checked={agreed} 
+              onChange={(e) => setAgreed(e.target.checked)} 
+              className="mt-1 h-5 w-5 rounded border-gray-300 text-[#1e4d2b] focus:ring-[#1e4d2b]"
+            />
+            <div className="leading-snug">
+              <p className="font-medium text-slate-900">{copy.consent}</p>
+              <p className="mt-1 text-xs text-slate-500">Giao dịch này tương đương chữ ký số có giá trị pháp lý.</p>
+            </div>
+          </label>
+          
+          <Button 
+            onClick={handleSign} 
+            disabled={!agreed || isSendingOtp} 
+            size="default" 
+            className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
+          >
+            {isSendingOtp ? 'Đang gửi mã...' : contractMode === 'CAR_SALES' ? 'Ký Hợp Đồng' : 'Xác nhận thỏa thuận'}
+          </Button>
+        </div>
+      )}
+
+      {/* OTP Popup Modal */}
+      <OTPModal 
+        isOpen={isOtpStep} 
+        onClose={() => setIsOtpStep(false)} 
+        isVerifying={isSigning} 
+        onComplete={async (otp) => {
+          setOtpValue(otp)
+          setIsSigning(true)
+          try {
+            await onSign(otp)
+          } finally {
+            setIsSigning(false)
+          }
+        }} 
+      />
     </div>
+  )
+}
+
+function OTPModal({ 
+  isOpen, 
+  onClose, 
+  onComplete, 
+  isVerifying 
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  onComplete: (otp: string) => void, 
+  isVerifying: boolean 
+}) {
+  const [otp, setOtp] = React.useState(['', '', '', '', '', ''])
+  const inputRefs = React.useRef<(HTMLInputElement | null)[]>([])
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setOtp(['', '', '', '', '', ''])
+      setTimeout(() => inputRefs.current[0]?.focus(), 100)
+    }
+  }, [isOpen])
+
+  const handleChange = (index: number, value: string) => {
+    if (isVerifying) return
+    const numericValue = value.replace(/\D/g, '')
+    if (!numericValue && value !== '') return
+
+    const newOtp = [...otp]
+    
+    // Allow pasting 6 digits
+    if (numericValue.length > 1) {
+      const chars = numericValue.slice(0, 6).split('')
+      for (let i = 0; i < chars.length; i++) {
+        newOtp[i] = chars[i]
+      }
+      setOtp(newOtp)
+      
+      const nextIndex = Math.min(chars.length, 5)
+      inputRefs.current[nextIndex]?.focus()
+      
+      if (chars.length === 6) {
+        onComplete(newOtp.join(''))
+      }
+      return
+    }
+
+    newOtp[index] = numericValue
+    setOtp(newOtp)
+
+    // Auto focus next
+    if (numericValue && index < 5) {
+      inputRefs.current[index + 1]?.focus()
+    }
+
+    // Auto submit if all filled
+    if (newOtp.every(v => v !== '') && (index === 5 || newOtp.join('').length === 6)) {
+      onComplete(newOtp.join(''))
+    }
+  }
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isVerifying) return
+    if (e.key === 'Backspace') {
+      e.preventDefault()
+      const newOtp = [...otp]
+      if (otp[index]) {
+        newOtp[index] = ''
+        setOtp(newOtp)
+      } else if (index > 0) {
+        newOtp[index - 1] = ''
+        setOtp(newOtp)
+        inputRefs.current[index - 1]?.focus()
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl relative font-sans"
+          >
+            <button 
+              onClick={onClose}
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              disabled={isVerifying}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            
+            <div className="mb-6 mt-2 text-center">
+              <h2 className="text-xl font-bold text-slate-800">Xác thực hợp đồng</h2>
+              <p className="mt-2 text-sm text-slate-500">Mã xác thực 6 số đã được gửi đến email của bạn.</p>
+            </div>
+
+            <div className="mb-8 flex justify-center gap-2 sm:gap-3" dir="ltr">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={el => { inputRefs.current[index] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  maxLength={6}
+                  value={digit}
+                  onChange={(e) => handleChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  disabled={isVerifying}
+                  className="h-12 w-10 sm:h-14 sm:w-11 rounded-lg border-2 border-slate-200 bg-slate-50 text-center text-xl font-semibold text-slate-900 transition-all focus:border-[#1e4d2b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e4d2b]/20 disabled:opacity-50"
+                />
+              ))}
+            </div>
+
+            <div className="h-6 text-center">
+              {isVerifying ? (
+                <p className="flex items-center justify-center gap-2 text-sm font-medium text-[#1e4d2b]">
+                  <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Đang xác thực...
+                </p>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Sẽ tự động xác nhận khi nhập đủ 6 số
+                </p>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   )
 }

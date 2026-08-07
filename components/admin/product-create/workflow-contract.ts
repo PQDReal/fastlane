@@ -1,6 +1,6 @@
 import type { AdminRootCategory } from '@/lib/catalog/admin-accessory-draft'
 
-export type ProductWorkflowKey = 'accessory' | 'motorbike'
+export type ProductWorkflowKey = 'accessory' | 'motorbike' | 'car'
 export type ProductCapabilityStatus = 'supported' | 'planned' | 'unavailable'
 
 export type ProductWorkflowCapability = {
@@ -17,10 +17,10 @@ const PRODUCT_WORKFLOW_CAPABILITIES: Record<string, ProductWorkflowCapability> =
     createTitle: 'Thêm sản phẩm · Phụ kiện',
   },
   'o-to-dien': {
-    workflow: null,
-    status: 'planned',
+    workflow: 'car',
+    status: 'supported',
     label: 'Ô tô điện',
-    createTitle: null,
+    createTitle: 'Thêm sản phẩm · Ô tô điện',
   },
   'xe-may-dien': {
     workflow: 'motorbike',

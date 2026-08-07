@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PackagePlus, X } from 'lucide-react'
 
 import { AccessoryProductCreateDialog } from '@/components/admin/accessory-product-create-dialog'
+import { CarProductCreateDialog } from '@/components/admin/car-product-create-dialog'
 import { ToastViewport, type ToastKind, type ToastMessage } from '@/components/ui/toast'
 import type { AdminRootCategory } from '@/lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
@@ -133,7 +134,7 @@ export function ProductCreateDialog({
 
   function selectCategory(category: AdminRootCategory) {
     const capability = productWorkflowCapability(category)
-    if (capability.workflow === 'accessory') {
+    if (capability.workflow === 'accessory' || capability.workflow === 'car') {
       setWorkflowDirty(false)
       setSelectedCategory(category)
     } else if (capability.workflow === 'motorbike') {
@@ -155,7 +156,7 @@ export function ProductCreateDialog({
 
     confirmWorkflow(
       'Đổi loại sản phẩm?',
-      'Thông tin phụ kiện đã nhập sẽ bị xóa.',
+      'Thông tin sản phẩm đã nhập sẽ bị xóa.',
       returnToTypePicker,
       'Xóa và đổi loại',
     )
@@ -200,6 +201,24 @@ export function ProductCreateDialog({
           rootCategoryId={activeCategory.id}
           serviceLabels={serviceLabels}
           onClose={requestClose}
+          onChangeType={requestChangeType}
+          onDirtyChange={setWorkflowDirty}
+          onSaved={onSaved}
+          onNotify={notifyWorkflow}
+          onConfirmDestructive={confirmWorkflow}
+          onAfterExit={finishClose}
+          initialDraft={initialAccessory?.draft}
+          productId={initialAccessory?.id}
+          expectedUpdatedAt={initialAccessory?.updatedAt}
+        />
+      )}
+
+      {activeCategory && productWorkflowCapability(activeCategory).workflow === 'car' && (
+        <CarProductCreateDialog
+          open={open}
+          rootCategoryId={activeCategory.id}
+          serviceLabels={serviceLabels}
+          onClose={onClose}
           onChangeType={requestChangeType}
           onDirtyChange={setWorkflowDirty}
           onSaved={onSaved}

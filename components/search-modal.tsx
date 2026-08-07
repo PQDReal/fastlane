@@ -88,6 +88,7 @@ export function SearchModal() {
   const getProductLink = (product: any) => {
     if (product.category === 'Ô tô điện') return `/cars/${product.slug}`
     if (product.category === 'Xe máy điện') return `/bikes/${product.slug}`
+    if (product.product_type === 'ACCESSORY' || product.category === 'Phụ kiện') return `/accessories/${product.slug}`
     return `/accessories`
   }
 

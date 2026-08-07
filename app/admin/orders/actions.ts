@@ -72,3 +72,44 @@ export async function confirmDepositRefund(orderId: string) {
     return { success: false, error: error instanceof Error ? error.message : 'Không thể gửi yêu cầu hoàn tiền VNPay.' }
   }
 }
+
+// Dành cho mục đích test/developer mode để vượt qua các bước thanh toán/KYC
+export async function forceOrderState(orderId: string, action: 'mock_deposit_paid' | 'mock_kyc_approved' | 'mock_contract_signed' | 'mock_full_paid') {
+  await requireAdmin()
+  const supabase = getSupabaseAdmin()
+
+  try {
+    let updates: any = { updated_at: new Date().toISOString() }
+
+    switch (action) {
+      case 'mock_deposit_paid':
+        updates.status = 'CONFIRMED'
+        updates.payment_status = 'Paid'
+        break
+      case 'mock_kyc_approved':
+        updates.kyc_status = 'APPROVED'
+        updates.status = 'PENDING_CONTRACT'
+        break
+      case 'mock_contract_signed':
+        updates.status = 'CONTRACT_SIGNED'
+        updates.contract_signed_at = new Date().toISOString()
+        break
+      case 'mock_full_paid':
+        updates.status = 'PAID'
+        break
+    }
+
+    const { error } = await supabase
+      .from('deposit_orders')
+      .update(updates)
+      .eq('id', orderId)
+
+    if (error) throw error
+
+    revalidatePath('/admin/orders')
+    return { success: true }
+  } catch (err: any) {
+    console.error('Exception forcing order state:', err)
+    return { success: false, error: err.message }
+  }
+}

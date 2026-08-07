@@ -88,13 +88,25 @@ export function classifySearchQuery(input: string): RuleResult {
     else if (/(gia|ngan sach|tam gia|khoang|trong khoang)/.test(query)) filters.maxPrice = budget
   }
 
-  if (/\b(re|thap) nhat\b/.test(query)) filters.sort = 'price_asc'
-  if (/\b(dat|cao) nhat\b/.test(query)) filters.sort = 'price_desc'
+  if (/\b(re|thap) nhat\b/.test(query)) { filters.sort = 'price_asc'; filters.sortBy = 'price'; filters.sortDirection = 'asc' }
+  if (/\b(dat|cao) nhat\b/.test(query)) { filters.sort = 'price_desc'; filters.sortBy = 'price'; filters.sortDirection = 'desc' }
+  const descending = /\b(nhanh|xa|cao|lon|manh) nhat\b/.test(query)
+  const ascending = /\b(cham|ngan|thap|nho|yeu) nhat\b/.test(query)
+  if (/\b(nhanh|cham) nhat\b|\btoc do (cao|thap) nhat\b/.test(query)) { filters.sortBy = 'top_speed'; filters.sortDirection = descending || /toc do cao nhat/.test(query) ? 'desc' : 'asc' }
+  if (/\b(xa|ngan) nhat\b|\b(pham vi|quang duong|tam hoat dong) (lon|nho|xa|ngan) nhat\b/.test(query)) { filters.sortBy = 'range'; filters.sortDirection = descending || /\b(pham vi|quang duong|tam hoat dong) (lon|xa) nhat\b/.test(query) ? 'desc' : 'asc' }
+  if (/\b(cong suat (cao|thap)|manh|yeu) nhat\b/.test(query)) { filters.sortBy = 'power'; filters.sortDirection = descending || /cong suat cao nhat/.test(query) ? 'desc' : 'asc' }
+  if (/\b(pin|dung luong pin) (lon|nho) nhat\b/.test(query)) { filters.sortBy = 'battery'; filters.sortDirection = descending ? 'desc' : 'asc' }
+  // Require an explicit color/gender context to avoid collisions such as
+  // "tìm" -> "tim" and "tốc độ" -> "do" after normalization.
+  const colorMatch = query.match(/\bmau\s+(den|trang|do|xanh|vang|xam|bac|hong|tim|nau)\b/)
+  if (colorMatch) filters.color = colorMatch[1]
+  const genderMatch = query.match(/\b(?:cho|danh cho|gioi tinh)\s+(nam(?:\s+gioi)?|nu(?:\s+gioi)?|unisex)\b/)
+  if (genderMatch) filters.gender = genderMatch[1].replace(/\s+gioi$/, '')
 
   if (/^(xin chao|chao|hello|hi|hey|cam on|thank|ban la ai|giup toi)/.test(query)) {
     return { intent: 'casual', confidence: 0.95, normalizedQuery: query, catalogQuery, filters }
   }
-  if (filters.maxPrice || filters.minPrice || filters.sort || /(phu hop|goi y|nen mua|tu van|ngan sach)/.test(query)) {
+  if (filters.maxPrice || filters.minPrice || filters.sort || filters.sortBy || filters.color || filters.gender || /(phu hop|goi y|nen mua|tu van|ngan sach)/.test(query)) {
     return { intent: 'recommendation', confidence: 0.9, normalizedQuery: query, catalogQuery: removeIntentWords(catalogQuery, RECOMMENDATION_WORDS), filters }
   }
   if (/(bao hanh|thong so|phanh|pin|pham vi|toc do|cong suat|chinh sach|bao xa|di duoc)/.test(query)) {
