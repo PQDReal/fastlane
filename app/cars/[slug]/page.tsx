@@ -127,23 +127,22 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
   if (!cached) {
     const supabase = getSupabaseAdmin()
-    const [{ data: loadedProduct }, { data: loadedVariants }] = await Promise.all([
-      supabase
-        .from('products')
-        .select('id,category_id,name,slug,description,specifications,image_urls,is_active,displayed_price,product_type,category:categories!inner(name)')
-        .eq('slug', params.slug)
-        .eq('is_active', true)
-        .eq('categories.name', 'Ô tô điện')
-        .maybeSingle(),
-      supabase
+    const { data: loadedProduct } = await supabase
+      .from('products')
+      .select('id,category_id,name,slug,description,specifications,image_urls,is_active,displayed_price,product_type,category:categories!inner(name)')
+      .eq('slug', params.slug)
+      .eq('is_active', true)
+      .eq('categories.name', 'Ô tô điện')
+      .maybeSingle()
+    product = loadedProduct
+    if (product) {
+      const { data: loadedVariants } = await supabase
         .from('vehicle_variants')
         .select('id,product_id,color,image_car_url,image_color_url,is_active')
-        .eq('is_active', true),
-    ])
-    product = loadedProduct
-    variantsData = product
-      ? (loadedVariants ?? []).filter((variant: any) => variant.product_id === product.id)
-      : []
+        .eq('product_id', product.id)
+        .eq('is_active', true)
+      variantsData = loadedVariants ?? []
+    }
     await writeRedisJson(cacheKey, { product, variantsData }, 300)
   }
 

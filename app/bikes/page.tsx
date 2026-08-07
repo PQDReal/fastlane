@@ -6,9 +6,8 @@ import { listMotorbikeCatalog } from '../../lib/motorbike-catalog'
 import { BikeCatalogBrowser } from './bike-catalog-browser'
 
 export const revalidate = 300
-// The catalog is read from Supabase at request time; Render may not expose
-// production database networking during the build step.
-export const dynamic = 'force-dynamic'
+// Cached public read model (Next + Redis, TTL 300s). Admin mutations invalidate
+// its tag and Redis key.
 
 export default async function BikesPage() {
   const bikesData = await listMotorbikeCatalog()
