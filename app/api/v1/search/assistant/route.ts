@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { classifySearchQuery, normalizeAssistantQuery } from '@/lib/assistant/rules'
 import { retrieveCatalogProducts } from '@/lib/assistant/catalog-context'
-import { extractFiltersWithOpenAI, summarizeWithOpenAI } from '@/lib/assistant/openai'
+import { summarizeWithOpenAI } from '@/lib/assistant/openai'
 import type { AssistantResponse } from '@/lib/assistant/types'
 
 const FAQ_FACT_TOPICS = [
@@ -56,25 +56,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: response })
   }
   try {
-    const extracted = await extractFiltersWithOpenAI(query)
-    if (extracted) {
-      if (!rule.filters.productType && extracted.productType) rule.filters.productType = extracted.productType
-      if (rule.filters.minPrice == null && extracted.minPrice != null) rule.filters.minPrice = extracted.minPrice
-      if (rule.filters.maxPrice == null && extracted.maxPrice != null) rule.filters.maxPrice = extracted.maxPrice
-      if (!rule.filters.sort && extracted.sort) rule.filters.sort = extracted.sort
-    }
     const requestedLimit = typeof body.limit === 'number' ? Math.min(Math.max(body.limit, 1), 12) : 8
-    const resultLimit = /\b(tat ca|toan bo)\b/.test(rule.normalizedQuery) ? 50 : requestedLimit
+    const resultLimit = rule.filters.sort || rule.filters.sortBy ? 1 : /\b(tat ca|toan bo)\b/.test(rule.normalizedQuery) ? 50 : requestedLimit
     let products = await retrieveCatalogProducts(rule.catalogQuery, rule.filters, resultLimit)
     if (rule.intent === 'product_faq') products = focusFaqProducts(rule.catalogQuery, products)
     const llm = await summarizeWithOpenAI(rule, products.slice(0, 12))
-    const publicProducts = products.map(({ facts: _facts, ...product }) => product)
-    const fallbackMessage = (rule.intent === 'product_faq' && faqFallbackMessage(rule.normalizedQuery, products)) || (products.length === 1
-      ? `Mình đã tìm thấy ${products[0].name}${products[0].displayed_price ? `, giá hiện tại ${new Intl.NumberFormat('vi-VN').format(products[0].displayed_price)} ₫` : ''}.`
+    const publicProducts = products.map(({ facts: _facts, searchableText: _searchableText, ...product }) => product)
+    const rankingProduct = rule.filters.sortBy && products[0]
+    const rankingPattern = rule.filters.sortBy === 'top_speed' ? /(speed|toc.?do)/i : rule.filters.sortBy === 'range' ? /(distance|range|quang.?duong|pham.?vi)/i : rule.filters.sortBy === 'power' ? /(power|cong.?suat)/i : /(battery|capacity|dung.?luong|pin)/i
+    // Price rankings are self-explanatory; do not append an unrelated
+    // technical fact (for example battery capacity) to those responses.
+    const rankingFact = rankingProduct && rule.filters.sortBy !== 'price'
+      ? Object.entries(rankingProduct.facts ?? {}).find(([key]) => rankingPattern.test(normalizeAssistantQuery(key)))
+      : undefined
+    const fallbackMessage = (rule.intent === 'product_faq' && faqFallbackMessage(rule.normalizedQuery, products)) || (rule.filters.sortBy && products.length === 0
+      ? `Mình chưa có thông tin ${rule.filters.sortBy === 'top_speed' ? 'tốc độ tối đa' : rule.filters.sortBy === 'range' ? 'phạm vi di chuyển' : rule.filters.sortBy === 'power' ? 'công suất' : 'dung lượng pin'} để xếp hạng cho sản phẩm “${rule.catalogQuery || query}”.`
+      : products.length === 1
+      ? `Mình đã tìm thấy ${products[0].name}${rankingFact ? `, thông số dùng để xếp hạng: ${rankingFact[1]}` : ''}${products[0].displayed_price ? `, giá hiện tại ${new Intl.NumberFormat('vi-VN').format(products[0].displayed_price)} ₫` : ''}.`
       : products.length > 1
         ? `Mình tìm thấy ${products.length} sản phẩm phù hợp với “${rule.catalogQuery || query}”.`
         : 'Mình chưa tìm thấy sản phẩm phù hợp. Bạn thử đổi từ khóa hoặc ngân sách nhé.')
-    const response: AssistantResponse = { intent: rule.intent, message: llm?.message ?? fallbackMessage, followUpQuestion: llm?.followUpQuestion ?? (products.length ? null : 'Bạn muốn tìm theo dòng xe, loại sản phẩm hay ngân sách?'), products: publicProducts, source: llm ? 'rules+llm' : 'rules' }
+    const rankingMessage = rankingFact && llm?.message && !rankingFact[1].split(/\s+/).some((token) => llm.message?.includes(token))
+      ? `${llm.message} Thông số dùng để xếp hạng: ${rankingFact[1]}.`
+      : llm?.message ?? fallbackMessage
+    const response: AssistantResponse = { intent: rule.intent, message: rankingMessage, followUpQuestion: llm?.followUpQuestion ?? (products.length ? null : 'Bạn muốn tìm theo dòng xe, loại sản phẩm hay ngân sách?'), products: publicProducts, source: llm ? 'rules+llm' : 'rules' }
     return NextResponse.json({ data: response })
   } catch (error) {
     console.error('Assistant catalog search failed', error)

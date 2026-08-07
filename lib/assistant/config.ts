@@ -10,7 +10,8 @@ export const CONVERSATION_STOP_WORDS = new Set([
 
 export const RECOMMENDATION_WORDS = new Set([
   'goi', 'y', 'phu', 'hop', 'nen', 'mua', 'tu', 'van', 'hon', 'lon', 'cao', 'it', 'nhat',
-  'thap', 're', 'nho', 'dat', 'max', 'min', 'khoang', 'tam',
+  'thap', 're', 'nho', 'dat', 'max', 'min', 'khoang', 'tam', 'nhanh', 'cham', 'xa', 'ngan',
+  'pham', 'vi', 'quang', 'duong', 'hoat', 'dong', 'cong', 'suat', 'pin', 'dung', 'luong',
 ])
 
 export const FAQ_WORDS = new Set([
