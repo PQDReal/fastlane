@@ -16,7 +16,6 @@ import { BikeShareButton } from './bike-detail-actions'
 import LandingPageRenderer from '../../../components/landing-page-renderer'
 import Image from 'next/image'
 
-export const revalidate = 300
 // Avoid querying Supabase while the deployment build is prerendering pages.
 export const dynamic = 'force-dynamic'
 

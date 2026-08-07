@@ -1,8 +1,7 @@
 import { listComparableVehicles } from '@/lib/services/compare-service'
 import { CompareVehicles } from './compare-vehicles'
 
-export const revalidate = 300
-// Comparison data includes motorbikes loaded from Supabase.
+// Avoid querying Supabase while the deployment build is prerendering pages.
 export const dynamic = 'force-dynamic'
 
 export default async function ComparePage() {
