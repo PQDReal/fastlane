@@ -16,9 +16,8 @@ import { BikeShareButton } from './bike-detail-actions'
 import LandingPageRenderer from '../../../components/landing-page-renderer'
 import Image from 'next/image'
 
-export const revalidate = 300
-// Detail data comes from the cached motorbike read model and is invalidated by
-// Admin catalog mutations.
+// Avoid querying Supabase while the deployment build is prerendering pages.
+export const dynamic = 'force-dynamic'
 
 type JsonObject = Record<string, unknown>
 type SpecEntry = [string, string]

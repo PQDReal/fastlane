@@ -1,10 +1,7 @@
 import { listComparableVehicles } from '@/lib/services/compare-service'
 import { CompareVehicles } from './compare-vehicles'
 
-export const revalidate = 300
-// The comparison service supplies a cached public read model.
-// It still depends on the live catalog during the first read, which may not be
-// reachable from the deployment build worker.
+// Avoid querying Supabase while the deployment build is prerendering pages.
 export const dynamic = 'force-dynamic'
 
 export default async function ComparePage() {
