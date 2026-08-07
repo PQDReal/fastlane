@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'i.postimg.cc', pathname: '/**' },
       { protocol: 'https', hostname: 'shop.vinfastauto.com', pathname: '/**' },
