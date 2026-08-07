@@ -28,11 +28,15 @@ function collectPublicFacts(value: unknown, path = '', result: Record<string, st
 
 export async function retrieveCatalogProducts(query: string, filters: AssistantFilters, limit = 8): Promise<AssistantProduct[]> {
   const cacheFingerprint = createHash('sha256').update(JSON.stringify({ query, filters, limit })).digest('hex')
-  const cacheKey = `fastlane:assistant-search:v1:${cacheFingerprint}`
+  const cacheKey = `fastlane:assistant-search:v4:${cacheFingerprint}`
   const cached = await readRedisJson<AssistantProduct[]>(cacheKey)
   if (cached) return cached
   const supabase = getSupabaseAdmin()
-  let request = supabase.from('products').select('id,name,slug,displayed_price,image_urls,specifications,product_type,categories(name)').eq('is_active', true).limit(limit * 3)
+  // Ranking queries must inspect the complete active catalog, otherwise the
+  // database's arbitrary first page can hide the true cheapest/most expensive
+  // product. Normal searches keep the smaller limit for latency.
+  const sourceLimit = filters.sortBy ? 200 : limit * 3
+  let request = supabase.from('products').select('id,name,slug,displayed_price,image_urls,specifications,product_type,categories(name)').eq('is_active', true).limit(sourceLimit)
   if (filters.productType === 'accessory') request = request.eq('product_type', 'ACCESSORY')
   if (filters.productType === 'car') request = request.eq('product_type', 'CAR')
   if (filters.maxPrice != null) request = request.lte('displayed_price', filters.maxPrice)
@@ -45,19 +49,22 @@ export async function retrieveCatalogProducts(query: string, filters: AssistantF
   const [{ data, error }, motorbikes] = await Promise.all([productRequest, listMotorbikeCatalog()])
   if (error) throw new Error(error.message)
   const products: AssistantProduct[] = (data ?? []).map((item: any) => ({
-    id: item.id, name: item.name, slug: item.slug, category: item.categories?.name ?? 'Chưa phân loại',
+    id: item.id, name: item.name, slug: item.slug, product_type: item.product_type, category: item.categories?.name ?? 'Chưa phân loại',
     displayed_price: item.displayed_price ?? null, image_urls: Array.isArray(item.image_urls) ? item.image_urls.filter(Boolean).slice(0, 1) : [],
-    facts: collectPublicFacts(item.specifications),
+    facts: collectPublicFacts(item.specifications), searchableText: normalizeProductSearchText(`${item.name} ${JSON.stringify(item.specifications ?? {})}`),
   }))
   const motorbikeProducts: AssistantProduct[] = motorbikes
     .filter((item) => filters.productType !== 'car' && filters.productType !== 'accessory')
     .filter((item) => !query || matchesProductSearch(item.name, query))
     .filter((item) => filters.maxPrice == null || item.displayedPrice <= filters.maxPrice)
     .filter((item) => filters.minPrice == null || item.displayedPrice >= filters.minPrice)
-    .map((item) => ({ id: item.productId, name: item.name, slug: item.slug, category: 'Xe máy điện', displayed_price: item.displayedPrice, image_urls: item.listingImageUrl ? [item.listingImageUrl] : [], facts: collectPublicFacts(item.specifications) }))
+    .map((item) => ({ id: item.productId, name: item.name, slug: item.slug, product_type: 'MOTORBIKE' as const, category: 'Xe máy điện', displayed_price: item.displayedPrice, image_urls: item.listingImageUrl ? [item.listingImageUrl] : [], facts: collectPublicFacts(item.specifications), searchableText: normalizeProductSearchText(`${item.name} ${JSON.stringify(item.specifications ?? {})}`) }))
   const matchingProducts = [...products, ...motorbikeProducts].filter((item) => {
     if (query && !matchesProductSearch(item.name, query)) return false
     const price = item.displayed_price
+    const searchable = item.searchableText ?? normalizeProductSearchText(item.name)
+    if (filters.color && !searchable.includes(filters.color)) return false
+    if (filters.gender && !searchable.includes(filters.gender)) return false
     return (filters.maxPrice == null || price == null || price <= filters.maxPrice) && (filters.minPrice == null || price == null || price >= filters.minPrice)
   })
   const uniqueProducts = new Map<string, AssistantProduct>()
@@ -66,6 +73,26 @@ export async function retrieveCatalogProducts(query: string, filters: AssistantF
     uniqueProducts.set(key, item)
   })
   const orderedProducts = [...uniqueProducts.values()]
+  const metric = (item: AssistantProduct, kind: NonNullable<AssistantFilters['sortBy']>) => {
+    if (kind === 'price') return item.displayed_price ?? null
+    const patterns = kind === 'top_speed' ? /(top.?speed|speed|toc.?do)/i : kind === 'range' ? /(distance|range|quang.?duong|pham.?vi)/i : kind === 'power' ? /(max.?power|power|cong.?suat)/i : /(battery|capacity|dung.?luong|pin)/i
+    const entry = Object.entries(item.facts ?? {}).find(([key]) => patterns.test(normalizeProductSearchText(key)))
+    const match = entry?.[1].match(/[0-9]+(?:[.,][0-9]+)?/)
+    return match ? Number(match[0].replace(',', '.')) : null
+  }
+  if (filters.sortBy) {
+    const direction = filters.sortDirection === 'asc' ? 1 : -1
+    const withMetric = orderedProducts.filter((item) => metric(item, filters.sortBy!) != null)
+    orderedProducts.splice(0, orderedProducts.length, ...withMetric)
+    orderedProducts.sort((left, right) => {
+      const a = metric(left, filters.sortBy!)
+      const b = metric(right, filters.sortBy!)
+      if (a == null && b == null) return 0
+      if (a == null) return 1
+      if (b == null) return -1
+      return (a - b) * direction
+    })
+  }
   if (filters.sort === 'price_asc') orderedProducts.sort((left, right) => (left.displayed_price ?? Number.POSITIVE_INFINITY) - (right.displayed_price ?? Number.POSITIVE_INFINITY))
   if (filters.sort === 'price_desc') orderedProducts.sort((left, right) => (right.displayed_price ?? 0) - (left.displayed_price ?? 0))
   const result = orderedProducts.slice(0, limit)

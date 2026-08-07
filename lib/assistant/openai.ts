@@ -43,7 +43,7 @@ export async function summarizeWithOpenAI(rule: RuleResult, products: AssistantP
       method: 'POST', signal: controller.signal,
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini', temperature: 0.2, max_output_tokens: 160,
-        input: [{ role: 'system', content: 'Bạn là trợ lý tìm kiếm FastLane. Trả lời tối đa 2 câu ngắn bằng tiếng Việt. Không bịa giá, tồn kho, thông số hoặc sản phẩm. Chỉ sử dụng productIds và facts được cung cấp. Với câu hỏi thông số, nếu facts không chứa câu trả lời thì nói dữ liệu chưa được cập nhật.' },
+        input: [{ role: 'system', content: 'Bạn là trợ lý tìm kiếm FastLane. Trả lời tối đa 2 câu ngắn bằng tiếng Việt. Không bịa giá, tồn kho, thông số hoặc sản phẩm. Chỉ sử dụng productIds và facts được cung cấp. Với câu hỏi thông số, nếu facts không chứa câu trả lời thì nói dữ liệu chưa được cập nhật. Nếu intent là recommendation và kết quả được xếp hạng theo một tiêu chí (nhanh nhất, xa nhất, công suất hoặc pin), bắt buộc nêu đúng giá trị của tiêu chí đó trong câu trả lời; không chỉ nêu giá.' },
           { role: 'user', content: JSON.stringify({ intent: rule.intent, query: rule.normalizedQuery, products: products.map(({ id, name, category, displayed_price, facts }) => ({ id, name, category, displayed_price, facts })) }) }],
         text: { format: { type: 'json_schema', name: 'assistant_search', strict: true, schema: { type: 'object', additionalProperties: false, properties: { message: { type: 'string' }, followUpQuestion: { type: ['string', 'null'] }, productIds: { type: 'array', items: { type: 'string' } } }, required: ['message', 'followUpQuestion', 'productIds'] } } },
       }),

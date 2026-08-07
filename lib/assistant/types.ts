@@ -5,6 +5,10 @@ export type AssistantFilters = {
   maxPrice?: number
   minPrice?: number
   sort?: 'price_asc' | 'price_desc'
+  sortBy?: 'price' | 'top_speed' | 'range' | 'power' | 'battery'
+  sortDirection?: 'asc' | 'desc'
+  color?: string
+  gender?: string
   terms?: string[]
 }
 
@@ -13,9 +17,11 @@ export type AssistantProduct = {
   name: string
   slug: string
   category: string
+  product_type?: 'CAR' | 'MOTORBIKE' | 'ACCESSORY'
   displayed_price: number | null
   image_urls: string[]
   facts?: Record<string, string>
+  searchableText?: string
 }
 
 export type RuleResult = {
