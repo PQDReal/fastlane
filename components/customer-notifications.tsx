@@ -163,7 +163,6 @@ export function CustomerNotifications({ userSubject, admin = false }: { userSubj
   }
 
   if (!isCustomer && !loading) return <ToastViewport toasts={toasts} onClose={(id) => setToasts((all) => all.filter((toast) => toast.id !== id))} />
-  if (!isCustomer) return null
 
   return (
     <div ref={rootRef} className="relative">

@@ -227,7 +227,9 @@ export function Header() {
 
         <div className={`flex shrink-0 items-center justify-end gap-3 transition-colors duration-500 xl:gap-5 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Mở trợ lý tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><Bot size={23} strokeWidth={2} /></button>
-          {(!userSubject || isAdmin === false) && <Link
+          {/* Render the non-sensitive cart affordance while the role request is
+              pending; once the profile is known, admins are still excluded. */}
+          {(!userSubject || isAdmin !== true) && <Link
             aria-label="Giỏ hàng"
             href="/cart"
             onClick={handleCartClick}
@@ -250,7 +252,10 @@ export function Header() {
               )}
             </AnimatePresence>
           </Link>}
-          {userSubject && isAdmin === false && <CustomerNotifications userSubject={userSubject} />}
+          {/* The bell is non-sensitive and can render before role resolution;
+              the API still enforces customer permissions and the component is
+              removed as soon as an admin role is confirmed. */}
+          {userSubject && isAdmin !== true && <CustomerNotifications userSubject={userSubject} />}
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               <UserAvatar picture={user.picture} name={user.name} />

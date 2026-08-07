@@ -23,12 +23,14 @@ describe('productWorkflowCapability', () => {
   })
 
   it.each([
-    ['o-to-dien', 'Ô tô điện'],
-    ['xe-may-dien', 'Xe máy điện'],
-  ])('marks %s as planned without falling back to accessory', (slug, name) => {
-    expect(productWorkflowCapability(category({ slug, name }))).toMatchObject({
-      workflow: null,
-      status: 'planned',
+    ['o-to-dien', 'Ô tô điện', 'car'],
+    ['xe-may-dien', 'Xe máy điện', 'motorbike'],
+  ] as const)('maps %s to its supported product workflow', (slug, name, workflow) => {
+    expect(productWorkflowCapability(category({ slug, name }))).toEqual({
+      workflow,
+      status: 'supported',
+      label: name,
+      createTitle: `Thêm sản phẩm · ${name}`,
     })
   })
 
