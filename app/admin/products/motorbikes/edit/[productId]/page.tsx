@@ -13,6 +13,7 @@ import {
   FileText,
   Gauge,
   Image as ImageIcon,
+  LayoutGrid,
   Layers,
   Loader2,
   Palette,
@@ -27,6 +28,7 @@ import {
 import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
+import LandingPageRenderer from '@/components/landing-page-renderer'
 
 interface ColorEntry {
   color_name: string
@@ -70,6 +72,7 @@ interface FormState {
   }
   colors: ColorEntry[]
   versions: VersionEntry[]
+  landing_page_blocks: any[]
 }
 
 const initialFormState: FormState = {
@@ -100,6 +103,7 @@ const initialFormState: FormState = {
   },
   colors: [],
   versions: [],
+  landing_page_blocks: [],
 }
 
 export default function EditMotorbikePage({ params }: { params: Promise<{ productId: string }> }) {
@@ -108,7 +112,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const [form, setForm] = useState<FormState>(initialFormState)
   const [originalForm, setOriginalForm] = useState<FormState | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'specs' | 'variants'>('basic')
+  const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'specs' | 'variants' | 'landing_page'>('basic')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -308,13 +312,71 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     }))
   }
 
+  const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
+
+  const addBlock = (type: string) => {
+    const id = `block-${Date.now()}`
+    let data: any = {}
+    if (type === 'HERO_BANNER') {
+      data = { title: 'Tiêu đề Banner', subtitle: 'Phụ đề ngắn', backgroundImage: '', ctaLabel: 'Đặt mua', ctaLink: '#deposit', textColor: 'light' }
+    } else if (type === 'TEXT_IMAGE_SPLIT') {
+      data = { title: 'Tiêu đề khối', description: 'Mô tả chi tiết', image: '', imagePosition: 'right', backgroundColor: '#ffffff' }
+    } else if (type === 'HIGHLIGHT_GRID') {
+      data = { title: 'Thông số nổi bật', items: [
+        { label: 'Quãng đường', value: '198 km', description: 'Mỗi lần sạc đầy pin LFP thế hệ mới' },
+        { label: 'Tốc độ tối đa', value: '78 km/h', description: 'Vận hành mạnh mẽ' },
+        { label: 'Thời gian sạc', value: '6 giờ', description: 'Sạc tiêu chuẩn' }
+      ] }
+    } else if (type === 'IMAGE_GALLERY') {
+      data = { title: 'Bộ sưu tập hình ảnh', images: [] }
+    } else if (type === 'VIDEO_EMBED') {
+      data = { title: 'Khám phá qua video', videoUrl: '' }
+    }
+
+    setForm((current) => ({
+      ...current,
+      landing_page_blocks: [...current.landing_page_blocks, { id, type, data }]
+    }))
+    setExpandedBlockId(id)
+  }
+
+  const deleteBlock = (id: string) => {
+    setForm((current) => ({
+      ...current,
+      landing_page_blocks: current.landing_page_blocks.filter((b) => b.id !== id)
+    }))
+    if (expandedBlockId === id) setExpandedBlockId(null)
+  }
+
+  const updateBlockData = (id: string, key: string, val: any) => {
+    setForm((current) => ({
+      ...current,
+      landing_page_blocks: current.landing_page_blocks.map((b) => {
+        if (b.id !== id) return b
+        return { ...b, data: { ...b.data, [key]: val } }
+      })
+    }))
+  }
+
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    const blocks = [...form.landing_page_blocks]
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= blocks.length) return
+    const temp = blocks[index]
+    blocks[index] = blocks[targetIndex]
+    blocks[targetIndex] = temp
+    setForm((current) => ({
+      ...current,
+      landing_page_blocks: blocks
+    }))
+  }
+
   // Validate form fields
   const validateForm = () => {
     if (!form.name.trim()) return 'Tên xe không được để trống'
     if (!form.slug.trim()) return 'Slug không được để trống'
     if (!form.listing_image_url) return 'Hình ảnh thumbnail không được để trống (Tab 2)'
     if (!form.hero_image_url) return 'Hình ảnh landing page không được để trống (Tab 2)'
-    if (form.detail_image_urls.some((url) => !url)) return 'Vui lòng cung cấp đủ 3 hình chi tiết xe (Tab 2)'
     if (form.colors.some((c) => !c.color_name.trim() || !c.image_url || !c.swatch)) {
       return 'Tất cả các màu phải có đầy đủ tên màu, hình xe và hình swatch (Tab 4)'
     }
@@ -424,6 +486,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           { id: 'images', label: 'Hình ảnh sản phẩm', icon: ImageIcon },
           { id: 'specs', label: 'Thông số kỹ thuật', icon: Layers },
           { id: 'variants', label: 'Màu sắc & Phiên bản', icon: Palette },
+          { id: 'landing_page', label: 'Thiết kế Landing Page', icon: LayoutGrid },
         ].map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -544,43 +607,6 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   <ImageUploadDropzone onUploadSuccess={(urls) => setForm({ ...form, hero_image_url: urls[0] })} />
                 </div>
               )}
-            </div>
-
-            {/* Detail Images for Landing Page */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-sm font-bold text-slate-900">3 hình ảnh chi tiết các góc xe (Landing Page Details) *</h4>
-              <p className="text-xs text-slate-500 mt-1 mb-4">Các hình ảnh thiết kế, tính năng ở nửa dưới của trang chi tiết.</p>
-              <div className="grid gap-5 sm:grid-cols-3">
-                {form.detail_image_urls.map((url, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Hình ảnh chi tiết #{idx + 1}</span>
-                    {url ? (
-                      <div className="relative h-40 rounded-lg border bg-slate-50 overflow-hidden group flex items-center justify-center">
-                        <img src={url} alt={`Detail ${idx + 1}`} className="max-w-full max-h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newUrls = [...form.detail_image_urls]
-                            newUrls[idx] = ''
-                            setForm({ ...form, detail_image_urls: newUrls })
-                          }}
-                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ) : (
-                      <ImageUploadDropzone
-                        onUploadSuccess={(urls) => {
-                          const newUrls = [...form.detail_image_urls]
-                          newUrls[idx] = urls[0]
-                          setForm({ ...form, detail_image_urls: newUrls })
-                        }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         )}
@@ -841,6 +867,392 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
             </div>
           </div>
         )}
+
+        {activeTab === 'landing_page' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Thiết kế Landing Page</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Sắp xếp và tùy biến các khối nội dung hiển thị trên trang chi tiết sản phẩm.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      addBlock(e.target.value)
+                      e.target.value = ''
+                    }
+                  }}
+                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none transition focus:border-brand-500"
+                  defaultValue=""
+                >
+                  <option value="" disabled>+ Thêm khối nội dung</option>
+                  <option value="HERO_BANNER">Khối Banner Chính (Hero)</option>
+                  <option value="TEXT_IMAGE_SPLIT">Khối Chữ kèm Ảnh (Split)</option>
+                  <option value="HIGHLIGHT_GRID">Khối Thông số nổi bật (Grid)</option>
+                  <option value="IMAGE_GALLERY">Khối Thư viện ảnh (Gallery)</option>
+                  <option value="VIDEO_EMBED">Khối Video nhúng (YouTube)</option>
+                </select>
+              </div>
+            </div>
+
+            {form.landing_page_blocks.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center text-slate-400">
+                Chưa có khối nội dung nào. Vui lòng chọn một khối từ danh sách phía trên để bắt đầu thiết kế.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {form.landing_page_blocks.map((block, index) => {
+                  const isExpanded = expandedBlockId === block.id
+                  return (
+                    <div
+                      key={block.id}
+                      className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm transition hover:border-slate-300"
+                    >
+                      {/* Block Header */}
+                      <div className="flex items-center justify-between px-5 py-4 bg-slate-50 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+                            className="font-bold text-slate-900 text-sm hover:underline text-left"
+                          >
+                            {index + 1}. {block.data.title || 'Khối không tên'}
+                          </button>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-200 text-slate-700">
+                            {block.type}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => moveBlock(index, 'up')}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                            aria-label="Di chuyển lên"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === form.landing_page_blocks.length - 1}
+                            onClick={() => moveBlock(index, 'down')}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                            aria-label="Di chuyển xuống"
+                          >
+                            ▼
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteBlock(block.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 ml-2"
+                            aria-label="Xóa khối"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Block Body (Editor form fields) */}
+                      {isExpanded && (
+                        <div className="p-5 space-y-4 border-t border-slate-100">
+                          {block.type === 'HERO_BANNER' && (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Tiêu đề chính</label>
+                                <input
+                                  type="text"
+                                  value={block.data.title || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'title', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Tiêu đề phụ (Subtitle)</label>
+                                <input
+                                  type="text"
+                                  value={block.data.subtitle || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'subtitle', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Ảnh nền Banner (Background Image)</label>
+                                {block.data.backgroundImage && (
+                                  <div className="mb-2 relative h-20 w-36 rounded overflow-hidden border border-slate-200">
+                                    <img src={block.data.backgroundImage} className="h-full w-full object-cover" alt="Hero background" />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateBlockData(block.id, 'backgroundImage', '')}
+                                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition"
+                                      title="Xóa ảnh"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                )}
+                                <ImageUploadDropzone
+                                  compact
+                                  label="Chọn ảnh nền"
+                                  onUploadSuccess={(urls) => updateBlockData(block.id, 'backgroundImage', urls[0])}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Màu chữ (Text Color)</label>
+                                <select
+                                  value={block.data.textColor || 'light'}
+                                  onChange={(e) => updateBlockData(block.id, 'textColor', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                >
+                                  <option value="light">Sáng (Trắng)</option>
+                                  <option value="dark">Tối (Đen)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Nhãn nút bấm (CTA Label)</label>
+                                <input
+                                  type="text"
+                                  value={block.data.ctaLabel || 'Đặt mua ngay'}
+                                  onChange={(e) => updateBlockData(block.id, 'ctaLabel', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Liên kết nút bấm (CTA Link)</label>
+                                <input
+                                  type="text"
+                                  value={block.data.ctaLink || '#deposit'}
+                                  onChange={(e) => updateBlockData(block.id, 'ctaLink', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {block.type === 'TEXT_IMAGE_SPLIT' && (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Tiêu đề chính</label>
+                                <input
+                                  type="text"
+                                  value={block.data.title || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'title', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Nội dung mô tả</label>
+                                <textarea
+                                  value={block.data.description || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'description', e.target.value)}
+                                  rows={3}
+                                  className="mt-1.5 w-full rounded-md border border-slate-200 p-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh khối</label>
+                                {block.data.image && (
+                                  <div className="mb-2 relative h-20 w-36 rounded overflow-hidden border border-slate-200">
+                                    <img src={block.data.image} className="h-full w-full object-cover" alt="Split layout block" />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateBlockData(block.id, 'image', '')}
+                                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition"
+                                      title="Xóa ảnh"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                )}
+                                <ImageUploadDropzone
+                                  compact
+                                  label="Tải ảnh lên"
+                                  onUploadSuccess={(urls) => updateBlockData(block.id, 'image', urls[0])}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Vị trí ảnh</label>
+                                <select
+                                  value={block.data.imagePosition || 'right'}
+                                  onChange={(e) => updateBlockData(block.id, 'imagePosition', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                >
+                                  <option value="right">Bên phải</option>
+                                  <option value="left">Bên trái</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Màu nền khối (Background Color Hex)</label>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <input
+                                    type="text"
+                                    placeholder="Ví dụ: #ffffff"
+                                    value={block.data.backgroundColor || '#ffffff'}
+                                    onChange={(e) => updateBlockData(block.id, 'backgroundColor', e.target.value)}
+                                    className="h-10 flex-1 rounded-md border border-slate-200 px-3 text-sm"
+                                  />
+                                  <div className="flex gap-1.5">
+                                    {[
+                                      { value: '#ffffff', label: 'Trắng', bg: 'bg-white border-slate-300' },
+                                      { value: '#f8fafc', label: 'Xám nhạt', bg: 'bg-slate-50 border-slate-300' },
+                                      { value: '#fef08a', label: 'Vàng nhạt', bg: 'bg-yellow-100 border-yellow-200' },
+                                      { value: '#f59e0b', label: 'Vàng hổ phách', bg: 'bg-amber-500 border-transparent' },
+                                      { value: '#0f172a', label: 'Xanh Đen', bg: 'bg-slate-900 border-transparent' },
+                                      { value: '#000000', label: 'Đen', bg: 'bg-black border-transparent' },
+                                    ].map((colorOpt) => (
+                                      <button
+                                        key={colorOpt.value}
+                                        type="button"
+                                        title={colorOpt.label}
+                                        onClick={() => updateBlockData(block.id, 'backgroundColor', colorOpt.value)}
+                                        className={`h-7 w-7 rounded-full border ${colorOpt.bg} hover:scale-105 active:scale-95 transition shadow-sm`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {block.type === 'HIGHLIGHT_GRID' && (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Tiêu đề khối</label>
+                                <input
+                                  type="text"
+                                  value={block.data.title || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'title', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div className="border-t border-slate-100 pt-4">
+                                <p className="text-xs font-bold text-slate-700 uppercase mb-3">Các chỉ số nổi bật (Tối đa 3)</p>
+                                <div className="grid gap-4 sm:grid-cols-3">
+                                  {(block.data.items || []).slice(0, 3).map((item: any, itemIdx: number) => (
+                                    <div key={itemIdx} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Tên nhãn (ví dụ: Tốc độ)</label>
+                                        <input
+                                          type="text"
+                                          value={item.label || ''}
+                                          onChange={(e) => {
+                                            const newItems = [...block.data.items]
+                                            newItems[itemIdx] = { ...item, label: e.target.value }
+                                            updateBlockData(block.id, 'items', newItems)
+                                          }}
+                                          className="mt-1 h-8 w-full rounded border border-slate-200 px-2 text-xs bg-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Giá trị (ví dụ: 78 km/h)</label>
+                                        <input
+                                          type="text"
+                                          value={item.value || ''}
+                                          onChange={(e) => {
+                                            const newItems = [...block.data.items]
+                                            newItems[itemIdx] = { ...item, value: e.target.value }
+                                            updateBlockData(block.id, 'items', newItems)
+                                          }}
+                                          className="mt-1 h-8 w-full rounded border border-slate-200 px-2 text-xs bg-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Mô tả chi tiết</label>
+                                        <input
+                                          type="text"
+                                          value={item.description || ''}
+                                          onChange={(e) => {
+                                            const newItems = [...block.data.items]
+                                            newItems[itemIdx] = { ...item, description: e.target.value }
+                                            updateBlockData(block.id, 'items', newItems)
+                                          }}
+                                          className="mt-1 h-8 w-full rounded border border-slate-200 px-2 text-xs bg-white"
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {block.type === 'IMAGE_GALLERY' && (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Tiêu đề khối</label>
+                                <input
+                                  type="text"
+                                  value={block.data.title || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'title', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Danh sách ảnh thư viện</label>
+                                <div className="grid grid-cols-4 gap-2 mb-3">
+                                  {(block.data.images || []).map((imgUrl: string, imgIdx: number) => (
+                                    <div key={imgIdx} className="relative h-20 rounded overflow-hidden border border-slate-200">
+                                      <img src={imgUrl} className="h-full w-full object-cover" alt={`Gallery item ${imgIdx}`} />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newImages = block.data.images.filter((_: any, idx: number) => idx !== imgIdx)
+                                          updateBlockData(block.id, 'images', newImages)
+                                        }}
+                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition"
+                                        title="Xóa ảnh"
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <ImageUploadDropzone
+                                  compact
+                                  label="Tải ảnh lên thư viện"
+                                  onUploadSuccess={(urls) => {
+                                    const newImages = [...(block.data.images || []), ...urls]
+                                    updateBlockData(block.id, 'images', newImages)
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {block.type === 'VIDEO_EMBED' && (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Tiêu đề khối</label>
+                                <input
+                                  type="text"
+                                  value={block.data.title || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'title', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 uppercase">Đường dẫn video YouTube</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ví dụ: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                                  value={block.data.videoUrl || ''}
+                                  onChange={(e) => updateBlockData(block.id, 'videoUrl', e.target.value)}
+                                  className="mt-1.5 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Recover Draft Dialog overlay */}
@@ -905,7 +1317,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
             {/* Landing Page Content Mockup */}
             <div className="min-h-screen pb-32">
               {/* HERO Banner */}
-              <section className="relative flex h-[90vh] min-h-[600px] w-full flex-col justify-between overflow-hidden">
+              <section id="preview-top" className="relative flex h-[90vh] min-h-[600px] w-full flex-col justify-between overflow-hidden">
                 {form.hero_image_url ? (
                   <img
                     src={form.hero_image_url}
@@ -948,9 +1360,27 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
                   <h2 className="text-lg font-bold">{form.name || 'Tên xe'}</h2>
                   <nav className="flex gap-6 text-sm font-bold text-white/60">
-                    <span className="text-white border-b-2 border-brand-500 pb-1 cursor-default">Tổng quan</span>
-                    <span className="cursor-default">Thông số</span>
-                    <span className="cursor-default">Chi tiết</span>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('preview-top')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="text-white border-b-2 border-brand-500 pb-1 hover:text-white"
+                    >
+                      Tổng quan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('preview-specs')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="hover:text-white"
+                    >
+                      Thông số
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('preview-details')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="hover:text-white"
+                    >
+                      Chi tiết
+                    </button>
                   </nav>
                 </div>
               </div>
@@ -1028,8 +1458,14 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 </div>
               </section>
 
-              {/* DETAIL IMAGES LANDING */}
-              <section className="mx-auto max-w-6xl px-6 py-20">
+              {form.landing_page_blocks && form.landing_page_blocks.length > 0 ? (
+                <div id="preview-details" className="bg-slate-950 text-white">
+                  <LandingPageRenderer blocks={form.landing_page_blocks} />
+                </div>
+              ) : (
+                <>
+                  {/* DETAIL IMAGES LANDING */}
+                  <section id="preview-details" className="mx-auto max-w-6xl px-6 py-20">
                 <div className="text-center mb-12">
                   <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
                   <p className="text-xs text-white/50 mt-2">Được thiết kế tinh xảo, đáp ứng đầy đủ mọi nhu cầu di chuyển.</p>
@@ -1049,9 +1485,11 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   ))}
                 </div>
               </section>
+                </>
+              )}
 
               {/* COMPLETE SPECS GRID TABLE */}
-              <section className="bg-slate-950/80 py-16">
+              <section id="preview-specs" className="bg-slate-950/80 py-16">
                 <div className="mx-auto max-w-3xl px-6">
                   <h3 className="text-xl font-bold text-center mb-8 border-b border-white/10 pb-4">Bảng thông số kỹ thuật chi tiết</h3>
                   <div className="divide-y divide-white/5 text-sm">

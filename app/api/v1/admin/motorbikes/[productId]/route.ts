@@ -85,6 +85,7 @@ export async function GET(request: Request, context: Context) {
       price: Number(v.original_price),
       deposit_amount: Number(v.deposit_amount),
     })),
+    landing_page_blocks: specsObj.landing_page_blocks || [],
   }
 
   return NextResponse.json({ data: formState })
@@ -120,6 +121,7 @@ export async function PATCH(request: Request, context: Context) {
     specifications = {},
     colors = [],
     versions = [],
+    landing_page_blocks = [],
   } = body
 
   // Validation
@@ -128,9 +130,6 @@ export async function PATCH(request: Request, context: Context) {
   }
   if (!listing_image_url || !hero_image_url) {
     return NextResponse.json({ error: 'Hình ảnh thumbnail và hình landing page không được để trống.' }, { status: 400 })
-  }
-  if (detail_image_urls.length !== 3) {
-    return NextResponse.json({ error: 'Landing page yêu cầu chính xác 3 hình chi tiết.' }, { status: 400 })
   }
   if (colors.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một màu sắc.' }, { status: 400 })
@@ -179,6 +178,7 @@ export async function PATCH(request: Request, context: Context) {
     })),
     detail_images: detail_image_urls,
     representative_image: hero_image_url,
+    landing_page_blocks,
   }
 
   const displayedPrice = Math.min(...versions.map((v: any) => Number(v.price)))
