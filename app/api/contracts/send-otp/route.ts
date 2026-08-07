@@ -50,6 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: 'Không thể gửi email OTP. Vui lòng thử lại sau.',
+        details: error instanceof Error ? error.message : String(error)
       },
       { status: 500 }
     )
