@@ -13,9 +13,9 @@ import {
   FileDown,
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
+import LandingPageRenderer from '../../../components/landing-page-renderer'
 import Image from 'next/image'
 
-export const revalidate = 300
 // Avoid querying Supabase while the deployment build is prerendering pages.
 export const dynamic = 'force-dynamic'
 
@@ -323,6 +323,9 @@ export default async function BikeDetailPage(
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
   const estimatorHref = `/cost-estimator?vehicle=${encodeURIComponent(product.slug)}`
 
+  const blocks = (rawSpecifications as any)?.landing_page_blocks || null
+  const hasCustomBlocks = Array.isArray(blocks) && blocks.length > 0
+
   return (
     <main className="flex min-h-screen flex-col bg-background pb-24 selection:bg-brand-500 selection:text-white md:pb-0">
       <Header />
@@ -449,11 +452,15 @@ export default async function BikeDetailPage(
         </div>
       </div>
 
-      {/* HIGHLIGHTS */}
-      <section
-        id="performance"
-        className="bg-muted py-24"
-      >
+      {hasCustomBlocks ? (
+        <LandingPageRenderer blocks={blocks} />
+      ) : (
+        <>
+          {/* HIGHLIGHTS */}
+          <section
+            id="performance"
+            className="bg-muted py-24"
+          >
         <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
           <div className="grid grid-cols-2 gap-8 text-center md:grid-cols-4 md:gap-12">
             {[
@@ -752,6 +759,8 @@ export default async function BikeDetailPage(
           </div>
         </div>
       </section>
+        </>
+      )}
 
       {/* FULL SPECS */}
       <section

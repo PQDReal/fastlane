@@ -71,6 +71,16 @@ export async function listCustomerNotifications(customerId: string, options: {
   }
 }
 
+export async function countUnreadCustomerNotifications(customerId: string) {
+  const { count, error } = await getSupabaseAdmin()
+    .from('customer_notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('customer_id', customerId)
+    .is('read_at', null)
+  if (error) throw new Error(`Unable to count notifications: ${error.message}`)
+  return count ?? 0
+}
+
 export async function markCustomerNotificationRead(customerId: string, notificationId: string) {
   if (!UUID_PATTERN.test(notificationId)) {
     throw new ApiRouteError(400, 'VALIDATION_ERROR', 'notificationId must be a UUID.')
@@ -113,6 +123,15 @@ export async function listAdminNotifications(limit: number) {
   if (items.error) throw items.error
   if (unread.error) throw unread.error
   return { items: (items.data as AdminNotificationRow[]).map(mapAdminNotification), unreadCount: unread.count ?? 0, nextCursor: null }
+}
+
+export async function countUnreadAdminNotifications() {
+  const { count, error } = await getSupabaseAdmin()
+    .from('admin_notifications')
+    .select('id', { count: 'exact', head: true })
+    .is('read_at', null)
+  if (error) throw error
+  return count ?? 0
 }
 
 export async function markAdminNotificationRead(notificationId?: string) {

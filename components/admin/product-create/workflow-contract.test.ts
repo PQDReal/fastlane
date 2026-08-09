@@ -22,13 +22,21 @@ describe('productWorkflowCapability', () => {
     })
   })
 
-  it.each([
-    ['o-to-dien', 'Ô tô điện'],
-    ['xe-may-dien', 'Xe máy điện'],
-  ])('marks %s as planned without falling back to accessory', (slug, name) => {
-    expect(productWorkflowCapability(category({ slug, name }))).toMatchObject({
-      workflow: null,
-      status: 'planned',
+  it('maps the car root to the supported car workflow', () => {
+    expect(productWorkflowCapability(category({ slug: 'o-to-dien', name: 'Ô tô điện' }))).toEqual({
+      workflow: 'car',
+      status: 'supported',
+      label: 'Ô tô điện',
+      createTitle: 'Thêm sản phẩm · Ô tô điện',
+    })
+  })
+
+  it('maps the motorbike root to the supported motorbike workflow', () => {
+    expect(productWorkflowCapability(category({ slug: 'xe-may-dien', name: 'Xe máy điện' }))).toEqual({
+      workflow: 'motorbike',
+      status: 'supported',
+      label: 'Xe máy điện',
+      createTitle: 'Thêm sản phẩm · Xe máy điện',
     })
   })
 

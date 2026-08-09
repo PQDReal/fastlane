@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
+import {
+  ACCESSORY_CATALOG_SUMMARY_CACHE_KEY,
+  ACCESSORY_PRODUCT_CACHE_PREFIX,
+  PRODUCT_SEARCH_CACHE_PREFIX,
+} from '@/lib/cache-keys'
 import {
   AdminAccessoryPersistenceError,
   loadAdminAccessoryProduct,
@@ -81,4 +89,49 @@ export async function PATCH(request: Request, context: Context) {
     if (error instanceof AdminAccessoryPersistenceError) return adminAccessoryPersistenceResponse(error)
     return adminAccessoryErrorResponse(500, 'INTERNAL_ERROR', 'Không thể cập nhật sản phẩm phụ kiện.')
   }
+}
+
+export async function DELETE(request: Request, context: Context) {
+  const resolved = await authorizedProductId(request, context)
+  if (!resolved.ok) return resolved.response
+
+  const supabase = getSupabaseAdmin()
+
+  // 1. Get variant IDs to delete child records first
+  const { data: variants } = await supabase
+    .from('product_variants')
+    .select('id')
+    .eq('product_id', resolved.productId)
+
+  const variantIds = variants?.map((v) => v.id) || []
+
+  // 2. Clean up child records in related tables
+  if (variantIds.length > 0) {
+    await supabase.from('inventory_items').delete().in('variant_id', variantIds)
+    await supabase.from('cart_items').delete().in('variant_id', variantIds)
+    await supabase.from('product_media').delete().in('variant_id', variantIds)
+  }
+
+  await supabase.from('product_media').delete().eq('product_id', resolved.productId)
+  await supabase.from('product_service_label_assignments').delete().eq('product_id', resolved.productId)
+  await supabase.from('product_collection_memberships').delete().eq('product_id', resolved.productId)
+  await supabase.from('product_variants').delete().eq('product_id', resolved.productId)
+
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', resolved.productId)
+
+  if (error) {
+    return adminAccessoryErrorResponse(500, 'INTERNAL_ERROR', `Không thể xóa sản phẩm phụ kiện: ${error.message}`)
+  }
+
+  revalidateTag('accessory-catalog')
+  await Promise.all([
+    deleteRedisKey(ACCESSORY_CATALOG_SUMMARY_CACHE_KEY),
+    deleteRedisKeysByPrefix(ACCESSORY_PRODUCT_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
+  ])
+
+  return NextResponse.json({ success: true })
 }

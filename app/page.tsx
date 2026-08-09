@@ -3,17 +3,14 @@ import { Header, MotionDiv } from '../components/header'
 import { Button } from '../components/ui/button'
 import { Footer } from '../components/footer'
 import {
-  HomeFeaturedVehicles,
-  HomeVehicleCollection,
-  HomeVehicleFinder,
+  HomeVehicleExperience,
   type HomeVehicle,
 } from '../components/home-vehicle-experience'
 import { getSupabaseAdmin } from '../lib/supabase-admin'
 import { listMotorbikeCatalog } from '../lib/motorbike-catalog'
 
-export const revalidate = 300
-// Homepage recommendations include the Supabase-backed motorbike catalog.
-// Resolve them at runtime so deployment builds do not depend on DB networking.
+// Avoid Supabase connection failures on static prerendering.
+// Page content relies on DB query at request time.
 export const dynamic = 'force-dynamic'
 
 function shuffleItems<T>(items: T[]): T[] {
@@ -102,7 +99,14 @@ export default async function Home() {
     supabase
       .from('products')
       .select(`
-          *,
+          id,
+          name,
+          slug,
+          product_type,
+          description,
+          displayed_price,
+          specifications,
+          image_urls,
           category:categories(name)
         `)
       .eq('is_active', true)
@@ -249,9 +253,7 @@ export default async function Home() {
         </a>
       </section>
 
-      <HomeFeaturedVehicles vehicles={homeVehicles} />
-      <HomeVehicleFinder vehicles={homeVehicles} />
-      <HomeVehicleCollection vehicles={homeVehicles} />
+      <HomeVehicleExperience vehicles={homeVehicles} />
 
       {/* GREEN FUTURE */}
       <section className="overflow-hidden bg-[#0d2119] text-white">

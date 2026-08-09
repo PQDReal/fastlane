@@ -1,13 +1,10 @@
 import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
-import { VehicleCard } from '../../components/vehicle-card'
+import { CarVehicleCard } from '../../components/car-vehicle-card'
 import { Search, SlidersHorizontal, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { getSupabaseAdmin } from '../../lib/supabase-admin'
-
 import { Pagination } from '../../components/pagination'
-import { carCatalogCacheKey } from '../../lib/cache-keys'
-import { readRedisJson, writeRedisJson } from '../../lib/redis'
+import { listCarCatalogPage } from '../../lib/car-catalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,49 +13,15 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
   const pageParam = searchParams?.page
   const currentPage = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
   const pageSize = 12
-  const start = (currentPage - 1) * pageSize
-  const end = start + pageSize - 1
-  const cacheKey = carCatalogCacheKey(currentPage, pageSize)
-  const cached = await readRedisJson<{ cars: any[]; count: number }>(cacheKey)
-
-  let rawCars: any[] | null = cached?.cars ?? null
-  let count = cached?.count ?? null
-  if (!cached) {
-    const supabase = getSupabaseAdmin()
-    const result = await supabase
-      .from('products')
-      .select(`*, category:categories!inner(name)`, { count: 'exact' })
-      .eq('is_active', true)
-      .eq('categories.name', 'Ô tô điện')
-      .range(start, end)
-    rawCars = result.data as any[] | null
-    count = result.count
-    await writeRedisJson(cacheKey, { cars: rawCars ?? [], count: count ?? 0 }, 300)
-  }
-
-  const carsData = (rawCars || []).sort((a, b) => {
-    const numA = parseInt(a.name.match(/\d+/)?.[0] || '0', 10)
-    const numB = parseInt(b.name.match(/\d+/)?.[0] || '0', 10)
-    if (numA !== numB) return numA - numB
-    return a.name.localeCompare(b.name)
-  })
-  const totalPages = count ? Math.ceil(count / pageSize) : 1
-
-  const cars = carsData.map(c => {
-    const { getProductImage, getCarSpecsSummary } = require('../../lib/get-product-image')
-    // Resolve through the shared image policy so legacy 403 thumbnail URLs
-    // (notably VF2's old vinfastauto.com PDP asset) cannot leak to the client.
-    const image = getProductImage(c.name, c.image_urls)
-    const specsSummary = getCarSpecsSummary(c.name)
-    
-    return {
-      name: c.name.toUpperCase().startsWith('VINFAST') ? c.name.toUpperCase() : `VINFAST ${c.name.toUpperCase()}`,
-      desc: specsSummary || c.description || 'Xe ô tô điện VinFast',
-      price: new Intl.NumberFormat('vi-VN').format(c.displayed_price),
-      image,
-      href: `/cars/${c.slug}`
-    }
-  })
+  const catalog = await listCarCatalogPage(currentPage, pageSize)
+  const totalPages = Math.max(1, Math.ceil(catalog.total / pageSize))
+  const cars = catalog.items.map((car) => ({
+    name: car.name.toUpperCase().startsWith('VINFAST') ? car.name.toUpperCase() : `VINFAST ${car.name.toUpperCase()}`,
+    desc: car.description,
+    price: new Intl.NumberFormat('vi-VN').format(car.displayedPrice),
+    image: car.imageUrl,
+    href: `/cars/${car.slug}`,
+  }))
 
   return (
     <main className="flex min-h-screen flex-col bg-background pt-[74px]">
@@ -99,7 +62,7 @@ export default async function CarsPage(props: { searchParams?: Promise<{ [key: s
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {cars.map((car, idx) => (
-            <VehicleCard key={idx} {...car} />
+            <CarVehicleCard key={car.href || idx} {...car} />
           ))}
         </div>
 

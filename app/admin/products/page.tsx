@@ -164,9 +164,70 @@ export default function AdminProductsPage() {
     }
   }
 
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null)
+
+  async function handleDeleteProduct(productId: string, productType: string | null) {
+    setDeletingProductId(productId)
+    try {
+      const endpoint = productType === 'BIKE'
+        ? `/api/v1/admin/motorbikes/${productId}`
+        : `/api/v1/admin/products/${productId}`
+
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error(await responseError(response))
+      }
+
+      notify('success', 'Xóa sản phẩm thành công', 'Sản phẩm đã được xóa khỏi hệ thống.')
+      setProductsReloadKey((current) => current + 1)
+    } catch (error) {
+      notify('error', 'Xóa sản phẩm thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setDeletingProductId(null)
+    }
+  }
+
+  const confirmDeleteProduct = (product: AdminProduct) => {
+    if (product.product_type !== 'BIKE' && product.product_type !== 'ACCESSORY') {
+      notify('warning', 'Chưa hỗ trợ xóa loại sản phẩm này')
+      return
+    }
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [
+      ...items,
+      {
+        id: toastId,
+        kind: 'warning',
+        title: 'Xác nhận xóa sản phẩm?',
+        message: `Bạn có chắc chắn muốn xóa sản phẩm "${product.name}"? Thao tác này không thể hoàn tác.`,
+        action: {
+          label: 'Xóa vĩnh viễn',
+          variant: 'danger',
+          onClick: () => {
+            setToasts((current) => current.filter((item) => item.id !== toastId))
+            void handleDeleteProduct(product.id, product.product_type)
+          },
+        },
+        secondaryAction: {
+          label: 'Hủy',
+          onClick: () => {
+            setToasts((current) => current.filter((item) => item.id !== toastId))
+          },
+        },
+      },
+    ])
+  }
+
   async function openProductEditor(product: AdminProduct) {
+    if (product.product_type === 'BIKE') {
+      window.location.href = `/admin/products/motorbikes/edit/${product.id}`
+      return
+    }
     if (product.product_type !== 'ACCESSORY') {
-      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện.')
+      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện và xe máy điện.')
       return
     }
     setLoadingEditProductId(product.id)
@@ -290,7 +351,7 @@ export default function AdminProductsPage() {
                     <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       {product.product_type === 'ACCESSORY' && <button type="button" onClick={() => openServiceLabels(product)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-brand-50 hover:text-brand-600" aria-label={`Gán nhãn dịch vụ cho ${product.name}`}><Wrench size={16}/></button>}
                       <button type="button" disabled={loadingEditProductId === product.id} onClick={() => void openProductEditor(product)} className="rounded p-2 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50" aria-label={`Sửa ${product.name}`}>{loadingEditProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Edit size={16}/>}</button>
-                      <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                      <button type="button" disabled={deletingProductId === product.id} onClick={() => confirmDeleteProduct(product)} className="rounded p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50" aria-label={`Xóa ${product.name}`}>{deletingProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16}/>}</button>
                     </div>
                     <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
                   </td>

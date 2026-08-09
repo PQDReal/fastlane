@@ -292,6 +292,9 @@ export async function buildDepositVehicleQuote(
         const bIsKemPin = key(b.name).includes('kempin') ? -1 : 1
         return aIsKemPin - bIsKemPin
       })[0]
+    } else if ((variantsResult.data ?? []).length === 1) {
+      // If there's only one active variant, default to it
+      selectedVariant = (variantsResult.data ?? [])[0]
     }
   }
   if ((variantsResult.data ?? []).length > 0 && !selectedVariant) {
