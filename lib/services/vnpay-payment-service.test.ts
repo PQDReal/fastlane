@@ -9,6 +9,9 @@ vi.mock('@/lib/supabase-admin', () => ({ getSupabaseAdmin: mocks.getSupabaseAdmi
 vi.mock('@/lib/services/vnpay-refund-service', () => ({
   refundCancelledDepositOrder: mocks.refundCancelledDepositOrder,
 }))
+vi.mock('@/lib/mailer', () => ({
+  sendPaymentSuccessEmail: vi.fn(),
+}))
 vi.mock('@/lib/payments/vnpay', () => ({
   createVnPayPaymentUrl: vi.fn(),
   verifyVnPayHash: vi.fn(() => true),
@@ -53,6 +56,7 @@ function supabaseFor(command: Record<string, unknown>) {
   const from = vi.fn((table: string) => {
     if (table === 'vnpay_checkout_attempts') return queryResult(null)
     if (table === 'vnpay_deposit_attempts') return queryResult(attempt)
+    if (table === 'deposit_orders') return queryResult({ email: 'test@example.com' })
     throw new Error(`Unexpected table: ${table}`)
   })
   return { client: { from, rpc }, from, rpc, rpcSingle }
@@ -93,7 +97,6 @@ describe('VNPAY deposit callback ownership', () => {
       p_success: true,
       p_transaction_no: 'VNP-1',
     }))
-    expect(db.from).not.toHaveBeenCalledWith('deposit_orders')
   })
 
   it('queues a provider refund when payment arrives after cancellation', async () => {
