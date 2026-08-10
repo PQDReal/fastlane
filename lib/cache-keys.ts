@@ -5,7 +5,8 @@ import { normalizeProductSearchText } from '@/lib/catalog/search'
 export const PRODUCT_SEARCH_CACHE_PREFIX = 'fastlane:product-search:v2:'
 export const CUSTOMER_CART_CACHE_PREFIX = 'fastlane:customer-cart:v1:'
 export const DEPOSIT_DRAFT_CACHE_PREFIX = 'fastlane:deposit-draft:v1:'
-export const MOTORBIKE_CATALOG_CACHE_KEY = 'fastlane:motorbike-catalog:v1'
+// v2 additionally validates the publication state on the parent `products` row.
+export const MOTORBIKE_CATALOG_CACHE_KEY = 'fastlane:motorbike-catalog:v2'
 export const MOTORBIKE_DETAIL_CACHE_PREFIX = 'fastlane:motorbike-detail:v1:'
 export const ACCESSORY_CATALOG_SUMMARY_CACHE_KEY =
   'fastlane:accessory-catalog-summary:v1'

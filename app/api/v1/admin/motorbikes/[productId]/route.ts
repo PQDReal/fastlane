@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { reconstructMotorbikeAdminVersions } from '@/lib/motorbike-admin-variants'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -78,13 +79,11 @@ export async function GET(request: Request, context: Context) {
     detail_image_urls,
     specifications: specsObj.specs || {},
     colors: specsObj.color_details || [],
-    versions: (productVariants || []).map((v: any) => ({
-      id: v.id,
-      name: v.name,
-      sku: v.sku,
-      price: Number(v.original_price),
-      deposit_amount: Number(v.deposit_amount),
-    })),
+    versions: reconstructMotorbikeAdminVersions(
+      productVariants || [],
+      specsObj.variants,
+      specsObj.color_details || [],
+    ),
     landing_page_blocks: specsObj.landing_page_blocks || [],
   }
 

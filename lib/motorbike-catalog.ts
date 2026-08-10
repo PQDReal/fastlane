@@ -172,16 +172,32 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
 
 async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   const supabase = getSupabaseAdmin()
-  const aggregate = await supabase.rpc('list_active_motorbike_catalog')
+  // `vehicle_variants.is_active` describes a sellable colour/version row, while
+  // `products.is_active` is the publication state of the whole model. Check the
+  // latter explicitly as well: legacy RPC rows can otherwise keep a draft model
+  // visible in /bikes and lead users to a 404 detail page.
+  const [aggregate, activeProducts] = await Promise.all([
+    supabase.rpc('list_active_motorbike_catalog'),
+    supabase
+      .from('products')
+      .select('id')
+      .eq('product_type', 'BIKE')
+      .eq('is_active', true),
+  ])
+
+  if (activeProducts.error) {
+    throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
+  }
+  const activeProductIds = new Set((activeProducts.data ?? []).map((product) => product.id))
 
   if (!aggregate.error) {
     const rows = ((aggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
-      (product.variants ?? []).map((variant) => ({
+      activeProductIds.has(product.product_id) ? (product.variants ?? []).map((variant) => ({
         ...variant,
         product_id: product.product_id,
         product_name: product.product_name,
         specs: product.shared_specs,
-      })),
+      })) : [],
     )
     return mapRows(rows)
   }
@@ -199,12 +215,12 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
     )
   }
 
-  return mapRows((data ?? []) as VehicleVariantRow[])
+  return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)))
 }
 
 const loadCachedMotorbikeCatalog = unstable_cache(
   loadMotorbikeCatalog,
-  ['motorbike-catalog-v1'],
+  ['motorbike-catalog-v2'],
   {
     revalidate: 300,
     tags: ['motorbike-catalog'],
