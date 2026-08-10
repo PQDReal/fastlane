@@ -1,5 +1,6 @@
 import { createVnPayPaymentUrl, type VnPayParams, verifyVnPayHash, vnPayConfig } from '@/lib/payments/vnpay'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { sendPaymentSuccessEmail } from '@/lib/mailer'
 import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 
 type CheckoutOrder = {
@@ -229,6 +230,16 @@ async function processDepositCallback(
   if (command.outcome === 'ALREADY_PAID' || command.outcome === 'ORDER_ALREADY_ADVANCED') {
     return { ...base, success: true, message: 'Giao dịch đặt cọc đã được xác nhận.' }
   }
+  // Send success email
+  try {
+    const orderRecord = await supabase.from('deposit_orders').select('email').eq('id', attempt.deposit_order_id).maybeSingle();
+    if (orderRecord.data?.email) {
+      await sendPaymentSuccessEmail(orderRecord.data.email, attempt.order_number, Number(attempt.amount_vnd));
+    }
+  } catch (err) {
+    console.error('Failed to send deposit success email:', err);
+  }
+
   return { ...base, success: true, message: 'Thanh toán đặt cọc thành công.' }
 }
 
