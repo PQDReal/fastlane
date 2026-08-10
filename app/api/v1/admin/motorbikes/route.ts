@@ -12,6 +12,26 @@ function handleAuthorizationError(error: unknown) {
   throw error
 }
 
+function makeUrlsAbsolute(obj: any, origin: string): any {
+  if (typeof obj === 'string') {
+    if (obj.startsWith('/uploads')) {
+      return `${origin}${obj}`
+    }
+    return obj
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => makeUrlsAbsolute(item, origin))
+  }
+  if (obj && typeof obj === 'object') {
+    const res: any = {}
+    for (const key of Object.keys(obj)) {
+      res[key] = makeUrlsAbsolute(obj[key], origin)
+    }
+    return res
+  }
+  return obj
+}
+
 export async function POST(request: Request) {
   try {
     await authorizeAdminCatalogRequest(request)
@@ -25,6 +45,14 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Nội dung JSON không hợp lệ.' }, { status: 400 })
   }
+
+  // Prepend origin to relative upload URLs to satisfy database URL check constraints
+  const requestUrl = new URL(request.url)
+  const host = request.headers.get('host') || requestUrl.host
+  const proto = request.headers.get('x-forwarded-proto') || (requestUrl.protocol.startsWith('https') ? 'https' : 'http')
+  const origin = `${proto}://${host}`
+  
+  body = makeUrlsAbsolute(body, origin)
 
   const {
     name,

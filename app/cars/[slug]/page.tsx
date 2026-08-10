@@ -179,12 +179,22 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
     }
   }
 
+  const specsObj = product.specifications || {}
+
   const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price) + ' ₫'
 
-  const exteriorImgs = carRichData.gallery?.exterior_images || []
-  const interiorImgs = carRichData.gallery?.interior_images || []
+  const exteriorImgs = specsObj.gallery?.exterior_images?.length > 0
+    ? specsObj.gallery.exterior_images
+    : (carRichData.gallery?.exterior_images || [])
 
-  let bannerImg = carRichData.gallery?.banner_images?.find((img: string) => !img.includes('mobile') && !img.includes('_mb')) 
+  const interiorImgs = specsObj.gallery?.interior_images?.length > 0
+    ? specsObj.gallery.interior_images
+    : (carRichData.gallery?.interior_images || [])
+
+  let bannerImg = specsObj.gallery?.banner_images?.find((img: string) => !img.includes('mobile') && !img.includes('_mb')) 
+    || specsObj.gallery?.banner_images?.[0]
+    || product.image_urls?.[1]
+    || carRichData.gallery?.banner_images?.find((img: string) => !img.includes('mobile') && !img.includes('_mb')) 
     || carRichData.gallery?.banner_images?.[0] 
     || product.image_urls?.[0] 
     || '/images/vf8.png'
@@ -197,7 +207,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
     bannerImg = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_01.webp'
   }
 
-  let logoImg = [...exteriorImgs, ...interiorImgs, ...(carRichData.gallery?.all_images || [])].find((img: string) => img.toLowerCase().includes('logo') || img.toLowerCase().endsWith('.svg'))
+  let logoImg = specsObj.logo_image_url || specsObj.logo_image || [...exteriorImgs, ...interiorImgs, ...(specsObj.gallery?.all_images || carRichData.gallery?.all_images || [])].find((img: string) => img.toLowerCase().includes('logo') || img.toLowerCase().endsWith('.svg'))
   
   if (product.name === 'VF 2') {
     logoImg = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VF2.svg'
@@ -224,9 +234,14 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
     displayIntImgs[0] = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_05.webp'
   }
 
-  const variantKeys = Object.keys(carSpecs.variants || {})
-  const firstVariant = variantKeys.length > 0 ? carSpecs.variants[variantKeys[0]] : null
-  const specs = firstVariant?.specs || {}
+  const dbSpecsVariants = specsObj.specs || {}
+  const dbVariantKeys = Object.keys(dbSpecsVariants)
+
+  const variantKeys = dbVariantKeys.length > 0 ? dbVariantKeys : Object.keys(carSpecs.variants || {})
+  
+  const specs = dbVariantKeys.length > 0
+    ? (dbSpecsVariants[dbVariantKeys[0]]?.specs || {})
+    : (carSpecs.variants?.[variantKeys[0]]?.specs || {})
 
   const dimensionSpecs = {
     ...(specs.dimension || {}),
@@ -259,7 +274,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
   const carColors = dbCarColors.length > 0 ? dbCarColors : fallbackCarColors
   const colorImages = dbColorImages.length > 0 ? dbColorImages : fallbackColorImages
 
-  const carMarketing = landingData[carRichData.name] || landingData['VF 8'] || { design: {}, technology: {}, safety: {} }
+  const carMarketing = specsObj.marketing || landingData[carRichData.name] || landingData['VF 8'] || { design: {}, technology: {}, safety: {} }
   const isVF6 = product.name === 'VF 6'
   const depositHref = `/deposit?type=car&model=${encodeURIComponent(product.name)}`
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
@@ -278,7 +293,20 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/80" />
         
         <div className="relative z-10 flex flex-col items-center mt-32 sm:mt-40 text-center px-6 animate-fade-in-up">
-          {/* Removed logo overlay to not obstruct the banner */}
+          {logoImg ? (
+            <img 
+              src={logoImg} 
+              alt={product.name} 
+              className="h-16 sm:h-24 w-auto object-contain" 
+              style={
+                logoImg.includes('cloudinary') || logoImg.includes('/uploads') || !logoImg.endsWith('.svg')
+                  ? {}
+                  : { filter: 'brightness(0) invert(1)' }
+              }
+            />
+          ) : (
+            <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-widest text-white">{product.name}</h1>
+          )}
         </div>
 
         <div className="relative z-10 flex flex-col items-center pb-12 w-full animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
@@ -303,7 +331,16 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
         <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center">
             {logoImg ? (
-              <img src={logoImg} alt={product.name} className="h-8 object-contain hidden sm:block" style={{ filter: 'brightness(0)' }} />
+              <img 
+                src={logoImg} 
+                alt={product.name} 
+                className="h-8 object-contain hidden sm:block" 
+                style={
+                  logoImg.includes('cloudinary') || logoImg.includes('/uploads') || !logoImg.endsWith('.svg')
+                    ? {}
+                    : { filter: 'brightness(0)' }
+                } 
+              />
             ) : (
               <h2 className="font-bold text-lg hidden sm:block">{product.name}</h2>
             )}
@@ -365,7 +402,7 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
              <div className="bg-white/70 backdrop-blur-xl p-8 sm:p-14 shadow-2xl">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 sm:gap-8 mb-12">
                   {variantKeys.map(vk => {
-                    const variantData = carSpecs.variants[vk]
+                    const variantData = dbSpecsVariants[vk] || carSpecs.variants?.[vk] || {}
                     const originalPrice = variantData.price || product.displayed_price
                     const discountPrice = originalPrice * 0.95 // 5% discount
                     const formatNum = (n: number) => new Intl.NumberFormat('vi-VN').format(n)

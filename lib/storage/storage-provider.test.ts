@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { StorageProviderFactory } from './storage-factory'
 import { CloudinaryStorageProvider } from './cloudinary-provider'
+import { LocalStorageProvider } from './local-provider'
 
 describe('StorageProviderFactory & CloudinaryStorageProvider', () => {
   const originalEnv = process.env.CLOUDINARY_URL
@@ -14,19 +15,17 @@ describe('StorageProviderFactory & CloudinaryStorageProvider', () => {
     StorageProviderFactory.resetInstance()
   })
 
-  it('should throw error if CLOUDINARY_URL is not set', () => {
+  it('should return LocalStorageProvider if CLOUDINARY_URL is not set', () => {
     delete process.env.CLOUDINARY_URL
-    expect(() => StorageProviderFactory.getProvider()).toThrow(
-      /Chưa cấu hình dịch vụ lưu trữ/,
-    )
+    const provider = StorageProviderFactory.getProvider()
+    expect(provider).toBeInstanceOf(LocalStorageProvider)
   })
 
-  it('should throw error if CLOUDINARY_URL is a placeholder', () => {
+  it('should return LocalStorageProvider if CLOUDINARY_URL is a placeholder', () => {
     process.env.CLOUDINARY_URL =
       'cloudinary://<your_api_key>:<your_api_secret>@cloud'
-    expect(() => StorageProviderFactory.getProvider()).toThrow(
-      /Chưa cấu hình dịch vụ lưu trữ/,
-    )
+    const provider = StorageProviderFactory.getProvider()
+    expect(provider).toBeInstanceOf(LocalStorageProvider)
   })
 
   it('should return CloudinaryStorageProvider instance if CLOUDINARY_URL is valid', () => {

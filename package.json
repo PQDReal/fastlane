@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check:performance-budget": "node scripts/check-performance-budget.mjs",

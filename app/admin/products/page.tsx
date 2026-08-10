@@ -21,7 +21,120 @@ type AdminProduct = {
   created_at: string
   category: string
   sku?: string
+  specifications?: any
   service_label_assignments?: Array<{ service_label_id: string }>
+}
+
+function isVehicleImage(url: string | null | undefined): boolean {
+  if (!url) return false
+  const lower = url.toLowerCase()
+  if (lower.endsWith('.svg') || lower.endsWith('.mp4')) return false
+  
+  const excludeKeywords = [
+    'logo',
+    'separate-line',
+    'line',
+    'icon',
+    'tvc',
+    'banner',
+    'charging',
+    'station',
+    'compare',
+    'support',
+    'urgent',
+    'vip',
+    'gia',
+    'price',
+    'table',
+    'spec',
+    'mb.webp',
+    'hero-mb',
+    'canvas',
+    'tag-line',
+    'naturel',
+    'interior-first-sight',
+    'video'
+  ]
+  
+  for (const kw of excludeKeywords) {
+    if (lower.includes(kw)) return false
+  }
+  if (lower.endsWith('/vf3.jpg')) return false
+  return true
+}
+
+function getProductThumbnail(product: AdminProduct): string | null {
+  const specs = product.specifications
+  if (specs && typeof specs === 'object') {
+    const isWhiteColor = (name: string | null | undefined): boolean => {
+      if (!name) return false
+      const lower = name.toLowerCase()
+      return lower.includes('trắng') || 
+             lower.includes('white') || 
+             lower.includes('blanc') || 
+             lower.includes('brahminy') || 
+             lower.includes('infinity')
+    }
+
+    // 1. Try color details first (prioritizing white color!)
+    if (specs.color_details?.length > 0) {
+      const whiteCol = specs.color_details.find((c: any) => c.image_url && isWhiteColor(c.color_name) && isVehicleImage(c.image_url))
+      if (whiteCol) return whiteCol.image_url
+      const colImg = specs.color_details.find((c: any) => c.image_url && isVehicleImage(c.image_url))
+      if (colImg) return colImg.image_url
+    }
+    // 2. Try fallback colors (prioritizing white color!)
+    if (specs.fallback_colors?.length > 0) {
+      const whiteCol = specs.fallback_colors.find((c: any) => c.image && isWhiteColor(c.name) && isVehicleImage(c.image))
+      if (whiteCol) return whiteCol.image
+      const fbCol = specs.fallback_colors.find((c: any) => c.image && isVehicleImage(c.image))
+      if (fbCol) return fbCol.image
+    }
+    // 3. Try representative image
+    if (specs.representative_image && isVehicleImage(specs.representative_image)) {
+      return specs.representative_image
+    }
+    // 4. Try exterior images for cars
+    if (specs.gallery?.exterior_images?.length > 0) {
+      const whiteImg = specs.gallery.exterior_images.find((img: string) => isWhiteColor(img) && isVehicleImage(img))
+      if (whiteImg) return whiteImg
+      const extImg = specs.gallery.exterior_images.find((img: string) => isVehicleImage(img))
+      if (extImg) return extImg
+    }
+    // 5. Try all images but filter out logos/svgs
+    if (specs.gallery?.all_images?.length > 0) {
+      const whiteImg = specs.gallery.all_images.find((img: string) => isWhiteColor(img) && isVehicleImage(img))
+      if (whiteImg) return whiteImg
+      const allImg = specs.gallery.all_images.find((img: string) => isVehicleImage(img))
+      if (allImg) return allImg
+    }
+    // 6. Try fallback color images
+    if (specs.fallback_color_images?.length > 0) {
+      const whiteImg = specs.fallback_color_images.find((img: string) => isWhiteColor(img) && isVehicleImage(img))
+      if (whiteImg) return whiteImg
+      const fbcImg = specs.fallback_color_images.find((img: string) => isVehicleImage(img))
+      if (fbcImg) return fbcImg
+    }
+  }
+
+  // Fallback to standard product.image_urls
+  if (product.image_urls && product.image_urls.length > 0) {
+    const isWhiteColor = (name: string): boolean => {
+      const lower = name.toLowerCase()
+      return lower.includes('trắng') || 
+             lower.includes('white') || 
+             lower.includes('blanc') || 
+             lower.includes('brahminy') || 
+             lower.includes('infinity')
+    }
+    const whiteImg = product.image_urls.find((img: string) => isWhiteColor(img) && isVehicleImage(img))
+    if (whiteImg) return whiteImg
+    const cleanImg = product.image_urls.find((img: string) => isVehicleImage(img))
+    if (cleanImg) return cleanImg
+    return product.image_urls[0]
+  }
+
+  return null
 }
 
 async function responseError(response: Response) {
@@ -171,6 +284,8 @@ export default function AdminProductsPage() {
     try {
       const endpoint = productType === 'BIKE'
         ? `/api/v1/admin/motorbikes/${productId}`
+        : productType === 'CAR'
+        ? `/api/v1/admin/cars/${productId}`
         : `/api/v1/admin/products/${productId}`
 
       const response = await fetch(endpoint, {
@@ -191,7 +306,7 @@ export default function AdminProductsPage() {
   }
 
   const confirmDeleteProduct = (product: AdminProduct) => {
-    if (product.product_type !== 'BIKE' && product.product_type !== 'ACCESSORY') {
+    if (product.product_type !== 'BIKE' && product.product_type !== 'ACCESSORY' && product.product_type !== 'CAR') {
       notify('warning', 'Chưa hỗ trợ xóa loại sản phẩm này')
       return
     }
@@ -226,8 +341,12 @@ export default function AdminProductsPage() {
       window.location.href = `/admin/products/motorbikes/edit/${product.id}`
       return
     }
+    if (product.product_type === 'CAR') {
+      window.location.href = `/admin/products/cars/edit/${product.id}`
+      return
+    }
     if (product.product_type !== 'ACCESSORY') {
-      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện và xe máy điện.')
+      notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện, xe ô tô và xe máy điện.')
       return
     }
     setLoadingEditProductId(product.id)
@@ -300,9 +419,9 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-340px)] overflow-y-auto">
           <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-4">Sản phẩm</th>
                 <th className="px-6 py-4">Mã (SKU)</th>
@@ -327,8 +446,8 @@ export default function AdminProductsPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
-                        {product.image_urls && product.image_urls[0] && product.image_urls[0].match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) ? (
-                          <img src={product.image_urls[0]} alt={product.name} className="w-8 h-auto object-contain" />
+                        {getProductThumbnail(product) ? (
+                          <img src={getProductThumbnail(product)!} alt={product.name} className="w-8 h-auto object-contain animate-fade-in" />
                         ) : (
                           <span className="text-xs text-slate-400">No img</span>
                         )}
