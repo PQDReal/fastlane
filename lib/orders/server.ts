@@ -234,7 +234,7 @@ const orderSelection = `
   cancellation_note,
   created_at,
   updated_at,
-  customer:users!inner(id, email),
+  customer:users!orders_customer_id_fkey!inner(id, email),
   order_items(
     id,
     variant_id,

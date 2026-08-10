@@ -25,6 +25,14 @@ const vehicleCustomerRoute = readFileSync(
   new URL('../app/api/v1/deposit-orders/[orderId]/route.ts', import.meta.url),
   'utf8',
 )
+const accessoryAdminPage = readFileSync(
+  new URL('../app/admin/accessory-orders/page.tsx', import.meta.url),
+  'utf8',
+)
+const orderServer = readFileSync(
+  new URL('../lib/orders/server.ts', import.meta.url),
+  'utf8',
+)
 
 describe('accessory order cancellation audit migration', () => {
   it('stores a queryable projection and an append-only event', () => {
@@ -86,5 +94,10 @@ describe('accessory order cancellation audit migration', () => {
     expect(vehicleCustomerRoute).toMatch(/ALLOWED_CANCEL_STATUSES[^\n]+CANCELLED/)
     expect(vehicleCustomerRoute).toContain('if (!cancelled.replayed)')
     expect(vehicleCustomerRoute).toContain('cancellation_reason_code')
+  })
+
+  it('disambiguates customer and cancellation-actor user relations', () => {
+    expect(accessoryAdminPage).toContain('customer:users!orders_customer_id_fkey!inner')
+    expect(orderServer).toContain('customer:users!orders_customer_id_fkey!inner')
   })
 })
