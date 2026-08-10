@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { getCurrentUser } from '@/lib/auth/current-user'
-import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
+import { reconcileVnPayDepositRefund, refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
 import { assertDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
 import { createDebugVnpayTransactionNo } from '@/lib/deposit/debug-transaction'
@@ -35,27 +35,9 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
       }>()
       if (error || !data) throw error || new Error('Không thể hủy đơn đặt cọc.')
 
-      let refundStatus = data.refund_status
-      if (refundStatus === 'PENDING') {
-        const requestHeaders = await headers()
-        const clientIp = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
-          || requestHeaders.get('x-real-ip')
-          || '127.0.0.1'
-        try {
-          const refund = await refundCancelledDepositOrder({
-            orderId,
-            requestedBy: admin.email,
-            clientIp,
-          })
-          refundStatus = refund.refundStatus
-        } catch (refundError) {
-          console.error('Unable to start automatic admin deposit refund', { orderId, refundError })
-        }
-      }
-
       revalidatePath('/admin/orders')
       revalidatePath('/profile')
-      return { success: true, refundStatus }
+      return { success: true, refundStatus: data.refund_status }
     }
 
     if (newStatus === 'CONFIRMED') {
@@ -269,7 +251,23 @@ export async function confirmDepositRefund(orderId: string) {
   }
 }
 
-export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved' | 'mock_confirm_order'
+export async function reconcileDepositRefund(orderId: string) {
+  try {
+    await requireAdmin()
+    const requestHeaders = await headers()
+    const clientIp = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || requestHeaders.get('x-real-ip')
+      || '127.0.0.1'
+    const result = await reconcileVnPayDepositRefund({ orderId, clientIp })
+    revalidatePath('/admin/orders')
+    revalidatePath('/profile')
+    return { success: true, ...result }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái hoàn tiền VNPay.' }
+  }
+}
+
+export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved'
 
 type SupabaseActionError = {
   message?: unknown

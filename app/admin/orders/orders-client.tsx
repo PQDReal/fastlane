@@ -6,6 +6,7 @@ import { Search, Filter, MoreHorizontal, Eye, Truck, CheckCircle2, FileText, XCi
 import { Button } from '../../../components/ui/button'
 import { AdminOrderDetailDrawer } from './order-detail-drawer'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
+import { reconcileDepositRefund } from './actions'
 
 export type AdminOrderRow = {
   id: string
@@ -16,6 +17,8 @@ export type AdminOrderRow = {
   status: string
   payment: string
   refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
+  refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
+  refundNextCheckAt: string | null
   kyc_status?: string | null
   kyc_session_id?: string | null
   createdAt: string
@@ -36,6 +39,7 @@ export function AdminOrdersClient({
   const [statusFilter, setStatusFilter] = useState('All')
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('All')
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderRow | null>(null)
+  const refundPollingRef = useRef(false)
   
   const [toasts, setToasts] = useState<ToastMessage[]>([])
 
@@ -48,7 +52,43 @@ export function AdminOrdersClient({
     const id = Date.now()
     setToasts((items) => [...items, { ...toast, id }])
     if (duration > 0) setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), duration)
+    return id
   }, [])
+
+  useEffect(() => {
+    setSelectedOrder((current) => current ? orders.find((order) => order.id === current.id) ?? null : null)
+  }, [orders])
+
+  useEffect(() => {
+    const processingOrders = orders.filter((order) => order.status === 'CANCELLED'
+      && order.refundStatus === 'PENDING'
+      && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? ''))
+    if (!processingOrders.length) return
+
+    const now = Date.now()
+    const nextOrder = [...processingOrders].sort((a, b) =>
+      new Date(a.refundNextCheckAt ?? 0).getTime() - new Date(b.refundNextCheckAt ?? 0).getTime())[0]
+    const eligibleAt = new Date(nextOrder.refundNextCheckAt ?? 0).getTime()
+    const delay = Math.max(500, Number.isFinite(eligibleAt) ? eligibleAt - now : 0)
+    const timer = window.setTimeout(async () => {
+      if (refundPollingRef.current) return
+      refundPollingRef.current = true
+      try {
+        const result = await reconcileDepositRefund(nextOrder.id)
+        if (result.success && 'attemptStatus' in result) {
+          if (result.attemptStatus === 'COMPLETED') {
+            showToast({ kind: 'success', title: 'Hoàn tiền thành công', message: nextOrder.orderNumber })
+          } else if (result.attemptStatus === 'FAILED') {
+            showToast({ kind: 'error', title: 'Hoàn tiền thất bại', message: `${nextOrder.orderNumber}. Bạn có thể thử gửi lại yêu cầu.` })
+          }
+        }
+        router.refresh()
+      } finally {
+        refundPollingRef.current = false
+      }
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [orders, router, showToast])
 
   const filteredOrders = orders.filter(o => {
     if (!o.isCar) return false;
@@ -117,10 +157,10 @@ export function AdminOrdersClient({
 
   const combinedStatus = (order: AdminOrderRow) => {
     if (order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED') {
-      return { label: 'Đã hủy, đã hoàn tiền', style: 'bg-green-100 text-green-700 border border-green-200' }
+      return { label: 'Đã hủy, đã hoàn tiền', style: getStatusStyle('CANCELLED') }
     }
     if (order.status === 'CANCELLED' && order.payment === 'Paid') {
-      return { label: 'Đã hủy, chờ hoàn tiền', style: 'bg-orange-100 text-orange-700 border border-orange-200' }
+      return { label: 'Đã hủy, chờ admin xác nhận hoàn tiền', style: 'bg-orange-100 text-orange-700 border border-orange-200' }
     }
     if (['CANCELLED', 'COMPLETED', 'DELIVERED', 'PREPARING_DELIVERY', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PENDING_CONTRACT', 'CONFIRMED'].includes(order.status)) {
       return { label: translateAdminStatus(order.status, order.isCar, order.vehicleType), style: getStatusStyle(order.status) }
@@ -145,7 +185,7 @@ export function AdminOrdersClient({
       <div className="flex justify-end items-center gap-2">
         <button 
           onClick={() => setSelectedOrder(order)}
-          className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold border border-slate-200 text-slate-700 hover:text-brand-700 hover:border-brand-200 hover:bg-brand-50 rounded-md transition-colors shadow-sm" 
+          className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold border border-slate-200 text-slate-700 hover:text-brand-700 hover:border-brand-200 hover:bg-brand-50 active:scale-[0.98] rounded-md transition-all shadow-sm"
           title="Xem chi tiết"
         >
           Xem chi tiết
@@ -295,10 +335,10 @@ export function AdminOrdersClient({
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onOrderUpdated={() => {
-          setSelectedOrder(null)
           router.refresh()
         }}
         onShowToast={showToast}
+        onDismissToast={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}
       />
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
     </div>

@@ -1,7 +1,6 @@
 import { createVnPayPaymentUrl, type VnPayParams, verifyVnPayHash, vnPayConfig } from '@/lib/payments/vnpay'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { sendPaymentSuccessEmail } from '@/lib/mailer'
-import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 
 type CheckoutOrder = {
   id: string
@@ -223,23 +222,10 @@ async function processDepositCallback(
     return { ...base, success: false, message: 'Thanh toán chưa thành công hoặc đã bị hủy.' }
   }
   if (command.outcome === 'REFUND_REQUIRED') {
-    try {
-      await refundCancelledDepositOrder({
-        orderId: attempt.deposit_order_id,
-        requestedBy: 'SYSTEM:VNPAY_IPN',
-        clientIp: '127.0.0.1',
-      })
-    } catch (refundError) {
-      console.error('Unable to start refund for a late deposit payment', {
-        orderId: attempt.deposit_order_id,
-        attemptId: attempt.id,
-        refundError,
-      })
-    }
     return {
       ...base,
       success: false,
-      message: 'Giao dịch đã được ghi nhận sau khi đơn bị hủy. Khoản tiền cọc đang chờ hoàn tiền.',
+      message: 'Giao dịch được ghi nhận sau khi đơn bị hủy. Khoản tiền cọc đang chờ quản trị viên xác nhận hoàn tiền.',
     }
   }
   if (command.outcome === 'ALREADY_PAID' || command.outcome === 'ORDER_ALREADY_ADVANCED') {

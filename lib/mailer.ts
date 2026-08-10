@@ -154,7 +154,8 @@ export async function sendContractSignedEmail(
   remainingAmount: string,
   orderId: string
 ) {
-  const subject = 'VinFast Fastlane | Hợp đồng đã ký thành công'
+  const subject = 'Fastlane | Hợp đồng đã ký thành công'
+  const displayProductName = productName.replace(/vinfast/gi, '').replace(/\s+/g, ' ').trim() || 'Xe điện'
   
   const htmlContent = `
 <!DOCTYPE html>
@@ -164,10 +165,10 @@ export async function sendContractSignedEmail(
 <style>
   body { font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
   .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-  .header { background-color: #1e4d2b; padding: 30px 40px; text-align: center; color: #ffffff; }
-  .header h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 1px; }
-  .header p { margin: 10px 0 0 0; font-size: 14px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; }
+  .header { background-color: #ffffff; padding: 34px 40px 24px; text-align: center; border-bottom: 1px solid #f1f5f9; }
   .content { padding: 40px; }
+  .eyebrow { margin: 0 0 10px; color: #9b7200; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+  .title { margin: 0 0 24px; color: #0f172a; font-size: 24px; line-height: 1.35; font-weight: 700; }
   .greeting { font-size: 18px; color: #333; margin-bottom: 20px; }
   .message { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 30px; }
   .details-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 30px; }
@@ -186,18 +187,19 @@ export async function sendContractSignedEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1>VINFAST FASTLANE</h1>
-      <p>Xác nhận hợp đồng thành công</p>
+      <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="56" style="display: block; height: 56px; width: auto; margin: 0 auto; border: 0;">
     </div>
     <div class="content">
+      <div class="eyebrow">Xác nhận hợp đồng</div>
+      <h1 class="title">Hợp đồng đã ký thành công</h1>
       <div class="greeting">Kính gửi Quý khách <strong>${customerName}</strong>,</div>
       
       <div class="alert">
-        <strong>Thành công!</strong> Hợp đồng đặt cọc xe VinFast của Quý khách đã được ký điện tử thành công và chính thức có hiệu lực.
+        <strong>Thành công!</strong> Hợp đồng mua xe của Quý khách đã được ký điện tử thành công và chính thức có hiệu lực.
       </div>
       
       <div class="message">
-        Cảm ơn Quý khách đã tin tưởng và lựa chọn đồng hành cùng VinFast. Dưới đây là thông tin tóm tắt về hợp đồng của Quý khách. Quý khách có thể xem và tải về toàn văn hợp đồng có chữ ký điện tử bằng cách nhấn vào nút bên dưới.
+        Cảm ơn Quý khách đã tin tưởng và lựa chọn đồng hành cùng Fastlane. Dưới đây là thông tin tóm tắt về hợp đồng của Quý khách. Quý khách có thể xem và tải về toàn văn hợp đồng có chữ ký điện tử bằng cách nhấn vào nút bên dưới.
       </div>
       
       <div class="details-box">
@@ -220,7 +222,7 @@ export async function sendContractSignedEmail(
         <div class="details-title">Thông tin Sản phẩm</div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
           <span class="detail-label">Mẫu xe:</span>
-          <span class="detail-value">${productName}</span>
+          <span class="detail-value">${displayProductName}</span>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
           <span class="detail-label">Số tiền đặt cọc:</span>
@@ -237,8 +239,8 @@ export async function sendContractSignedEmail(
       </div>
     </div>
     <div class="footer">
-      <p>Email này được tạo tự động từ hệ thống VinFast Fastlane. Vui lòng không trả lời trực tiếp email này.</p>
-      <p>© 2026 VinFast Auto. All rights reserved.</p>
+      <p>Email này được tạo tự động từ hệ thống Fastlane. Vui lòng không trả lời trực tiếp email này.</p>
+      <p>© 2026 Fastlane. Mọi quyền được bảo lưu.</p>
     </div>
   </div>
 </body>
@@ -285,7 +287,7 @@ export async function sendContractSignedEmail(
   } as any)
 
   const mailOptions = {
-    from: `"VinFast Fastlane" <${process.env.SMTP_USER}>`,
+    from: process.env.OTP_EMAIL_FROM || `"Fastlane" <${process.env.SMTP_USER}>`,
     to,
     subject,
     html: htmlContent,
