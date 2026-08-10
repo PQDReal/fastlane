@@ -17,8 +17,11 @@ export type AdminAccessoryOrder = {
 }
 
 const statusLabel: Record<AdminAccessoryOrder['status'], string> = {
-  PENDING: 'Chưa thanh toán', PAID: 'Đã thanh toán', CONFIRMED: 'Đã xác nhận, chờ lấy hàng',
+  PENDING: 'Chưa thanh toán', PAID: 'Đã thanh toán', CONFIRMED: 'Đã xác nhận',
   READY: 'Đang giao hàng', DELIVERED: 'Hoàn thành', CANCELLED: 'Đã hủy',
+}
+const statusHint: Partial<Record<AdminAccessoryOrder['status'], string>> = {
+  CONFIRMED: 'Chờ lấy hàng',
 }
 const statusStyle: Record<AdminAccessoryOrder['status'], string> = {
   PENDING: 'bg-amber-100 text-amber-700', PAID: 'bg-emerald-100 text-emerald-700',
@@ -139,12 +142,12 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
   }
 
   function orderActions(order: AdminAccessoryOrder) {
-    if (order.status === 'PENDING') return <Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button>
-    if (order.status === 'PAID') return <div className="flex justify-end gap-2"><Button size="sm" onClick={() => confirmOrder(order)} disabled={busy === order.id} className="gap-1.5"><CheckCircle2 size={15} />{busy === order.id ? 'Đang xử lý...' : 'Xác nhận'}</Button><Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button></div>
-    if (order.status === 'CONFIRMED') return <div className="flex justify-end gap-2"><Button size="sm" onClick={() => runAction(order, 'ship')} disabled={busy === order.id} className="gap-1.5"><Truck size={15} />Giao hàng</Button><Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="gap-1.5 border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button></div>
-    if (order.status === 'READY') return <Button size="sm" onClick={() => runAction(order, 'complete')} disabled={busy === order.id} className="gap-1.5"><CheckCircle2 size={15} />Đã giao hàng</Button>
+    if (order.status === 'PENDING') return <Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button>
+    if (order.status === 'PAID') return <><Button size="sm" onClick={() => confirmOrder(order)} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap"><CheckCircle2 size={15} />{busy === order.id ? 'Đang xử lý...' : 'Xác nhận'}</Button><Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button></>
+    if (order.status === 'CONFIRMED') return <><Button size="sm" onClick={() => runAction(order, 'ship')} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap"><Truck size={15} />Giao hàng</Button><Button variant="outline" size="sm" onClick={() => requestCancellation(order)} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap border-red-200 text-red-700 hover:bg-red-50"><XCircle size={15} />Hủy đơn hàng</Button></>
+    if (order.status === 'READY') return <Button size="sm" onClick={() => runAction(order, 'complete')} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap"><CheckCircle2 size={15} />Đã giao hàng</Button>
     if (order.status === 'CANCELLED' && order.refundStatus === 'PENDING' && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')) return <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600"><RotateCcw size={15} className="animate-spin" />Đang tự động kiểm tra</span>
-    if (order.status === 'CANCELLED' && order.refundStatus === 'PENDING') return <Button size="sm" onClick={() => requestRefund(order)} disabled={busy === order.id} className="gap-1.5"><RotateCcw size={15} />{order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Hoàn tiền'}</Button>
+    if (order.status === 'CANCELLED' && order.refundStatus === 'PENDING') return <Button size="sm" onClick={() => requestRefund(order)} disabled={busy === order.id} className="shrink-0 gap-1.5 whitespace-nowrap"><RotateCcw size={15} />{order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Hoàn tiền'}</Button>
     if (order.status === 'CANCELLED') return <span className="text-xs font-medium text-slate-400">Đã hủy</span>
     return null
   }
@@ -155,17 +158,55 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã đơn, email hoặc sản phẩm..." className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" /></div>
-        <select value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-500"><option value="ALL">Tất cả trạng thái</option>{Object.entries(statusLabel).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
+        <select aria-label="Lọc đơn phụ kiện theo trạng thái" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-500 sm:w-auto"><option value="ALL">Tất cả trạng thái</option>{Object.entries(statusLabel).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
       </div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-4">Mã đơn</th><th className="px-5 py-4">Khách hàng</th><th className="px-5 py-4">Sản phẩm</th><th className="px-5 py-4">Tổng tiền</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4">Ngày tạo</th><th className="px-5 py-4 text-right">Thao tác</th></tr></thead>
-        <tbody className="divide-y divide-slate-100">{filteredOrders.map((order) => <tr key={order.id} className="transition-colors hover:bg-slate-50">
-          <td className="px-5 py-4 font-semibold text-slate-900">{order.orderNumber}</td><td className="px-5 py-4 text-slate-700">{order.customerEmail}</td>
-          <td className="max-w-xs px-5 py-4 text-slate-600"><div className="space-y-1">{order.items.map((item, index) => <p key={`${item.product_name_snapshot}-${index}`} className="truncate" title={item.product_name_snapshot}>{item.product_name_snapshot} × {item.quantity}</p>)}</div></td>
-          <td className="px-5 py-4 font-semibold text-slate-900">{money(order.totalAmount)}</td><td className="px-5 py-4"><span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${isBankRefundPending(order) ? 'bg-amber-100 text-amber-700' : statusStyle[order.status]}`}>{displayStatus(order)}</span></td><td className="px-5 py-4 text-xs text-slate-500">{date(order.createdAt)}</td>
-          <td className="px-5 py-4 text-right">{orderActions(order)}</td>
-        </tr>)}{!filteredOrders.length && <tr><td colSpan={7} className="px-6 py-14 text-center text-slate-500"><ShoppingBag className="mx-auto mb-3 text-slate-300" size={30} /><p>{loadError ? 'Không thể tải đơn phụ kiện.' : 'Không có đơn phụ kiện phù hợp.'}</p></td></tr>}</tbody>
-      </table></div><div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredOrders.length} / {orders.length} đơn hàng</div>
+
+      <div className="hidden grid-cols-[minmax(0,.9fr)_minmax(0,1.45fr)_minmax(115px,.6fr)_minmax(155px,.75fr)_minmax(270px,1.1fr)] gap-5 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid">
+        <span>Đơn hàng</span>
+        <span>Khách hàng / sản phẩm</span>
+        <span>Tổng tiền</span>
+        <span>Trạng thái</span>
+        <span className="text-right">Thao tác</span>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {filteredOrders.map((order) => <div key={order.id} className="grid grid-cols-1 gap-4 px-5 py-4 transition-colors hover:bg-slate-50 sm:grid-cols-2 xl:grid-cols-[minmax(0,.9fr)_minmax(0,1.45fr)_minmax(115px,.6fr)_minmax(155px,.75fr)_minmax(270px,1.1fr)] xl:items-center xl:gap-5">
+          <div className="min-w-0">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Đơn hàng</span>
+            <p className="truncate font-semibold text-brand-700" title={order.orderNumber}>{order.orderNumber}</p>
+            <time dateTime={order.createdAt} className="mt-1 block whitespace-nowrap text-xs text-slate-500">{date(order.createdAt)}</time>
+          </div>
+
+          <div className="min-w-0">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Khách hàng / sản phẩm</span>
+            <p className="truncate font-medium text-slate-700" title={order.customerEmail}>{order.customerEmail}</p>
+            <div className="mt-1 space-y-0.5 text-sm text-slate-500">
+              {order.items.slice(0, 2).map((item, index) => <p key={`${item.product_name_snapshot}-${index}`} className="truncate" title={item.product_name_snapshot}>{item.product_name_snapshot} × {item.quantity}</p>)}
+              {order.items.length > 2 && <p className="text-xs font-medium text-slate-400">+{order.items.length - 2} sản phẩm khác</p>}
+            </div>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Tổng tiền</span>
+            <p className="whitespace-nowrap font-semibold text-brand-700">{money(order.totalAmount)}</p>
+          </div>
+
+          <div className="min-w-0">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Trạng thái</span>
+            <span className={`inline-flex max-w-full rounded-md px-2 py-1 text-[11px] font-bold uppercase leading-4 tracking-wide ${isBankRefundPending(order) ? 'bg-amber-100 text-amber-700' : statusStyle[order.status]}`}>{displayStatus(order)}</span>
+            {statusHint[order.status] && <p className="mt-1 text-xs text-slate-500">{statusHint[order.status]}</p>}
+          </div>
+
+          <div className="sm:col-span-2 xl:col-span-1">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Thao tác</span>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">{orderActions(order)}</div>
+          </div>
+        </div>)}
+
+        {!filteredOrders.length && <div className="px-6 py-14 text-center text-slate-500"><ShoppingBag className="mx-auto mb-3 text-slate-300" size={30} /><p>{loadError ? 'Không thể tải đơn phụ kiện.' : 'Không có đơn phụ kiện phù hợp.'}</p></div>}
+      </div>
+
+      <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredOrders.length} / {orders.length} đơn hàng</div>
     </div>
   </div>
 }
