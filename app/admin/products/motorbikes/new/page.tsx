@@ -1467,34 +1467,34 @@ export default function NewMotorbikePage() {
                 </div>
               </section>
 
-              {form.landing_page_blocks && form.landing_page_blocks.length > 0 ? (
+              {form.landing_page_blocks && form.landing_page_blocks.length > 0 && (
                 <div id="preview-details" className="bg-slate-950 text-white">
                   <LandingPageRenderer blocks={form.landing_page_blocks} />
                 </div>
-              ) : (
-                <>
-                  {/* DETAIL IMAGES LANDING */}
-                  <section id="preview-details" className="mx-auto max-w-6xl px-6 py-20">
-                <div className="text-center mb-12">
-                  <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
-                  <p className="text-xs text-white/50 mt-2">Được thiết kế tinh xảo, đáp ứng đầy đủ mọi nhu cầu di chuyển.</p>
-                </div>
-                <div className="grid gap-6 sm:grid-cols-3">
-                  {form.detail_image_urls.map((url, idx) => (
-                    <div key={idx} className="h-64 rounded-xl border border-white/5 bg-slate-900 overflow-hidden relative group">
-                      {url ? (
-                        <img src={url} alt={`Detail view ${idx}`} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
-                        <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span>
+              )}
+
+              {/* DETAIL IMAGES LANDING */}
+              {form.detail_image_urls && form.detail_image_urls.length > 0 && (
+                <section id="preview-details-gallery" className="mx-auto max-w-6xl px-6 py-20 bg-slate-950 text-white">
+                  <div className="text-center mb-12">
+                    <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
+                    <p className="text-xs text-white/50 mt-2">Hình ảnh thực tế chi tiết của xe.</p>
+                  </div>
+                  <div className="grid gap-6 sm:grid-cols-3">
+                    {form.detail_image_urls.map((url, idx) => (
+                      <div key={idx} className="h-64 rounded-xl border border-white/5 bg-slate-900 overflow-hidden relative group">
+                        {url ? (
+                          <img src={url} alt={`Detail view ${idx}`} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
+                          <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-                </>
+                    ))}
+                  </div>
+                </section>
               )}
 
               {/* COMPLETE SPECS GRID TABLE */}

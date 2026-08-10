@@ -95,7 +95,17 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
     await transporter.sendMail(mailOptions)
     return true
   } catch (error: any) {
-    console.error('Error sending email:', error)
+    console.error('Error sending email via SMTP:', error)
+    // Graceful fallback for local development if network blocks SMTP ports
+    if (process.env.NODE_ENV !== 'production' || process.env.APP_BASE_URL?.includes('localhost')) {
+      console.log('\n=============================================')
+      console.log('[FALLBACK EMAIL] Gửi email qua SMTP thất bại do mạng chặn cổng. Đang in OTP ra console để phát triển...')
+      console.log(`- Đến: ${to}`)
+      console.log(`- Tiêu đề: ${subject}`)
+      console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
+      console.log('=============================================\n')
+      return true
+    }
     throw new Error('Không thể gửi email OTP: ' + (error?.message || 'Unknown error'))
   }
 }
@@ -252,8 +262,18 @@ export async function sendContractSignedEmail(
   try {
     await transporter.sendMail(mailOptions)
     return true
-  } catch (error) {
-    console.error('Error sending contract email:', error)
+  } catch (error: any) {
+    console.error('Error sending contract email via SMTP:', error)
+    // Graceful fallback for local development if network blocks SMTP ports
+    if (process.env.NODE_ENV !== 'production' || process.env.APP_BASE_URL?.includes('localhost')) {
+      console.log('\n=============================================')
+      console.log('[FALLBACK EMAIL] Gửi email hợp đồng qua SMTP thất bại do mạng chặn cổng. Xem thông tin hợp đồng bên dưới:')
+      console.log(`- Đến: ${to}`)
+      console.log(`- Tiêu đề: ${subject}`)
+      console.log(`- Link xem hợp đồng: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/profile/contract/${orderId}`)
+      console.log('=============================================\n')
+      return true
+    }
     throw new Error('Không thể gửi email hợp đồng. Vui lòng thử lại sau.')
   }
 }

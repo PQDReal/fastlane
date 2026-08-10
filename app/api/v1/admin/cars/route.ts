@@ -4,8 +4,8 @@ import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
-import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
-import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { deleteRedisKeysByPrefix } from '@/lib/redis'
+import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -61,9 +61,11 @@ export async function POST(request: Request) {
     is_active = true,
     listing_image_url,
     hero_image_url,
+    logo_image_url = '',
     detail_image_urls = [],
     specifications = {},
     colors = [],
+    interiors = [],
     versions = [],
     landing_page_blocks = [],
   } = body
@@ -83,53 +85,129 @@ export async function POST(request: Request) {
   }
 
   const productId = randomUUID()
-  const categoryId = '6dfde2e5-b9d5-755c-10db-19a7ce6c24b5' // Xe máy điện category ID
+  const categoryId = '8ddad94f-775b-3b0d-ea74-54286bb42b8c' // Ô tô điện category ID
+  const displayedPrice = Math.min(...versions.map((v: any) => Number(v.price)))
 
   // Format price string for specifications
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
-  const priceStr = versions.map((v: any) => `${v.name}: ${priceFormatter.format(v.price)}`).join(' / ')
 
   // Form structured image_urls array
-  // Format: [ listing_image, hero_image, color1_car, color1_swatch, color2_car, color2_swatch, ..., detail1, detail2, detail3 ]
   const image_urls: string[] = [listing_image_url, hero_image_url]
   colors.forEach((color: any) => {
-    image_urls.push(color.image_url)
-    image_urls.push(color.swatch)
+    if (color.image_url) image_urls.push(color.image_url)
+    if (color.swatch) image_urls.push(color.swatch)
+  })
+  interiors.forEach((interior: any) => {
+    if (interior.image_url) image_urls.push(interior.image_url)
+    if (interior.swatch) image_urls.push(interior.swatch)
   })
   detail_image_urls.forEach((url: string) => {
-    image_urls.push(url)
+    if (url) image_urls.push(url)
   })
 
-  // Format specifications JSON
+  // Format nested specifications specs by version
+  const specsByVersion: Record<string, any> = {}
+  versions.forEach((version: any) => {
+    specsByVersion[version.name] = {
+      price: version.price,
+      specs: {
+        powertrain: {
+          distance: specifications['Quãng đường đi được'] || '',
+          maxPower: specifications['Công suất tối đa'] || '',
+          maxTorque: specifications['Mô-men xoắn cực đại'] || '',
+          topSpeed: specifications['Tốc độ tối đa'] || '',
+          drivetrain: specifications['Hệ dẫn động'] || '',
+          batteryCapacity: specifications['Dung lượng pin'] || '',
+          fastChargingTime: specifications['Thời gian sạc nhanh'] || '',
+          maxDCCharging: specifications['Công suất sạc DC tối đa'] || '',
+        },
+        dimension: {
+          length: specifications['Dài x Rộng x Cao'] || '',
+          wheelbase: specifications['Chiều dài cơ sở'] || '',
+          croundClearance: specifications['Khoảng sáng gầm xe'] || '',
+          kurbWeightPayload: specifications['Khối lượng / Tải trọng'] || '',
+        },
+        exterior: {
+          auto: specifications['Đèn chiếu sáng phía trước'] || '',
+          lazang: specifications['Kích thước la-zăng'] || '',
+        },
+        interior: {
+          numberOfSeats: Number(specifications['Số chỗ ngồi']) || specifications['Số chỗ ngồi'] || 5,
+          informationCenter: specifications['Hệ thống giải trí'] || '',
+          airConditioner: specifications['Hệ thống điều hòa'] || '',
+          driverSeatAdjustment: specifications['Điều chỉnh ghế lái'] || '',
+        },
+        safety: {
+          airbagSystem: specifications['Hệ thống túi khí'] || '',
+          abs: specifications['Hệ thống ABS'] || '',
+          ebd: specifications['Hệ thống EBD'] || '',
+        }
+      }
+    }
+  })
+
   const formattedSpecs = {
-    url: `https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-${slug}`,
+    url: `https://vinfastauto.com/vn_vi/dat-coc-xe-${slug}`,
     name,
-    price: priceStr,
-    specs: specifications,
-    colors: colors.map((c: any) => c.color_name),
-    images: image_urls,
-    status: 'Đang kinh doanh',
-    deposit: `${new Intl.NumberFormat('vi-VN').format(versions[0]?.deposit_amount || 2000000)} VNĐ`,
+    price: `Chỉ từ ${priceFormatter.format(displayedPrice)}*`,
+    specs: specsByVersion,
+    deposit: `${new Intl.NumberFormat('vi-VN').format(versions[0]?.deposit_amount || 15000000)} VNĐ`,
+    options: [],
+    range_km: Number(specifications['Quãng đường đi được']?.replace(/[^0-9]/g, '')) || 300,
+    marketing: {
+      design: {
+        title: 'Dấu ấn thời đại. Phong thái dẫn đầu.',
+        description: description,
+        interior_title: 'Đẳng cấp thương gia',
+        interior_description: 'Trải nghiệm không gian sang trọng và tiện nghi.'
+      },
+      safety: {
+        title: 'Chuẩn an toàn cao cấp',
+        features: [
+          specifications['Hệ thống túi khí'] || 'Hệ thống túi khí an toàn',
+          specifications['Hệ thống ABS'] ? 'Chống bó cứng phanh ABS' : null,
+          specifications['Hệ thống EBD'] ? 'Phân phối lực phanh điện tử EBD' : null
+        ].filter(Boolean),
+        description: 'Được thiết kế để bảo vệ tối đa hành khách trên mọi cung đường.'
+      },
+      technology: {
+        title: 'Hệ sinh thái thông minh',
+        features: [
+          'Trợ lý ảo thông minh',
+          specifications['Hệ thống giải trí'] || 'Màn hình trung tâm hiện đại'
+        ],
+        description: 'Kết nối mọi hành trình của bạn.'
+      }
+    },
+    logo_image: logo_image_url || '',
+    logo_image_url: logo_image_url || '',
+    range_text: specifications['Quãng đường đi được'] || '',
+    seat_count: Number(specifications['Số chỗ ngồi']) || 5,
+    banner_image: hero_image_url,
+    product_type: 'car',
+    gallery_images: detail_image_urls,
+    variants_specs: {},
+    fallback_colors: colors.map((c: any) => ({
+      name: c.color_name,
+      image: c.image_url,
+      swatch: c.swatch
+    })),
+    fallback_color_images: colors.map((c: any) => c.image_url),
+    interiors: interiors.map((i: any) => ({
+      name: i.interior_name,
+      image: i.image_url,
+      swatch: i.swatch
+    })),
     gallery: {
       all_images: image_urls,
       tech_images: [],
       banner_images: [hero_image_url],
-      exterior_images: [],
-      interior_images: [],
+      exterior_images: colors.map((c: any) => c.image_url),
+      interior_images: interiors.map((i: any) => i.image_url),
+      detail_images: detail_image_urls,
     },
-    variants: versions.map((v: any) => v.name),
-    product_type: 'motorbike',
-    color_details: colors.map((c: any) => ({
-      swatch: c.swatch,
-      image_url: c.image_url,
-      color_name: c.color_name,
-    })),
-    detail_images: detail_image_urls,
-    representative_image: hero_image_url,
-    landing_page_blocks,
+    landing_page_blocks
   }
-
-  const displayedPrice = Math.min(...versions.map((v: any) => Number(v.price)))
 
   const supabase = getSupabaseAdmin()
 
@@ -142,7 +220,7 @@ export async function POST(request: Request) {
       name,
       slug,
       description,
-      product_type: 'BIKE',
+      product_type: 'CAR',
       is_active,
       specifications: formattedSpecs,
       image_urls,
@@ -163,7 +241,7 @@ export async function POST(request: Request) {
     sale_price: null,
     is_active: is_active,
     option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    metadata: { source: 'admin_motorbike_creation' },
+    metadata: { source: 'admin_car_creation' },
     deposit_amount: version.deposit_amount,
   }))
 
@@ -182,7 +260,6 @@ export async function POST(request: Request) {
   const generatedAt = new Date().toISOString()
 
   productVariantRows.forEach((variantRow: any, versionIndex: number) => {
-    const origVersion = versions[versionIndex]
     colors.forEach((colorItem: any, colorIndex: number) => {
       const variantId = randomUUID()
       const catalogSpecs = {
@@ -205,7 +282,7 @@ export async function POST(request: Request) {
       vehicleVariantRows.push({
         id: variantId,
         product_id: productId,
-        product_type: 'BIKE',
+        product_type: 'CAR',
         product_name: name,
         deposit_amount: variantRow.deposit_amount,
         specs: catalogSpecs,
@@ -217,6 +294,7 @@ export async function POST(request: Request) {
         image_color_url: colorItem.swatch,
         version: variantRow.name,
         is_active: is_active,
+        product_variant_id: variantRow.id,
       })
     })
   })
@@ -232,10 +310,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Lỗi tạo cấu hình xe: ${vehicleVariantError.message}` }, { status: 500 })
   }
 
-  revalidateTag('motorbike-catalog')
+  revalidateTag('car-catalog')
+  revalidateTag('vehicle-catalog')
   await Promise.all([
-    deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
-    deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 

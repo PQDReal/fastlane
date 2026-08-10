@@ -1248,21 +1248,44 @@ export function DepositClient({
       }
     }
   } else {
-    interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
-      .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
+    const matchedInterior = currentCar.interiors?.find((i: any) => i.name === selectedInteriorColor)
+    if (matchedInterior && matchedInterior.image) {
+      interiorImages = [matchedInterior.image]
+    } else {
+      interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
+        .filter((img: string) => !img.includes('interior-2-2') && !img.includes('interior-2-3') && !img.includes('interior-2-4'))
+    }
   }
 
   const powetrain = currentSpecs.variants?.[variants[0]]?.specs?.powertrain || {}
   const dimension = currentSpecs.variants?.[variants[0]]?.specs?.dimension || {}
   
+  const interiorColorMap: Record<string, string> = {
+    'Granite Black': '#111111',
+    'Saddle Brown': '#633517',
+    'Cotton Beige': '#d6cdb4',
+    'Navy Blue': '#1c2841',
+    'Mocca Brown': '#6b4e31',
+    'Black': '#111111',
+    'Grey': '#808080',
+    'Đen (Granite Black)': '#111111',
+    'Nâu (Saddle Brown)': '#633517'
+  }
+
   let availableInteriorColors = isMotorbike
     ? []
-    : [
-    { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' },
-    { name: 'Saddle Brown', hex: '#633517', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw65203801/images/deposit/interior/CI12.webp' },
-    { name: 'Cotton Beige', hex: '#d6cdb4' },
-    { name: 'Navy Blue', hex: '#1c2841' }
-    ]
+    : currentCar.interiors && currentCar.interiors.length > 0
+      ? currentCar.interiors.map((i: any) => ({
+          name: i.name,
+          hex: interiorColorMap[i.name] || '#CCCCCC',
+          swatch: i.swatch
+        }))
+      : [
+          { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' },
+          { name: 'Saddle Brown', hex: '#633517', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw65203801/images/deposit/interior/CI12.webp' },
+          { name: 'Cotton Beige', hex: '#d6cdb4' },
+          { name: 'Navy Blue', hex: '#1c2841' }
+        ]
 
   if (!isMotorbike && currentCar.name === 'VF 2') {
     availableInteriorColors = [
@@ -1330,9 +1353,9 @@ export function DepositClient({
     }
   }
 
-  const interiorColorNames = JSON.stringify(availableInteriorColors.map(c => c.name))
+  const interiorColorNames = JSON.stringify(availableInteriorColors.map((c: any) => c.name))
   useEffect(() => {
-    if (!selectedInteriorColor || !availableInteriorColors.some(c => c.name === selectedInteriorColor)) {
+    if (!selectedInteriorColor || !availableInteriorColors.some((c: any) => c.name === selectedInteriorColor)) {
       if (availableInteriorColors.length > 0) {
         setSelectedInteriorColor(availableInteriorColors[0].name)
       }
@@ -1428,7 +1451,9 @@ export function DepositClient({
                 ]
                 let logo = isMotorbike
                   ? undefined
-                  : allImages.find(
+                  : car.specifications?.logo_image_url ||
+                    car.specifications?.logo_image ||
+                    allImages.find(
                       (img: string) =>
                         img.toLowerCase().includes('logo') ||
                         img.toLowerCase().includes('icon') ||
@@ -1442,6 +1467,7 @@ export function DepositClient({
                   logo = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1785200413351/images/logo/VF6.svg'
                 }
                 const isSelected = selectedCarId === car.name
+                const isCustomLogo = logo && (logo.includes('cloudinary') || logo.includes('/uploads') || !logo.endsWith('.svg'))
 
                 return (
                   <button
@@ -1460,7 +1486,15 @@ export function DepositClient({
                     }`}
                   >
                     {logo ? (
-                      <img src={logo} alt={car.name} className={`object-contain ${car.name.includes('All-New') ? 'h-[14px]' : car.name.includes('MPV') ? 'h-[14px]' : 'h-4'} ${isSelected ? 'brightness-0 invert' : 'brightness-0 opacity-60 group-hover:opacity-100'}`} />
+                      <img 
+                        src={logo} 
+                        alt={car.name} 
+                        className={`object-contain ${car.name.includes('All-New') ? 'h-[14px]' : car.name.includes('MPV') ? 'h-[14px]' : 'h-5'} ${
+                          isCustomLogo
+                            ? `${isSelected ? 'opacity-100 scale-105' : 'opacity-70 group-hover:opacity-100'}`
+                            : `${isSelected ? 'brightness-0 invert' : 'brightness-0 opacity-60 group-hover:opacity-100'}`
+                        }`} 
+                      />
                     ) : (
                       car.name
                     )}
@@ -1813,7 +1847,7 @@ export function DepositClient({
               </div>
               
               <div className="flex flex-wrap gap-5">
-                {availableInteriorColors.map((c, i) => {
+                {availableInteriorColors.map((c: any, i: number) => {
                   const isSelected = selectedInteriorColor === c.name
                   return (
                     <button 
