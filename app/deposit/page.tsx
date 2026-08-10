@@ -13,11 +13,15 @@ import { Header } from '../../components/header'
 import { Footer } from '../../components/footer'
 import Link from 'next/link'
 import { CarFront } from 'lucide-react'
+import { DepositLoginRequired } from '../../components/deposit-login-required'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DepositPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const currentUser = await getCurrentUser().catch(() => null)
+  if (!currentUser) {
+    return <DepositLoginRequired />
+  }
   if (currentUser?.role === 'ADMIN') {
     return (
       <main className="flex min-h-screen flex-col bg-slate-50 pt-[74px]">

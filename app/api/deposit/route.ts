@@ -179,6 +179,13 @@ export async function POST(request: Request) {
   try {
     const hash = await requestHash(input)
     const currentUser = await getCurrentUser().catch(() => null)
+    if (!currentUser) {
+      return errorResponse(
+        401,
+        'LOGIN_REQUIRED',
+        'Vui lòng đăng nhập tài khoản FastLane trước khi đặt cọc xe.',
+      )
+    }
     if (currentUser?.role === 'ADMIN') {
       return errorResponse(403, 'ADMIN_DEPOSIT_FORBIDDEN', 'Tài khoản quản trị không được tạo đơn đặt cọc xe.')
     }
