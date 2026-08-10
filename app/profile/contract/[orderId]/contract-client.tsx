@@ -29,7 +29,11 @@ export default function ContractPageClient({ order }: { order: any }) {
       const res = await fetch('/api/contracts/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({
+          orderId: order.id,
+          documentId: order.contractDocumentId,
+          expectedContentHash: order.contractContentHash,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Lỗi khi gửi mã OTP')

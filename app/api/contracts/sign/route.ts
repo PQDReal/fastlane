@@ -3,12 +3,24 @@ import { createHash, randomUUID } from 'node:crypto'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import { revalidatePath } from 'next/cache'
-import { readRedisJson, deleteRedisKey } from '@/lib/redis'
+import { deleteRedisKey, incrementRedisCounter, readRedisJson } from '@/lib/redis'
 import {
   CAR_SALES_CONSENT_VERSION,
   MOTORBIKE_SALES_CONSENT_VERSION,
 } from '@/lib/deposit/contract-snapshot'
+import {
+  contractOtpAttemptKey,
+  contractOtpKey,
+  resolveContractOtpSecret,
+  verifyContractOtpRecord,
+  type ContractOtpBinding,
+  type ContractOtpRecord,
+} from '@/lib/deposit/contract-otp'
 import { claimGuestDepositOrder, isSameDepositOwnerEmail } from '@/lib/deposit/order-ownership'
+
+const OTP_ATTEMPT_WINDOW_SECONDS = 5 * 60
+const OTP_MAX_ATTEMPTS = 5
+const CONTENT_HASH_PATTERN = /^[0-9a-f]{64}$/
 
 export async function POST(request: Request) {
   try {
@@ -20,38 +32,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Chỉ khách hàng sở hữu đơn mới được xác nhận tài liệu đặt mua.' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { orderId, documentId, expectedContentHash, otp } = body
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null
+    const orderId = typeof body?.orderId === 'string' ? body.orderId : ''
+    const documentId = typeof body?.documentId === 'string' ? body.documentId : ''
+    const expectedContentHash = typeof body?.expectedContentHash === 'string' ? body.expectedContentHash : ''
+    const otp = typeof body?.otp === 'string' ? body.otp : ''
 
-    if (!orderId) {
-      return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
-    }
-    if (!documentId || !expectedContentHash) {
+    if (!orderId || !documentId || !CONTENT_HASH_PATTERN.test(expectedContentHash)) {
       return NextResponse.json({ error: 'Thiếu thông tin phiên bản tài liệu.' }, { status: 400 })
     }
-
-    if (!otp) {
+    if (!/^\d{6}$/.test(otp)) {
       return NextResponse.json({ error: 'Thiếu mã xác thực OTP' }, { status: 400 })
     }
-
-    // Verify OTP
-    const redisKey = `otp:contract:sign:${orderId}`
-    const storedOtp = await readRedisJson<string>(redisKey)
-
-    // Fallback cho môi trường dev khi không cài Redis local
-    if (process.env.NODE_ENV === 'development' && !storedOtp) {
-      console.warn('[DEV] Redis is down or key not found. Bypassing OTP check.')
-    } else {
-      if (!storedOtp) {
-        return NextResponse.json({ error: 'Mã OTP đã hết hạn hoặc không hợp lệ. Vui lòng gửi lại mã.' }, { status: 400 })
-      }
-
-      if (storedOtp !== otp) {
-        return NextResponse.json({ error: 'Mã OTP không chính xác.' }, { status: 400 })
-      }
-    }
-    
-    await deleteRedisKey(redisKey)
 
     const supabase = getSupabaseAdmin()
 
@@ -100,6 +92,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phiên bản tài liệu đã thay đổi. Vui lòng tải lại trang.' }, { status: 409 })
     }
 
+    const secret = resolveContractOtpSecret()
+    if (!secret) {
+      console.error('[contract-otp] Missing CONTRACT_OTP_SECRET or valid AUTH0_SECRET')
+      return NextResponse.json({ error: 'Dịch vụ xác thực OTP tạm thời chưa sẵn sàng.' }, { status: 503 })
+    }
+    const otpBinding: ContractOtpBinding = {
+      customerId: user.id,
+      orderId,
+      documentId,
+      contentHash: expectedContentHash,
+    }
+    const otpKey = contractOtpKey(otpBinding)
+    const attemptKey = contractOtpAttemptKey(otpBinding)
+    const otpRecord = await readRedisJson<ContractOtpRecord>(otpKey)
+    if (!otpRecord) {
+      return NextResponse.json({ error: 'Mã OTP đã hết hạn hoặc không hợp lệ. Vui lòng gửi lại mã.' }, { status: 400 })
+    }
+    if (!verifyContractOtpRecord(otpRecord, otpBinding, otp, secret)) {
+      const attempts = await incrementRedisCounter(attemptKey, OTP_ATTEMPT_WINDOW_SECONDS)
+      if (attempts === null) {
+        return NextResponse.json({ error: 'Dịch vụ xác thực OTP tạm thời chưa sẵn sàng.' }, { status: 503 })
+      }
+      if (attempts >= OTP_MAX_ATTEMPTS) await deleteRedisKey(otpKey)
+      return NextResponse.json({
+        error: attempts >= OTP_MAX_ATTEMPTS
+          ? 'Mã OTP đã bị khóa do nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới.'
+          : 'Mã OTP không chính xác.',
+      }, { status: 400 })
+    }
+
     const snapshotConsentVersion = document.content_snapshot
       && typeof document.content_snapshot === 'object'
       && 'consentVersion' in document.content_snapshot
@@ -118,6 +140,8 @@ export async function POST(request: Request) {
     const signatureEvidence = {
       requestId: randomUUID(),
       signedByUserId: user.id,
+      otpVerified: true,
+      otpIssuedAt: otpRecord.issuedAt,
       ipHash: createHash('sha256').update(clientIp).digest('hex'),
       userAgentHash: createHash('sha256').update(userAgent).digest('hex'),
     }
@@ -138,11 +162,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không thể xác nhận tài liệu do trạng thái đơn đã thay đổi hoặc hết hạn.' }, { status: 409 })
     }
 
+    await Promise.all([deleteRedisKey(otpKey), deleteRedisKey(attemptKey)])
+
     revalidatePath('/profile')
     
     return NextResponse.json({ success: true, redirectUrl: '/profile?tab=car-orders' })
-  } catch (error: any) {
-    console.error('Error in sign contract API:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    console.error('Error in sign contract API:', error instanceof Error ? error.message : 'unknown error')
+    return NextResponse.json({ error: 'Không thể xác nhận tài liệu lúc này.' }, { status: 500 })
   }
 }

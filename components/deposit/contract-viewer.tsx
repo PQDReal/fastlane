@@ -295,18 +295,28 @@ function OTPModal({
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
-  onComplete: (otp: string) => void, 
+  onComplete: (otp: string) => Promise<void>,
   isVerifying: boolean 
 }) {
   const [otp, setOtp] = React.useState(['', '', '', '', '', ''])
   const inputRefs = React.useRef<(HTMLInputElement | null)[]>([])
+  const submittedOtpRef = React.useRef('')
 
   React.useEffect(() => {
     if (isOpen) {
       setOtp(['', '', '', '', '', ''])
+      submittedOtpRef.current = ''
       setTimeout(() => inputRefs.current[0]?.focus(), 100)
     }
   }, [isOpen])
+
+  const submitOtp = (value: string) => {
+    if (value.length !== 6 || submittedOtpRef.current === value) return
+    submittedOtpRef.current = value
+    void onComplete(value).catch(() => {
+      submittedOtpRef.current = ''
+    })
+  }
 
   const handleChange = (index: number, value: string) => {
     if (isVerifying) return
@@ -327,7 +337,7 @@ function OTPModal({
       inputRefs.current[nextIndex]?.focus()
       
       if (chars.length === 6) {
-        onComplete(newOtp.join(''))
+        submitOtp(newOtp.join(''))
       }
       return
     }
@@ -342,7 +352,7 @@ function OTPModal({
 
     // Auto submit if all filled
     if (newOtp.every(v => v !== '') && (index === 5 || newOtp.join('').length === 6)) {
-      onComplete(newOtp.join(''))
+      submitOtp(newOtp.join(''))
     }
   }
 
@@ -369,16 +379,33 @@ function OTPModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16 }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isVerifying) onClose()
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+        >
           <motion.div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contract-otp-title"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && !isVerifying) onClose()
+            }}
             className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl relative font-sans"
           >
-            <button 
+            <button
+              type="button"
               onClick={onClose}
+              aria-label="Đóng cửa sổ nhập OTP"
               className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
               disabled={isVerifying}
             >
@@ -386,7 +413,7 @@ function OTPModal({
             </button>
             
             <div className="mb-6 mt-2 text-center">
-              <h2 className="text-xl font-bold text-slate-800">Xác thực hợp đồng</h2>
+              <h2 id="contract-otp-title" className="text-xl font-bold text-slate-800">Xác thực tài liệu</h2>
               <p className="mt-2 text-sm text-slate-500">Mã xác thực 6 số đã được gửi đến email của bạn.</p>
             </div>
 
@@ -399,6 +426,8 @@ function OTPModal({
                   inputMode="numeric"
                   pattern="\d*"
                   maxLength={6}
+                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                  aria-label={`Chữ số OTP ${index + 1}`}
                   value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
@@ -421,7 +450,7 @@ function OTPModal({
               )}
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   )
