@@ -529,6 +529,20 @@ export function DepositClient({
     return () => controller.abort()
   }, [provinceCode])
 
+  // A province change may auto-select a showroom after the ward request has
+  // already completed. Reconcile the showroom address with the ward list in
+  // that case, so the user is never left with a showroom from one ward and an
+  // empty/incompatible ward field.
+  useEffect(() => {
+    if (!selectedShowroom || wards.length === 0) return
+    const matchedWard = findMatchingWard(selectedShowroom, wards)
+    if (!matchedWard) return
+    const ward = wards.find((item: any) => item.name === matchedWard)
+    if (!ward || wardCode === String(ward.code)) return
+    setWardCode(String(ward.code))
+    setFormData((prev) => ({ ...prev, ward: matchedWard }))
+  }, [selectedShowroom, wards, wardCode])
+
   const filteredShowrooms = showrooms
     .filter(s => {
       if (!formData.province) return false;
@@ -767,6 +781,9 @@ export function DepositClient({
         : 'Mã giảm giá không hợp lệ.'
       setPromotionError(message)
       setPromotionQuote(null)
+      // An invalid code must never remain attached to the draft/order. Clear
+      // the field so the customer can continue without a promotion.
+      setPromotionCode('')
       addToast({ kind: 'error', title: 'Không thể áp dụng mã ưu đãi', message })
       return false
     } finally {
@@ -827,8 +844,7 @@ export function DepositClient({
         return
       }
       if (promotionCode.trim() && !promotionQuote) {
-        const promotionApplied = await handleApplyPromotion()
-        if (!promotionApplied) return
+        await handleApplyPromotion()
       }
       goToStep(3)
     } else if (currentStep === 3) {
