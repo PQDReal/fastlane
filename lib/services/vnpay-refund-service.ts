@@ -155,7 +155,7 @@ export async function refundCancelledDepositOrder(input: { orderId: string; requ
   if (orderResult.error) throw orderResult.error
   const order = orderResult.data
   if (!order) throw new VnPayRefundError('Không tìm thấy đơn đặt cọc.', 'ORDER_NOT_FOUND')
-  if (order.status !== 'CANCELLED' || order.refund_status === 'COMPLETED') {
+  if (order.status !== 'CANCELLED' || order.refund_status !== 'PENDING') {
     throw new VnPayRefundError('Đơn đặt cọc không ở trạng thái chờ hoàn tiền.', 'REFUND_NOT_PENDING')
   }
 

@@ -24,7 +24,13 @@ export type AdminOrderRow = {
   rawDeposit?: any
 }
 
-export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
+export function AdminOrdersClient({
+  orders,
+  debugActionsEnabled,
+}: {
+  orders: AdminOrderRow[]
+  debugActionsEnabled: boolean
+}) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -67,8 +73,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
       case 'CONFIRMED': return 'bg-blue-100 text-blue-700'
       case 'PENDING_CONTRACT': return 'bg-indigo-100 text-indigo-700'
       case 'CONTRACT_SIGNED': return 'bg-emerald-100 text-emerald-700'
-      case 'PENDING_PAYMENT': return 'bg-yellow-100 text-yellow-700'
-      case 'PAID': return 'bg-emerald-100 text-emerald-700'
+      case 'WAITING_VEHICLE': return 'bg-sky-100 text-sky-700'
       case 'Preparing':
       case 'PREPARING_DELIVERY': return 'bg-purple-100 text-purple-700'
       case 'DELIVERED': return 'bg-teal-100 text-teal-700'
@@ -83,16 +88,15 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
     }
   }
 
-  const translateAdminStatus = (status: string, isCar: boolean) => {
+  const translateAdminStatus = (status: string, isCar: boolean, vehicleType?: string) => {
     if (isCar) {
       return {
         'PENDING_DEPOSIT': 'Chờ cọc',
         'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
         'CONFIRMED': 'Đã xác nhận',
-        'PENDING_CONTRACT': 'Chờ tạo HĐ',
-        'CONTRACT_SIGNED': 'Đã ký HĐ',
-        'PENDING_PAYMENT': 'Chờ thanh toán',
-        'PAID': 'Đã thanh toán toàn bộ',
+        'PENDING_CONTRACT': vehicleType === 'motorbike' ? 'Chờ xác nhận đặt mua' : 'Chờ ký HĐ',
+        'CONTRACT_SIGNED': 'Chờ nhận xe',
+        'WAITING_VEHICLE': 'Chờ xe sẵn sàng',
         'PREPARING_DELIVERY': 'Chờ giao xe',
         'DELIVERED': 'Đã giao xe',
         'COMPLETED': 'Hoàn thành',
@@ -118,13 +122,13 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
     if (order.status === 'CANCELLED' && order.payment === 'Paid') {
       return { label: 'Đã hủy, chờ hoàn tiền', style: 'bg-orange-100 text-orange-700 border border-orange-200' }
     }
-    if (['CANCELLED', 'COMPLETED', 'DELIVERED', 'PREPARING_DELIVERY', 'PAID', 'PENDING_PAYMENT', 'CONTRACT_SIGNED', 'PENDING_CONTRACT', 'CONFIRMED'].includes(order.status)) {
-      return { label: translateAdminStatus(order.status, order.isCar), style: getStatusStyle(order.status) }
+    if (['CANCELLED', 'COMPLETED', 'DELIVERED', 'PREPARING_DELIVERY', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PENDING_CONTRACT', 'CONFIRMED'].includes(order.status)) {
+      return { label: translateAdminStatus(order.status, order.isCar, order.vehicleType), style: getStatusStyle(order.status) }
     }
     if (order.payment === 'Paid') {
-      return { label: 'Đã thanh toán', style: 'bg-green-100 text-green-700 border border-green-200' }
+      return { label: 'Đã đặt cọc', style: 'bg-green-100 text-green-700 border border-green-200' }
     }
-    return { label: 'Chờ thanh toán', style: 'bg-amber-100 text-amber-700 border border-amber-200' }
+    return { label: 'Chờ đặt cọc', style: 'bg-amber-100 text-amber-700 border border-amber-200' }
   }
 
   const renderActions = (order: any) => {
@@ -207,10 +211,9 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
                   <option value="PENDING_DEPOSIT">Chờ cọc</option>
                   <option value="PENDING_CONFIRMATION">Chờ xét duyệt cọc</option>
                   <option value="CONFIRMED">Đã xác nhận</option>
-                  <option value="PENDING_CONTRACT">Chờ tạo HĐ</option>
+                  <option value="PENDING_CONTRACT">Chờ ký HĐ</option>
                   <option value="CONTRACT_SIGNED">Đã ký HĐ</option>
-                  <option value="PENDING_PAYMENT">Chờ thanh toán</option>
-                  <option value="PAID">Đã thanh toán toàn bộ</option>
+                  <option value="WAITING_VEHICLE">Chờ xe sẵn sàng</option>
                   <option value="PREPARING_DELIVERY">Chờ giao xe</option>
                   <option value="DELIVERED">Đã giao xe</option>
                   <option value="COMPLETED">Hoàn thành (Xe)</option>
@@ -288,6 +291,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
 
       <AdminOrderDetailDrawer 
         order={selectedOrder}
+        debugActionsEnabled={debugActionsEnabled}
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onOrderUpdated={() => {

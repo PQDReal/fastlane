@@ -15,7 +15,6 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
  * Fallbacks to Nodemailer (SMTP) if SMTP_USER is set.
  */
 export async function sendEmailOTP(to: string, otp: string, subject: string = 'Mã xác thực OTP hợp đồng') {
-  const baseUrl = process.env.APP_BASE_URL || 'https://loobycard.com';
   const htmlTemplate = `
 <!DOCTYPE html>
 <html>
@@ -78,12 +77,12 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
   if (resend) {
     try {
       const data = await resend.emails.send({
-        from: 'Fastlane <no-reply@loobycard.com>', // Verified domain
+        from: process.env.OTP_EMAIL_FROM || 'Fastlane <no-reply@loobycard.com>',
         to: [to],
         subject,
         html: htmlTemplate,
       });
-      console.log('[RESEND] Đã gửi email thành công:', data);
+      if (data.error) throw new Error(data.error.message)
       return true;
     } catch (error) {
       console.error('[RESEND ERROR]:', error);
@@ -91,19 +90,18 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
     }
   }
 
-  // 2. Nếu chưa cấu hình gì, fallback về mock logging
+  // Explicit local-only fallback for developers without an email provider.
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('\n=============================================')
-    console.log('[MOCK EMAIL] Đang gửi email (Chưa cấu hình .env.local)...')
-    console.log(`- Đến: ${to}`)
-    console.log(`- Tiêu đề: ${subject}`)
-    console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
-    console.log('=============================================\n')
-    return true
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_OTP_EMAIL_LOGGING === 'true') {
+      console.info(`[contract-otp:local] ${to} ${subject}: ${otp}`)
+      return true
+    }
+    throw new Error('OTP_EMAIL_PROVIDER_NOT_CONFIGURED')
   }
 
-  // 3. Fallback dùng Nodemailer (nếu cấu hình SMTP)
-  const smtpHost = 'smtp.gmail.com';
+  // Fallback to SMTP when configured.
+  const smtpHost = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+  const smtpPort = Number(process.env.SMTP_PORT || 465)
   let resolvedHost = smtpHost;
   try {
     const { address } = await dns.promises.lookup(smtpHost, { family: 4 });
@@ -114,8 +112,8 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
 
   const transporter = nodemailer.createTransport({
     host: resolvedHost,
-    port: 465,
-    secure: true, // Port 465 uses SSL/TLS
+    port: Number.isInteger(smtpPort) && smtpPort > 0 ? smtpPort : 465,
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : smtpPort === 465,
     tls: {
       servername: smtpHost,
     },
@@ -126,7 +124,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
   } as any)
 
   const mailOptions = {
-    from: `"Fastlane" <${process.env.SMTP_USER}>`,
+    from: process.env.OTP_EMAIL_FROM || `"Fastlane" <${process.env.SMTP_USER}>`,
     to,
     subject,
     html: htmlTemplate,

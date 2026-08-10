@@ -8,6 +8,7 @@ import type {
 } from '@/lib/cart/types'
 import { readSelectedOptionsSnapshot } from '@/lib/orders/selected-options'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { normalizeDepositOwnerEmail } from '@/lib/deposit/order-ownership'
 
 type OrderItemRow = {
   id: string
@@ -324,12 +325,11 @@ export async function listCustomerOrders(
     const { data: depositData, error: depositError } = await supabase
       .from('deposit_orders')
       .select('*, vehicle_variants(*)')
-      .or(`customer_id.eq.${customerId},email.eq.${customerEmail}`)
+      .or(`customer_id.eq.${customerId},email.eq.${normalizeDepositOwnerEmail(customerEmail)}`)
   
     if (depositError) throw new Error(`Unable to list deposit orders: ${depositError.message}`)
 
     const paidDepositOrderIds = new Set<string>()
-    const latestBalanceAttemptByOrder = new Map<string, 'PENDING' | 'PAID' | 'FAILED'>()
     const depositOrderIds = (depositData ?? []).map((deposit: any) => deposit.id)
     if (depositOrderIds.length > 0) {
       const { data: depositAttempts, error: depositAttemptsError } = await supabase
@@ -341,24 +341,13 @@ export async function listCustomerOrders(
       if (depositAttemptsError) throw new Error(`Unable to list deposit payment attempts: ${depositAttemptsError.message}`)
       for (const attempt of depositAttempts ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
 
-      const { data: balanceAttempts, error: balanceAttemptsError } = await supabase
-        .from('vnpay_vehicle_balance_attempts')
-        .select('deposit_order_id,status,created_at')
-        .in('deposit_order_id', depositOrderIds)
-        .order('created_at', { ascending: false })
-      if (balanceAttemptsError) throw new Error(`Unable to list vehicle balance payment attempts: ${balanceAttemptsError.message}`)
-      for (const attempt of balanceAttempts ?? []) {
-        if (!latestBalanceAttemptByOrder.has(attempt.deposit_order_id)) {
-          latestBalanceAttemptByOrder.set(attempt.deposit_order_id, attempt.status as 'PENDING' | 'PAID' | 'FAILED')
-        }
-      }
     }
   
     depositSummaries = (depositData ?? []).map((deposit: any) => {
       let paymentStatus: 'Pending' | 'Paid' = 'Pending'
       let orderStatus: AccessoryOrder['status'] = 'Created'
       
-      if (paidDepositOrderIds.has(deposit.id) || ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(deposit.status)) {
+      if (paidDepositOrderIds.has(deposit.id)) {
         paymentStatus = 'Paid'
       }
 
@@ -386,14 +375,18 @@ export async function listCustomerOrders(
           ? 'Completed'
           : deposit.refund_status === 'PENDING' ? 'Pending' : 'None',
         paymentStatus: paymentStatus as 'Pending' | 'Paid',
+        kycStatus: deposit.kyc_status ?? null,
+        contractIssuedAt: deposit.contract_issued_at ?? null,
+        contractSignatureDueAt: deposit.contract_signature_due_at ?? null,
+        contractSignedAt: deposit.contract_signed_at ?? null,
+        vehicleReadyAt: deposit.vehicle_ready_at ?? null,
+        vehicleReadyNotifiedAt: deposit.vehicle_ready_notified_at ?? null,
         nextPaymentDueAt: null,
         pricing: {
           currency: 'VND',
           grandTotal: deposit.total_estimated_price ? String(deposit.total_estimated_price) : finalDepositVal,
           amountDueNow: finalDepositVal,
-          balanceDue: ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(deposit.status)
-            ? '0'
-            : deposit.total_estimated_price ? String(Math.max(0, Number(deposit.total_estimated_price) - Number(finalDepositVal))) : '0',
+          balanceDue: '0',
         },
         createdAt: deposit.created_at,
         statusUpdatedAt: deposit.updated_at,
@@ -412,7 +405,6 @@ export async function listCustomerOrders(
           discountAmount: deposit.discount_amount,
           promotionCode: deposit.promotion_code,
           totalEstimatedPrice: deposit.total_estimated_price,
-          balancePaymentStatus: latestBalanceAttemptByOrder.get(deposit.id) ?? null,
           vehicleVariant: deposit.vehicle_variants
         }
       }

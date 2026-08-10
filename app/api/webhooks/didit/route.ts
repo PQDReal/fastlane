@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { updateDepositOrderWithKycFallback } from '@/lib/deposit/kyc-persistence'
 import { revalidatePath } from 'next/cache'
 import { verifyDiditWebhook } from '@/lib/didit/webhook'
+import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
 
 export async function POST(request: Request) {
   try {
@@ -40,6 +41,26 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseAdmin()
+    const { data: order, error: orderError } = await supabase
+      .from('deposit_orders')
+      .select('id,status,kyc_session_id,full_name,id_card_number')
+      .eq('id', orderId)
+      .maybeSingle<{
+        id: string
+        status: string
+        kyc_session_id: string | null
+        full_name: string | null
+        id_card_number: string | null
+      }>()
+    if (orderError) throw orderError
+    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    if (!order.kyc_session_id || order.kyc_session_id !== sessionId) {
+      return NextResponse.json({ success: true, ignored: true })
+    }
+    if (!['PENDING_CONFIRMATION', 'CONFIRMED'].includes(order.status)) {
+      // Late webhook must not resurrect a cancelled/signed/paid order.
+      return NextResponse.json({ success: true, ignored: true })
+    }
 
     if (webhookType === 'status.updated' && status === 'approved') {
       // The admin manually approved the session on Didit's Business Console
@@ -59,8 +80,27 @@ export async function POST(request: Request) {
           verifiedId = doc.document_number
         }
 
+        if (!verifiedName || !verifiedId) {
+          await updateDepositOrderWithKycFallback(supabase, orderId, {
+            kyc_status: 'DECLINED', kyc_session_id: sessionId, updated_at: new Date().toISOString(),
+          })
+          return NextResponse.json({ success: true, incomplete: true })
+        }
+
+        const normalize = (value: unknown) => String(value ?? '')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase().replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '')
+        if (verifiedName && verifiedId && (
+          normalize(order.full_name) !== normalize(verifiedName)
+          || normalize(order.id_card_number) !== normalize(verifiedId)
+        )) {
+          await updateDepositOrderWithKycFallback(supabase, orderId, {
+            kyc_status: 'DECLINED', kyc_session_id: sessionId, updated_at: new Date().toISOString(),
+          })
+          return NextResponse.json({ success: true, mismatch: true })
+        }
+
         const updatePayload: any = {
-          status: 'PENDING_CONTRACT',
           kyc_status: 'APPROVED',
           kyc_session_id: sessionId,
           updated_at: new Date().toISOString()
@@ -70,6 +110,14 @@ export async function POST(request: Request) {
         if (verifiedId) updatePayload.id_card_number = verifiedId
 
         await updateDepositOrderWithKycFallback(supabase, orderId, updatePayload)
+        const issueResult = await tryAutoIssueContract(supabase, orderId)
+        if (!issueResult.success && issueResult.reason !== 'NOT_READY') {
+          console.error('Auto issue after Didit webhook failed', {
+            orderId,
+            reason: issueResult.reason,
+            error: issueResult.error,
+          })
+        }
         console.log(`Order ${orderId} KYC approved via webhook.`)
       }
 
