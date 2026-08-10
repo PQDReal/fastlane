@@ -25,6 +25,8 @@
 | `/api/v1/admin/inventory` | GET | `/admin/inventory` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/redis` | GET | `/admin/monitoring/redis` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/sentry` | GET | `/admin/monitoring/sentry` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/notifications` | GET, POST | `/admin/notifications` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/notifications/{notificationId}/read` | PATCH | `/admin/notifications/{notificationId}/read` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/orders/{orderId}/actions/{action}` | POST | `/admin/orders/{orderId}/actions/{action}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/orders/{orderId}/confirm` | POST | `/admin/orders/{orderId}/confirm` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/products` | GET, POST | `/admin/products` | MAPPED |
@@ -36,6 +38,7 @@
 | `/api/v1/admin/service-labels/{labelId}` | PATCH, DELETE | `/admin/service-labels/{labelId}` | MAPPED |
 | `/api/v1/admin/test-drive/requests` | GET | `/admin/test-drive/requests` | MAPPED |
 | `/api/v1/admin/test-drive/requests/{requestId}/transitions` | POST | `/admin/test-drive/requests/{requestId}/transitions` | MAPPED |
+| `/api/v1/admin/upload` | POST | `/admin/upload` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/variants/{variantId}/inventory` | PUT | `/admin/variants/{variantId}/inventory` | MAPPED |
 | `/api/v1/cart` | GET | `/cart` | MAPPED |
 | `/api/v1/cart/items` | POST | `/cart/items` | MAPPED |
@@ -43,9 +46,16 @@
 | `/api/v1/cart/promotion` | GET, PUT | `/cart/promotion` | MAPPED |
 | `/api/v1/categories` | GET | `/categories` | MAPPED |
 | `/api/v1/checkout` | POST | `/checkout` | MAPPED |
+| `/api/v1/deposit-orders/{orderId}` | DELETE | `/deposit-orders/{orderId}` | MISSING_IN_OPENAPI |
+| `/api/v1/deposit-orders/{orderId}/contract/issue` | POST | `/deposit-orders/{orderId}/contract/issue` | MISSING_IN_OPENAPI |
+| `/api/v1/deposit-orders/{orderId}/payment` | POST | `/deposit-orders/{orderId}/payment` | MISSING_IN_OPENAPI |
+| `/api/v1/deposit-orders/expire-contracts` | POST | `/deposit-orders/expire-contracts` | MISSING_IN_OPENAPI |
+| `/api/v1/deposit/draft` | GET, PUT, POST, DELETE | `/deposit/draft` | MISSING_IN_OPENAPI |
 | `/api/v1/deposit/promotion` | POST | `/deposit/promotion` | MISSING_IN_OPENAPI |
 | `/api/v1/health` | — | `/health` | MAPPED |
 | `/api/v1/locations` | GET | `/locations` | MISSING_IN_OPENAPI |
+| `/api/v1/notifications` | GET, POST | `/notifications` | MISSING_IN_OPENAPI |
+| `/api/v1/notifications/{notificationId}/read` | PATCH | `/notifications/{notificationId}/read` | MISSING_IN_OPENAPI |
 | `/api/v1/orders` | GET | `/orders` | MAPPED |
 | `/api/v1/orders/{orderId}` | GET, DELETE | `/orders/{orderId}` | MAPPED |
 | `/api/v1/orders/{orderId}/payment` | POST | `/orders/{orderId}/payment` | MISSING_IN_OPENAPI |

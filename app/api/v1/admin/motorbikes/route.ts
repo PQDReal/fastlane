@@ -154,18 +154,23 @@ export async function POST(request: Request) {
   }
 
   // 2. Insert into product_variants
-  const productVariantRows = versions.map((version: any) => ({
-    id: randomUUID(),
-    product_id: productId,
-    sku: version.sku,
-    name: version.name,
-    original_price: version.price,
-    sale_price: null,
-    is_active: is_active,
-    option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    metadata: { source: 'admin_motorbike_creation' },
-    deposit_amount: version.deposit_amount,
-  }))
+  // Inventory is tracked per sellable version + colour combination. Do not
+  // create one shared product variant for every colour, otherwise setting one
+  // colour to zero would incorrectly hide all colours of that model.
+  const productVariantRows = versions.flatMap((version: any) =>
+    colors.map((colorItem: any, colorIndex: number) => ({
+      id: randomUUID(),
+      product_id: productId,
+      sku: `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
+      name: `${version.name} - ${colorItem.color_name}`,
+      original_price: version.price,
+      sale_price: null,
+      is_active: is_active,
+      option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      metadata: { source: 'admin_motorbike_creation', version: version.name, color: colorItem.color_name },
+      deposit_amount: version.deposit_amount,
+    })),
+  )
 
   const { error: variantError } = await supabase
     .from('product_variants')
@@ -181,9 +186,11 @@ export async function POST(request: Request) {
   const vehicleVariantRows: any[] = []
   const generatedAt = new Date().toISOString()
 
-  productVariantRows.forEach((variantRow: any, versionIndex: number) => {
+  productVariantRows.forEach((variantRow: any, rowIndex: number) => {
+    const versionIndex = Math.floor(rowIndex / colors.length)
+    const colorIndex = rowIndex % colors.length
     const origVersion = versions[versionIndex]
-    colors.forEach((colorItem: any, colorIndex: number) => {
+    const colorItem = colors[colorIndex]
       const variantId = randomUUID()
       const catalogSpecs = {
         ...formattedSpecs,
@@ -217,8 +224,8 @@ export async function POST(request: Request) {
         image_color_url: colorItem.swatch,
         version: variantRow.name,
         is_active: is_active,
+        product_variant_id: variantRow.id,
       })
-    })
   })
 
   const { error: vehicleVariantError } = await supabase
@@ -230,6 +237,19 @@ export async function POST(request: Request) {
     await supabase.from('product_variants').delete().eq('product_id', productId)
     await supabase.from('products').delete().eq('id', productId)
     return NextResponse.json({ error: `Lỗi tạo cấu hình xe: ${vehicleVariantError.message}` }, { status: 500 })
+  }
+
+  const { error: inventoryError } = await supabase
+    .from('inventory_items')
+    .insert(productVariantRows.map((variantRow: any) => ({
+      variant_id: variantRow.id,
+      on_hand_quantity: 0,
+    })))
+  if (inventoryError) {
+    await supabase.from('vehicle_variants').delete().eq('product_id', productId)
+    await supabase.from('product_variants').delete().eq('product_id', productId)
+    await supabase.from('products').delete().eq('id', productId)
+    return NextResponse.json({ error: `Lỗi tạo tồn kho: ${inventoryError.message}` }, { status: 500 })
   }
 
   revalidateTag('motorbike-catalog')

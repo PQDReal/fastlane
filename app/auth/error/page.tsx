@@ -23,6 +23,10 @@ const errors: Record<string, { title: string; message: string }> = {
     title: 'Bạn đã từ chối xác nhận',
     message: 'Phiên đăng nhập chưa được hoàn tất. Hãy đăng nhập lại nếu bạn muốn tiếp tục.',
   },
+  login_required: {
+    title: 'Vui lòng đăng nhập để đặt cọc',
+    message: 'Bạn cần đăng nhập tài khoản FastLane trước khi tiếp tục quy trình đặt cọc xe.',
+  },
   email_unverified: {
     title: 'Email chưa được xác thực',
     message: 'Vui lòng xác thực email qua thư từ FASTLANE, sau \u0111\u00f3 \u0111\u0103ng nh\u1eadp l\u1ea1i \u0111\u1ec3 truy c\u1eadp trang web.',

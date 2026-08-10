@@ -15,12 +15,14 @@ export default async function VnPayReturnPage({ searchParams }: {
   })
   let result
   try {
-    result = await processVnPayCallback(vnPayParams(query))
+    // VNPAY Return is customer-facing only. The authenticated IPN endpoint is
+    // the sole writer so refreshing this page cannot mutate payment state.
+    result = await processVnPayCallback(vnPayParams(query), { updatePayment: false })
   } catch (error) {
     console.error('Unable to process VNPAY return:', error)
     result = { success: false, message: 'Chưa thể xác nhận giao dịch.' }
   }
-  const isVehicleOrder = result.orderKind === 'deposit' || result.orderKind === 'vehicle_balance'
+  const isVehicleOrder = result.orderKind === 'deposit'
   const destination = isVehicleOrder
     ? '/profile?tab=car-orders'
     : result.success && result.orderId

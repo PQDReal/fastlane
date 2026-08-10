@@ -270,7 +270,8 @@ export async function PATCH(request: Request, context: Context) {
   // 4. Perform deletions
   const newPvSkus = productVariantRows.map((r: any) => r.sku)
   const existingPvSkus = existingPV?.map((r) => r.sku) || []
-  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s))
+  const expectedColourSkus = vehicleVariantRows.map((r: any) => r.sku)
+  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s) && !expectedColourSkus.includes(s))
 
   if (pvSkusToDelete.length > 0) {
     const { error: pvDelError } = await supabase
@@ -307,9 +308,40 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi lưu phiên bản sản phẩm: ${pvUpsertError.message}` }, { status: 500 })
   }
 
+  // Keep every sellable colour row linked to its product variant and ensure
+  // an inventory row exists when an edited product was created by the Admin
+  // flow. Legacy rows without a matching SKU remain visible but are treated
+  // as unmapped until explicitly migrated.
+  const { data: savedVariants } = await supabase
+    .from('product_variants')
+    .select('id,sku')
+    .eq('product_id', productId)
+  const savedBySku = new Map((savedVariants ?? []).map((row) => [row.sku, row.id]))
+  const mappedVehicleRows = vehicleVariantRows.map((row: any) => ({
+    ...row,
+    product_variant_id: savedBySku.get(row.sku) ?? null,
+  }))
+  const mappedIds = mappedVehicleRows
+    .map((row: any) => row.product_variant_id)
+    .filter(Boolean)
+  if (mappedIds.length > 0) {
+    const { data: existingInventory } = await supabase
+      .from('inventory_items')
+      .select('variant_id')
+      .in('variant_id', mappedIds)
+    const existingIds = new Set((existingInventory ?? []).map((row) => row.variant_id))
+    const missingInventory = mappedIds
+      .filter((id: string) => !existingIds.has(id))
+      .map((variant_id: string) => ({ variant_id, on_hand_quantity: 0 }))
+    if (missingInventory.length > 0) {
+      const { error: inventoryError } = await supabase.from('inventory_items').insert(missingInventory)
+      if (inventoryError) return NextResponse.json({ error: `Lỗi tạo tồn kho: ${inventoryError.message}` }, { status: 500 })
+    }
+  }
+
   const { error: vvUpsertError } = await supabase
     .from('vehicle_variants')
-    .upsert(vehicleVariantRows, { onConflict: 'id' })
+    .upsert(mappedVehicleRows, { onConflict: 'id' })
 
   if (vvUpsertError) {
     return NextResponse.json({ error: `Lỗi lưu cấu hình xe: ${vvUpsertError.message}` }, { status: 500 })

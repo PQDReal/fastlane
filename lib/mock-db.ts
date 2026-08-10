@@ -38,7 +38,7 @@ export const mockCustomers = Array.from({ length: 50 }).map((_, i) => {
 })
 
 const accessoryStatuses = ['Pending', 'Confirmed', 'Preparing', 'Shipped', 'Completed', 'Cancelled']
-const carStatuses = ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'CONFIRMED', 'PENDING_CONTRACT', 'CONTRACT_SIGNED', 'PENDING_PAYMENT', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED']
+const carStatuses = ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'CONFIRMED', 'PENDING_CONTRACT', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED']
 
 export const mockOrders = Array.from({ length: 100 }).map((_, i) => {
   const customer = mockCustomers[Math.floor(seededRandom() * mockCustomers.length)]
@@ -55,7 +55,7 @@ export const mockOrders = Array.from({ length: 100 }).map((_, i) => {
     else if (r < 0.3) status = 'CONFIRMED'
     else if (r < 0.4) status = 'PENDING_CONTRACT'
     else if (r < 0.5) status = 'CONTRACT_SIGNED'
-    else if (r < 0.6) status = 'PENDING_PAYMENT'
+    else if (r < 0.6) status = 'WAITING_VEHICLE'
     else if (r < 0.7) status = 'PAID'
     else if (r < 0.8) status = 'PREPARING_DELIVERY'
     else if (r < 0.9) status = 'DELIVERED'
