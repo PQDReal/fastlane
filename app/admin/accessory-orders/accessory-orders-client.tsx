@@ -1,14 +1,31 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, RotateCcw, Search, ShoppingBag, Truck, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, ChevronRight, RotateCcw, Search, ShoppingBag, Truck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
+import type { SelectedProductOption, ShippingAddress } from '@/lib/cart/types'
+import { AccessoryOrderDetailDrawer } from './accessory-order-detail-drawer'
 
 export type AdminAccessoryOrder = {
   id: string; orderNumber: string; customerEmail: string
-  items: { product_name_snapshot: string; quantity: number }[]
+  items: {
+    id: string
+    sku: string
+    product_name_snapshot: string
+    variantName: string
+    selectedOptions: SelectedProductOption[]
+    unitPrice: number
+    quantity: number
+    lineSubtotal: number
+  }[]
+  subtotal: number
+  discountAmount: number
   totalAmount: number
+  shippingAddress: ShippingAddress | null
+  note: string | null
+  cancellationReason: string | null
+  cancelledBy: 'ADMIN' | 'CUSTOMER' | 'UNKNOWN' | null
   status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
   refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
   refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
@@ -45,6 +62,7 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
   const [orders, setOrders] = useState(initialOrders)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'ALL' | AdminAccessoryOrder['status']>('ALL')
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const busyRef = useRef<string | null>(null)
   const pollCursorRef = useRef(0)
@@ -53,6 +71,8 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
     const normalized = query.trim().toLocaleLowerCase('vi')
     return orders.filter((order) => (status === 'ALL' || order.status === status) && (!normalized || [order.orderNumber, order.customerEmail, ...order.items.map((item) => item.product_name_snapshot)].some((value) => value.toLocaleLowerCase('vi').includes(normalized))))
   }, [orders, query, status])
+  const selectedOrder = useMemo(() => orders.find((order) => order.id === selectedOrderId) ?? null, [orders, selectedOrderId])
+  const closeOrderDetail = useCallback(() => setSelectedOrderId(null), [])
   const notify = (toast: Omit<ToastMessage, 'id'>) => setToasts((current) => [...current, { id: Date.now(), ...toast }])
 
   async function confirmOrder(order: AdminAccessoryOrder) {
@@ -86,6 +106,8 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         refundStatus: body.data.refundStatus ?? item.refundStatus,
         refundAttemptStatus: body.data.attemptStatus ?? item.refundAttemptStatus,
         refundNextCheckAt: body.data.nextCheckAt === undefined ? item.refundNextCheckAt : body.data.nextCheckAt,
+        cancellationReason: action === 'cancel' ? 'ADMIN_CANCELLED' : item.cancellationReason,
+        cancelledBy: action === 'cancel' ? 'ADMIN' : item.cancelledBy,
       }))
       const title = action === 'cancel' ? 'Đã hủy đơn phụ kiện' : action === 'ship' ? 'Đơn hàng đang được giao' : action === 'complete' ? 'Đã hoàn thành đơn phụ kiện' : body.data.attemptStatus === 'COMPLETED' ? 'Hoàn tiền thành công' : body.data.attemptStatus === 'FAILED' ? 'Hoàn tiền thất bại' : 'VNPay đang xử lý hoàn tiền'
       if (!silent || body.data.attemptStatus === 'COMPLETED' || body.data.attemptStatus === 'FAILED') {
@@ -161,16 +183,21 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         <select aria-label="Lọc đơn phụ kiện theo trạng thái" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-500 sm:w-auto"><option value="ALL">Tất cả trạng thái</option>{Object.entries(statusLabel).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
       </div>
 
-      <div className="hidden grid-cols-[minmax(0,.9fr)_minmax(0,1.45fr)_minmax(115px,.6fr)_minmax(155px,.75fr)_minmax(270px,1.1fr)] gap-5 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid">
+      <div className="hidden grid-cols-[minmax(0,.9fr)_minmax(0,1.55fr)_minmax(120px,.65fr)_minmax(185px,.9fr)] gap-5 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid">
         <span>Đơn hàng</span>
         <span>Khách hàng / sản phẩm</span>
         <span>Tổng tiền</span>
         <span>Trạng thái</span>
-        <span className="text-right">Thao tác</span>
       </div>
 
       <div className="divide-y divide-slate-100">
-        {filteredOrders.map((order) => <div key={order.id} className="grid grid-cols-1 gap-4 px-5 py-4 transition-colors hover:bg-slate-50 sm:grid-cols-2 xl:grid-cols-[minmax(0,.9fr)_minmax(0,1.45fr)_minmax(115px,.6fr)_minmax(155px,.75fr)_minmax(270px,1.1fr)] xl:items-center xl:gap-5">
+        {filteredOrders.map((order) => <button
+          key={order.id}
+          type="button"
+          onClick={() => setSelectedOrderId(order.id)}
+          aria-label={`Xem chi tiết đơn phụ kiện ${order.orderNumber}`}
+          className="group grid w-full grid-cols-1 gap-4 px-5 py-4 text-left transition-[background-color,transform] hover:bg-slate-50 active:scale-[0.998] active:bg-slate-100 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 sm:grid-cols-2 xl:grid-cols-[minmax(0,.9fr)_minmax(0,1.55fr)_minmax(120px,.65fr)_minmax(185px,.9fr)] xl:items-center xl:gap-5"
+        >
           <div className="min-w-0">
             <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Đơn hàng</span>
             <p className="truncate font-semibold text-brand-700" title={order.orderNumber}>{order.orderNumber}</p>
@@ -193,20 +220,30 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
 
           <div className="min-w-0">
             <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Trạng thái</span>
-            <span className={`inline-flex max-w-full rounded-md px-2 py-1 text-[11px] font-bold uppercase leading-4 tracking-wide ${isBankRefundPending(order) ? 'bg-amber-100 text-amber-700' : statusStyle[order.status]}`}>{displayStatus(order)}</span>
-            {statusHint[order.status] && <p className="mt-1 text-xs text-slate-500">{statusHint[order.status]}</p>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className={`inline-flex max-w-full rounded-md px-2 py-1 text-[11px] font-bold uppercase leading-4 tracking-wide ${isBankRefundPending(order) ? 'bg-amber-100 text-amber-700' : statusStyle[order.status]}`}>{displayStatus(order)}</span>
+                {statusHint[order.status] && <p className="mt-1 text-xs text-slate-500">{statusHint[order.status]}</p>}
+              </div>
+              <ChevronRight aria-hidden="true" size={18} className="mt-0.5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
+            </div>
           </div>
-
-          <div className="sm:col-span-2 xl:col-span-1">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Thao tác</span>
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">{orderActions(order)}</div>
-          </div>
-        </div>)}
+        </button>)}
 
         {!filteredOrders.length && <div className="px-6 py-14 text-center text-slate-500"><ShoppingBag className="mx-auto mb-3 text-slate-300" size={30} /><p>{loadError ? 'Không thể tải đơn phụ kiện.' : 'Không có đơn phụ kiện phù hợp.'}</p></div>}
       </div>
 
       <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredOrders.length} / {orders.length} đơn hàng</div>
     </div>
+
+    <AccessoryOrderDetailDrawer
+      order={selectedOrder}
+      isOpen={Boolean(selectedOrder)}
+      statusText={selectedOrder ? displayStatus(selectedOrder) : ''}
+      statusClassName={selectedOrder ? (isBankRefundPending(selectedOrder) ? 'bg-amber-100 text-amber-700' : statusStyle[selectedOrder.status]) : ''}
+      statusHint={selectedOrder ? statusHint[selectedOrder.status] : undefined}
+      actions={selectedOrder ? orderActions(selectedOrder) : undefined}
+      onClose={closeOrderDetail}
+    />
   </div>
 }
