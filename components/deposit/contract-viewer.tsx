@@ -452,6 +452,21 @@ function OTPModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
+          onPointerDown={(event) => {
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseDown={(event) => {
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
         >
           <motion.div 
