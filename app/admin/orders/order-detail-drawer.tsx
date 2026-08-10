@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
+import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin, RotateCcw } from 'lucide-react'
 import { AdminOrderRow } from './orders-client'
 import {
   confirmDepositRefund,
@@ -19,10 +19,11 @@ type OrderDetailDrawerProps = {
   isOpen: boolean
   onClose: () => void
   onOrderUpdated: () => void
-  onShowToast: (toast: Omit<ToastMessage, 'id'>) => void
+  onShowToast: (toast: Omit<ToastMessage, 'id'>, duration?: number) => number
+  onDismissToast: (id: number) => void
 }
 
-export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast }: OrderDetailDrawerProps) {
+export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast, onDismissToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
 
   if (!order || !order.rawDeposit) return null
@@ -30,6 +31,8 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   const d = order.rawDeposit
   const isMotorbike = d.vehicle_type === 'motorbike'
   const hasIssuedDocumentProjection = Boolean(d.contract_issued_at && d.contract_signature_due_at)
+  const isRefundProcessing = order.refundStatus === 'PENDING'
+    && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')
 
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN', {
@@ -124,13 +127,21 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   }
 
   const requestConfirmRefund = () => {
-    onShowToast({
-      title: 'Xác nhận hoàn tiền?',
-      message: 'Hệ thống sẽ gửi yêu cầu hoàn tiền đặt cọc đến VNPay.',
+    let toastId = 0
+    toastId = onShowToast({
+      title: 'Hoàn tiền qua VNPay?',
+      message: `Hoàn toàn bộ ${formatMoney(order.amount)} cho đơn ${order.orderNumber}. Thao tác có thể không thể thu hồi.`,
       kind: 'warning',
-      secondaryAction: { label: 'Kiểm tra lại', onClick: () => undefined },
-      action: { label: 'Xác nhận hoàn tiền', onClick: () => void handleConfirmRefund() },
-    })
+      secondaryAction: { label: 'Để sau', onClick: () => onDismissToast(toastId) },
+      action: {
+        label: 'Gửi yêu cầu hoàn tiền',
+        variant: 'danger',
+        onClick: () => {
+          onDismissToast(toastId)
+          void handleConfirmRefund()
+        },
+      },
+    }, 0)
   }
 
   return (
@@ -292,7 +303,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                       {order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED'
                         ? 'Đã hủy, đã hoàn tiền'
                         : order.status === 'CANCELLED' && order.payment === 'Paid'
-                        ? 'Đã hủy, chờ hoàn tiền'
+                        ? 'Đã hủy, chờ admin xác nhận hoàn tiền'
                         : order.payment === 'Paid' ? 'Đã đặt cọc' : 'Chờ đặt cọc'}
                     </span>
                   </div>
@@ -324,14 +335,20 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
             {/* Footer Actions */}
             <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               <div className="flex flex-col gap-3">
-                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus !== 'COMPLETED' && (
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && isRefundProcessing && (
+                  <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                    <RotateCcw size={16} className="animate-spin" />
+                    Đang tự động kiểm tra hoàn tiền
+                  </div>
+                )}
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus === 'PENDING' && !isRefundProcessing && (
                   <button
                     onClick={requestConfirmRefund}
                     disabled={isUpdating}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <CheckCircle2 size={16} />
-                    {isUpdating ? 'Đang gửi VNPay...' : 'Xác nhận hoàn tiền'}
+                    <RotateCcw size={16} />
+                    {isUpdating ? 'Đang gửi VNPay...' : order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Xác nhận hoàn tiền'}
                   </button>
                 )}
                 {nextAction && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (

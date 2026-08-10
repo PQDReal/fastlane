@@ -450,7 +450,7 @@ function ProfileContent() {
         'Confirmed': 'Đã xác nhận',
       }[s] || s
     }
-    if ((s === 'Cancelled' || s === 'CANCELLED') && refundStatus === 'Pending') return 'Đã Hủy - Chờ Hoàn Tiền'
+    if ((s === 'Cancelled' || s === 'CANCELLED') && refundStatus === 'Pending') return 'Đã Hủy - Chờ Xử Lý Hoàn Tiền'
     if ((s === 'Cancelled' || s === 'CANCELLED') && refundStatus === 'Completed') return 'Đã Hủy, Đã Hoàn Tiền'
     return {
       'Created': 'Chưa Thanh Toán',

@@ -9,6 +9,10 @@ const otpMailerSource = mailerSource.slice(
   mailerSource.indexOf('export async function sendEmailOTP'),
   mailerSource.indexOf('export async function sendContractSignedEmail'),
 )
+const signedMailerSource = mailerSource.slice(
+  mailerSource.indexOf('export async function sendContractSignedEmail'),
+  mailerSource.indexOf('export async function sendPaymentSuccessEmail'),
+)
 const viewerSource = readFileSync(new URL('../../../components/deposit/contract-viewer.tsx', import.meta.url), 'utf8')
 
 describe('contract OTP route boundaries', () => {
@@ -52,6 +56,16 @@ describe('contract OTP route boundaries', () => {
     expect(otpMailerSource).toContain('<strong>Mã có hiệu lực trong 5 phút.</strong>')
     expect(otpMailerSource.match(/html: htmlTemplate/g)).toHaveLength(2)
     expect(otpMailerSource.match(/text: textTemplate/g)).toHaveLength(2)
+  })
+
+  it('uses the shared Fastlane header for the signed-contract email', () => {
+    expect(signedMailerSource).toContain("const subject = 'Fastlane | Hợp đồng đã ký thành công'")
+    expect(signedMailerSource).toContain('fastlane-logo-name.png')
+    expect(signedMailerSource).toContain('alt="FASTLANE"')
+    expect(signedMailerSource).toContain('Hợp đồng đã ký thành công')
+    expect(signedMailerSource).toContain("productName.replace(/vinfast/gi, '')")
+    expect(signedMailerSource).not.toContain('VinFast Fastlane')
+    expect(signedMailerSource).not.toContain('VINFAST FASTLANE')
   })
 
   it('keeps the OTP dialog open and gates resend behind the one-minute cooldown', () => {

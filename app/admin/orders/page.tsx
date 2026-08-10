@@ -44,22 +44,44 @@ export default async function AdminOrdersPage() {
   }
 
   const paidDepositOrderIds = new Set<string>()
+  const latestRefundAttemptByOrder = new Map<string, {
+    status: AdminOrderRow['refundAttemptStatus']
+    updated_at: string
+  }>()
   const depositOrderIds = (depositData ?? []).map((deposit: any) => deposit.id)
   if (depositOrderIds.length > 0) {
-    const { data: paymentAttempts, error: paymentAttemptsError } = await supabase
-      .from('vnpay_deposit_attempts')
-      .select('deposit_order_id,status')
-      .in('deposit_order_id', depositOrderIds)
-      .eq('status', 'PAID')
+    const [paymentAttemptsResult, refundAttemptsResult] = await Promise.all([
+      supabase.from('vnpay_deposit_attempts')
+        .select('deposit_order_id,status')
+        .in('deposit_order_id', depositOrderIds)
+        .eq('status', 'PAID'),
+      supabase.from('vnpay_deposit_refund_attempts')
+        .select('deposit_order_id,status,created_at,updated_at')
+        .in('deposit_order_id', depositOrderIds)
+        .order('created_at', { ascending: false }),
+    ])
 
-    if (paymentAttemptsError) {
-      console.error('Failed to fetch deposit payment attempts:', paymentAttemptsError)
+    if (paymentAttemptsResult.error) {
+      console.error('Failed to fetch deposit payment attempts:', paymentAttemptsResult.error)
     } else {
-      for (const attempt of paymentAttempts ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
+      for (const attempt of paymentAttemptsResult.data ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
+    }
+    if (refundAttemptsResult.error) {
+      console.warn('Deposit refund tracking is unavailable:', databaseErrorDetails(refundAttemptsResult.error))
+    } else {
+      for (const attempt of refundAttemptsResult.data ?? []) {
+        if (!latestRefundAttemptByOrder.has(attempt.deposit_order_id)) {
+          latestRefundAttemptByOrder.set(attempt.deposit_order_id, {
+            status: attempt.status as AdminOrderRow['refundAttemptStatus'],
+            updated_at: attempt.updated_at,
+          })
+        }
+      }
     }
   }
 
   const orders: AdminOrderRow[] = (depositData ?? []).map((deposit: any) => {
+    const refundAttempt = latestRefundAttemptByOrder.get(deposit.id)
     let paymentStatus = 'Pending'
     if (paidDepositOrderIds.has(deposit.id)) {
       paymentStatus = 'Paid'
@@ -89,6 +111,10 @@ export default async function AdminOrdersPage() {
       status: deposit.status,
       payment: paymentStatus,
       refundStatus: deposit.refund_status || 'NONE',
+      refundAttemptStatus: refundAttempt?.status ?? null,
+      refundNextCheckAt: refundAttempt?.updated_at
+        ? new Date(new Date(refundAttempt.updated_at).getTime() + 310_000).toISOString()
+        : null,
       createdAt: deposit.created_at,
       isCar: true,
       kyc_status: deposit.kyc_status,
