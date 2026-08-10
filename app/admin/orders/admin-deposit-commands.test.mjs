@@ -23,6 +23,7 @@ describe('admin deposit commands', () => {
   it('keeps debug shortcuts outside production and inside command boundaries', () => {
     expect(source).toContain('assertDepositDebugActionsEnabled()')
     expect(source).toContain("rpc('process_vnpay_deposit_callback'")
+    expect(source).toContain('p_transaction_no: createDebugVnpayTransactionNo()')
     expect(source).toContain('tryAutoIssueContract(supabase, orderId)')
     expect(source).not.toContain('forceOrderState')
     expect(source).not.toContain('mock_full_paid')

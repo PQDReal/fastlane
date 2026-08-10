@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth/current-user'
 import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
 import { assertDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
+import { createDebugVnpayTransactionNo } from '@/lib/deposit/debug-transaction'
 
 async function requireAdmin() {
   const user = await getCurrentUser()
@@ -178,6 +179,29 @@ export async function confirmDepositRefund(orderId: string) {
 
 export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved'
 
+type SupabaseActionError = {
+  message?: unknown
+  code?: unknown
+  details?: unknown
+  hint?: unknown
+}
+
+function getDebugActionErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+
+  if (error && typeof error === 'object') {
+    const candidate = error as SupabaseActionError
+    const message = typeof candidate.message === 'string' ? candidate.message.trim() : ''
+    const code = typeof candidate.code === 'string' ? candidate.code : ''
+    const details = typeof candidate.details === 'string' ? candidate.details : ''
+    const hint = typeof candidate.hint === 'string' ? candidate.hint : ''
+    const context = [message, code && `[${code}]`, details, hint].filter(Boolean).join(' - ')
+    if (context) return context
+  }
+
+  return 'Không thể chạy thao tác debug.'
+}
+
 export async function runDepositDebugAction(orderId: string, action: DepositDebugAction) {
   try {
     const admin = await requireAdmin()
@@ -250,7 +274,7 @@ export async function runDepositDebugAction(orderId: string, action: DepositDebu
         p_attempt_id: attemptId,
         p_success: true,
         p_response_code: '00',
-        p_transaction_no: `DEBUG-${randomUUID()}`,
+        p_transaction_no: createDebugVnpayTransactionNo(),
         p_bank_code: 'FASTLANE_DEBUG',
         p_response_payload: {
           source: 'ADMIN_DEBUG_ACTION',
@@ -293,7 +317,7 @@ export async function runDepositDebugAction(orderId: string, action: DepositDebu
     revalidatePath('/profile')
     return { success: true }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Không thể chạy thao tác debug.'
+    const message = getDebugActionErrorMessage(error)
     const userMessage = message === 'DEPOSIT_DEBUG_ACTIONS_DISABLED'
       ? 'Thao tác debug đang bị tắt hoặc không được phép trên production.'
       : message
