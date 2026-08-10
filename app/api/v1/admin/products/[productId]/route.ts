@@ -97,6 +97,28 @@ export async function DELETE(request: Request, context: Context) {
 
   const supabase = getSupabaseAdmin()
 
+  const { data: referencedDeposit, error: depositReferenceError } = await supabase
+    .from('deposit_orders')
+    .select('id')
+    .eq('product_id', resolved.productId)
+    .limit(1)
+    .maybeSingle()
+
+  if (depositReferenceError) {
+    return adminAccessoryErrorResponse(
+      500,
+      'INTERNAL_ERROR',
+      `Không thể kiểm tra đơn đặt cọc liên quan: ${depositReferenceError.message}`,
+    )
+  }
+  if (referencedDeposit) {
+    return adminAccessoryErrorResponse(
+      409,
+      'CONFLICT',
+      'Sản phẩm đã phát sinh đơn đặt cọc nên không thể xóa. Hãy chuyển sản phẩm sang trạng thái ngừng hoạt động.',
+    )
+  }
+
   // 1. Get variant IDs to delete child records first
   const { data: variants } = await supabase
     .from('product_variants')
@@ -104,6 +126,30 @@ export async function DELETE(request: Request, context: Context) {
     .eq('product_id', resolved.productId)
 
   const variantIds = variants?.map((v) => v.id) || []
+
+  if (variantIds.length > 0) {
+    const { data: referencedOrderItem, error: orderReferenceError } = await supabase
+      .from('order_items')
+      .select('id')
+      .in('variant_id', variantIds)
+      .limit(1)
+      .maybeSingle()
+
+    if (orderReferenceError) {
+      return adminAccessoryErrorResponse(
+        500,
+        'INTERNAL_ERROR',
+        `Không thể kiểm tra đơn hàng liên quan: ${orderReferenceError.message}`,
+      )
+    }
+    if (referencedOrderItem) {
+      return adminAccessoryErrorResponse(
+        409,
+        'CONFLICT',
+        'Sản phẩm đã phát sinh đơn hàng nên không thể xóa. Hãy chuyển sản phẩm sang trạng thái ngừng hoạt động.',
+      )
+    }
+  }
 
   // 2. Clean up child records in related tables
   if (variantIds.length > 0) {

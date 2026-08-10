@@ -29,6 +29,7 @@ import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
+import { reconstructMotorbikeAdminVersions } from '@/lib/motorbike-admin-variants'
 
 interface ColorEntry {
   color_name: string
@@ -176,7 +177,21 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        setForm(JSON.parse(saved))
+        const parsed = JSON.parse(saved) as FormState
+        setForm({
+          ...parsed,
+          versions: reconstructMotorbikeAdminVersions(
+            (parsed.versions || []).map((version) => ({
+              id: version.id,
+              name: version.name,
+              sku: version.sku,
+              original_price: version.price,
+              deposit_amount: version.deposit_amount,
+            })),
+            [],
+            parsed.colors || [],
+          ),
+        })
         notify('success', 'Đã khôi phục bản nháp chỉnh sửa')
       } catch (e) {
         notify('error', 'Khôi phục bản nháp thất bại')

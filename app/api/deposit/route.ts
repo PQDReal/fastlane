@@ -331,7 +331,7 @@ export async function POST(request: Request) {
         return errorResponse(
           400,
           'DEPOSIT_CONSTRAINT_VIOLATION',
-          'Số điện thoại hoặc thông tin đặt cọc không đúng định dạng.',
+          'Giá trị đặt cọc hoặc tổng giá trị đơn hàng không hợp lệ. Vui lòng kiểm tra lại phiên bản xe và mã ưu đãi.',
         )
       }
       if (isDepositSchemaOutdated(insertResult.error)) {
