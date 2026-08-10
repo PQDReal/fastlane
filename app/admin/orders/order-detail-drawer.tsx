@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, FileText, Truck, XCircle, CreditCard, User, MapPin } from 'lucide-react'
+import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
 import { AdminOrderRow } from './orders-client'
-import { confirmDepositRefund, updateOrderStatus, forceOrderState } from './actions'
+import { confirmDepositRefund, forceOrderState, notifyVehicleReadyForDelivery, updateOrderStatus } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
 
 type OrderDetailDrawerProps = {
@@ -21,6 +21,8 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
   if (!order || !order.rawDeposit) return null
 
   const d = order.rawDeposit
+  const isMotorbike = d.vehicle_type === 'motorbike'
+  const hasIssuedDocumentProjection = Boolean(d.contract_issued_at && d.contract_signature_due_at)
 
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN', {
@@ -29,9 +31,8 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
 
   const nextActionMap: Record<string, { label: string; icon: any; nextStatus: string }> = {
     'PENDING_CONFIRMATION': { label: 'Xác nhận đơn & duyệt', icon: <CheckCircle2 size={16}/>, nextStatus: 'CONFIRMED' },
-    'PENDING_CONTRACT': { label: 'Khách đã ký Hợp đồng', icon: <FileText size={16}/>, nextStatus: 'CONTRACT_SIGNED' },
-    'CONTRACT_SIGNED': { label: 'Yêu cầu thanh toán xe', icon: <CreditCard size={16}/>, nextStatus: 'PENDING_PAYMENT' },
-    'PAID': { label: 'Chuẩn bị giao xe', icon: <Truck size={16}/>, nextStatus: 'PREPARING_DELIVERY' },
+    'CONTRACT_SIGNED': { label: 'Xác nhận xe sẵn sàng', icon: <Truck size={16}/>, nextStatus: 'VEHICLE_READY' },
+    'WAITING_VEHICLE': { label: 'Xác nhận xe sẵn sàng', icon: <Truck size={16}/>, nextStatus: 'VEHICLE_READY' },
     'PREPARING_DELIVERY': { label: 'Bàn giao xe', icon: <Truck size={16}/>, nextStatus: 'DELIVERED' },
     'DELIVERED': { label: 'Hoàn thành đơn', icon: <CheckCircle2 size={16}/>, nextStatus: 'COMPLETED' },
   }
@@ -42,10 +43,39 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
 
   const handleUpdateStatus = async (newStatus: string) => {
     setIsUpdating(true)
-    const res = await updateOrderStatus(order.id, newStatus)
+    let res: { success: boolean; error?: string } = { success: false }
+
+    if (newStatus === 'VEHICLE_READY') {
+      res = await notifyVehicleReadyForDelivery(order.id)
+    } else if (newStatus === 'PENDING_CONTRACT') {
+      try {
+        const response = await fetch(`/api/v1/deposit-orders/${order.id}/contract/issue`, {
+          method: 'POST',
+        })
+        const json = await response.json()
+        if (response.ok && json.data) {
+          res = { success: true }
+        } else {
+          res = { success: false, error: json.error?.message || json.error || 'Khởi tạo hợp đồng thất bại' }
+        }
+      } catch (err: any) {
+        res = { success: false, error: err.message || 'Lỗi mạng khi khởi tạo hợp đồng' }
+      }
+    } else {
+      res = await updateOrderStatus(order.id, newStatus)
+    }
+
     setIsUpdating(false)
     if (res.success) {
-      onShowToast({ title: 'Thành công', message: 'Cập nhật trạng thái đơn hàng thành công', kind: 'success' })
+      onShowToast({
+        title: 'Thành công',
+        message: newStatus === 'PENDING_CONTRACT'
+          ? `${isMotorbike ? 'Đã phát hành thỏa thuận đặt mua' : 'Đã phát hành hợp đồng'} (thời hạn 72h) thành công`
+          : newStatus === 'VEHICLE_READY'
+            ? 'Đã xác nhận xe sẵn sàng và chuyển sang chuẩn bị bàn giao.'
+            : 'Cập nhật trạng thái đơn hàng thành công',
+        kind: 'success',
+      })
       onOrderUpdated()
       if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED') {
         onClose()
@@ -195,13 +225,13 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                 </div>
               </section>
 
-              {/* Vehicle & Payment Info */}
+              {/* Vehicle & Deposit Info */}
               <section className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-                    <CreditCard size={18} />
+                    <FileText size={18} />
                   </div>
-                  <h3 className="font-semibold text-slate-800">Thông tin Xe & Thanh toán</h3>
+                  <h3 className="font-semibold text-slate-800">Thông tin Xe & Đặt cọc</h3>
                 </div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -256,19 +286,7 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                         ? 'Đã hủy, đã hoàn tiền'
                         : order.status === 'CANCELLED' && order.payment === 'Paid'
                         ? 'Đã hủy, chờ hoàn tiền'
-                        : order.payment === 'Paid' ? 'Đã Thanh Toán' : 'Chờ Thanh Toán'}
-                    </span>
-                  </div>
-                  {order.status === 'PAID' && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Thanh toán đơn xe:</span>
-                      <span className="font-semibold text-emerald-600">Đã thanh toán toàn bộ</span>
-                    </div>
-                  )}
-                  <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between bg-amber-50/50 p-2 rounded-lg">
-                    <span className="text-amber-800 font-medium">Số tiền còn lại phải đóng:</span>
-                    <span className="font-bold text-amber-700">
-                      {formatMoney(order.status === 'PAID' ? 0 : Math.max(0, Number(d.total_estimated_price || 0) - order.amount))}
+                        : order.payment === 'Paid' ? 'Đã đặt cọc' : 'Chờ đặt cọc'}
                     </span>
                   </div>
                 </div>
@@ -320,9 +338,9 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                   </button>
                 )}
 
-                {!nextAction && order.status === 'CONFIRMED' && (
+                {!nextAction && order.status === 'CONFIRMED' && order.kyc_status !== 'APPROVED' && (
                   <div className="w-full flex flex-col items-center justify-center gap-2 py-3 px-4 text-sm text-slate-500 font-medium bg-slate-50 rounded-lg border border-slate-200">
-                    <span>Đang chờ khách hàng xác minh KYC</span>
+                    <span>Đang chờ khách hàng xác minh KYC; hợp đồng sẽ tự phát hành khi đủ điều kiện.</span>
                     <button
                       onClick={() => handleForceState('mock_kyc_approved')}
                       disabled={isUpdating}
@@ -331,6 +349,31 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                       (Test) Bỏ qua KYC
                     </button>
                   </div>
+                )}
+                {!nextAction && order.status === 'CONFIRMED' && order.kyc_status === 'APPROVED' && (
+                  <button
+                    onClick={() => handleUpdateStatus('PENDING_CONTRACT')}
+                    disabled={isUpdating}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <FileText size={16}/>
+                    {isUpdating
+                      ? 'Đang thử phát hành...'
+                      : isMotorbike ? 'Thử phát hành lại thỏa thuận đặt mua' : 'Thử phát hành lại hợp đồng'}
+                  </button>
+                )}
+
+                {!nextAction && order.status === 'PENDING_CONTRACT' && !hasIssuedDocumentProjection && (
+                  <button
+                    onClick={() => handleUpdateStatus('PENDING_CONTRACT')}
+                    disabled={isUpdating}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <FileText size={16}/>
+                    {isUpdating
+                      ? 'Đang sửa hàng đợi phát hành...'
+                      : isMotorbike ? 'Sửa và phát hành thỏa thuận' : 'Sửa và phát hành hợp đồng'}
+                  </button>
                 )}
 
                 {!nextAction && ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && order.payment !== 'Paid' && (
@@ -346,21 +389,7 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                   </div>
                 )}
 
-                {!nextAction && order.status === 'PENDING_PAYMENT' && (
-                  <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700">
-                    <span>Đang chờ khách hàng thanh toán phần còn lại qua VNPAY</span>
-                    <button
-                      onClick={() => handleForceState('mock_full_paid')}
-                      disabled={isUpdating}
-                      className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
-                    >
-                      (Test) Đã thanh toán toàn bộ
-                    </button>
-                  </div>
-                )}
-
-                
-                {!['CANCELLED', 'PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
+                {!['CANCELLED', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                   <button
                     onClick={() => handleUpdateStatus('CANCELLED')}
                     disabled={isUpdating}
@@ -370,9 +399,11 @@ export function AdminOrderDetailDrawer({ order, isOpen, onClose, onOrderUpdated,
                     Hủy đơn hàng
                   </button>
                 )}
-                {['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
+                {['CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs font-medium text-slate-500">
-                    Không thể hủy trực tiếp ở giai đoạn này.
+                    {['CONTRACT_SIGNED', 'WAITING_VEHICLE'].includes(order.status)
+                      ? 'Đơn đã ký và đang trong quy trình chuẩn bị giao xe; không thể hủy cọc trực tiếp.'
+                      : 'Không thể hủy trực tiếp ở giai đoạn này.'}
                   </div>
                 )}
               </div>

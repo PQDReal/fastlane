@@ -4,7 +4,7 @@ import { AdminOrdersClient, AdminOrderRow } from './orders-client'
 export const dynamic = 'force-dynamic'
 
 const depositOrderBaseColumns = 'id,order_number,status,customer_type,full_name,phone_number,email,id_card_number,province,ward,vehicle_type,car_model,car_variant,exterior_color,interior_color,deposit_amount,subtotal,discount_amount,total_estimated_price,promotion_code,payment_method,showroom,created_at,vehicle_variants(deposit_amount,product_name,variant_name)'
-const depositOrderTrackingColumns = `${depositOrderBaseColumns},refund_status,kyc_status,kyc_session_id`
+const depositOrderTrackingColumns = `${depositOrderBaseColumns},refund_status,kyc_status,kyc_session_id,contract_issued_at,contract_signature_due_at,contract_signed_at,vehicle_ready_at,vehicle_ready_notified_at`
 
 function databaseErrorDetails(error: any) {
   return {
@@ -60,7 +60,7 @@ export default async function AdminOrdersPage() {
 
   const orders: AdminOrderRow[] = (depositData ?? []).map((deposit: any) => {
     let paymentStatus = 'Pending'
-    if (paidDepositOrderIds.has(deposit.id) || deposit.status === 'PAID' || deposit.status === 'PREPARING_DELIVERY' || deposit.status === 'DELIVERED' || deposit.status === 'COMPLETED') {
+    if (paidDepositOrderIds.has(deposit.id)) {
       paymentStatus = 'Paid'
     }
 

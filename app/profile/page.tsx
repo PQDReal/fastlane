@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2, ChevronLeft, ChevronRight, ChevronDown, Truck } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
@@ -15,7 +15,7 @@ import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrder, AccessoryOrderSummary } from '@/lib/cart/types'
-import { contractStageCopy, getDepositContractMode } from '@/lib/deposit/contract-workflow'
+import { contractStageCopy, getDepositContractMode, hasIssuedDepositDocumentProjection } from '@/lib/deposit/contract-workflow'
 
 function OrderItemThumbnail({ src, productName }: { src: string | null; productName: string }) {
   const [failed, setFailed] = useState(false)
@@ -43,6 +43,7 @@ function ProfileContent() {
   const [ordersPage, setOrdersPage] = useState(1)
   const [ordersMeta, setOrdersMeta] = useState({ page: 1, limit: 5, total: 0, totalPages: 0 })
   const [selectedOrder, setSelectedOrder] = useState<AccessoryOrderSummary | null>(null)
+  const [expandedVehicleOrderId, setExpandedVehicleOrderId] = useState<string | null>(null)
   const [selectedAccessoryOrder, setSelectedAccessoryOrder] = useState<AccessoryOrder | null>(null)
   const [accessoryOrderLoadingId, setAccessoryOrderLoadingId] = useState<string | null>(null)
   const [kycLoadingId, setKycLoadingId] = useState<string | null>(null)
@@ -304,19 +305,6 @@ function ProfileContent() {
     }
   }
 
-  async function payVehicleBalance(order: AccessoryOrderSummary) {
-    setOrderAction({ id: order.id, type: 'payment' })
-    try {
-      const response = await fetch(`/api/v1/deposit-orders/${encodeURIComponent(order.id)}/balance-payment`, { method: 'POST' })
-      const payload = await response.json().catch(() => ({})) as { data?: { paymentUrl?: string }; error?: { message?: string } }
-      if (!response.ok || !payload.data?.paymentUrl) throw new Error(payload.error?.message || 'Không thể tạo giao dịch thanh toán.')
-      window.location.assign(payload.data.paymentUrl)
-    } catch (error) {
-      showToast('error', 'Không thể thanh toán phần còn lại', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
-      setOrderAction(null)
-    }
-  }
-
   function requestCancelAccessoryOrder(order: AccessoryOrderSummary) {
     const paid = order.paymentStatus === 'Paid'
     showToast('warning', 'Xác nhận hủy đơn hàng', paid
@@ -386,6 +374,7 @@ function ProfileContent() {
         order.paymentStatus === 'Paid' ? 'Đã hủy - Chờ hoàn tiền' : 'Đã hủy đơn đặt cọc',
         order.paymentStatus === 'Paid' ? 'Khoản tiền cọc đang chờ được xử lý hoàn tiền.' : undefined,
       )
+      if (selectedOrder?.id === order.id) setSelectedOrder(null)
     } catch (error) {
       showToast('error', 'Không thể hủy đơn đặt cọc', error instanceof Error ? error.message : 'Vui lòng thử lại sau.')
     } finally {
@@ -434,16 +423,20 @@ function ProfileContent() {
       ? <XCircle className="h-5 w-5 text-red-500" />
       : <Clock className="h-5 w-5 text-yellow-500" />
 
-  const translateStatus = (s: string, isCar: boolean, refundStatus?: AccessoryOrder['refundStatus']) => {
+  const translateStatus = (
+    s: string,
+    isCar: boolean,
+    refundStatus?: AccessoryOrder['refundStatus'],
+    isMotorbike = false,
+  ) => {
     if (isCar) {
       return {
         'PENDING_DEPOSIT': 'Chờ cọc',
         'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
         'CONFIRMED': 'Đã xác nhận',
-        'PENDING_CONTRACT': 'Chờ tạo HĐ',
-        'CONTRACT_SIGNED': 'Đã ký HĐ',
-        'PENDING_PAYMENT': 'Chờ thanh toán',
-        'PAID': 'Đã thanh toán',
+        'PENDING_CONTRACT': isMotorbike ? 'Chờ xác nhận đặt mua' : 'Chờ ký hợp đồng',
+        'CONTRACT_SIGNED': 'Chờ nhận xe',
+        'WAITING_VEHICLE': 'Chờ xe sẵn sàng',
         'PREPARING_DELIVERY': 'Chờ giao xe',
         'DELIVERED': 'Đã giao xe',
         'COMPLETED': 'Hoàn thành',
@@ -564,6 +557,25 @@ function ProfileContent() {
                     if (activeTab === 'car-orders') {
                       const status = order.status;
                       const vVariant = order.depositDetails?.vehicleVariant;
+                      const isMotorbikeOrder = order.vehicleType === 'motorbike'
+                        || (vVariant as any)?.product_type === 'motorbike';
+                      const contractCopy = contractStageCopy(getDepositContractMode({
+                        vehicle_type: order.vehicleType,
+                        car_variant: order.carVariant,
+                        vehicle_variants: vVariant,
+                      }));
+                      const hasContractDocument = hasIssuedDepositDocumentProjection(
+                        order.contractIssuedAt,
+                        order.contractSignatureDueAt,
+                      );
+                      const viewDocumentButton = hasContractDocument ? (
+                        <button
+                          onClick={() => router.push(`/profile/contract/${order.id}`)}
+                          className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                        >
+                          {isMotorbikeOrder ? 'Xem lại thỏa thuận đặt mua' : 'Xem lại hợp đồng'}
+                        </button>
+                      ) : null;
 
                       const cleanCarModel = (vVariant?.product_name || order.carModel || '').replace(/vinfast\s*/i, '').trim();
                       let cleanCarVariant = (vVariant?.variant_name || vVariant?.version || order.carVariant || '').replace(/vinfast\s*/i, '').trim();
@@ -596,7 +608,7 @@ function ProfileContent() {
                       const carImage = getVehicleImage(cleanCarModel, vVariant?.image_car_url);
 
                       let stateIcon = <Clock className="w-5 h-5 shrink-0 text-gray-500" />;
-                      let stateText = translateStatus(status, true);
+                      let stateText = translateStatus(status, true, undefined, isMotorbikeOrder);
                       let actionBtn = null;
 
                       switch (status) {
@@ -615,85 +627,64 @@ function ProfileContent() {
                           break;
                         case 'CONFIRMED':
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
-                          stateText = 'Xác thực KYC: Đã xét duyệt đơn cọc. Vui lòng tải lên CCCD/CMND để xác thực KYC & hoàn thiện hồ sơ.';
-                          actionBtn = (
-                            <button
-                              onClick={() => handleStartKyc(order)}
-                              disabled={kycLoadingId === order.id}
-                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                              {kycLoadingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Tải lên CCCD (KYC)'}
-                            </button>
-                          );
+                          if (order.kycStatus === 'APPROVED') {
+                            stateText = `KYC đã được phê duyệt. Hệ thống đang kiểm tra điều kiện và phát hành ${isMotorbikeOrder ? 'thỏa thuận đặt mua' : 'hợp đồng'}.`;
+                          } else if (order.kycStatus === 'PENDING') {
+                            stateText = 'Phiên xác thực KYC đang được xử lý. Nếu bạn vừa hoàn tất, hệ thống sẽ tự cập nhật kết quả.';
+                          } else if (order.kycStatus === 'REVIEW') {
+                            stateText = 'Hồ sơ KYC đang chờ FastLane thẩm định. Bạn chưa cần thực hiện thêm thao tác.';
+                          } else {
+                            const isRetry = order.kycStatus === 'DECLINED';
+                            stateText = isRetry
+                              ? 'Hồ sơ KYC chưa được chấp thuận. Vui lòng xác thực lại để cập nhật hồ sơ.'
+                              : 'Đơn đặt cọc đã được xét duyệt. Vui lòng bắt đầu xác thực KYC để hoàn thiện hồ sơ.';
+                            actionBtn = (
+                              <button
+                                onClick={() => handleStartKyc(order)}
+                                disabled={kycLoadingId === order.id}
+                                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-[#836100] text-white hover:bg-[#6a4e00] transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                              >
+                                {kycLoadingId === order.id
+                                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                                  : isRetry ? 'Xác thực lại KYC' : 'Bắt đầu xác thực KYC'}
+                              </button>
+                            );
+                          }
                           break;
                         case 'PENDING_CONTRACT':
                           stateIcon = <FileText className="w-5 h-5 shrink-0 text-indigo-500" />;
-                          {
-                            const contractCopy = contractStageCopy(getDepositContractMode({
-                              vehicle_type: (order as any).vehicleType,
-                              car_variant: (order as any).carVariant,
-                              vehicle_variants: (order as any).depositDetails?.vehicleVariant,
-                            }))
+                          if (hasContractDocument) {
                             stateText = contractCopy.status;
                             actionBtn = (
                               <button onClick={() => router.push(`/profile/contract/${order.id}`)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all">
                                 {contractCopy.action}
                               </button>
                             );
+                          } else {
+                            stateIcon = <Clock className="w-5 h-5 shrink-0 text-amber-500" />;
+                            stateText = `${isMotorbikeOrder ? 'Thỏa thuận đặt mua' : 'Hợp đồng'} chưa được phát hành hợp lệ. FastLane đang kiểm tra lại tài liệu của đơn này.`;
                           }
                           break;
                         case 'CONTRACT_SIGNED':
-                        case 'PENDING_PAYMENT':
                           stateIcon = <Clock className="w-5 h-5 shrink-0 text-orange-500" />;
-                          stateText = 'Thanh toán phần còn lại: Đang chờ thanh toán số tiền còn lại của giá trị xe (hoặc đối ứng ngân hàng).';
-                          actionBtn = (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void payVehicleBalance(order)}
-                                disabled={orderAction?.id === order.id}
-                                className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-700 transition-all disabled:cursor-wait disabled:opacity-60"
-                              >
-                                {orderAction?.id === order.id && orderAction.type === 'payment' && <Loader2 className="h-4 w-4 animate-spin" />}
-                                Thanh toán phần còn lại
-                              </button>
-                              <button 
-                                onClick={() => router.push(`/profile/contract/${order.id}`)}
-                                className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
-                              >
-                                <FileText className="w-4 h-4" />
-                                Xem hợp đồng
-                              </button>
-                            </div>
-                          );
+                          stateText = `${isMotorbikeOrder ? 'Thỏa thuận đã xác nhận' : 'Hợp đồng đã ký'}. FastLane đang chuẩn bị xe và sẽ liên hệ để hẹn lịch bàn giao.`;
+                          actionBtn = viewDocumentButton;
                           break;
-                        case 'PAID':
+                        case 'WAITING_VEHICLE':
+                          stateIcon = <Truck className="w-5 h-5 shrink-0 text-sky-500" />;
+                          stateText = 'Đang chờ xe sẵn sàng. FastLane sẽ thông báo khi xe có thể bàn giao.';
+                          actionBtn = viewDocumentButton;
+                          break;
                         case 'PREPARING_DELIVERY':
                           stateIcon = <Package className="w-5 h-5 shrink-0 text-purple-500" />;
-                          stateText = 'Đã thanh toán thành công. Xe đang được chuẩn bị bàn giao!';
-                          actionBtn = (
-                            <button 
-                              onClick={() => router.push(`/profile/contract/${order.id}`)}
-                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Xem lại hợp đồng
-                            </button>
-                          );
+                          stateText = 'Xe đang được chuẩn bị để bàn giao.';
+                          actionBtn = viewDocumentButton;
                           break;
                         case 'DELIVERED':
                         case 'COMPLETED':
                           stateIcon = <CheckCircle2 className="w-5 h-5 shrink-0 text-green-500" />;
                           stateText = 'Đã nhận xe thành công. Chúc bạn có những chuyến đi tuyệt vời!';
-                          actionBtn = (
-                            <button 
-                              onClick={() => router.push(`/profile/contract/${order.id}`)}
-                              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Xem lại hợp đồng
-                            </button>
-                          );
+                          actionBtn = viewDocumentButton;
                           break;
                         case 'CANCELLED':
                           stateIcon = <XCircle className="w-5 h-5 shrink-0 text-red-500" />;
@@ -707,27 +698,33 @@ function ProfileContent() {
 
                       const currentStepIdx = (() => {
                         if (['PENDING_CONFIRMATION', 'PENDING_DEPOSIT', 'PENDING'].includes(status)) return 1;
-                        if (['CONFIRMED'].includes(status)) return 2;
+                        if (['CONFIRMED'].includes(status)) return order.kycStatus === 'APPROVED' ? 3 : 2;
                         if (['PENDING_CONTRACT'].includes(status)) return 3;
-                        if (['CONTRACT_SIGNED', 'PENDING_PAYMENT'].includes(status)) return 4;
-                        if (['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 5;
+                        if (['CONTRACT_SIGNED', 'WAITING_VEHICLE'].includes(status)) return 4;
+                        if (['PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(status)) return 5;
                         return 1;
                       })();
+
+                      const isJourneyComplete = ['DELIVERED', 'COMPLETED'].includes(status);
+                      const isStepComplete = (step: number) => isJourneyComplete
+                        ? step <= currentStepIdx
+                        : step < currentStepIdx;
 
                       const stepsList = [
                         { step: 1, label: '1. Chờ xét duyệt' },
                         { step: 2, label: '2. Xác thực KYC' },
-                        { step: 3, label: '3. Ký hợp đồng' },
-                        { step: 4, label: '4. Thanh toán' },
+                        { step: 3, label: isMotorbikeOrder ? '3. Xác nhận đặt mua' : '3. Ký hợp đồng' },
+                        { step: 4, label: '4. Chờ xe' },
+                        { step: 5, label: '5. Nhận xe' },
                       ];
 
                       const stateBox = (
                         <div className="w-full space-y-3">
                           {status !== 'CANCELLED' && (
                             <div className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                              <div className="grid grid-cols-4 gap-1 text-[11px] font-bold text-center mb-1.5">
+                              <div className="grid grid-cols-5 gap-1 text-[11px] font-bold text-center mb-1.5">
                                 {stepsList.map(s => (
-                                  <span key={s.step} className={s.step === currentStepIdx ? 'text-[#836100]' : s.step < currentStepIdx ? 'text-green-600' : 'text-gray-400'}>
+                                  <span key={s.step} className={isStepComplete(s.step) ? 'text-green-600' : s.step === currentStepIdx ? 'text-[#836100]' : 'text-gray-400'}>
                                     {s.label}
                                   </span>
                                 ))}
@@ -736,7 +733,7 @@ function ProfileContent() {
                                 {stepsList.map(s => (
                                   <div
                                     key={s.step}
-                                    className={`flex-1 border-r last:border-r-0 border-white transition-all ${s.step < currentStepIdx ? 'bg-green-500' : s.step === currentStepIdx ? 'bg-[#836100]' : 'bg-gray-200'
+                                    className={`flex-1 border-r last:border-r-0 border-white transition-all ${isStepComplete(s.step) ? 'bg-green-500' : s.step === currentStepIdx ? 'bg-[#836100]' : 'bg-gray-200'
                                       }`}
                                   />
                                 ))}
@@ -753,115 +750,106 @@ function ProfileContent() {
                       const showPaidBadge = order.paymentStatus === 'Paid';
                       const displayColor = (order as any).exteriorColor || vVariant?.color || '';
 
-                      return (
-                        <div key={order.id} className="border border-gray-200 rounded-2xl p-7 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-white shadow-sm flex flex-col lg:flex-row gap-8 items-stretch">
+                      const isExpanded = expandedVehicleOrderId === order.id
+                      const toggleExpanded = () => setExpandedVehicleOrderId((current) => current === order.id ? null : order.id)
+                      const expandedPanelId = `vehicle-order-details-${order.id}`
 
-                          {/* LEFT: Image */}
-                          <div className="w-full lg:w-[220px] shrink-0 flex flex-col items-center justify-center">
-                            <div className="aspect-[4/3] w-full relative">
+                      return (
+                        <article key={order.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                          <button
+                            type="button"
+                            aria-expanded={isExpanded}
+                            aria-controls={expandedPanelId}
+                            onClick={toggleExpanded}
+                            className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#836100]/40 sm:gap-5 sm:px-6 sm:py-5"
+                          >
+                            <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 sm:h-20 sm:w-32">
                               <img
                                 src={carImage}
                                 alt={carName}
-                                className="w-full h-full object-contain mix-blend-multiply"
+                                className="h-full w-full object-contain mix-blend-multiply"
                                 onError={(e) => {
-                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp';
-                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7afb0815/reserves/VF8/exterior/product-CE11.webp'
+                                  e.currentTarget.onerror = null
                                 }}
                               />
                             </div>
-                            {showPaidBadge && (
-                              <div className="mt-4 bg-green-500 text-white text-sm font-bold px-4 py-1.5 rounded-full shadow-sm flex items-center justify-center gap-1.5 h-8 w-fit mx-auto">
-                                <CheckCircle2 className="w-4 h-4" /> {status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đã thanh toán'}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="truncate text-lg font-bold text-gray-900 sm:text-xl">VinFast {cleanCarModel}</h3>
+                                <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${isJourneyComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : status === 'CANCELLED' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                                  {isJourneyComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : status === 'CANCELLED' ? <XCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                                  {isJourneyComplete ? 'Đã hoàn thành' : translateStatus(status, true, undefined, isMotorbikeOrder)}
+                                </span>
                               </div>
-                            )}
-                          </div>
-
-                          {/* MIDDLE: Car Info & Timeline */}
-                          <div className="flex-1 flex flex-col items-center text-center justify-center min-w-0 py-2">
-                            <h3 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight mb-2">
-                              VinFast {cleanCarModel}
-                            </h3>
-                            <p className="text-[15px] leading-relaxed text-gray-500 font-medium mb-6 text-balance max-w-sm mx-auto line-clamp-3">
-                              {cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}
-                            </p>
-
-                            <div className="mb-6 flex flex-col items-center gap-4 w-full px-4">
-                              <div className="flex flex-col items-center">
-                                <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Tiền cọc</p>
-                                <p className="text-[#836100] text-3xl font-bold">
-                                  {formatPrice(order.pricing.amountDueNow)}
-                                </p>
-                              </div>
-                              {Number(order.pricing.balanceDue) > 0 && (
-                                <div className="flex flex-col items-center">
-                                  <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Còn lại cần thanh toán</p>
-                                  <p className="text-gray-900 text-xl font-bold">
-                                    {formatPrice(order.pricing.balanceDue)}
-                                  </p>
-                                </div>
-                              )}
+                              <p className="mt-1 truncate text-sm font-medium text-gray-500">{cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}</p>
+                              <p className="mt-2 truncate text-xs text-gray-500 sm:text-sm">Mã đơn: <span className="font-semibold text-gray-700">{order.orderNumber}</span><span className="mx-2 text-gray-300">·</span>Ngày đặt: {formatDate(order.createdAt)}</p>
                             </div>
+                            <ChevronDown className={`h-6 w-6 shrink-0 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#836100]' : 'group-hover:text-gray-900'}`} aria-hidden="true" />
+                          </button>
 
-                            <div className="mt-auto flex justify-center">
-                              {stateBox}
-                            </div>
-                          </div>
-
-                          {/* RIGHT: Order Summary */}
-                          <div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-4">
-                            <div className="bg-gray-50 rounded-xl border border-gray-100 p-6 flex-1 flex flex-col justify-center gap-6">
-                              <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Mã đơn</p>
-                                <p className="text-xl font-bold text-gray-900">{order.orderNumber}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Ngày đặt</p>
-                                <p className="text-base font-bold text-gray-700">{formatDate(order.createdAt)}</p>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                              <button
-                                onClick={() => setSelectedOrder(order)}
-                                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-sm bg-gray-900 text-white hover:bg-gray-800 transition-all group shadow-sm"
+                          <AnimatePresence initial={false}>
+                            {isExpanded && (
+                              <motion.div
+                                id={expandedPanelId}
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2, ease: 'easeOut' }}
+                                className="overflow-hidden border-t border-gray-100"
                               >
-                                Xem chi tiết <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                              </button>
-                              {actionBtn && (
-                                <div className="w-full">
-                                  {actionBtn}
+                                <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+                                  {stateBox}
+                                  <div className="grid gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2 sm:p-5">
+                                    <div>
+                                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Thông tin xe</p>
+                                      <p className="mt-2 font-bold text-gray-900">VinFast {cleanCarModel}</p>
+                                      <p className="mt-1 text-sm text-gray-600">{cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Thông tin đơn</p>
+                                      <p className="mt-2 break-all font-bold text-gray-900">{order.orderNumber}</p>
+                                      <p className="mt-1 text-sm text-gray-600">Đặt ngày {formatDate(order.createdAt)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="rounded-xl border border-gray-100 p-4">
+                                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Chủ xe</p>
+                                      <p className="mt-2 font-semibold text-gray-900">{order.depositDetails?.customerName || 'Chưa cập nhật'}</p>
+                                      <p className="mt-1 text-sm text-gray-600">{order.depositDetails?.customerPhone || 'Chưa cập nhật'}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-gray-100 p-4">
+                                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Showroom nhận xe</p>
+                                      <p className="mt-2 font-semibold leading-relaxed text-gray-900">{order.depositDetails?.showroom || 'Chưa chọn'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-3 border-t border-gray-100 pt-5">
+                                    {actionBtn}
+                                    {status === 'PENDING_DEPOSIT' && order.paymentStatus === 'Pending' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void payDepositOrder(order)}
+                                        disabled={orderAction?.id === order.id}
+                                        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#836100] text-sm font-bold text-white transition-all hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
+                                      >
+                                        {orderAction?.id === order.id && orderAction.type === 'payment' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                                        Thanh toán lại tiền đặt cọc
+                                      </button>
+                                    )}
+                                    {showPaidBadge && <p className="text-center text-sm font-semibold text-gray-500">{isJourneyComplete ? 'Đơn hàng đã hoàn thành.' : 'Khoản đặt cọc đã được ghi nhận.'}</p>}
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedOrder(order)}
+                                      className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/30"
+                                    >
+                                      Xem chi tiết đơn <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                    </button>
+                                  </div>
                                 </div>
-                              )}
-                              {status === 'PENDING_DEPOSIT' && order.paymentStatus === 'Pending' && (
-                                <button
-                                  type="button"
-                                  onClick={() => void payDepositOrder(order)}
-                                  disabled={orderAction?.id === order.id}
-                                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-[#836100] font-bold text-sm text-white transition-all hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60"
-                                >
-                                  {orderAction?.id === order.id && orderAction.type === 'payment'
-                                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                                    : <CreditCard className="h-4 w-4" />}
-                                  Thanh toán lại
-                                </button>
-                              )}
-                              {['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING', 'CONFIRMED'].includes(status) && (
-                                <button
-                                  type="button"
-                                  onClick={() => requestCancelDepositOrder(order)}
-                                  disabled={orderAction?.id === order.id}
-                                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-red-300 font-bold text-sm text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60"
-                                >
-                                  {orderAction?.id === order.id && orderAction.type === 'cancel'
-                                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                                    : <Trash2 className="h-4 w-4" />}
-                                  Hủy đơn đặt cọc
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                        </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </article>
                       )
                     }
 
@@ -1221,40 +1209,8 @@ function ProfileContent() {
                                 ? 'Đã hủy, chờ hoàn tiền'
                                 : 'Đã hủy cọc'
                             : selectedOrder.paymentStatus === 'Paid'
-                              ? 'Đã thanh toán'
+                              ? 'Đã đặt cọc'
                               : 'Chờ thanh toán'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-4">
-                        <span className="text-gray-600">Thanh toán phần còn lại</span>
-                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${
-                          ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
-                            ? 'bg-green-100 text-green-700'
-                            : selectedOrder.depositDetails.balancePaymentStatus === 'FAILED'
-                              ? 'bg-red-100 text-red-700'
-                              : ['CONTRACT_SIGNED', 'PENDING_PAYMENT'].includes(String(selectedOrder.status))
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
-                            ? 'Đã thanh toán'
-                            : selectedOrder.depositDetails.balancePaymentStatus === 'FAILED'
-                              ? 'Thanh toán thất bại'
-                              : ['CONTRACT_SIGNED', 'PENDING_PAYMENT'].includes(String(selectedOrder.status))
-                                ? 'Chờ thanh toán'
-                                : 'Chưa đến hạn'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-4">
-                        <span className="text-gray-600">Thanh toán toàn bộ đơn xe</span>
-                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${
-                          ['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {['PAID', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(String(selectedOrder.status))
-                            ? 'Đã thanh toán toàn bộ'
-                            : 'Chưa thanh toán toàn bộ'}
                         </span>
                       </div>
                       <div className="border-t border-gray-200 pt-4 flex justify-between items-center">
@@ -1288,6 +1244,23 @@ function ProfileContent() {
                       </div>
                     </div>
                   </section>
+
+                  {['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING', 'CONFIRMED', 'PENDING_CONTRACT'].includes(String(selectedOrder.status))
+                    && !selectedOrder.contractSignedAt && (
+                    <div className="border-t border-gray-100 pt-6">
+                      <button
+                        type="button"
+                        onClick={() => requestCancelDepositOrder(selectedOrder)}
+                        disabled={orderAction?.id === selectedOrder.id}
+                        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-red-300 font-bold text-sm text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {orderAction?.id === selectedOrder.id && orderAction.type === 'cancel'
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Trash2 className="h-4 w-4" />}
+                        Hủy đơn đặt cọc
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>

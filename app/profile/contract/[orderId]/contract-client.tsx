@@ -10,6 +10,8 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 export default function ContractPageClient({ order }: { order: any }) {
   const router = useRouter()
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const isMotorbikeTerms = order.contractMode === 'BIKE_PURCHASE_TERMS'
+  const documentName = isMotorbikeTerms ? 'thỏa thuận đặt mua' : 'hợp đồng'
   
   function showToast(
     kind: ToastMessage['kind'],
@@ -40,24 +42,34 @@ export default function ContractPageClient({ order }: { order: any }) {
   }
   
   const handleSign = async (otp: string) => {
+    if (!order.canSign) return
     try {
       const res = await fetch('/api/contracts/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, otp }),
+        body: JSON.stringify({
+          orderId: order.id,
+          documentId: order.contractDocumentId,
+          expectedContentHash: order.contractContentHash,
+          otp,
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Lỗi khi ký hợp đồng')
+      if (!res.ok) throw new Error(data.error || `Không thể xác nhận ${documentName}`)
       
-      showToast('success', 'Ký hợp đồng thành công', 'Đơn hàng của bạn đã được cập nhật trạng thái.')
+      showToast(
+        'success',
+        isMotorbikeTerms ? 'Xác nhận thỏa thuận thành công' : 'Ký hợp đồng thành công',
+        'Đơn mua xe của bạn đã được chuyển sang trạng thái chờ xe.',
+      )
       
       setTimeout(() => {
         router.push(data.redirectUrl || '/profile?tab=car-orders')
         router.refresh()
       }, 1500)
     } catch (err: any) {
-      showToast('error', 'Lỗi', err.message || 'Không thể ký hợp đồng lúc này')
-      throw err // Để bên trong component ngừng isSigning
+      showToast('error', 'Không thể xác nhận tài liệu', err.message || `Không thể xác nhận ${documentName} lúc này`)
+      throw err
     }
   }
 
@@ -73,7 +85,12 @@ export default function ContractPageClient({ order }: { order: any }) {
           Quay lại hồ sơ
         </button>
       </div>
-      <ContractViewer order={order} onSign={handleSign} onSendOtp={handleSendOtp} />
+      <ContractViewer
+        order={order}
+        onSign={order.canSign ? handleSign : undefined}
+        onSendOtp={order.canSign ? handleSendOtp : undefined}
+        canSign={order.canSign}
+      />
     </div>
   )
 }
