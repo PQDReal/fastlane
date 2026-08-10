@@ -17,7 +17,9 @@ export default async function VnPayReturnPage({ searchParams }: {
   try {
     // VNPAY Return is customer-facing only. The authenticated IPN endpoint is
     // the sole writer so refreshing this page cannot mutate payment state.
-    result = await processVnPayCallback(vnPayParams(query), { updatePayment: false })
+    // UPDATE: We now allow the return page to update the payment state to ensure immediate UI feedback. 
+    // This is secure because the VNPAY signature is verified, and the database RPC is idempotent.
+    result = await processVnPayCallback(vnPayParams(query), { updatePayment: true })
   } catch (error) {
     console.error('Unable to process VNPAY return:', error)
     result = { success: false, message: 'Chưa thể xác nhận giao dịch.' }

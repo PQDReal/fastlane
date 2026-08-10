@@ -133,6 +133,21 @@ export async function createOrReuseVnPayDepositPayment(
   if (pending.error) throw pending.error
   let attempt = pending.data
 
+  // To prevent VNPAY Error 01 (Transaction already in progress) when user clicks "Thanh toán lại",
+  // we must cancel the old attempt and generate a new one with a fresh transaction reference.
+  if (attempt) {
+    const expired = await supabase.from('vnpay_deposit_attempts')
+      .update({
+        status: 'FAILED',
+        response_code: 'EXPIRED_OR_RETRIED',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', attempt.id)
+      .eq('status', 'PENDING')
+    if (expired.error) throw expired.error
+    attempt = null
+  }
+
   if (!attempt) {
     const inserted = await supabase.from('vnpay_deposit_attempts').insert({
       deposit_order_id: order.id,
