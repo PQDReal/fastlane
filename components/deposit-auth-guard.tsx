@@ -2,12 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
+import { usePathname } from 'next/navigation'
 
 import { DepositLoginRequired } from '@/components/deposit-login-required'
 
 export function DepositAuthGuard() {
   const { user, isLoading } = useUser()
   const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    if (pathname !== '/deposit') setOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const close = () => setOpen(false)
+    window.addEventListener('fastlane:close-deposit-login', close)
+    return () => window.removeEventListener('fastlane:close-deposit-login', close)
+  }, [])
 
   useEffect(() => {
     if (isLoading || user) return

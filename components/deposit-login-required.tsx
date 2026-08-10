@@ -34,6 +34,7 @@ export function DepositLoginRequired() {
           </PopupLoginButton>
           <Link
             href="/"
+            onClick={() => window.dispatchEvent(new Event('fastlane:close-deposit-login'))}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             <Undo2 size={17} aria-hidden="true" />
