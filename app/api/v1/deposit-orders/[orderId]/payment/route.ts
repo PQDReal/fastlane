@@ -6,6 +6,7 @@ import { parseItemId } from '@/lib/cart/validation'
 import { VnPayConfigError } from '@/lib/payments/vnpay'
 import { createOrReuseVnPayDepositPayment } from '@/lib/services/vnpay-payment-service'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { normalizeDepositOwnerEmail } from '@/lib/deposit/order-ownership'
 
 type RouteContext = { params: Promise<{ orderId: string }> }
 
@@ -33,7 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (!lookup.data) {
       lookup = await supabase.from('deposit_orders')
         .select('id,order_number,status')
-        .eq('id', orderId).eq('email', customer.email)
+        .eq('id', orderId).eq('email', normalizeDepositOwnerEmail(customer.email))
         .maybeSingle<{ id: string; order_number: string; status: string }>()
       if (lookup.error) throw lookup.error
     }
@@ -45,7 +46,6 @@ export async function POST(request: Request, context: RouteContext) {
     const paymentUrl = await createOrReuseVnPayDepositPayment(
       { id: lookup.data.id, orderNumber: lookup.data.order_number },
       clientIp(request),
-      { forceNewAttempt: true },
     )
     return NextResponse.json({ data: { paymentUrl } })
   } catch (error) {

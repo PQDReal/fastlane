@@ -1,11 +1,59 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { updateDepositOrderWithKycFallback } from '@/lib/deposit/kyc-persistence'
+import { requireCurrentCustomer } from '@/lib/api/customer'
+import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
+import { createFastlaneTestSession, isFastlaneTestProvider } from '@/lib/deposit/kyc-provider'
+import { claimGuestDepositOrder, isSameDepositOwnerEmail } from '@/lib/deposit/order-ownership'
 
 export async function POST(request: Request) {
   try {
+    const customer = await requireCurrentCustomer()
+    if (customer.role !== 'CUSTOMER') {
+      throw new ApiRouteError(403, 'FORBIDDEN', 'Chỉ khách hàng mới được tạo phiên KYC.')
+    }
     const body = await request.json()
     const { orderId, customerName, customerId } = body
+
+    const { data: order, error: orderError } = await getSupabaseAdmin()
+      .from('deposit_orders')
+      .select('id,customer_id,email,status,kyc_status')
+      .eq('id', orderId)
+      .maybeSingle<{ id: string; customer_id: string | null; email: string | null; status: string; kyc_status: string | null }>()
+    if (orderError) throw orderError
+    if (!order || (order.customer_id !== customer.id && !isSameDepositOwnerEmail(order.email, customer.email))) {
+      throw new ApiRouteError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy đơn đặt cọc.')
+    }
+    await claimGuestDepositOrder(getSupabaseAdmin(), order, customer)
+    if (!['PENDING_CONFIRMATION', 'CONFIRMED'].includes(order.status)) {
+      throw new ApiRouteError(409, 'INVALID_ORDER_STATE', 'Đơn đặt cọc chưa sẵn sàng để xác thực KYC.')
+    }
+    if (order.kyc_status === 'APPROVED') {
+      throw new ApiRouteError(409, 'KYC_ALREADY_APPROVED', 'Đơn đặt cọc đã hoàn tất xác minh KYC.')
+    }
+
+    const { data: paidAttempt, error: paidError } = await getSupabaseAdmin()
+      .from('vnpay_deposit_attempts')
+      .select('id')
+      .eq('deposit_order_id', orderId)
+      .eq('status', 'PAID')
+      .limit(1)
+      .maybeSingle()
+    if (paidError) throw paidError
+    if (!paidAttempt) {
+      throw new ApiRouteError(409, 'DEPOSIT_NOT_PAID', 'Khoản cọc chưa được xác nhận thanh toán.')
+    }
+
+    if (isFastlaneTestProvider()) {
+      const sessionId = createFastlaneTestSession()
+      const { error: trackingError } = await updateDepositOrderWithKycFallback(
+        getSupabaseAdmin(), orderId, {
+          kyc_session_id: sessionId, kyc_status: 'PENDING', updated_at: new Date().toISOString(),
+        },
+      )
+      if (trackingError) throw trackingError
+      return NextResponse.json({ success: true, provider: 'fastlane-test', mock: true, sessionId })
+    }
 
     const diditApiKey = process.env.DIDIT_API_KEY
     const workflowId = process.env.DIDIT_WORKFLOW_ID
@@ -54,9 +102,6 @@ export async function POST(request: Request) {
         },
       )
 
-      // The verification session remains usable before migration 036 is run.
-      // Do not discard a successfully-created Didit session solely because an
-      // older database schema cannot persist its tracking fields yet.
       if (trackingError) {
         console.error('Unable to persist Didit session:', {
           code: trackingError.code,
@@ -64,6 +109,7 @@ export async function POST(request: Request) {
           details: trackingError.details,
           hint: trackingError.hint,
         })
+        return NextResponse.json({ error: 'Không thể lưu phiên KYC cho đơn đặt cọc.' }, { status: 503 })
       }
     }
     
@@ -76,6 +122,6 @@ export async function POST(request: Request) {
     
   } catch (error: any) {
     console.error('Error creating Didit KYC session:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiErrorResponse(error)
   }
 }

@@ -74,8 +74,11 @@ Copy-Item .env.example .env.local
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, chỉ dùng phía server |
 | `REDIS_URL` | Kết nối Redis; không khai báo thì ứng dụng tự dùng Supabase mà không cache phân tán |
 | `DEPOSIT_DRAFT_ENCRYPTION_KEY` | Khóa riêng tối thiểu 32 ký tự để mã hóa bản nháp đặt cọc trong Redis; nếu bỏ trống sẽ dẫn xuất khóa tách biệt từ `AUTH0_SECRET` |
+| `CRON_SECRET` | Token nội bộ bảo vệ tác vụ tự động hủy tài liệu đặt mua quá hạn xác nhận |
 
 Không commit `.env`, `.env.local`, client secret, service-role key hoặc access token.
+
+Tác vụ `.github/workflows/deposit-contract-expiry.yml` gọi endpoint xử lý quá hạn mỗi 5 phút. Trên repository triển khai, cấu hình hai GitHub Actions secret: `FASTLANE_APP_BASE_URL` là URL public của ứng dụng và `CONTRACT_EXPIRY_CRON_SECRET` trùng với `CRON_SECRET` ở runtime. Có thể chạy `workflow_dispatch` để kiểm tra cấu hình trước khi dựa vào lịch tự động.
 
 ## Chạy local
 
