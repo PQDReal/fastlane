@@ -15,24 +15,75 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
  * Fallbacks to Nodemailer (SMTP) if SMTP_USER is set.
  */
 export async function sendEmailOTP(to: string, otp: string, subject: string = 'Fastlane | Mã OTP xác thực ký hợp đồng') {
+  const htmlTemplate = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: Inter, Arial, sans-serif; color: #334155;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: #f4f7f6;">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);">
+          <tr>
+            <td align="center" style="padding: 34px 40px 24px; border-bottom: 1px solid #f1f5f9;">
+              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="56" style="display: block; height: 56px; width: auto; border: 0;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 40px 32px;">
+              <p style="margin: 0 0 10px; color: #9b7200; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">Xác thực tài liệu</p>
+              <h1 style="margin: 0 0 18px; color: #0f172a; font-size: 24px; line-height: 1.35; font-weight: 700;">Mã xác thực của bạn</h1>
+              <p style="margin: 0 0 26px; color: #475569; font-size: 15px; line-height: 1.7;">Bạn đang thực hiện xác nhận tài liệu mua xe trên hệ thống Fastlane. Vui lòng sử dụng mã gồm 6 chữ số dưới đây để hoàn tất thao tác.</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td align="center" style="padding: 22px 16px; border: 1px solid #f5d77a; border-radius: 10px; background-color: #fffbeb;">
+                    <p style="margin: 0 0 8px; color: #78600c; font-size: 12px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">Mã OTP</p>
+                    <p style="margin: 0; color: #1e4d2b; font-family: 'Courier New', monospace; font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: 10px;">${otp}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 14px 16px; border-left: 4px solid #e19200; border-radius: 6px; background-color: #fff8e7; color: #6b5300; font-size: 14px; line-height: 1.6;">
+                    <strong>Mã có hiệu lực trong 5 phút.</strong> Vui lòng không chia sẻ mã này với bất kỳ ai, kể cả nhân viên hỗ trợ.
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.65;">Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email. Tài liệu sẽ không được xác nhận nếu không nhập đúng mã OTP.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 20px 40px; border-top: 1px solid #e2e8f0; background-color: #f8fafc;">
+              <p style="margin: 0 0 4px; color: #64748b; font-size: 13px; line-height: 1.5;">Trân trọng,</p>
+              <p style="margin: 0; color: #334155; font-size: 13px; font-weight: 700; line-height: 1.5;">Đội ngũ Fastlane</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  const textTemplate = `Mã xác thực Fastlane của bạn là: ${otp}. Mã có hiệu lực trong 5 phút. Không chia sẻ mã này với bất kỳ ai.`
+
   // 1. Dùng Resend nếu có API Key
   if (resend) {
     try {
       const data = await resend.emails.send({
-        from: 'VinFast Fastlane <onboarding@resend.dev>', // Resend test domain
+        from: process.env.OTP_EMAIL_FROM || 'Fastlane <no-reply@loobycard.com>',
         to: [to],
         subject,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-            <h2>Xác thực ký hợp đồng</h2>
-            <p>Mã xác thực OTP của bạn là: <strong style="font-size: 24px; color: #1e4d2b;">${otp}</strong></p>
-            <p>Mã này sẽ hết hạn trong vòng 5 phút.</p>
-            <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
-            <br/>
-            <p>Trân trọng,<br/>Đội ngũ VinFast Fastlane</p>
-          </div>
-        `,
+        html: htmlTemplate,
+        text: textTemplate,
       });
+      if (data.error) throw new Error(data.error.message)
       console.log('[RESEND] Đã gửi email thành công:', data);
       return true;
     } catch (error) {
@@ -43,13 +94,11 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
 
   // 2. Nếu chưa cấu hình gì, fallback về mock logging
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('\n=============================================')
-    console.log('[MOCK EMAIL] Đang gửi email (Chưa cấu hình .env.local)...')
-    console.log(`- Đến: ${to}`)
-    console.log(`- Tiêu đề: ${subject}`)
-    console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
-    console.log('=============================================\n')
-    return true
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_OTP_EMAIL_LOGGING === 'true') {
+      console.info(`[contract-otp:local] ${to} ${subject}: ${otp}`)
+      return true
+    }
+    throw new Error('OTP_EMAIL_PROVIDER_NOT_CONFIGURED')
   }
 
   // 3. Fallback dùng Nodemailer (nếu cấu hình SMTP)
@@ -76,19 +125,11 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
   } as any)
 
   const mailOptions = {
-    from: `"VinFast Fastlane" <${process.env.SMTP_USER}>`,
+    from: process.env.OTP_EMAIL_FROM || `"Fastlane" <${process.env.SMTP_USER}>`,
     to,
     subject,
-    html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2>Xác thực ký hợp đồng</h2>
-        <p>Mã xác thực OTP của bạn là: <strong style="font-size: 24px; color: #1e4d2b;">${otp}</strong></p>
-        <p>Mã này sẽ hết hạn trong vòng 5 phút.</p>
-        <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
-        <br/>
-        <p>Trân trọng,<br/>Đội ngũ VinFast Fastlane</p>
-      </div>
-    `,
+    html: htmlTemplate,
+    text: textTemplate,
   }
 
   try {
@@ -96,16 +137,6 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
     return true
   } catch (error: any) {
     console.error('Error sending email via SMTP:', error)
-    // Graceful fallback for local development if network blocks SMTP ports
-    if (process.env.NODE_ENV !== 'production' || process.env.APP_BASE_URL?.includes('localhost')) {
-      console.log('\n=============================================')
-      console.log('[FALLBACK EMAIL] Gửi email qua SMTP thất bại do mạng chặn cổng. Đang in OTP ra console để phát triển...')
-      console.log(`- Đến: ${to}`)
-      console.log(`- Tiêu đề: ${subject}`)
-      console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
-      console.log('=============================================\n')
-      return true
-    }
     throw new Error('Không thể gửi email OTP: ' + (error?.message || 'Unknown error'))
   }
 }
@@ -218,11 +249,12 @@ export async function sendContractSignedEmail(
   if (resend) {
     try {
       const data = await resend.emails.send({
-        from: 'VinFast Fastlane <onboarding@resend.dev>',
+        from: process.env.OTP_EMAIL_FROM || 'Fastlane <no-reply@loobycard.com>',
         to: [to],
         subject,
         html: htmlContent,
       });
+      if (data.error) throw new Error(data.error.message)
       console.log('[RESEND] Đã gửi email hợp đồng thành công:', data);
       return true;
     } catch (error) {
