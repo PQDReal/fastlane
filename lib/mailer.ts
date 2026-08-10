@@ -19,7 +19,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
   if (resend) {
     try {
       const data = await resend.emails.send({
-        from: 'VinFast Fastlane <onboarding@resend.dev>', // Resend test domain
+        from: process.env.OTP_EMAIL_FROM || 'Fastlane <no-reply@loobycard.com>',
         to: [to],
         subject,
         html: `
@@ -33,6 +33,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
           </div>
         `,
       });
+      if (data.error) throw new Error(data.error.message)
       console.log('[RESEND] Đã gửi email thành công:', data);
       return true;
     } catch (error) {
@@ -43,13 +44,11 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
 
   // 2. Nếu chưa cấu hình gì, fallback về mock logging
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('\n=============================================')
-    console.log('[MOCK EMAIL] Đang gửi email (Chưa cấu hình .env.local)...')
-    console.log(`- Đến: ${to}`)
-    console.log(`- Tiêu đề: ${subject}`)
-    console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
-    console.log('=============================================\n')
-    return true
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_OTP_EMAIL_LOGGING === 'true') {
+      console.info(`[contract-otp:local] ${to} ${subject}: ${otp}`)
+      return true
+    }
+    throw new Error('OTP_EMAIL_PROVIDER_NOT_CONFIGURED')
   }
 
   // 3. Fallback dùng Nodemailer (nếu cấu hình SMTP)
@@ -76,7 +75,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
   } as any)
 
   const mailOptions = {
-    from: `"VinFast Fastlane" <${process.env.SMTP_USER}>`,
+    from: process.env.OTP_EMAIL_FROM || `"Fastlane" <${process.env.SMTP_USER}>`,
     to,
     subject,
     html: `
@@ -96,16 +95,6 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
     return true
   } catch (error: any) {
     console.error('Error sending email via SMTP:', error)
-    // Graceful fallback for local development if network blocks SMTP ports
-    if (process.env.NODE_ENV !== 'production' || process.env.APP_BASE_URL?.includes('localhost')) {
-      console.log('\n=============================================')
-      console.log('[FALLBACK EMAIL] Gửi email qua SMTP thất bại do mạng chặn cổng. Đang in OTP ra console để phát triển...')
-      console.log(`- Đến: ${to}`)
-      console.log(`- Tiêu đề: ${subject}`)
-      console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
-      console.log('=============================================\n')
-      return true
-    }
     throw new Error('Không thể gửi email OTP: ' + (error?.message || 'Unknown error'))
   }
 }
@@ -218,11 +207,12 @@ export async function sendContractSignedEmail(
   if (resend) {
     try {
       const data = await resend.emails.send({
-        from: 'VinFast Fastlane <onboarding@resend.dev>',
+        from: process.env.OTP_EMAIL_FROM || 'Fastlane <no-reply@loobycard.com>',
         to: [to],
         subject,
         html: htmlContent,
       });
+      if (data.error) throw new Error(data.error.message)
       console.log('[RESEND] Đã gửi email hợp đồng thành công:', data);
       return true;
     } catch (error) {
