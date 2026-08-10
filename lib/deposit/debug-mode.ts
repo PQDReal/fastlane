@@ -4,7 +4,7 @@ type DebugEnvironment = {
 }
 
 export function areDepositDebugActionsEnabled(env: DebugEnvironment = process.env) {
-  return env.NODE_ENV !== 'production' && env.ENABLE_DEPOSIT_DEBUG_ACTIONS === 'true'
+  return env.ENABLE_DEPOSIT_DEBUG_ACTIONS === 'true'
 }
 
 export function assertDepositDebugActionsEnabled(env: DebugEnvironment = process.env) {
