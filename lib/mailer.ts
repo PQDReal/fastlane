@@ -15,7 +15,6 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
  * Fallbacks to Nodemailer (SMTP) if SMTP_USER is set.
  */
 export async function sendEmailOTP(to: string, otp: string, subject: string = 'Mã xác thực OTP hợp đồng') {
-  const baseUrl = process.env.APP_BASE_URL || 'https://loobycard.com';
   const htmlTemplate = `
 <!DOCTYPE html>
 <html>
@@ -78,12 +77,12 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
   if (resend) {
     try {
       const data = await resend.emails.send({
-        from: 'Fastlane <no-reply@loobycard.com>', // Verified domain
+        from: process.env.OTP_EMAIL_FROM || 'Fastlane <no-reply@loobycard.com>',
         to: [to],
         subject,
         html: htmlTemplate,
       });
-      console.log('[RESEND] Đã gửi email thành công:', data);
+      if (data.error) throw new Error(data.error.message)
       return true;
     } catch (error) {
       console.error('[RESEND ERROR]:', error);
@@ -91,19 +90,18 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
     }
   }
 
-  // 2. Nếu chưa cấu hình gì, fallback về mock logging
+  // Explicit local-only fallback for developers without an email provider.
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('\n=============================================')
-    console.log('[MOCK EMAIL] Đang gửi email (Chưa cấu hình .env.local)...')
-    console.log(`- Đến: ${to}`)
-    console.log(`- Tiêu đề: ${subject}`)
-    console.log(`- Nội dung: Mã xác thực OTP của bạn là: ${otp}. Mã này sẽ hết hạn trong 5 phút.`)
-    console.log('=============================================\n')
-    return true
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_OTP_EMAIL_LOGGING === 'true') {
+      console.info(`[contract-otp:local] ${to} ${subject}: ${otp}`)
+      return true
+    }
+    throw new Error('OTP_EMAIL_PROVIDER_NOT_CONFIGURED')
   }
 
-  // 3. Fallback dùng Nodemailer (nếu cấu hình SMTP)
-  const smtpHost = 'smtp.gmail.com';
+  // Fallback to SMTP when configured.
+  const smtpHost = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+  const smtpPort = Number(process.env.SMTP_PORT || 465)
   let resolvedHost = smtpHost;
   try {
     const { address } = await dns.promises.lookup(smtpHost, { family: 4 });
@@ -114,8 +112,8 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
 
   const transporter = nodemailer.createTransport({
     host: resolvedHost,
-    port: 465,
-    secure: true, // Port 465 uses SSL/TLS
+    port: Number.isInteger(smtpPort) && smtpPort > 0 ? smtpPort : 465,
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : smtpPort === 465,
     tls: {
       servername: smtpHost,
     },
@@ -126,7 +124,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
   } as any)
 
   const mailOptions = {
-    from: `"Fastlane" <${process.env.SMTP_USER}>`,
+    from: process.env.OTP_EMAIL_FROM || `"Fastlane" <${process.env.SMTP_USER}>`,
     to,
     subject,
     html: htmlTemplate,
@@ -139,4 +137,184 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'M
     console.error('Error sending email:', error)
     throw new Error('Không thể gửi email OTP: ' + (error?.message || 'Unknown error'))
   }
+}
+
+export async function sendPaymentSuccessEmail(to: string, orderNumber: string, amountVnd: number) {
+  const amountFormatted = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amountVnd);
+  const subject = `Xác nhận đặt cọc thành công - Đơn hàng ${orderNumber}`;
+  const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    table, td, div, h1, p {font-family: 'Inter', Arial, sans-serif !important;}
+  </style>
+</head>
+<body style="font-family: 'Inter', Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 40px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f7f6;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #ffffff; padding: 40px 40px 10px 40px; text-align: center;">
+              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px; color: #334155;">
+              <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 600; color: #16a34a;">Đặt cọc thành công!</h2>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Xin chào,</p>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 30px;">Cảm ơn bạn đã tin tưởng và đặt cọc tại Fastlane. Chúng tôi xin xác nhận thanh toán của bạn đã được ghi nhận thành công.</p>
+              
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+                <p style="margin: 0 0 10px 0; font-size: 15px;">Mã đơn hàng: <strong style="color: #0f172a;">${orderNumber}</strong></p>
+                <p style="margin: 0; font-size: 15px;">Số tiền đã thanh toán: <strong style="color: #2563eb;">${amountFormatted}</strong></p>
+              </div>
+              
+              <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 0;">Đội ngũ chăm sóc khách hàng của Fastlane sẽ sớm liên hệ với bạn để hướng dẫn các bước tiếp theo.</p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; color: #94a3b8;">
+                Trân trọng,<br>
+                <strong>Đội ngũ Fastlane</strong>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  if (resend) {
+    try {
+      const data = await resend.emails.send({
+        from: 'Fastlane <no-reply@loobycard.com>',
+        to: [to],
+        subject,
+        html: htmlTemplate,
+      });
+      console.log('[RESEND] Đã gửi email thanh toán thành công:', data);
+      return true;
+    } catch (error) {
+      console.error('[RESEND ERROR]:', error);
+      // Don't throw error to avoid failing the IPN webhook
+      return false;
+    }
+  }
+
+  console.log('\n=============================================')
+  console.log('[MOCK EMAIL] Đang gửi email xác nhận đặt cọc...')
+  console.log(`- Đến: ${to}`)
+  console.log(`- Tiêu đề: ${subject}`)
+  console.log(`- Đơn hàng: ${orderNumber}, Số tiền: ${amountFormatted}`)
+  console.log('=============================================\n')
+  return true;
+}
+
+export async function sendTestDriveConfirmationEmail(
+  to: string,
+  data: { fullName: string; productName: string; scheduledAt: string; referenceNumber: string }
+) {
+  const scheduledDate = new Date(data.scheduledAt);
+  const formattedDate = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  }).format(scheduledDate);
+
+  const subject = `Xác nhận lịch hẹn lái thử - Mã ${data.referenceNumber}`;
+  const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    table, td, div, h1, p {font-family: 'Inter', Arial, sans-serif !important;}
+  </style>
+</head>
+<body style="font-family: 'Inter', Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 40px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f7f6;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #ffffff; padding: 40px 40px 10px 40px; text-align: center;">
+              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px; color: #334155;">
+              <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 600; color: #16a34a;">Đặt lịch thành công!</h2>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Xin chào <strong style="color: #0f172a;">${data.fullName}</strong>,</p>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 30px;">Cảm ơn bạn đã đăng ký lái thử tại Fastlane. Lịch hẹn của bạn đã được ghi nhận trên hệ thống với thông tin như sau:</p>
+              
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+                <p style="margin: 0 0 10px 0; font-size: 15px;">Mã lịch hẹn: <strong style="color: #0f172a;">${data.referenceNumber}</strong></p>
+                <p style="margin: 0 0 10px 0; font-size: 15px;">Mẫu xe lái thử: <strong style="color: #2563eb;">${data.productName}</strong></p>
+                <p style="margin: 0; font-size: 15px;">Thời gian dự kiến: <strong style="color: #ea580c;">${formattedDate}</strong></p>
+              </div>
+              
+              <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 20px;">
+                <strong>Lưu ý quan trọng:</strong> Vui lòng mang theo <strong>CMND/CCCD</strong> và <strong>Bằng lái xe hợp lệ B1/B2</strong> khi đến showroom để hoàn thiện thủ tục lái thử.
+              </p>
+              
+              <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 0;">Đội ngũ tư vấn viên của chúng tôi sẽ sớm liên hệ qua điện thoại để xác nhận lại lịch trình.</p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; color: #94a3b8;">
+                Trân trọng,<br>
+                <strong>Đội ngũ Fastlane</strong>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  if (resend) {
+    try {
+      const resp = await resend.emails.send({
+        from: 'Fastlane <no-reply@loobycard.com>',
+        to: [to],
+        subject,
+        html: htmlTemplate,
+      });
+      console.log('[RESEND] Đã gửi email lịch lái thử:', resp);
+      return true;
+    } catch (error) {
+      console.error('[RESEND ERROR]:', error);
+      return false;
+    }
+  }
+
+  console.log('\n=============================================')
+  console.log('[MOCK EMAIL] Đang gửi email xác nhận lịch lái thử...')
+  console.log(`- Đến: ${to}`)
+  console.log(`- Tiêu đề: ${subject}`)
+  console.log(`- Xe: ${data.productName} | Lịch: ${formattedDate}`)
+  console.log('=============================================\n')
+  return true;
 }

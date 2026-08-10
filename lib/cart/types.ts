@@ -133,7 +133,7 @@ export type AccessoryOrder = {
   id: string
   orderNumber: string
   customer: { id: string; email: string }
-  status: 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled' | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'PENDING_PAYMENT' | 'PAID' | 'PREPARING_DELIVERY' | 'DELIVERED'
+  status: 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled' | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'WAITING_VEHICLE' | 'PREPARING_DELIVERY' | 'DELIVERED'
   statusUpdatedAt: string
   refundStatus: 'None' | 'Pending' | 'Completed'
   latestPaymentAttemptStatus?: 'PENDING' | 'PAID' | 'FAILED' | null
@@ -197,11 +197,18 @@ export type AccessoryOrderSummary = Pick<
   AccessoryOrder,
   'id' | 'orderNumber' | 'createdAt' | 'statusUpdatedAt' | 'refundStatus' | 'latestPaymentAttemptStatus'
 > & {
-  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'PENDING_PAYMENT' | 'PAID' | 'PREPARING_DELIVERY' | 'DELIVERED'
+  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'WAITING_VEHICLE' | 'PREPARING_DELIVERY' | 'DELIVERED'
   orderType?: 'accessory' | 'deposit'
   carModel?: string
   carVariant?: string
+  vehicleType?: 'car' | 'motorbike'
   paymentStatus: 'Pending' | 'Paid'
+  kycStatus?: 'PENDING' | 'REVIEW' | 'APPROVED' | 'DECLINED' | null
+  contractIssuedAt?: string | null
+  contractSignatureDueAt?: string | null
+  contractSignedAt?: string | null
+  vehicleReadyAt?: string | null
+  vehicleReadyNotifiedAt?: string | null
   nextPaymentDueAt: string | null
   items?: Array<Pick<AccessoryOrder['items'][number], 'id' | 'productName' | 'thumbnailUrl' | 'quantity'>>
   pricing: Pick<
@@ -223,7 +230,6 @@ export type AccessoryOrderSummary = Pick<
     discountAmount?: string
     promotionCode?: string | null
     totalEstimatedPrice: string
-    balancePaymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | null
     vehicleVariant?: any
   }
 }

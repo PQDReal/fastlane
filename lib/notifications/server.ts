@@ -8,7 +8,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 type NotificationRow = {
   id: string
-  notification_type: 'ORDER_STATUS_CHANGED' | 'REFUND_STATUS_CHANGED'
+  notification_type: 'ORDER_STATUS_CHANGED' | 'CONTRACT_ISSUED' | 'CONTRACT_SIGNATURE_REMINDER' | 'CONTRACT_EXPIRED' | 'REFUND_STARTED' | 'REFUND_COMPLETED' | 'REFUND_FAILED' | 'VEHICLE_READY_FOR_DELIVERY'
   title: string
   message: string
   order_type: 'ACCESSORY' | 'DEPOSIT'
@@ -19,7 +19,6 @@ type NotificationRow = {
   read_at: string | null
   created_at: string
 }
-
 function mapNotification(row: NotificationRow): CustomerNotification {
   return {
     id: row.id,
@@ -35,7 +34,6 @@ function mapNotification(row: NotificationRow): CustomerNotification {
     createdAt: row.created_at,
   }
 }
-
 export async function listCustomerNotifications(customerId: string, options: {
   limit: number
   cursor?: string
@@ -70,7 +68,6 @@ export async function listCustomerNotifications(customerId: string, options: {
     nextCursor: hasMore ? visible.at(-1)?.created_at ?? null : null,
   }
 }
-
 export async function countUnreadCustomerNotifications(customerId: string) {
   const { count, error } = await getSupabaseAdmin()
     .from('customer_notifications')
@@ -94,7 +91,6 @@ export async function markCustomerNotificationRead(customerId: string, notificat
   if (error) throw new Error(`Unable to update notification: ${error.message}`)
   if (!data?.length) throw new ApiRouteError(404, 'RESOURCE_NOT_FOUND', 'Notification was not found.')
 }
-
 export async function markAllCustomerNotificationsRead(customerId: string) {
   const { error } = await getSupabaseAdmin()
     .from('customer_notifications')
@@ -103,7 +99,6 @@ export async function markAllCustomerNotificationsRead(customerId: string) {
     .is('read_at', null)
   if (error) throw new Error(`Unable to update notifications: ${error.message}`)
 }
-
 type AdminNotificationRow = Omit<NotificationRow, 'notification_type' | 'order_type' | 'current_status'> & {
   notification_type: 'ORDER_CREATED' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'DEPOSIT_CREATED' | 'DEPOSIT_PAID' | 'DEPOSIT_CANCELLED'
 }
@@ -157,4 +152,48 @@ export async function notifyAdminCustomerCancelledDeposit(order: { id: string; o
     order_id: order.id, order_number: order.orderNumber, action_url: '/admin/orders',
   }, { onConflict: 'event_key', ignoreDuplicates: true })
   if (result.error) throw result.error
+}
+
+export async function notifyCustomerContractIssued(params: {
+  customerId: string
+  orderId: string
+  orderNumber: string
+  dueDateFormatted?: string
+  documentMode: 'CAR_CONTRACT' | 'MOTORBIKE_PURCHASE_TERMS'
+}) {
+  const isMotorbikeTerms = params.documentMode === 'MOTORBIKE_PURCHASE_TERMS'
+  const documentName = isMotorbikeTerms ? 'thỏa thuận đặt mua' : 'hợp đồng mua xe'
+  const result = await getSupabaseAdmin().from('customer_notifications').upsert({
+    event_key: `CONTRACT_ISSUED:${params.orderId}`,
+    customer_id: params.customerId,
+    notification_type: 'CONTRACT_ISSUED',
+    title: isMotorbikeTerms ? 'Thỏa thuận đặt mua đã sẵn sàng' : 'Hợp đồng mua xe đã sẵn sàng',
+    message: `${isMotorbikeTerms ? 'Thỏa thuận' : 'Hợp đồng'} cho đơn đặt cọc ${params.orderNumber} đã phát hành. Vui lòng xem và xác nhận ${documentName}${params.dueDateFormatted ? ` trước ${params.dueDateFormatted}` : ''}.`,
+    order_type: 'DEPOSIT',
+    order_id: params.orderId,
+    order_number: params.orderNumber,
+    current_status: 'PENDING_CONTRACT',
+    action_url: `/profile?tab=car-orders&orderId=${params.orderId}`,
+  }, { onConflict: 'event_key', ignoreDuplicates: true })
+  if (result.error) console.error('Unable to send CONTRACT_ISSUED notification:', result.error)
+}
+
+export async function notifyCustomerContractExpired(params: {
+  customerId: string
+  orderId: string
+  orderNumber: string
+}) {
+  const result = await getSupabaseAdmin().from('customer_notifications').upsert({
+    event_key: `CONTRACT_EXPIRED:${params.orderId}`,
+    customer_id: params.customerId,
+    notification_type: 'CONTRACT_EXPIRED',
+    title: 'Đơn đặt cọc đã tự động hủy do quá hạn xác nhận',
+    message: `Đơn đặt cọc ${params.orderNumber} đã tự động hủy do quá thời hạn 72 giờ xác nhận tài liệu đặt mua. Tiền cọc đã được chuyển sang trạng thái chờ hoàn tiền.`,
+    order_type: 'DEPOSIT',
+    order_id: params.orderId,
+    order_number: params.orderNumber,
+    current_status: 'CANCELLED',
+    action_url: `/profile?tab=car-orders&orderId=${params.orderId}`,
+  }, { onConflict: 'event_key', ignoreDuplicates: true })
+  if (result.error) console.error('Unable to send CONTRACT_EXPIRED notification:', result.error)
 }

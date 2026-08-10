@@ -111,6 +111,49 @@ export async function writeRedisJson(
   }
 }
 
+export async function writeRedisJsonIfAbsent(
+  key: string,
+  value: unknown,
+  ttlSeconds: number,
+): Promise<'stored' | 'exists' | 'unavailable'> {
+  try {
+    const client = await connectedRedis()
+    if (!client) return 'unavailable'
+    const result = await client.set(
+      key,
+      JSON.stringify(value),
+      'EX',
+      Math.max(1, ttlSeconds),
+      'NX',
+    )
+    return result === 'OK' ? 'stored' : 'exists'
+  } catch (error) {
+    reportRedisFallback(error)
+    return 'unavailable'
+  }
+}
+
+export async function incrementRedisCounter(
+  key: string,
+  ttlSeconds: number,
+): Promise<number | null> {
+  try {
+    const client = await connectedRedis()
+    if (!client) return null
+    const result = await client.eval(
+      "local value = redis.call('INCR', KEYS[1]); if value == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]); end; return value",
+      1,
+      key,
+      Math.max(1, ttlSeconds),
+    )
+    const count = Number(result)
+    return Number.isFinite(count) ? count : null
+  } catch (error) {
+    reportRedisFallback(error)
+    return null
+  }
+}
+
 export async function deleteRedisKey(key: string): Promise<boolean> {
   try {
     const client = await connectedRedis()
