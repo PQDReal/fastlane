@@ -1,5 +1,6 @@
 import { createVnPayPaymentUrl, type VnPayParams, verifyVnPayHash, vnPayConfig } from '@/lib/payments/vnpay'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { sendPaymentSuccessEmail } from '@/lib/mailer'
 
 type CheckoutOrder = {
   id: string
@@ -326,6 +327,17 @@ async function processDepositCallback(
     .eq('id', attempt.id)
     .eq('status', 'PENDING')
   if (paid.error) throw paid.error
+
+  // Send success email
+  try {
+    const orderRecord = await supabase.from('deposit_orders').select('email').eq('id', attempt.deposit_order_id).maybeSingle();
+    if (orderRecord.data?.email) {
+      await sendPaymentSuccessEmail(orderRecord.data.email, attempt.order_number, Number(attempt.amount_vnd));
+    }
+  } catch (err) {
+    console.error('Failed to send deposit success email:', err);
+  }
+
   return { ...base, message: 'Thanh toán đặt cọc thành công.' }
 }
 
