@@ -104,7 +104,7 @@ export function TestDriveForm({
                     <CarFront size={20} className="text-brand-600" /> Mẫu xe lái thử
                   </h3>
                   <div className="space-y-2">
-                    <label htmlFor="test-drive-vehicle" className="text-sm font-medium text-foreground">Chọn mẫu xe</label>
+                    <label htmlFor="test-drive-vehicle" className="text-sm font-medium text-foreground">Chọn mẫu xe <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></label>
                     <select
                       id="test-drive-vehicle"
                       name="vehicleId"
@@ -145,11 +145,11 @@ export function TestDriveForm({
                   </h3>
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Ngày lái thử</label>
+                      <label className="text-sm font-medium text-foreground">Ngày lái thử <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></label>
                       <input type="date" name="testDriveDate" min={minimumTestDriveDate} className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" required />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Giờ dự kiến</label>
+                      <label className="text-sm font-medium text-foreground">Giờ dự kiến <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></label>
                       <input type="time" name="testDriveTime" className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" required />
                     </div>
                   </div>
@@ -161,11 +161,11 @@ export function TestDriveForm({
                   </h3>
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Họ và tên</label>
+                      <label className="text-sm font-medium text-foreground">Họ và tên <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></label>
                       <input type="text" name="fullName" defaultValue={initialUser?.fullName ?? ''} placeholder="Nguyễn Văn A" className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" required />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Số điện thoại</label>
+                      <label className="text-sm font-medium text-foreground">Số điện thoại <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></label>
                       <input type="tel" name="phoneNumber" defaultValue={initialUser?.phoneNumber ?? ''} placeholder="0912 345 678" className="h-12 w-full rounded-xl border border-muted bg-background px-4 text-sm focus:border-brand-500 focus:outline-none" required />
                     </div>
                     <div className="space-y-2 md:col-span-2">
@@ -182,11 +182,11 @@ export function TestDriveForm({
                 <section className="space-y-3 text-sm text-muted-foreground">
                   <label className="flex items-start gap-3">
                     <input type="checkbox" name="licenceAcknowledged" required className="mt-1" />
-                    <span>Tôi xác nhận người lái sẽ mang theo giấy phép lái xe hợp lệ.</span>
+                    <span>Tôi xác nhận người lái sẽ mang theo giấy phép lái xe hợp lệ. <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></span>
                   </label>
                   <label className="flex items-start gap-3">
                     <input type="checkbox" name="privacyConsent" required className="mt-1" />
-                    <span>Tôi đồng ý cho Fastlane xử lý thông tin để liên hệ và xác nhận lịch lái thử.</span>
+                    <span>Tôi đồng ý cho Fastlane xử lý thông tin để liên hệ và xác nhận lịch lái thử. <span className="text-red-500" aria-hidden="true">*</span><span className="sr-only"> bắt buộc</span></span>
                   </label>
                   <label className="flex items-start gap-3">
                     <input type="checkbox" name="marketingConsent" className="mt-1" />
