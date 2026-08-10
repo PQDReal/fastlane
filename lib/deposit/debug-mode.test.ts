@@ -9,9 +9,9 @@ describe('deposit debug mode', () => {
     expect(areDepositDebugActionsEnabled({ NODE_ENV: 'test', ENABLE_DEPOSIT_DEBUG_ACTIONS: 'true' })).toBe(true)
   })
 
-  it('cannot be enabled in production', () => {
-    expect(areDepositDebugActionsEnabled({ NODE_ENV: 'production', ENABLE_DEPOSIT_DEBUG_ACTIONS: 'true' })).toBe(false)
+  it('can be enabled in production with the explicit flag', () => {
+    expect(areDepositDebugActionsEnabled({ NODE_ENV: 'production', ENABLE_DEPOSIT_DEBUG_ACTIONS: 'true' })).toBe(true)
     expect(() => assertDepositDebugActionsEnabled({ NODE_ENV: 'production', ENABLE_DEPOSIT_DEBUG_ACTIONS: 'true' }))
-      .toThrow('DEPOSIT_DEBUG_ACTIONS_DISABLED')
+      .not.toThrow()
   })
 })
