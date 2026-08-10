@@ -6,6 +6,7 @@ import { ChevronRight, Filter, Search } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { AdminOrderDetailDrawer } from './order-detail-drawer'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
+import type { OrderCancellationAudit } from '@/lib/orders/cancellation-audit'
 
 export type AdminOrderRow = {
   id: string
@@ -21,6 +22,7 @@ export type AdminOrderRow = {
   createdAt: string
   isCar: boolean
   vehicleType?: string
+  cancellationAudit?: OrderCancellationAudit | null
   rawDeposit?: any
 }
 

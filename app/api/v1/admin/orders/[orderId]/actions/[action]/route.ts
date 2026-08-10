@@ -3,16 +3,26 @@ import { NextResponse } from 'next/server'
 import { apiErrorResponse, ApiRouteError } from '@/lib/api/errors'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
-import { getCurrentUser } from '@/lib/auth/current-user'
 import { parseItemId } from '@/lib/cart/validation'
 import { reconcileVnPayRefund, refundCancelledOrder, VnPayRefundError } from '@/lib/services/vnpay-refund-service'
+import { findUserByAuth0Subject } from '@/lib/services/user-service'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type RouteContext = { params: Promise<{ orderId: string; action: string }> }
 
+async function requireAdminIdentity(subject: string) {
+  const admin = await findUserByAuth0Subject(subject)
+  if (!admin || admin.role !== 'ADMIN' || admin.status !== 'ACTIVE') {
+    throw new ApiRouteError(403, 'ADMIN_IDENTITY_REQUIRED', 'Không xác định được tài khoản quản trị thực hiện thao tác.')
+  }
+  return admin
+}
+
 export async function POST(request: Request, context: RouteContext) {
+  let adminSubject: string
   try {
-    await authorizeAdminCatalogRequest(request)
+    const authorization = await authorizeAdminCatalogRequest(request)
+    adminSubject = authorization.subject
   } catch (error) {
     if (error instanceof ApiAuthError) return authErrorResponse(error)
     return apiErrorResponse(error)
@@ -24,16 +34,41 @@ export async function POST(request: Request, context: RouteContext) {
     const supabase = getSupabaseAdmin()
 
     if (action === 'cancel') {
-      const order = await supabase.from('orders').select('customer_id').eq('id', orderId).maybeSingle()
-      if (order.error) throw order.error
-      if (!order.data) throw new ApiRouteError(404, 'ORDER_NOT_FOUND', 'Không tìm thấy đơn hàng.')
-      const result = await supabase.rpc('cancel_accessory_order', {
+      const admin = await requireAdminIdentity(adminSubject)
+      const cancellationNote = 'Quản trị viên hủy đơn trước khi giao hàng.'
+      const result = await supabase.rpc('cancel_accessory_order_audited', {
         p_order_id: orderId,
-        p_actor_customer_id: order.data.customer_id,
-        p_reason: 'ADMIN_CANCELLED',
-      }).single<{ status: string; refund_status: string }>()
+        p_actor_type: 'ADMIN',
+        p_actor_user_id: admin.id,
+        p_reason_code: 'admin_decision',
+        p_note: cancellationNote,
+        p_event_key: `ACCESSORY_ORDER_CANCELLED:${orderId}`,
+      }).single<{
+        order_status: string
+        refund_status: string
+        cancelled_at: string
+        cancellation_event_id: string
+        replayed: boolean
+      }>()
       if (result.error) throw result.error
-      return NextResponse.json({ data: { status: result.data.status, refundStatus: result.data.refund_status } })
+      return NextResponse.json({
+        data: {
+          status: result.data.order_status,
+          refundStatus: result.data.refund_status,
+          cancellation: {
+            actorType: 'ADMIN',
+            actorUserId: admin.id,
+            actorEmail: admin.email,
+            reasonCode: 'admin_decision',
+            note: cancellationNote,
+            cancelledAt: result.data.cancelled_at,
+            auditVersion: 2,
+            isLegacy: false,
+            timeInferred: false,
+          },
+          replayed: result.data.replayed,
+        },
+      })
     }
 
     if (action === 'ship') {
@@ -68,11 +103,11 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (action === 'refund') {
-      const admin = await getCurrentUser()
+      const admin = await requireAdminIdentity(adminSubject)
       const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       const result = await refundCancelledOrder({
         orderId,
-        requestedBy: admin?.email ?? 'admin',
+        requestedBy: admin.email,
         clientIp: forwarded || request.headers.get('x-real-ip') || '127.0.0.1',
       })
       return NextResponse.json({ data: { status: 'CANCELLED', ...result } })
@@ -96,6 +131,21 @@ export async function POST(request: Request, context: RouteContext) {
     }
     if (typeof error === 'object' && error && 'message' in error && String(error.message).includes('INVALID_ORDER_TRANSITION')) {
       return apiErrorResponse(new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Không thể chuyển trạng thái đơn hàng ở bước hiện tại.'))
+    }
+    const message = typeof error === 'object' && error && 'message' in error
+      ? String(error.message)
+      : ''
+    if (message.includes('ACCESSORY_ORDER_NOT_FOUND')) {
+      return apiErrorResponse(new ApiRouteError(404, 'ORDER_NOT_FOUND', 'Không tìm thấy đơn hàng.'))
+    }
+    if (message.includes('ACCESSORY_ORDER_CANNOT_BE_CANCELLED_FROM')) {
+      return apiErrorResponse(new ApiRouteError(409, 'INVALID_ORDER_TRANSITION', 'Đơn hàng không còn ở trạng thái có thể hủy.'))
+    }
+    if (message.includes('IDEMPOTENCY_KEY_CONFLICT')) {
+      return apiErrorResponse(new ApiRouteError(409, 'ORDER_ALREADY_CANCELLED', 'Đơn hàng đã được hủy bởi một thao tác khác.'))
+    }
+    if (message.includes('ACCESSORY_CANCELLATION_ACTOR_INVALID')) {
+      return apiErrorResponse(new ApiRouteError(403, 'ADMIN_IDENTITY_REQUIRED', 'Không xác định được tài khoản quản trị thực hiện thao tác.'))
     }
     return apiErrorResponse(error)
   }

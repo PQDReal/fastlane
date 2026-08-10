@@ -5487,6 +5487,8 @@ components:
         - customer
         - admin
         - system
+        - unknown
+      description: unknown is reserved for legacy cancellations whose actor cannot be reconstructed safely.
     CancellationReason:
       type: string
       enum:

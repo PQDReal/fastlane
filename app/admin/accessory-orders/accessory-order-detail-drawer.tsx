@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Clock3, Mail, MapPin, Package, Phone, ReceiptText, X } from 'lucide-react'
 
+import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
 import { ProductOptionSummary } from '@/components/product-option-summary'
 import { Button } from '@/components/ui/button'
 import type { AdminAccessoryOrder } from './accessory-orders-client'
@@ -77,15 +78,6 @@ export function AccessoryOrderDetailDrawer({
       order.shippingAddress.province.name,
     ].filter(Boolean).join(', ')
     : 'Chưa cập nhật địa chỉ nhận hàng'
-  const cancelledByText = order?.cancelledBy === 'ADMIN'
-    ? 'Quản trị viên'
-    : order?.cancelledBy === 'CUSTOMER'
-      ? 'Khách hàng'
-      : 'Không xác định'
-  const cancellationReasonText = order?.cancellationReason === 'ADMIN_CANCELLED'
-    ? 'Quản trị viên hủy đơn'
-    : order?.cancellationReason ?? 'Không có lý do được lưu'
-
   return (
     <AnimatePresence>
       {isOpen && order && (
@@ -139,13 +131,7 @@ export function AccessoryOrderDetailDrawer({
                 </div>
               </section>
 
-              {order.status === 'CANCELLED' && <section className="rounded-xl border border-red-200 bg-red-50 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-red-500">Thông tin hủy đơn</p>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-start justify-between gap-4"><dt className="text-red-700/70">Người hủy</dt><dd className="text-right font-semibold text-red-800">{cancelledByText}</dd></div>
-                  <div className="flex items-start justify-between gap-4"><dt className="text-red-700/70">Lý do</dt><dd className="max-w-[65%] text-right font-medium text-red-800">{cancellationReasonText}</dd></div>
-                </dl>
-              </section>}
+              {order.status === 'CANCELLED' && order.cancellation && <OrderCancellationAuditCard audit={order.cancellation} />}
 
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">

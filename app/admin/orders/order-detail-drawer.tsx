@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
+import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
 import { AdminOrderRow } from './orders-client'
 import {
   confirmDepositRefund,
@@ -133,6 +134,16 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
     })
   }
 
+  const requestCancelOrder = () => {
+    onShowToast({
+      title: 'Hủy đơn đặt xe?',
+      message: `${order.orderNumber} sẽ bị hủy; khoản cọc đã thanh toán sẽ được chuyển sang quy trình hoàn tiền.`,
+      kind: 'warning',
+      secondaryAction: { label: 'Giữ đơn', onClick: () => undefined },
+      action: { label: 'Hủy đơn hàng', variant: 'danger', onClick: () => void handleUpdateStatus('CANCELLED') },
+    })
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -148,6 +159,9 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
           {/* Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-deposit-order-detail-title"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -157,11 +171,13 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
+                <h2 id="admin-deposit-order-detail-title" className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
                 <p className="text-sm text-slate-500 font-medium">{order.orderNumber}</p>
               </div>
               <button
+                type="button"
                 onClick={onClose}
+                aria-label="Đóng chi tiết đơn đặt xe"
                 className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
               >
                 <X size={20} />
@@ -170,6 +186,10 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+              {order.status === 'CANCELLED' && order.cancellationAudit && (
+                <OrderCancellationAuditCard audit={order.cancellationAudit} />
+              )}
               
               {/* Customer Info */}
               <section className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
@@ -402,7 +422,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
                 {!['CANCELLED', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                   <button
-                    onClick={() => handleUpdateStatus('CANCELLED')}
+                    onClick={requestCancelOrder}
                     disabled={isUpdating}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-red-50 text-red-600 border border-red-200 font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                   >

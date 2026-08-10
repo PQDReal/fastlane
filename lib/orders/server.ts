@@ -47,6 +47,11 @@ type OrderRow = {
   discount_amount: number | string
   total_amount: number | string
   shipping_address: ShippingAddress
+  cancelled_at: string | null
+  cancelled_by_type: 'CUSTOMER' | 'ADMIN' | 'SYSTEM' | 'UNKNOWN' | null
+  cancellation_reason: string | null
+  cancellation_reason_code: NonNullable<AccessoryOrder['cancellation']>['reasonCode'] | null
+  cancellation_note: string | null
   created_at: string
   updated_at: string
   customer: { id: string; email: string }
@@ -106,6 +111,24 @@ function mapOrder(row: OrderRow): AccessoryOrder {
     overdueRefundPercentage: 100,
     cancellationFeeAmount: '0',
   }
+  const legacyCancellationActor = row.cancellation_reason === 'ADMIN_CANCELLED'
+    ? 'admin'
+    : row.cancellation_reason === 'Khách hàng yêu cầu hủy đơn'
+      ? 'customer'
+      : 'unknown'
+  const cancellationActor = row.cancelled_by_type
+    ? row.cancelled_by_type.toLocaleLowerCase('en-US') as NonNullable<AccessoryOrder['cancellation']>['actor']
+    : legacyCancellationActor
+  const cancellation: AccessoryOrder['cancellation'] = row.status === 'CANCELLED'
+    ? {
+      actor: cancellationActor,
+      reasonCode: row.cancellation_reason_code
+        ?? (row.cancellation_reason === 'ADMIN_CANCELLED' ? 'admin_decision' : 'other'),
+      note: row.cancellation_note
+        ?? (row.cancellation_reason === 'ADMIN_CANCELLED' ? null : row.cancellation_reason),
+      cancelledAt: row.cancelled_at ?? row.updated_at,
+    }
+    : null
 
   return {
     id: row.id,
@@ -144,7 +167,7 @@ function mapOrder(row: OrderRow): AccessoryOrder {
       transactions: [],
     },
     cancellationPolicy,
-    cancellation: null,
+    cancellation,
     shippingAddress,
     note: typeof rawAddress.note === 'string' ? rawAddress.note : null,
     items: (row.order_items || []).map((item) => {
@@ -204,6 +227,11 @@ const orderSelection = `
   discount_amount,
   total_amount,
   shipping_address,
+  cancelled_at,
+  cancelled_by_type,
+  cancellation_reason,
+  cancellation_reason_code,
+  cancellation_note,
   created_at,
   updated_at,
   customer:users!inner(id, email),

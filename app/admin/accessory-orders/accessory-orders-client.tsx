@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronRight, RotateCcw, Search, ShoppingBag, Truck, XCir
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import type { SelectedProductOption, ShippingAddress } from '@/lib/cart/types'
+import type { OrderCancellationAudit } from '@/lib/orders/cancellation-audit'
 import { AccessoryOrderDetailDrawer } from './accessory-order-detail-drawer'
 
 export type AdminAccessoryOrder = {
@@ -24,8 +25,7 @@ export type AdminAccessoryOrder = {
   totalAmount: number
   shippingAddress: ShippingAddress | null
   note: string | null
-  cancellationReason: string | null
-  cancelledBy: 'ADMIN' | 'CUSTOMER' | 'UNKNOWN' | null
+  cancellation: OrderCancellationAudit | null
   status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
   refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
   refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
@@ -106,8 +106,9 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         refundStatus: body.data.refundStatus ?? item.refundStatus,
         refundAttemptStatus: body.data.attemptStatus ?? item.refundAttemptStatus,
         refundNextCheckAt: body.data.nextCheckAt === undefined ? item.refundNextCheckAt : body.data.nextCheckAt,
-        cancellationReason: action === 'cancel' ? 'ADMIN_CANCELLED' : item.cancellationReason,
-        cancelledBy: action === 'cancel' ? 'ADMIN' : item.cancelledBy,
+        cancellation: action === 'cancel'
+          ? body.data.cancellation ?? item.cancellation
+          : item.cancellation,
       }))
       const title = action === 'cancel' ? 'Đã hủy đơn phụ kiện' : action === 'ship' ? 'Đơn hàng đang được giao' : action === 'complete' ? 'Đã hoàn thành đơn phụ kiện' : body.data.attemptStatus === 'COMPLETED' ? 'Hoàn tiền thành công' : body.data.attemptStatus === 'FAILED' ? 'Hoàn tiền thất bại' : 'VNPay đang xử lý hoàn tiền'
       if (!silent || body.data.attemptStatus === 'COMPLETED' || body.data.attemptStatus === 'FAILED') {
