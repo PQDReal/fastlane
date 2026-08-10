@@ -318,6 +318,7 @@ export function DepositClient({
   const [selectedShowroom, setSelectedShowroom] = useState<any>(null)
   const [openShowroom, setOpenShowroom] = useState(false)
   const [dbVariants, setDbVariants] = useState<any[]>([])
+  const [dbVariantsLoading, setDbVariantsLoading] = useState(false)
   const [applyingPromotion, setApplyingPromotion] = useState(false)
   const [promotionSuccess, setPromotionSuccess] = useState<string | null>(null)
 
@@ -456,6 +457,7 @@ export function DepositClient({
 
     async function fetchVariants() {
       setDbVariants([])
+      setDbVariantsLoading(true)
       try {
         const vehicles = vehicleType === 'motorbike' ? motorbikesData : carsData
         const currentCarObj = vehicles.find(c => c.name === selectedCarId) || vehicles[0]
@@ -478,6 +480,8 @@ export function DepositClient({
         if (controller.signal.aborted) return
         console.error(err)
         setDbVariants([])
+      } finally {
+        if (!controller.signal.aborted) setDbVariantsLoading(false)
       }
     }
     fetchVariants()
@@ -772,6 +776,27 @@ export function DepositClient({
 
   const handleNextStep = async () => {
     if (currentStep === 1) {
+      const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
+      const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase()
+      const variantMatches = (variant: any) => {
+        const selected = normalize(selectedVariantName)
+        const version = normalize(variant.version)
+        const variantName = normalize(variant.variant_name)
+        return (version && (version === selected || variantName === selected)) ||
+          (variantName && (variantName.includes(selected) || selected.includes(variantName)))
+      }
+      const exactInventoryRow = dbVariants.find((variant) =>
+        variantMatches(variant) &&
+        normalize(variant.color) === normalize(selectedColor),
+      )
+      if (dbVariantsLoading) {
+        addToast({ kind: 'warning', title: 'Đang kiểm tra tồn kho', message: 'Vui lòng chờ hệ thống kiểm tra cấu hình xe.' })
+        return
+      }
+      if (!exactInventoryRow?.product_variant_id || Number(exactInventoryRow.inventory?.on_hand_quantity ?? 0) <= 0) {
+        addToast({ kind: 'warning', title: 'Mẫu xe đã hết hàng', message: 'Màu hoặc phiên bản này hiện không còn tồn kho. Vui lòng chọn cấu hình khác.' })
+        return
+      }
       goToStep(2)
     } else if (currentStep === 2) {
       const errors = validateDepositCustomerDetails({
