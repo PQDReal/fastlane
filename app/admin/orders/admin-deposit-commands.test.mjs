@@ -27,6 +27,7 @@ describe('admin deposit commands', () => {
   })
 
   it('keeps debug shortcuts outside production and inside command boundaries', () => {
+    expect(source).toContain("'mock_deposit_paid' | 'mock_confirm_order' | 'mock_kyc_approved'")
     expect(source).toContain('assertDepositDebugActionsEnabled()')
     expect(source).toContain("rpc('process_vnpay_deposit_callback'")
     expect(source).toContain('p_transaction_no: createDebugVnpayTransactionNo()')
@@ -35,6 +36,7 @@ describe('admin deposit commands', () => {
     expect(source).not.toContain('mock_full_paid')
     expect(source).not.toContain('mock_contract_signed')
     expect(drawerSource).toContain('debugActionsEnabled &&')
+    expect(drawerSource).not.toContain('description:')
   })
 
   it('reconciles pending deposit refunds like accessory refunds', () => {

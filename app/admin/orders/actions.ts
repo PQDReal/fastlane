@@ -267,7 +267,7 @@ export async function reconcileDepositRefund(orderId: string) {
   }
 }
 
-export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved'
+export type DepositDebugAction = 'mock_deposit_paid' | 'mock_confirm_order' | 'mock_kyc_approved'
 
 type SupabaseActionError = {
   message?: unknown
