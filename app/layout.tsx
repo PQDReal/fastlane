@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google'
 import { FastLaneAuthProvider } from '@/components/auth/auth-provider'
 import { NavigationLoadingIndicator } from '@/components/navigation-loading-indicator'
 import { GlobalOverlays } from '@/components/global-overlays'
+import { DepositAuthGuard } from '@/components/deposit-auth-guard'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter' })
 
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <NavigationLoadingIndicator />
           </Suspense>
           <GlobalOverlays />
+          <DepositAuthGuard />
         </FastLaneAuthProvider>
       </body>
     </html>

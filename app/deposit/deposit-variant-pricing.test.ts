@@ -19,8 +19,9 @@ describe('deposit vehicle variant price ownership', () => {
     expect(client).toContain('controller.abort()')
   })
 
-  it('does not fuzzy-match overlapping model names', () => {
-    expect(api).toContain(".ilike('product_name', productName.trim())")
+  it('matches the canonical name from a short display name safely', () => {
+    expect(api).toContain(".ilike('product_name', `%${normalized}%`)")
+    expect(api).toContain("replace(/[%_]/g, '')")
     expect(api).not.toContain('`%${productName}%`')
   })
 })

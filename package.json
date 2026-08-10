@@ -39,6 +39,8 @@
     "verify:motorbike-vehicle-variants": "node --env-file=.env.local scripts/verify-motorbike-vehicle-variants.mjs",
     "migrate:motorbike-vehicle-variants": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs",
     "migrate:motorbike-vehicle-variants:apply": "node --env-file=.env.local scripts/migrate-motorbike-vehicle-variants.mjs --apply",
+    "migrate:vf0-vehicle-variants": "node --env-file=.env.local scripts/migrate-vf0-vehicle-variants.mjs",
+    "migrate:vf0-vehicle-variants:apply": "node --env-file=.env.local scripts/migrate-vf0-vehicle-variants.mjs --apply",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build && npm run check:performance-budget",
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
