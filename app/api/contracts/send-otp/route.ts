@@ -125,7 +125,7 @@ export async function POST(request: Request) {
 
     try {
       await sendEmailOTP(
-        user.email,
+        order.email,
         otp,
         order.vehicle_type === 'motorbike'
           ? 'Mã OTP xác nhận thỏa thuận đặt mua'
