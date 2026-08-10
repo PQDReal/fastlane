@@ -5,6 +5,10 @@ const sql = readFileSync(
   new URL('./049_accessory_order_cancellation_audit.sql', import.meta.url),
   'utf8',
 )
+const actorIndexesSql = readFileSync(
+  new URL('./050_accessory_cancellation_actor_indexes.sql', import.meta.url),
+  'utf8',
+)
 const customerRoute = readFileSync(
   new URL('../app/api/v1/orders/[orderId]/route.ts', import.meta.url),
   'utf8',
@@ -30,6 +34,13 @@ describe('accessory order cancellation audit migration', () => {
     expect(sql).toContain('create table if not exists public.accessory_order_events')
     expect(sql).toContain('ACCESSORY_ORDER_EVENT_IMMUTABLE')
     expect(sql).toMatch(/before update or delete on public\.accessory_order_events/i)
+  })
+
+  it('indexes both actor foreign keys used for cancellation tracing', () => {
+    expect(actorIndexesSql).toMatch(/public\.orders\(cancelled_by_user_id\)/i)
+    expect(actorIndexesSql).toMatch(/public\.accessory_order_events\(actor_user_id, occurred_at desc\)/i)
+    expect(actorIndexesSql).toMatch(/where cancelled_by_user_id is not null/i)
+    expect(actorIndexesSql).toMatch(/where actor_user_id is not null/i)
   })
 
   it('marks legacy inference without fabricating an admin identity or timestamp source', () => {

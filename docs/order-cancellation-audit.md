@@ -89,5 +89,6 @@ Nếu đã có giao dịch cọc thành công, command hủy đặt `refund_stat
 ## Thứ tự triển khai
 
 1. Chạy migration 049 trước. Preflight sẽ dừng toàn bộ transaction nếu schema nền hoặc command `cancel_accessory_order(uuid,uuid,text)` chưa tồn tại.
-2. Sau khi migration thành công và PostgREST đã reload schema, mới triển khai application code vì API đọc trực tiếp các cột audit mới.
-3. Kiểm tra một lần hủy mới từ customer và một lần từ admin trên môi trường staging; đối chiếu projection `orders` với event tương ứng trong `accessory_order_events`.
+2. Chạy migration 050 để bổ sung index cho hai khóa ngoại actor dùng khi truy vết.
+3. Sau khi migration thành công và PostgREST đã reload schema, mới triển khai application code vì API đọc trực tiếp các cột audit mới.
+4. Kiểm tra một lần hủy mới từ customer và một lần từ admin trên môi trường staging; đối chiếu projection `orders` với event tương ứng trong `accessory_order_events`.
