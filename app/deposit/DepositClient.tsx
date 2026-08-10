@@ -1418,8 +1418,10 @@ export function DepositClient({
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
           
           {/* SLEEK TOP BAR */}
-          <div className="w-full px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 z-50 relative">
-            <div className="flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start">
+          <div className="w-full px-8 py-8 flex flex-col gap-5 z-50 relative">
+            
+            {/* ROW 1: TOGGLES */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full">
               {/* VEHICLE TYPE TOGGLE */}
               <div
                 className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1.5 shadow-sm"
@@ -1453,12 +1455,32 @@ export function DepositClient({
                 </button>
               </div>
 
-              {/* VEHICLE SELECTOR */}
+              {/* VIEW TOGGLE */}
+              {!isMotorbike && !currentCar.name.includes('MPV') && (
+                <div className="inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
+                  <button 
+                    onClick={() => setViewMode('exterior')}
+                    className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'exterior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+                  >
+                    Ngoại thất
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('interior')}
+                    className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'interior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+                  >
+                    Nội thất
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ROW 2: VEHICLE SELECTOR */}
+            <div className="flex min-w-0 max-w-full flex-col items-center gap-3 md:items-start w-full">
               <div
                 className={
                   isMotorbike
                     ? 'grid max-w-full grid-rows-2 gap-2 overflow-x-auto rounded-[26px] border border-slate-200 bg-white/75 p-2 shadow-sm backdrop-blur-md hide-scrollbar'
-                    : 'inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-md hide-scrollbar'
+                    : 'inline-flex max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-2 backdrop-blur-md hide-scrollbar'
                 }
                 style={
                   isMotorbike
@@ -1503,7 +1525,7 @@ export function DepositClient({
                     className={`flex items-center justify-center whitespace-nowrap rounded-full transition-all duration-300 disabled:cursor-not-allowed ${
                       isMotorbike
                         ? 'h-11 min-w-[112px] px-5 py-2.5 text-[15px] font-bold tracking-[0.04em]'
-                        : 'h-10 min-w-[80px] px-6 py-2.5 text-sm font-medium tracking-wider'
+                        : 'h-12 min-w-[96px] px-6 text-[15px] font-semibold tracking-wider'
                     } ${
                       isSelected 
                         ? 'bg-slate-900 text-white shadow-lg scale-105 disabled:opacity-90'
@@ -1514,9 +1536,14 @@ export function DepositClient({
                       <img 
                         src={logo} 
                         alt={car.name} 
-                        className={`object-contain ${car.name.includes('All-New') ? 'h-[14px]' : car.name.includes('MPV') ? 'h-[14px]' : 'h-5'} ${
+                        className={`object-contain ${
+                          car.name === 'VF 2' ? 'h-[22px]' :
+                          car.name.includes('All-New') || car.name.includes('MPV') ? 'h-[20px] max-w-[100px]' :
+                          isCustomLogo ? 'h-8 max-w-[90px]' :
+                          'h-[26px]'
+                        } ${
                           isCustomLogo
-                            ? `${isSelected ? 'opacity-100 scale-105' : 'opacity-70 group-hover:opacity-100'}`
+                            ? `${isSelected ? 'brightness-0 invert scale-105' : 'opacity-70 group-hover:opacity-100'}`
                             : `${isSelected ? 'brightness-0 invert' : 'brightness-0 opacity-60 group-hover:opacity-100'}`
                         }`} 
                       />
@@ -1528,24 +1555,6 @@ export function DepositClient({
                 })}
               </div>
             </div>
-
-            {/* VIEW TOGGLE */}
-            {!isMotorbike && !currentCar.name.includes('MPV') && (
-              <div className="inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
-                <button 
-                  onClick={() => setViewMode('exterior')}
-                  className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'exterior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-                >
-                  Ngoại thất
-                </button>
-                <button 
-                  onClick={() => setViewMode('interior')}
-                  className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'interior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-                >
-                  Nội thất
-                </button>
-              </div>
-            )}
           </div>
 
           {/* MAIN STAGE (CAR + FLOATING SPECS) */}

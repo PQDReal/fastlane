@@ -255,6 +255,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Lỗi tạo phiên bản sản phẩm: ${variantError.message}` }, { status: 500 })
   }
 
+  // 2.1 Insert default inventory_items
+  const inventoryRows = productVariantRows.map((r: any) => ({
+    variant_id: r.id,
+    on_hand_quantity: 100,
+    updated_at: new Date().toISOString()
+  }))
+
+  const { error: invError } = await supabase
+    .from('inventory_items')
+    .insert(inventoryRows)
+
+  if (invError) {
+    console.warn('Failed to insert default inventory for new car variants:', invError)
+  }
+
   // 3. Insert into vehicle_variants (versions * colors combinations)
   const vehicleVariantRows: any[] = []
   const generatedAt = new Date().toISOString()

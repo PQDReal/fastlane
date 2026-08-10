@@ -9,6 +9,7 @@ import {
   notifyVehicleReadyForDelivery,
   runDepositDebugAction,
   updateOrderStatus,
+  syncKycStatus,
   type DepositDebugAction,
 } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
@@ -144,6 +145,23 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
     }, 0)
   }
 
+  const handleSyncKyc = async () => {
+    setIsUpdating(true)
+    try {
+      const res = await syncKycStatus(order.id)
+      if (res.success) {
+        onShowToast({ kind: 'success', title: 'Thành công', description: res.message || 'Đã đồng bộ KYC' })
+        onOrderUpdated()
+      } else {
+        onShowToast({ kind: 'error', title: 'Thất bại', description: res.error || 'Lỗi đồng bộ KYC' })
+      }
+    } catch (error: any) {
+      onShowToast({ kind: 'error', title: 'Lỗi', description: error.message || 'Đã xảy ra lỗi hệ thống' })
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -204,7 +222,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   ) : null}
                 </div>
                 {order.kyc_status === 'REVIEW' && order.kyc_session_id && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-col gap-2">
                     <a 
                       href={`https://business.didit.me/sessions/${order.kyc_session_id}`}
                       target="_blank"
@@ -213,6 +231,13 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                     >
                       Duyệt KYC trên Didit ↗
                     </a>
+                    <button
+                      onClick={handleSyncKyc}
+                      disabled={isUpdating}
+                      className="w-full text-center py-2 px-4 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      {isUpdating ? 'Đang đồng bộ...' : 'Đồng bộ kết quả từ Didit'}
+                    </button>
                   </div>
                 )}
                 <div className="space-y-3 text-sm">
@@ -406,13 +431,22 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700">
                     <span>Đang chờ khách hàng thanh toán qua VNPAY</span>
                     {debugActionsEnabled && (
-                      <button
-                        onClick={() => handleDebugAction('mock_deposit_paid')}
-                        disabled={isUpdating}
-                        className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
-                      >
-                        (Debug) Xác nhận cọc
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDebugAction('mock_deposit_paid')}
+                          disabled={isUpdating}
+                          className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          (Debug) Xác nhận cọc
+                        </button>
+                        <button
+                          onClick={() => handleDebugAction('mock_confirm_order')}
+                          disabled={isUpdating}
+                          className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          (Debug) Test: Đã xét duyệt
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
