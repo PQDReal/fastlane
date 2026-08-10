@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-
+import { sendTestDriveConfirmationEmail } from '@/lib/mailer'
 export type CreateTestDriveReservationInput = {
   customerId: string | null
   productId: string
@@ -130,6 +130,16 @@ export async function createTestDriveReservation(
 
   if (error) {
     throw new Error(`Unable to create test-drive reservation: ${error.message}`)
+  }
+  if (data.email) {
+    sendTestDriveConfirmationEmail(data.email, {
+      fullName: data.full_name,
+      productName: data.product_name_snapshot,
+      referenceNumber: data.reference_number,
+      scheduledAt: data.scheduled_at,
+    }).catch((err) => {
+      console.error('Failed to send test drive confirmation email (non-blocking):', err);
+    });
   }
 
   return {
