@@ -150,13 +150,13 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
     try {
       const res = await syncKycStatus(order.id)
       if (res.success) {
-        onShowToast({ kind: 'success', title: 'Thành công', description: res.message || 'Đã đồng bộ KYC' })
+        onShowToast({ kind: 'success', title: 'Thành công', message: res.message || 'Đã đồng bộ KYC' })
         onOrderUpdated()
       } else {
-        onShowToast({ kind: 'error', title: 'Thất bại', description: res.error || 'Lỗi đồng bộ KYC' })
+        onShowToast({ kind: 'error', title: 'Thất bại', message: res.error || 'Lỗi đồng bộ KYC' })
       }
     } catch (error: any) {
-      onShowToast({ kind: 'error', title: 'Lỗi', description: error.message || 'Đã xảy ra lỗi hệ thống' })
+      onShowToast({ kind: 'error', title: 'Lỗi', message: error.message || 'Đã xảy ra lỗi hệ thống' })
     } finally {
       setIsUpdating(false)
     }
