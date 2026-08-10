@@ -222,3 +222,99 @@ export async function sendPaymentSuccessEmail(to: string, orderNumber: string, a
   console.log('=============================================\n')
   return true;
 }
+
+export async function sendTestDriveConfirmationEmail(
+  to: string,
+  data: { fullName: string; productName: string; scheduledAt: string; referenceNumber: string }
+) {
+  const scheduledDate = new Date(data.scheduledAt);
+  const formattedDate = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  }).format(scheduledDate);
+
+  const subject = `Xác nhận lịch hẹn lái thử - Mã ${data.referenceNumber}`;
+  const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    table, td, div, h1, p {font-family: 'Inter', Arial, sans-serif !important;}
+  </style>
+</head>
+<body style="font-family: 'Inter', Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 40px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f7f6;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #ffffff; padding: 40px 40px 10px 40px; text-align: center;">
+              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px; color: #334155;">
+              <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 600; color: #16a34a;">Đặt lịch thành công!</h2>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Xin chào <strong style="color: #0f172a;">${data.fullName}</strong>,</p>
+              <p style="font-size: 16px; line-height: 1.6; margin-bottom: 30px;">Cảm ơn bạn đã đăng ký lái thử tại Fastlane. Lịch hẹn của bạn đã được ghi nhận trên hệ thống với thông tin như sau:</p>
+              
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+                <p style="margin: 0 0 10px 0; font-size: 15px;">Mã lịch hẹn: <strong style="color: #0f172a;">${data.referenceNumber}</strong></p>
+                <p style="margin: 0 0 10px 0; font-size: 15px;">Mẫu xe lái thử: <strong style="color: #2563eb;">${data.productName}</strong></p>
+                <p style="margin: 0; font-size: 15px;">Thời gian dự kiến: <strong style="color: #ea580c;">${formattedDate}</strong></p>
+              </div>
+              
+              <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 20px;">
+                <strong>Lưu ý quan trọng:</strong> Vui lòng mang theo <strong>CMND/CCCD</strong> và <strong>Bằng lái xe hợp lệ B1/B2</strong> khi đến showroom để hoàn thiện thủ tục lái thử.
+              </p>
+              
+              <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 0;">Đội ngũ tư vấn viên của chúng tôi sẽ sớm liên hệ qua điện thoại để xác nhận lại lịch trình.</p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; font-size: 14px; color: #94a3b8;">
+                Trân trọng,<br>
+                <strong>Đội ngũ Fastlane</strong>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  if (resend) {
+    try {
+      const resp = await resend.emails.send({
+        from: 'Fastlane <no-reply@loobycard.com>',
+        to: [to],
+        subject,
+        html: htmlTemplate,
+      });
+      console.log('[RESEND] Đã gửi email lịch lái thử:', resp);
+      return true;
+    } catch (error) {
+      console.error('[RESEND ERROR]:', error);
+      return false;
+    }
+  }
+
+  console.log('\n=============================================')
+  console.log('[MOCK EMAIL] Đang gửi email xác nhận lịch lái thử...')
+  console.log(`- Đến: ${to}`)
+  console.log(`- Tiêu đề: ${subject}`)
+  console.log(`- Xe: ${data.productName} | Lịch: ${formattedDate}`)
+  console.log('=============================================\n')
+  return true;
+}
