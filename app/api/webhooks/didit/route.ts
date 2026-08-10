@@ -121,7 +121,7 @@ export async function POST(request: Request) {
         console.log(`Order ${orderId} KYC approved via webhook.`)
       }
 
-    } else if (webhookType === 'status.updated' && (status === 'declined' || status === 'rejected')) {
+    } else if (webhookType === 'status.updated' && (status === 'declined' || status === 'rejected' || status === 'resubmitted')) {
       // The admin manually declined the session
       await updateDepositOrderWithKycFallback(supabase, orderId, {
         kyc_status: 'DECLINED',
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString()
       })
       console.log(`Order ${orderId} KYC declined via webhook.`)
-    } else if (webhookType === 'status.updated' && (status === 'review' || status === 'manual_review')) {
+    } else if (webhookType === 'status.updated' && (status === 'review' || status === 'manual_review' || status === 'in review' || status === 'in_review')) {
       // Just in case it's triggered
       await updateDepositOrderWithKycFallback(supabase, orderId, {
         kyc_status: 'REVIEW',

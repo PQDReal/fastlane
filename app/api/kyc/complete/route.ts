@@ -66,13 +66,17 @@ export async function POST(request: Request) {
         })()
       const decisionStatus = String(decision.status || '').toLowerCase()
 
-      if (decisionStatus === 'review' || decisionStatus === 'manual_review') {
+      if (decisionStatus === 'review' || decisionStatus === 'manual_review' || decisionStatus === 'in review' || decisionStatus === 'in_review') {
         await updateDepositOrderWithKycFallback(supabase, orderId, {
           kyc_status: 'REVIEW', kyc_session_id: sessionId, updated_at: new Date().toISOString(),
         })
-        return NextResponse.json({ error: 'Quá trình xác minh cần được nhân viên xét duyệt thủ công. Vui lòng chờ.' }, { status: 400 })
+        return NextResponse.json({ 
+          success: true, 
+          status: 'REVIEW', 
+          message: 'Quá trình xác minh cần được nhân viên xét duyệt thủ công. Vui lòng chờ.' 
+        })
       }
-      if (decisionStatus === 'declined' || decisionStatus === 'rejected') {
+      if (decisionStatus === 'declined' || decisionStatus === 'rejected' || decisionStatus === 'resubmitted') {
         await updateDepositOrderWithKycFallback(supabase, orderId, {
           kyc_status: 'DECLINED', kyc_session_id: sessionId, updated_at: new Date().toISOString(),
         })

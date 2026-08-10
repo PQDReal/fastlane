@@ -223,18 +223,23 @@ function ProfileContent() {
                   body: JSON.stringify({ orderId: order.id, sessionId: data.sessionId }),
                 })
 
+                const responseData = await res.json()
+
                 if (!res.ok) {
-                  const errData = await res.json()
-                  if (errData.mismatch) {
+                  if (responseData.mismatch) {
                     showToast('error', 'Thông tin không khớp', 'Họ tên hoặc CCCD trên thẻ không khớp với thông tin đặt cọc ban đầu!')
                     return
                   } else {
-                    showToast('error', 'Lỗi hệ thống', errData.error || 'Có lỗi xảy ra, vui lòng thử lại sau.')
-                    throw new Error(errData.error || 'Failed to complete KYC')
+                    showToast('error', 'Lỗi hệ thống', responseData.error || 'Có lỗi xảy ra, vui lòng thử lại sau.')
+                    throw new Error(responseData.error || 'Failed to complete KYC')
                   }
                 }
 
-                showToast('success', 'KYC Thành công', 'Bạn đã vượt qua quá trình xác minh!')
+                if (responseData.status === 'REVIEW') {
+                  showToast('warning', 'Đã gửi thông tin', 'Xác minh của bạn đang được xem xét. Vui lòng chờ phản hồi.')
+                } else {
+                  showToast('success', 'KYC Thành công', 'Bạn đã vượt qua quá trình xác minh!')
+                }
 
                 // Refetch orders list to reflect the new state (bypass cache)
                 const response = await fetch(`/api/v1/orders?limit=20&type=${activeTab === 'orders' ? 'accessory' : 'car'}&_t=${Date.now()}`)

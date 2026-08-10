@@ -149,6 +149,98 @@ export async function notifyVehicleReadyForDelivery(orderId: string) {
   }
 }
 
+export async function syncKycStatus(orderId: string) {
+  try {
+    const admin = await requireAdmin()
+    const supabase = getSupabaseAdmin()
+    
+    const { data: order, error: orderError } = await supabase
+      .from('deposit_orders')
+      .select('id, kyc_session_id, kyc_status, full_name, id_card_number')
+      .eq('id', orderId)
+      .maybeSingle()
+      
+    if (orderError) throw orderError
+    if (!order) throw new Error('Không tìm thấy đơn đặt cọc.')
+    if (!order.kyc_session_id) throw new Error('Đơn chưa có phiên xác minh KYC.')
+
+    const diditRes = await fetch(`https://verification.didit.me/v3/session/${order.kyc_session_id}/decision/`, {
+      headers: { 'x-api-key': process.env.DIDIT_API_KEY as string },
+      cache: 'no-store'
+    })
+
+    if (!diditRes.ok) {
+      if (diditRes.status === 404) throw new Error('Không tìm thấy phiên xác minh trên Didit.')
+      throw new Error('Không thể lấy trạng thái từ Didit.')
+    }
+
+    const decision = await diditRes.json()
+    const decisionStatus = String(decision.status || '').toLowerCase()
+
+    if (decisionStatus === 'review' || decisionStatus === 'manual_review' || decisionStatus === 'in review' || decisionStatus === 'in_review') {
+      if (order.kyc_status !== 'REVIEW') {
+        await supabase.from('deposit_orders').update({ kyc_status: 'REVIEW', updated_at: new Date().toISOString() }).eq('id', orderId)
+      }
+      revalidatePath('/admin/orders')
+      revalidatePath('/profile')
+      return { success: true, message: 'KYC vẫn đang chờ duyệt (In Review).' }
+    }
+
+    if (decisionStatus === 'declined' || decisionStatus === 'rejected' || decisionStatus === 'resubmitted') {
+      if (order.kyc_status !== 'DECLINED') {
+        await supabase.from('deposit_orders').update({ kyc_status: 'DECLINED', updated_at: new Date().toISOString() }).eq('id', orderId)
+      }
+      revalidatePath('/admin/orders')
+      revalidatePath('/profile')
+      return { success: true, message: 'KYC đã bị từ chối hoặc yêu cầu làm lại.' }
+    }
+
+    if (decisionStatus === 'approved') {
+      const doc = decision.document || decision.person
+      let verifiedName = undefined
+      let verifiedId = undefined
+
+      if (doc) {
+        verifiedName = doc.first_name ? `${doc.first_name} ${doc.last_name || ''}`.trim() : undefined
+        verifiedId = doc.document_number
+      }
+
+      if (!verifiedName || !verifiedId) {
+        await supabase.from('deposit_orders').update({ kyc_status: 'DECLINED', updated_at: new Date().toISOString() }).eq('id', orderId)
+        revalidatePath('/admin/orders')
+        revalidatePath('/profile')
+        return { success: true, message: 'Thiếu thông tin định danh. Đã chuyển sang từ chối.' }
+      }
+
+      const normalize = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '')
+      if (normalize(order.full_name) !== normalize(verifiedName) || normalize(order.id_card_number) !== normalize(verifiedId)) {
+        await supabase.from('deposit_orders').update({ kyc_status: 'DECLINED', updated_at: new Date().toISOString() }).eq('id', orderId)
+        revalidatePath('/admin/orders')
+        revalidatePath('/profile')
+        return { success: true, message: 'Thông tin không khớp. Đã chuyển sang từ chối.' }
+      }
+
+      const updatePayload: any = {
+        kyc_status: 'APPROVED',
+        updated_at: new Date().toISOString()
+      }
+      if (verifiedName) updatePayload.full_name = verifiedName
+      if (verifiedId) updatePayload.id_card_number = verifiedId
+      
+      await supabase.from('deposit_orders').update(updatePayload).eq('id', orderId)
+      await tryAutoIssueContract(supabase, orderId)
+
+      revalidatePath('/admin/orders')
+      revalidatePath('/profile')
+      return { success: true, message: 'KYC đã được duyệt thành công!' }
+    }
+
+    return { success: true, message: `Trạng thái hiện tại trên Didit: ${decision.status}` }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Lỗi đồng bộ KYC' }
+  }
+}
+
 export async function confirmDepositRefund(orderId: string) {
   try {
     const admin = await requireAdmin()
@@ -176,13 +268,13 @@ export async function confirmDepositRefund(orderId: string) {
   }
 }
 
-export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved'
+export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved' | 'mock_confirm_order'
 
 export async function runDepositDebugAction(orderId: string, action: DepositDebugAction) {
   try {
     const admin = await requireAdmin()
     assertDepositDebugActionsEnabled()
-    if (action !== 'mock_deposit_paid' && action !== 'mock_kyc_approved') {
+    if (action !== 'mock_deposit_paid' && action !== 'mock_kyc_approved' && action !== 'mock_confirm_order') {
       throw new Error('Thao tác debug không hợp lệ.')
     }
     const supabase = getSupabaseAdmin()
@@ -260,7 +352,75 @@ export async function runDepositDebugAction(orderId: string, action: DepositDebu
         p_paid_at: now,
       }).single<{ outcome: string }>()
       if (commandError || !command) throw commandError || new Error('Không thể mô phỏng thanh toán cọc.')
-    } else {
+    } else if (action === 'mock_confirm_order') {
+      const { data: order, error: orderError } = await supabase
+        .from('deposit_orders')
+        .select('id,order_number,status,deposit_amount')
+        .eq('id', orderId)
+        .maybeSingle()
+      if (orderError) throw orderError
+      if (!order) throw new Error('Không tìm thấy đơn đặt cọc.')
+      if (!['PENDING_DEPOSIT', 'PENDING', 'PENDING_CONFIRMATION'].includes(order.status)) {
+        throw new Error('Đơn không còn ở giai đoạn chờ cọc.')
+      }
+
+      // Ensure paid status
+      const existingPaid = await supabase
+        .from('vnpay_deposit_attempts')
+        .select('id')
+        .eq('deposit_order_id', orderId)
+        .eq('status', 'PAID')
+        .limit(1)
+        .maybeSingle()
+      let attemptId = existingPaid.data?.id
+      if (!attemptId) {
+        const amountVnd = Number(order.deposit_amount)
+        if (!Number.isFinite(amountVnd) || amountVnd <= 0) throw new Error('Số tiền đặt cọc không hợp lệ.')
+
+        const pending = await supabase
+          .from('vnpay_deposit_attempts')
+          .select('id')
+          .eq('deposit_order_id', orderId)
+          .eq('status', 'PENDING')
+          .maybeSingle()
+        if (pending.error) throw pending.error
+        attemptId = pending.data?.id
+        if (!attemptId) {
+          const inserted = await supabase.from('vnpay_deposit_attempts').insert({
+            deposit_order_id: orderId,
+            transaction_reference: `DEBUG${Date.now()}${randomUUID().replaceAll('-', '').slice(0, 8)}`,
+            order_number: order.order_number,
+            amount_vnd: amountVnd,
+          }).select('id').single()
+          attemptId = inserted.data?.id || ''
+        }
+
+        if (attemptId) {
+          const now = new Date().toISOString()
+          await supabase.rpc('process_vnpay_deposit_callback', {
+            p_attempt_id: attemptId,
+            p_success: true,
+            p_response_code: '00',
+            p_transaction_no: `DEBUG-${randomUUID()}`,
+            p_bank_code: 'FASTLANE_DEBUG',
+            p_response_payload: {
+              source: 'ADMIN_DEBUG_ACTION',
+              actorUserId: admin.id,
+              warning: 'Synthetic payment evidence; non-production use only',
+            },
+            p_paid_at: now,
+          })
+        }
+      }
+
+      // Direct confirm
+      const confirmed = await supabase.from('deposit_orders')
+        .update({ status: 'CONFIRMED', payment: 'Paid', updated_at: new Date().toISOString() })
+        .eq('id', orderId)
+      if (confirmed.error) throw confirmed.error
+
+      await tryAutoIssueContract(supabase, orderId)
+    } else if (action === 'mock_kyc_approved') {
       const { data: order, error: orderError } = await supabase
         .from('deposit_orders')
         .select('id,status,kyc_status')
