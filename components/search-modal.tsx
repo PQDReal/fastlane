@@ -42,7 +42,7 @@ export function SearchModal() {
         const res = await fetch(`/api/v1/search/assistant`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ query: submittedQuery, limit: 12 }),
+          body: JSON.stringify({ query: submittedQuery, limit: 100 }),
           signal: controller.signal,
         })
         if (res.ok) {

@@ -35,18 +35,22 @@ export async function retrieveCatalogProducts(query: string, filters: AssistantF
   // Ranking queries must inspect the complete active catalog, otherwise the
   // database's arbitrary first page can hide the true cheapest/most expensive
   // product. Normal searches keep the smaller limit for latency.
-  const sourceLimit = filters.sortBy ? 200 : limit * 3
+  // Read the active catalog rather than a fixed list of known model names.
+  // Ranking must see every candidate, and a broad request (for example
+  // “xe máy điện”) has no product-name token to constrain at the database
+  // level. Supabase returns at most 1,000 rows per request, which covers the
+  // current catalog while remaining bounded for the assistant endpoint.
+  const sourceLimit = filters.sortBy ? 1000 : Math.max(1000, limit * 3)
   let request = supabase.from('products').select('id,name,slug,displayed_price,image_urls,specifications,product_type,categories(name)').eq('is_active', true).limit(sourceLimit)
   if (filters.productType === 'accessory') request = request.eq('product_type', 'ACCESSORY')
   if (filters.productType === 'car') request = request.eq('product_type', 'CAR')
+  if (filters.productType === 'motorbike') request = request.in('product_type', ['BIKE', 'MOTORBIKE'])
+  if (!filters.productType) request = request.not('product_type', 'in', '(BIKE,MOTORBIKE)')
   if (filters.maxPrice != null) request = request.lte('displayed_price', filters.maxPrice)
   if (filters.minPrice != null) request = request.gte('displayed_price', filters.minPrice)
   const tsQuery = toNamePrefixTsQuery(query)
   if (tsQuery) request = request.textSearch('search_vector', tsQuery, { config: 'simple' })
-  const productRequest = filters.productType === 'motorbike'
-    ? Promise.resolve({ data: [], error: null })
-    : request
-  const [{ data, error }, motorbikes] = await Promise.all([productRequest, listMotorbikeCatalog()])
+  const [{ data, error }, motorbikes] = await Promise.all([request, listMotorbikeCatalog()])
   if (error) throw new Error(error.message)
   const products: AssistantProduct[] = (data ?? []).map((item: any) => ({
     id: item.id, name: item.name, slug: item.slug, product_type: item.product_type, category: item.categories?.name ?? 'Chưa phân loại',
