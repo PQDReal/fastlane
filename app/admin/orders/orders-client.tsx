@@ -225,9 +225,9 @@ export function AdminOrdersClient({
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-340px)] overflow-y-auto">
           <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-4">Mã đơn hàng</th>
                 <th className="px-6 py-4">Khách hàng</th>

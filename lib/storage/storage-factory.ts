@@ -1,5 +1,6 @@
 import { StorageProvider } from './storage-provider'
 import { CloudinaryStorageProvider } from './cloudinary-provider'
+import { LocalStorageProvider } from './local-provider'
 
 export class StorageProviderFactory {
   private static instance: StorageProvider | null = null
@@ -15,9 +16,10 @@ export class StorageProviderFactory {
       return this.instance
     }
 
-    throw new Error(
-      'Chưa cấu hình dịch vụ lưu trữ (CLOUDINARY_URL). Vui lòng kiểm tra file .env.local.',
-    )
+    // Fallback to LocalStorageProvider for local development when Cloudinary is not configured
+    console.log('[STORAGE] CLOUDINARY_URL chưa được cấu hình. Sử dụng LocalStorageProvider lưu trữ tệp cục bộ.')
+    this.instance = new LocalStorageProvider()
+    return this.instance
   }
 
   /**

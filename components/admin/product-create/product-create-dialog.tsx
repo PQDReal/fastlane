@@ -134,12 +134,15 @@ export function ProductCreateDialog({
 
   function selectCategory(category: AdminRootCategory) {
     const capability = productWorkflowCapability(category)
-    if (capability.workflow === 'accessory' || capability.workflow === 'car') {
+    if (capability.workflow === 'accessory') {
       setWorkflowDirty(false)
       setSelectedCategory(category)
     } else if (capability.workflow === 'motorbike') {
       onClose()
       window.location.href = '/admin/products/motorbikes/new'
+    } else if (capability.workflow === 'car') {
+      onClose()
+      window.location.href = '/admin/products/cars/new'
     }
   }
 

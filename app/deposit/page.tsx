@@ -45,18 +45,47 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   const supabase = getSupabaseAdmin()
   let dbProducts: any[] = []
   try {
-    const { data } = await supabase.from('products').select('id, name, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active)').eq('product_type', 'CAR')
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active)')
+      .eq('product_type', 'CAR')
     if (data) dbProducts = data
   } catch (e) {
     console.error('Error fetching products with variants', e)
   }
 
+  const matchedProductIds = new Set<string>()
+
   const rawCarsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
   const carsData = rawCarsData.map((c: any) => {
-    const dbP = dbProducts.find(p => p.name === c.name || c.name.includes(p.name) || p.name.includes(c.name))
+    let dbP = dbProducts.find(p => p.name === c.name || p.name === c.name.replace('VinFast ', ''))
+    if (!dbP) {
+      dbP = dbProducts.find(p => {
+        if (c.name.includes('The All-New') && !p.name.includes('The All-New')) return false
+        return c.name.includes(p.name) || p.name.includes(c.name)
+      })
+    }
     if (dbP) {
+      c.product_id = dbP.id
+      c.specifications = dbP.specifications
+      if (dbP.is_active === false) {
+        c.is_active = false
+      }
+      matchedProductIds.add(dbP.id)
       if (dbP.advanced_color_price !== null) {
         c.advanced_color_price = dbP.advanced_color_price
+      }
+      if (dbP.specifications && typeof dbP.specifications === 'object') {
+        const specsObj = dbP.specifications as any
+        if (specsObj.interiors) {
+          c.interiors = specsObj.interiors
+        }
+        if (specsObj.gallery?.interior_images) {
+          c.gallery = {
+            ...c.gallery,
+            interior_images: specsObj.gallery.interior_images
+          }
+        }
       }
       if (dbP.vehicle_variants && dbP.vehicle_variants.length > 0) {
         const dbColors = dbP.vehicle_variants
@@ -81,6 +110,60 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     }
     return c
   })
+
+  // Map dynamic cars from database that are not in the static cars.json and are active
+  const unmatchedProducts = dbProducts.filter(p => !matchedProductIds.has(p.id) && p.is_active !== false)
+  const dynamicCars = unmatchedProducts.map((p: any) => {
+    const specsObj = p.specifications || {}
+    
+    let colors = []
+    if (p.vehicle_variants && p.vehicle_variants.length > 0) {
+      colors = p.vehicle_variants
+        .filter((v: any) => v.is_active !== false && v.color && v.image_car_url)
+        .map((v: any) => ({
+          name: v.color,
+          image: v.image_car_url,
+          swatch: v.image_color_url
+        }))
+    } else if (specsObj.fallback_colors) {
+      colors = specsObj.fallback_colors
+    }
+
+    const interiors = specsObj.interiors || []
+    const variantsNames = Object.keys(specsObj.specs || {})
+    const firstVarName = variantsNames[0]
+    const firstVar = firstVarName ? specsObj.specs[firstVarName] : null
+    const priceStr = firstVar ? `Chỉ từ ${new Intl.NumberFormat('vi-VN').format(firstVar.price)} VNĐ*` : 'Liên hệ'
+    const depositStr = firstVar ? `${new Intl.NumberFormat('vi-VN').format(firstVar.deposit_amount)} VNĐ` : '15.000.000 VNĐ'
+
+    const variantsList = variantsNames.map(name => {
+      const v = specsObj.specs[name]
+      return `${p.name} ${name}: ${new Intl.NumberFormat('vi-VN').format(v.price)} VNĐ*`
+    })
+
+    return {
+      product_id: p.id,
+      name: p.name,
+      url: `/cars/${p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      price: priceStr,
+      deposit: depositStr,
+      colors,
+      variants: variantsList,
+      interiors,
+      gallery: {
+        interior_images: specsObj.gallery?.interior_images || [],
+        exterior_images: specsObj.gallery?.exterior_images || [],
+        detail_images: specsObj.gallery?.detail_images || []
+      },
+      specifications: specsObj,
+      advanced_color_price: p.advanced_color_price
+    }
+  })
+
+  // Filter out any static cars that have been deactivated in the database
+  const activeStaticCars = carsData.filter((c: any) => c.is_active !== false)
+  const combinedCarsData = [...activeStaticCars, ...dynamicCars]
+
   const motorbikesData = motorbikeCatalog.map((motorbike) => ({
     product_id: motorbike.productId,
     name: motorbike.name,
@@ -114,18 +197,32 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     specsData['VinFast VF 8 The All-New 2026'] = specsData['VF 8']
   }
 
+  // Inject specs for database-driven dynamic cars
+  unmatchedProducts.forEach((p: any) => {
+    const specsObj = p.specifications || {}
+    specsData[p.name] = {
+      name: p.name,
+      model_key: `Products-Car-${p.name.replace(/[^a-zA-Z0-9]+/g, '')}`,
+      variants: specsObj.specs || {}
+    }
+    const shortName = p.name.replace('VinFast ', '')
+    if (shortName !== p.name) {
+      specsData[shortName] = specsData[p.name]
+    }
+  })
+
   const initialCar = Array.isArray(params.model) ? params.model[0] : params.model
   const requestedType = Array.isArray(params.type) ? params.type[0] : params.type
   const initialVehicleType: DepositVehicleType =
     requestedType === 'motorbike' ||
-    (!findDepositVehicle(carsData, initialCar) &&
+    (!findDepositVehicle(combinedCarsData, initialCar) &&
       Boolean(findDepositVehicle(motorbikesData, initialCar)))
       ? 'motorbike'
       : 'car'
 
   return (
     <DepositClient
-      carsData={carsData}
+      carsData={combinedCarsData}
       motorbikesData={motorbikesData}
       specsData={specsData}
       initialCar={initialCar}

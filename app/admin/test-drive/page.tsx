@@ -147,9 +147,9 @@ export default function AdminTestDrivePage() {
           <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sắp xếp lịch lái thử" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm focus:border-brand-500 focus:outline-none"><option value="CREATED_DESC">Ngày tạo: mới nhất</option><option value="SCHEDULED_ASC">Lịch mong muốn: gần nhất</option><option value="SCHEDULED_DESC">Lịch mong muốn: xa nhất</option></select>
         </div>
         {error && <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-340px)] overflow-y-auto">
           <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-500"><tr><th className="px-5 py-4">Mã yêu cầu</th><th className="px-5 py-4">Khách hàng</th><th className="px-5 py-4">Mẫu xe</th><th className="px-5 py-4">Lịch mong muốn</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4">Cập nhật</th></tr></thead>
+            <thead className="border-b border-slate-200 bg-slate-50 font-semibold text-slate-500 sticky top-0 z-10"><tr><th className="px-5 py-4">Mã yêu cầu</th><th className="px-5 py-4">Khách hàng</th><th className="px-5 py-4">Mẫu xe</th><th className="px-5 py-4">Lịch mong muốn</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4">Cập nhật</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? <tr><td colSpan={6} className="px-6 py-16 text-center"><Loader2 className="mx-auto h-7 w-7 animate-spin text-brand-600" /></td></tr> : requests.length === 0 ? <tr><td colSpan={6} className="px-6 py-16 text-center text-slate-500"><CalendarDays className="mx-auto mb-3 h-8 w-8 text-slate-300" />Chưa có yêu cầu lái thử phù hợp.</td></tr> : requests.map((item) => {
                 const actions = ACTIONS[item.status] ?? []
