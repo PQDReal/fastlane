@@ -5,6 +5,7 @@ const sendSource = readFileSync(new URL('./send-otp/route.ts', import.meta.url),
 const signSource = readFileSync(new URL('./sign/route.ts', import.meta.url), 'utf8')
 const clientSource = readFileSync(new URL('../../profile/contract/[orderId]/contract-client.tsx', import.meta.url), 'utf8')
 const mailerSource = readFileSync(new URL('../../../lib/mailer.ts', import.meta.url), 'utf8')
+const viewerSource = readFileSync(new URL('../../../components/deposit/contract-viewer.tsx', import.meta.url), 'utf8')
 
 describe('contract OTP route boundaries', () => {
   it('binds OTP issuance to the owner and active document version', () => {
@@ -39,5 +40,15 @@ describe('contract OTP route boundaries', () => {
     expect(mailerSource).toContain("process.env.NODE_ENV !== 'production'")
     expect(mailerSource).toContain("process.env.ENABLE_OTP_EMAIL_LOGGING === 'true'")
     expect(mailerSource).toContain("throw new Error('OTP_EMAIL_PROVIDER_NOT_CONFIGURED')")
+  })
+
+  it('keeps the OTP dialog open and gates resend behind the one-minute cooldown', () => {
+    expect(viewerSource).not.toContain('event.target === event.currentTarget && !isVerifying')
+    expect(viewerSource).toContain("title: 'Đóng màn hình nhập OTP?'")
+    expect(viewerSource).toContain("label: 'Tiếp tục nhập'")
+    expect(viewerSource).toContain("label: 'Đóng màn hình'")
+    expect(viewerSource).toContain('setResendAvailableAt(Date.now() + 60_000)')
+    expect(viewerSource).toContain('disabled={!onResend || resendSeconds > 0 || isResending || isVerifying}')
+    expect(viewerSource).toContain('onResend={onSendOtp}')
   })
 })
