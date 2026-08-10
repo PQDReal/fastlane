@@ -5,15 +5,18 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Clock3, Mail, MapPin, Package, Phone, ReceiptText, X } from 'lucide-react'
 
 import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
+import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { ProductOptionSummary } from '@/components/product-option-summary'
 import { Button } from '@/components/ui/button'
+import {
+  accessoryOrderStatusPresentation,
+  refundStatusPresentation,
+} from '@/lib/orders/admin-status-presentation'
 import type { AdminAccessoryOrder } from './accessory-orders-client'
 
 type AccessoryOrderDetailDrawerProps = {
   order: AdminAccessoryOrder | null
   isOpen: boolean
-  statusText: string
-  statusClassName: string
   statusHint?: string
   actions?: ReactNode
   onClose: () => void
@@ -33,22 +36,18 @@ const dateTime = (value: string) => new Intl.DateTimeFormat('vi-VN', {
   minute: '2-digit',
 }).format(new Date(value))
 
-const refundLabel: Record<AdminAccessoryOrder['refundStatus'], string> = {
-  NONE: 'Không phát sinh',
-  PENDING: 'Đang chờ hoàn tiền',
-  COMPLETED: 'Đã hoàn tiền',
-}
-
 export function AccessoryOrderDetailDrawer({
   order,
   isOpen,
-  statusText,
-  statusClassName,
   statusHint,
   actions,
   onClose,
 }: AccessoryOrderDetailDrawerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const orderStatus = order
+    ? accessoryOrderStatusPresentation(order.status, order.refundStatus)
+    : null
+  const refundStatus = order ? refundStatusPresentation(order.refundStatus) : null
 
   useEffect(() => {
     if (!isOpen) return
@@ -122,7 +121,7 @@ export function AccessoryOrderDetailDrawer({
               <section className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Trạng thái</p>
-                  <span className={`mt-2 inline-flex max-w-full rounded-md px-2 py-1 text-[11px] font-bold uppercase leading-4 tracking-wide ${statusClassName}`}>{statusText}</span>
+                  {orderStatus && <AdminOrderStatusBadge presentation={orderStatus} className="mt-2" />}
                   {statusHint && <p className="mt-1 text-xs text-slate-500">{statusHint}</p>}
                 </div>
                 <div className="text-right">
@@ -178,7 +177,7 @@ export function AccessoryOrderDetailDrawer({
                   <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Tạm tính</dt><dd className="whitespace-nowrap font-medium text-slate-800">{money(order.subtotal)}</dd></div>
                   {order.discountAmount > 0 && <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Giảm giá</dt><dd className="whitespace-nowrap font-semibold text-emerald-700">-{money(order.discountAmount)}</dd></div>}
                   <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3"><dt className="font-semibold text-slate-700">Tổng thanh toán</dt><dd className="whitespace-nowrap text-base font-bold text-brand-700">{money(order.totalAmount)}</dd></div>
-                  <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Hoàn tiền</dt><dd className="text-right font-medium text-slate-700">{refundLabel[order.refundStatus]}</dd></div>
+                  <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Hoàn tiền</dt><dd>{refundStatus && <AdminOrderStatusBadge presentation={refundStatus} />}</dd></div>
                 </dl>
               </section>
             </div>

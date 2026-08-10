@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, ChevronRight, RotateCcw, Search, ShoppingBag, Truck, XCircle } from 'lucide-react'
+import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import type { SelectedProductOption, ShippingAddress } from '@/lib/cart/types'
 import type { OrderCancellationAudit } from '@/lib/orders/cancellation-audit'
+import {
+  accessoryOrderStatusPresentation,
+  type AccessoryAdminOrderStatus,
+  type AdminOrderRefundStatus,
+} from '@/lib/orders/admin-status-presentation'
 import { AccessoryOrderDetailDrawer } from './accessory-order-detail-drawer'
 
 export type AdminAccessoryOrder = {
@@ -26,8 +32,8 @@ export type AdminAccessoryOrder = {
   shippingAddress: ShippingAddress | null
   note: string | null
   cancellation: OrderCancellationAudit | null
-  status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'READY' | 'DELIVERED' | 'CANCELLED'
-  refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
+  status: AccessoryAdminOrderStatus
+  refundStatus: AdminOrderRefundStatus
   refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
   refundNextCheckAt: string | null
   createdAt: string
@@ -40,23 +46,8 @@ const statusLabel: Record<AdminAccessoryOrder['status'], string> = {
 const statusHint: Partial<Record<AdminAccessoryOrder['status'], string>> = {
   CONFIRMED: 'Chờ lấy hàng',
 }
-const statusStyle: Record<AdminAccessoryOrder['status'], string> = {
-  PENDING: 'bg-amber-100 text-amber-700', PAID: 'bg-emerald-100 text-emerald-700',
-  CONFIRMED: 'bg-blue-100 text-blue-700', READY: 'bg-purple-100 text-purple-700',
-  DELIVERED: 'bg-teal-100 text-teal-700', CANCELLED: 'bg-red-100 text-red-700',
-}
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
 const date = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
-const isBankRefundPending = (order: AdminAccessoryOrder) => order.status === 'CANCELLED'
-  && order.refundStatus === 'PENDING'
-  && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')
-const displayStatus = (order: AdminAccessoryOrder) => isBankRefundPending(order)
-  ? 'Đã hủy - Chờ hoàn tiền'
-  : order.status === 'CANCELLED' && order.refundStatus === 'PENDING'
-    ? 'Đã hủy - Chờ hoàn tiền'
-    : order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED'
-      ? 'Đã hủy, đã hoàn tiền'
-    : statusLabel[order.status]
 
 export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrders: AdminAccessoryOrder[]; loadError: string | null }) {
   const [orders, setOrders] = useState(initialOrders)
@@ -223,7 +214,7 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
             <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Trạng thái</span>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <span className={`inline-flex max-w-full rounded-md px-2 py-1 text-[11px] font-bold uppercase leading-4 tracking-wide ${isBankRefundPending(order) ? 'bg-amber-100 text-amber-700' : statusStyle[order.status]}`}>{displayStatus(order)}</span>
+                <AdminOrderStatusBadge presentation={accessoryOrderStatusPresentation(order.status, order.refundStatus)} />
                 {statusHint[order.status] && <p className="mt-1 text-xs text-slate-500">{statusHint[order.status]}</p>}
               </div>
               <ChevronRight aria-hidden="true" size={18} className="mt-0.5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
@@ -240,8 +231,6 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
     <AccessoryOrderDetailDrawer
       order={selectedOrder}
       isOpen={Boolean(selectedOrder)}
-      statusText={selectedOrder ? displayStatus(selectedOrder) : ''}
-      statusClassName={selectedOrder ? (isBankRefundPending(selectedOrder) ? 'bg-amber-100 text-amber-700' : statusStyle[selectedOrder.status]) : ''}
       statusHint={selectedOrder ? statusHint[selectedOrder.status] : undefined}
       actions={selectedOrder ? orderActions(selectedOrder) : undefined}
       onClose={closeOrderDetail}

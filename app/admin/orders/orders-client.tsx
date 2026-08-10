@@ -5,8 +5,13 @@ import { useRouter } from 'next/navigation'
 import { ChevronRight, Filter, Search } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { AdminOrderDetailDrawer } from './order-detail-drawer'
+import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import type { OrderCancellationAudit } from '@/lib/orders/cancellation-audit'
+import {
+  vehicleOrderStatusPresentation,
+  type AdminOrderRefundStatus,
+} from '@/lib/orders/admin-status-presentation'
 
 export type AdminOrderRow = {
   id: string
@@ -16,7 +21,7 @@ export type AdminOrderRow = {
   amount: number
   status: string
   payment: string
-  refundStatus: 'NONE' | 'PENDING' | 'COMPLETED'
+  refundStatus: AdminOrderRefundStatus
   kyc_status?: string | null
   kyc_session_id?: string | null
   createdAt: string
@@ -78,73 +83,6 @@ export function AdminOrdersClient({
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   })
-
-  const getStatusStyle = (status: string) => {
-    switch(status) {
-      case 'Pending': 
-      case 'PENDING_DEPOSIT': return 'bg-amber-100 text-amber-700'
-      case 'PENDING_CONFIRMATION': return 'bg-blue-100 text-blue-700'
-      case 'Confirmed':
-      case 'CONFIRMED': return 'bg-blue-100 text-blue-700'
-      case 'PENDING_CONTRACT': return 'bg-indigo-100 text-indigo-700'
-      case 'CONTRACT_SIGNED': return 'bg-emerald-100 text-emerald-700'
-      case 'WAITING_VEHICLE': return 'bg-sky-100 text-sky-700'
-      case 'Preparing':
-      case 'PREPARING_DELIVERY': return 'bg-purple-100 text-purple-700'
-      case 'DELIVERED': return 'bg-teal-100 text-teal-700'
-      case 'Completed':
-      case 'COMPLETED': return 'bg-green-100 text-green-700'
-      case 'Cancelled':
-      case 'CANCELLED': return 'bg-red-100 text-red-700'
-      case 'Shipped': return 'bg-teal-100 text-teal-700'
-      case 'PENDING':
-      case 'Pending': return 'bg-yellow-100 text-yellow-700'
-      default: return 'bg-slate-100 text-slate-700'
-    }
-  }
-
-  const translateAdminStatus = (status: string, isCar: boolean, vehicleType?: string) => {
-    if (isCar) {
-      return {
-        'PENDING_DEPOSIT': 'Chờ cọc',
-        'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
-        'CONFIRMED': 'Đã xác nhận',
-        'PENDING_CONTRACT': vehicleType === 'motorbike' ? 'Chờ xác nhận đặt mua' : 'Chờ ký HĐ',
-        'CONTRACT_SIGNED': 'Chờ nhận xe',
-        'WAITING_VEHICLE': 'Chờ xe sẵn sàng',
-        'PREPARING_DELIVERY': 'Chờ giao xe',
-        'DELIVERED': 'Đã giao xe',
-        'COMPLETED': 'Hoàn thành',
-        'CANCELLED': 'Đã hủy cọc',
-        'PENDING': 'Chờ xác nhận cọc',
-        'Pending': 'Chờ xác nhận cọc',
-      }[status] || status
-    }
-    return {
-      'Pending': 'Chờ xác nhận',
-      'Confirmed': 'Đã xác nhận',
-      'Preparing': 'Đang chuẩn bị',
-      'Shipped': 'Đang giao hàng',
-      'Completed': 'Giao thành công',
-      'Cancelled': 'Đã hủy',
-    }[status] || status
-  }
-
-  const combinedStatus = (order: AdminOrderRow) => {
-    if (order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED') {
-      return { label: 'Đã hủy, đã hoàn tiền', style: 'bg-green-100 text-green-700 border border-green-200' }
-    }
-    if (order.status === 'CANCELLED' && order.payment === 'Paid') {
-      return { label: 'Đã hủy, chờ hoàn tiền', style: 'bg-orange-100 text-orange-700 border border-orange-200' }
-    }
-    if (['CANCELLED', 'COMPLETED', 'DELIVERED', 'PREPARING_DELIVERY', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PENDING_CONTRACT', 'CONFIRMED'].includes(order.status)) {
-      return { label: translateAdminStatus(order.status, order.isCar, order.vehicleType), style: getStatusStyle(order.status) }
-    }
-    if (order.payment === 'Paid') {
-      return { label: 'Đã đặt cọc', style: 'bg-green-100 text-green-700 border border-green-200' }
-    }
-    return { label: 'Chờ đặt cọc', style: 'bg-amber-100 text-amber-700 border border-amber-200' }
-  }
 
   return (
     <div className="space-y-6">
@@ -232,7 +170,12 @@ export function AdminOrdersClient({
 
         <div className="divide-y divide-slate-100">
           {visibleOrders.map((order) => {
-            const displayStatus = combinedStatus(order)
+            const displayStatus = vehicleOrderStatusPresentation({
+              status: order.status,
+              refundStatus: order.refundStatus,
+              payment: order.payment,
+              vehicleType: order.vehicleType,
+            })
             return (
               <button
                 key={order.id}
@@ -266,9 +209,7 @@ export function AdminOrdersClient({
                   <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 lg:hidden">Trạng thái</span>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <span className={`inline-flex max-w-full items-center rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${displayStatus.style}`}>
-                        {displayStatus.label}
-                      </span>
+                      <AdminOrderStatusBadge presentation={displayStatus} />
                       {order.kyc_status === 'REVIEW' && (
                         <span className="inline-flex rounded-full border border-yellow-200 bg-yellow-100 px-2 py-1 text-[11px] font-semibold text-yellow-800">
                           Cần duyệt KYC

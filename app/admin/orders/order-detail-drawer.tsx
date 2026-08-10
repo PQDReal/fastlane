@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
 import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
+import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { AdminOrderRow } from './orders-client'
 import {
   confirmDepositRefund,
@@ -13,6 +14,10 @@ import {
   type DepositDebugAction,
 } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
+import {
+  depositPaymentStatusPresentation,
+  vehicleOrderStatusPresentation,
+} from '@/lib/orders/admin-status-presentation'
 
 type OrderDetailDrawerProps = {
   order: AdminOrderRow | null
@@ -31,6 +36,17 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   const d = order.rawDeposit
   const isMotorbike = d.vehicle_type === 'motorbike'
   const hasIssuedDocumentProjection = Boolean(d.contract_issued_at && d.contract_signature_due_at)
+  const statusPresentation = vehicleOrderStatusPresentation({
+    status: order.status,
+    refundStatus: order.refundStatus,
+    payment: order.payment,
+    vehicleType: order.vehicleType,
+  })
+  const paymentPresentation = depositPaymentStatusPresentation({
+    status: order.status,
+    refundStatus: order.refundStatus,
+    payment: order.payment,
+  })
 
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN', {
@@ -173,6 +189,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
               <div>
                 <h2 id="admin-deposit-order-detail-title" className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
                 <p className="text-sm text-slate-500 font-medium">{order.orderNumber}</p>
+                <AdminOrderStatusBadge presentation={statusPresentation} className="mt-2" />
               </div>
               <button
                 type="button"
@@ -308,13 +325,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Trạng thái TT cọc:</span>
-                    <span className={`font-semibold ${order.status === 'CANCELLED' && order.payment === 'Paid' ? 'text-orange-600' : order.payment === 'Paid' ? 'text-green-600' : 'text-slate-600'}`}>
-                      {order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED'
-                        ? 'Đã hủy, đã hoàn tiền'
-                        : order.status === 'CANCELLED' && order.payment === 'Paid'
-                        ? 'Đã hủy, chờ hoàn tiền'
-                        : order.payment === 'Paid' ? 'Đã đặt cọc' : 'Chờ đặt cọc'}
-                    </span>
+                    <AdminOrderStatusBadge presentation={paymentPresentation} />
                   </div>
                 </div>
               </section>
