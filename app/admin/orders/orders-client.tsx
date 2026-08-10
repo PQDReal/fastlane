@@ -24,7 +24,13 @@ export type AdminOrderRow = {
   rawDeposit?: any
 }
 
-export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
+export function AdminOrdersClient({
+  orders,
+  debugActionsEnabled,
+}: {
+  orders: AdminOrderRow[]
+  debugActionsEnabled: boolean
+}) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -285,6 +291,7 @@ export function AdminOrdersClient({ orders }: { orders: AdminOrderRow[] }) {
 
       <AdminOrderDetailDrawer 
         order={selectedOrder}
+        debugActionsEnabled={debugActionsEnabled}
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onOrderUpdated={() => {

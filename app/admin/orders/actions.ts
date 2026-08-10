@@ -1,11 +1,13 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
+import { assertDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
 
 async function requireAdmin() {
   const user = await getCurrentUser()
@@ -174,43 +176,127 @@ export async function confirmDepositRefund(orderId: string) {
   }
 }
 
-// Dành cho mục đích test/developer mode để vượt qua các bước thanh toán/KYC
-export async function forceOrderState(orderId: string, action: 'mock_deposit_paid' | 'mock_kyc_approved' | 'mock_contract_signed' | 'mock_full_paid') {
-  await requireAdmin()
-  const supabase = getSupabaseAdmin()
+export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved'
 
+export async function runDepositDebugAction(orderId: string, action: DepositDebugAction) {
   try {
-    let updates: any = { updated_at: new Date().toISOString() }
+    const admin = await requireAdmin()
+    assertDepositDebugActionsEnabled()
+    if (action !== 'mock_deposit_paid' && action !== 'mock_kyc_approved') {
+      throw new Error('Thao tác debug không hợp lệ.')
+    }
+    const supabase = getSupabaseAdmin()
 
-    switch (action) {
-      case 'mock_deposit_paid':
-        updates.status = 'CONFIRMED'
-        updates.payment_status = 'Paid'
-        break
-      case 'mock_kyc_approved':
-        updates.kyc_status = 'APPROVED'
-        updates.status = 'PENDING_CONTRACT'
-        break
-      case 'mock_contract_signed':
-        updates.status = 'CONTRACT_SIGNED'
-        updates.contract_signed_at = new Date().toISOString()
-        break
-      case 'mock_full_paid':
-        updates.status = 'PAID'
-        break
+    if (action === 'mock_deposit_paid') {
+      const { data: order, error: orderError } = await supabase
+        .from('deposit_orders')
+        .select('id,order_number,status,deposit_amount')
+        .eq('id', orderId)
+        .maybeSingle()
+      if (orderError) throw orderError
+      if (!order) throw new Error('Không tìm thấy đơn đặt cọc.')
+      if (!['PENDING_DEPOSIT', 'PENDING', 'PENDING_CONFIRMATION'].includes(order.status)) {
+        throw new Error('Đơn không còn ở giai đoạn cho phép mô phỏng thanh toán cọc.')
+      }
+
+      const existingPaid = await supabase
+        .from('vnpay_deposit_attempts')
+        .select('id')
+        .eq('deposit_order_id', orderId)
+        .eq('status', 'PAID')
+        .limit(1)
+        .maybeSingle()
+      if (existingPaid.error) throw existingPaid.error
+      let attemptId = existingPaid.data?.id
+      if (!attemptId) {
+        const amountVnd = Number(order.deposit_amount)
+        if (!Number.isFinite(amountVnd) || amountVnd <= 0) throw new Error('Số tiền đặt cọc không hợp lệ.')
+
+        const pending = await supabase
+          .from('vnpay_deposit_attempts')
+          .select('id')
+          .eq('deposit_order_id', orderId)
+          .eq('status', 'PENDING')
+          .maybeSingle()
+        if (pending.error) throw pending.error
+        attemptId = pending.data?.id
+        if (!attemptId) {
+          const inserted = await supabase.from('vnpay_deposit_attempts').insert({
+            deposit_order_id: orderId,
+            transaction_reference: `DEBUG${Date.now()}${randomUUID().replaceAll('-', '').slice(0, 8)}`,
+            order_number: order.order_number,
+            amount_vnd: amountVnd,
+          }).select('id').single()
+          if (inserted.error?.code === '23505') {
+            const retry = await supabase
+              .from('vnpay_deposit_attempts')
+              .select('id')
+              .eq('deposit_order_id', orderId)
+              .eq('status', 'PENDING')
+              .maybeSingle()
+            if (retry.error) throw retry.error
+            attemptId = retry.data?.id
+          } else if (inserted.error) {
+            throw inserted.error
+          } else {
+            attemptId = inserted.data.id
+          }
+        }
+      }
+
+      if (!attemptId) throw new Error('Không thể tạo giao dịch cọc debug.')
+      const now = new Date().toISOString()
+      const { data: command, error: commandError } = await supabase.rpc('process_vnpay_deposit_callback', {
+        p_attempt_id: attemptId,
+        p_success: true,
+        p_response_code: '00',
+        p_transaction_no: `DEBUG-${randomUUID()}`,
+        p_bank_code: 'FASTLANE_DEBUG',
+        p_response_payload: {
+          source: 'ADMIN_DEBUG_ACTION',
+          actorUserId: admin.id,
+          warning: 'Synthetic payment evidence; non-production use only',
+        },
+        p_paid_at: now,
+      }).single<{ outcome: string }>()
+      if (commandError || !command) throw commandError || new Error('Không thể mô phỏng thanh toán cọc.')
+    } else {
+      const { data: order, error: orderError } = await supabase
+        .from('deposit_orders')
+        .select('id,status,kyc_status')
+        .eq('id', orderId)
+        .maybeSingle()
+      if (orderError) throw orderError
+      if (!order) throw new Error('Không tìm thấy đơn đặt cọc.')
+      if (order.status !== 'CONFIRMED') {
+        throw new Error('Đơn phải được duyệt tiền cọc trước khi mô phỏng KYC.')
+      }
+
+      if (order.kyc_status !== 'APPROVED') {
+        const updated = await supabase.from('deposit_orders').update({
+          kyc_status: 'APPROVED',
+          kyc_session_id: `fastlane-admin-debug:${randomUUID()}`,
+          updated_at: new Date().toISOString(),
+        }).eq('id', orderId).eq('status', 'CONFIRMED')
+        if (updated.error) throw updated.error
+      }
+
+      const issueResult = await tryAutoIssueContract(supabase, orderId)
+      if (!issueResult.success) {
+        throw new Error(issueResult.reason === 'NOT_READY'
+          ? 'Đơn chưa đủ điều kiện phát hành tài liệu sau khi mô phỏng KYC.'
+          : issueResult.error || 'Không thể phát hành tài liệu sau khi mô phỏng KYC.')
+      }
     }
 
-    const { error } = await supabase
-      .from('deposit_orders')
-      .update(updates)
-      .eq('id', orderId)
-
-    if (error) throw error
-
     revalidatePath('/admin/orders')
+    revalidatePath('/profile')
     return { success: true }
-  } catch (err: any) {
-    console.error('Exception forcing order state:', err)
-    return { success: false, error: err.message }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Không thể chạy thao tác debug.'
+    const userMessage = message === 'DEPOSIT_DEBUG_ACTIONS_DISABLED'
+      ? 'Thao tác debug đang bị tắt hoặc không được phép trên production.'
+      : message
+    return { success: false, error: userMessage }
   }
 }

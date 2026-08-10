@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { areDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
 import { AdminOrdersClient, AdminOrderRow } from './orders-client'
 
 export const dynamic = 'force-dynamic'
@@ -96,5 +97,8 @@ export default async function AdminOrdersPage() {
     }
   })
 
-  return <AdminOrdersClient orders={orders} />
+  return <AdminOrdersClient
+    orders={orders}
+    debugActionsEnabled={areDepositDebugActionsEnabled()}
+  />
 }
