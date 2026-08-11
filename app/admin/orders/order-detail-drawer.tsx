@@ -32,6 +32,7 @@ type OrderDetailDrawerProps = {
 
 export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast, onDismissToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -151,21 +152,33 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   }
 
   const handleConfirmRefund = async () => {
+    if (isSubmittingRefund) return
+    setIsSubmittingRefund(true)
     setIsUpdating(true)
-    const res = await confirmDepositRefund(order.id)
-    setIsUpdating(false)
-    if (res.success) {
-      const refundCompleted = 'refundStatus' in res && res.refundStatus === 'COMPLETED'
+    try {
+      const res = await confirmDepositRefund(order.id)
+      if (res.success) {
+        const refundCompleted = 'refundStatus' in res && res.refundStatus === 'COMPLETED'
+        onShowToast({
+          title: refundCompleted ? 'Hoàn tiền thành công' : 'VNPay đang xử lý hoàn tiền',
+          message: refundCompleted
+            ? 'Khoản tiền đặt cọc đã được xác nhận hoàn thành.'
+            : 'Yêu cầu đã được gửi đến VNPay và đang chờ kết quả.',
+          kind: 'success',
+        })
+        onOrderUpdated()
+      } else {
+        onShowToast({ title: 'Không thể xác nhận hoàn tiền', message: res.error || 'Vui lòng thử lại.', kind: 'error' })
+      }
+    } catch (error) {
       onShowToast({
-        title: refundCompleted ? 'Hoàn tiền thành công' : 'VNPay đang xử lý hoàn tiền',
-        message: refundCompleted
-          ? 'Khoản tiền đặt cọc đã được xác nhận hoàn thành.'
-          : 'Yêu cầu đã được gửi đến VNPay và đang chờ kết quả.',
-        kind: 'success',
+        title: 'Không thể xác nhận hoàn tiền',
+        message: error instanceof Error ? error.message : 'Vui lòng thử lại.',
+        kind: 'error',
       })
-      onOrderUpdated()
-    } else {
-      onShowToast({ title: 'Không thể xác nhận hoàn tiền', message: res.error || 'Vui lòng thử lại.', kind: 'error' })
+    } finally {
+      setIsSubmittingRefund(false)
+      setIsUpdating(false)
     }
   }
 
@@ -426,11 +439,11 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                 {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus === 'PENDING' && !isRefundProcessing && (
                   <button
                     onClick={requestConfirmRefund}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isSubmittingRefund}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <RotateCcw size={16} />
-                    {isUpdating ? 'Đang gửi VNPay...' : order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Xác nhận hoàn tiền'}
+                    <RotateCcw size={16} className={isSubmittingRefund ? 'animate-spin' : undefined} />
+                    {isSubmittingRefund ? 'Đang gửi yêu cầu VNPay...' : order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Xác nhận hoàn tiền'}
                   </button>
                 )}
                 {nextAction && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (

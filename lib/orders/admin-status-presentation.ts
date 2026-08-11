@@ -46,7 +46,7 @@ function presentation(label: string, tone: AdminOrderStatusTone): AdminOrderStat
 export function cancelledOrderStatusPresentation(
   refundStatus: AdminOrderRefundStatus,
 ): AdminOrderStatusPresentation {
-  if (refundStatus === 'COMPLETED') return presentation('Đã hủy, đã hoàn tiền', 'success')
+  if (refundStatus === 'COMPLETED') return presentation('Đã hủy, đã hoàn tiền', 'cancelled')
   if (refundStatus === 'PENDING') return presentation('Đã hủy, chờ admin xác nhận hoàn tiền', 'refundPending')
   return presentation('Đã hủy', 'cancelled')
 }

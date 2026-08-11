@@ -53,9 +53,14 @@ describe('admin deposit commands', () => {
     expect(drawerSource).toContain('Thử hoàn tiền lại')
   })
 
+  it('completes synthetic debug refunds without calling VNPay', () => {
+    expect(refundServiceSource).toContain('isSyntheticDebugVnPayPayment(payment)')
+    expect(refundServiceSource).toContain("response_code: 'DEBUG_SIMULATED'")
+    expect(refundServiceSource).toContain('Synthetic refund evidence; VNPay was not called')
+  })
+
   it('uses the cancelled badge color after a refund completes', () => {
-    expect(statusPresentationSource).toContain("if (refundStatus === 'COMPLETED')")
-    expect(statusPresentationSource).toContain("'success'")
+    expect(statusPresentationSource).toContain("return presentation('Đã hủy, đã hoàn tiền', 'cancelled')")
     expect(clientSource).toContain('<AdminOrderStatusBadge presentation={displayStatus} />')
   })
 
@@ -67,5 +72,7 @@ describe('admin deposit commands', () => {
     expect(expirySource).not.toContain('refundCancelledDepositOrder')
     expect(paymentServiceSource).not.toContain('refundCancelledDepositOrder')
     expect(drawerSource).toContain('Xác nhận hoàn tiền')
+    expect(drawerSource).toContain('Đang gửi yêu cầu VNPay...')
+    expect(drawerSource).toContain("isSubmittingRefund ? 'animate-spin'")
   })
 })
