@@ -18,6 +18,7 @@
 | `/api/kyc/create-session` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/v1/admin/accessory-templates` | GET, POST | `/admin/accessory-templates` | MAPPED |
 | `/api/v1/admin/accessory-templates/{templateId}` | GET, PATCH, DELETE, POST | `/admin/accessory-templates/{templateId}` | MAPPED |
+| `/api/v1/admin/accessory-templates/lookups` | GET | `/admin/accessory-templates/lookups` | MAPPED |
 | `/api/v1/admin/cars` | POST | `/admin/cars` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/cars/{productId}` | GET, PATCH, DELETE | `/admin/cars/{productId}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/catalog-collections` | GET | `/admin/catalog-collections` | MAPPED |

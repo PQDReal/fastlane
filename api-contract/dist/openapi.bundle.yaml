@@ -1445,6 +1445,36 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /admin/accessory-templates/lookups:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: listAdminAccessoryTemplateLookups
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: List lookup values for accessory template editor
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      responses:
+        '200':
+          description: Accessory template editor lookups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryTemplateLookupsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /admin/accessory-templates/{templateId}:
     parameters:
       - name: templateId
@@ -7098,7 +7128,6 @@ components:
       type: object
       additionalProperties: false
       required:
-        - code
         - name
         - definition
       properties:
@@ -7107,6 +7136,7 @@ components:
           minLength: 1
           maxLength: 80
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          description: Optional stable code; generated from name when omitted.
         name:
           type: string
           minLength: 1
@@ -7141,6 +7171,53 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/AdminAccessoryTemplate'
+    AdminAccessoryTemplateCategoryLookup:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - slug
+        - name
+        - displayOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 200
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        displayOrder:
+          type: integer
+          minimum: 0
+    AdminAccessoryTemplateLookups:
+      type: object
+      additionalProperties: false
+      required:
+        - groups
+        - categories
+      properties:
+        groups:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryTemplateCategoryLookup'
+    AdminAccessoryTemplateLookupsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminAccessoryTemplateLookups'
     AdminAccessoryTemplateVersionRequest:
       type: object
       additionalProperties: false

@@ -163,6 +163,12 @@ AdminAccessoryTemplate:
   $ref: './accessory-template.yaml#/AdminAccessoryTemplate'
 AdminAccessoryTemplateListResponse:
   $ref: './accessory-template.yaml#/AdminAccessoryTemplateListResponse'
+AdminAccessoryTemplateCategoryLookup:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateCategoryLookup'
+AdminAccessoryTemplateLookups:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateLookups'
+AdminAccessoryTemplateLookupsResponse:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateLookupsResponse'
 AdminAccessoryTemplateCreateRequest:
   $ref: './accessory-template.yaml#/AdminAccessoryTemplateCreateRequest'
 AdminAccessoryTemplatePatchRequest:

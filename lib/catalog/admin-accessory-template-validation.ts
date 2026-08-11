@@ -17,6 +17,20 @@ const CONTENT_TYPES = new Set<string>([
 ])
 const DISPLAY_TYPES = new Set(['BUTTON', 'SWATCH', 'SELECT'])
 
+export function accessoryTemplateCodeFromName(name: string) {
+  const code = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+    .replace(/-+$/, '')
+  return code || 'mau-phu-kien'
+}
+
 export class AdminAccessoryTemplateValidationError extends Error {
   constructor(
     readonly path: string,
@@ -167,16 +181,19 @@ export function parseAccessoryTemplateDefinition(value: unknown, path = 'definit
 
 export function parseAccessoryTemplateWriteInput(value: unknown): AdminAccessoryTemplateWriteInput {
   const input = record(value, 'body')
-  const code = stringValue(input.code, 'code', 80, true)
-  if (!CODE_PATTERN.test(code)) fail('code', 'CODE_INVALID', 'Mã mẫu chỉ gồm chữ thường, số và dấu gạch ngang.')
   const name = stringValue(input.name, 'name', 200, true)
+  const suppliedCode = input.code === undefined || input.code === null ? '' : stringValue(input.code, 'code', 80)
+  const codeGenerated = suppliedCode.length === 0
+  const code = codeGenerated ? accessoryTemplateCodeFromName(name) : suppliedCode
+  if (!CODE_PATTERN.test(code)) fail('code', 'CODE_INVALID', 'Mã mẫu chỉ gồm chữ thường, số và dấu gạch ngang.')
   const groupName = input.groupName === undefined || input.groupName === null ? null : stringValue(input.groupName, 'groupName', 100)
   const description = input.description === undefined || input.description === null ? null : stringValue(input.description, 'description', 1000)
-  const displayOrder = input.displayOrder === undefined ? 0 : integer(input.displayOrder, 'displayOrder', 0, 100_000)
+  const displayOrder = input.displayOrder === undefined ? undefined : integer(input.displayOrder, 'displayOrder', 0, 100_000)
   const isActive = input.isActive === undefined ? true : input.isActive
   if (typeof isActive !== 'boolean') fail('isActive', 'BOOLEAN_REQUIRED', 'Trạng thái mẫu không hợp lệ.')
   return {
     code,
+    codeGenerated,
     name,
     groupName,
     description,

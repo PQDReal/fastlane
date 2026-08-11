@@ -9,6 +9,7 @@ import {
 import type {
   AccessoryTemplateDefinition,
   AdminAccessoryTemplate,
+  AdminAccessoryTemplateLookups,
   AdminAccessoryTemplateMetadataPatch,
   AdminAccessoryTemplateVersion,
   AdminAccessoryTemplateWriteInput,
@@ -160,6 +161,39 @@ export async function listAdminAccessoryTemplates(options: { includeInactive?: b
   ))
 }
 
+export async function listAdminAccessoryTemplateLookups(): Promise<AdminAccessoryTemplateLookups> {
+  const supabase = getSupabaseAdmin()
+  const [{ data: groupRows, error: groupError }, { data: categoryRows, error: categoryError }] = await Promise.all([
+    supabase
+      .from('accessory_templates')
+      .select('group_name')
+      .not('group_name', 'is', null),
+    supabase
+      .from('catalog_collections')
+      .select('id,slug,name,display_order')
+      .eq('kind', 'CATEGORY')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true }),
+  ])
+  if (groupError || categoryError) throw persistenceFailure('Không thể tải các lựa chọn mẫu phụ kiện.')
+
+  const groups = [...new Set((groupRows ?? [])
+    .map((row) => typeof row.group_name === 'string' ? row.group_name.trim() : '')
+    .filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, 'vi'))
+
+  return {
+    groups,
+    categories: (categoryRows ?? []).map((row) => ({
+      id: String(row.id),
+      slug: String(row.slug),
+      name: String(row.name),
+      displayOrder: Number(row.display_order) || 0,
+    })),
+  }
+}
+
 export async function getAdminAccessoryTemplate(templateId: string, version?: number) {
   const supabase = getSupabaseAdmin()
   const { data: row, error } = await supabase
@@ -195,16 +229,48 @@ export async function getAdminAccessoryTemplate(templateId: string, version?: nu
   }
 }
 
+async function nextAccessoryTemplateDisplayOrder(supabase: ReturnType<typeof getSupabaseAdmin>) {
+  const { data, error } = await supabase
+    .from('accessory_templates')
+    .select('display_order')
+    .order('display_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw persistenceFailure('Không thể xác định thứ tự hiển thị mẫu phụ kiện.')
+  return (Number(data?.display_order) || 0) + 10
+}
+
+async function accessoryTemplateCodeForCreate(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  input: AdminAccessoryTemplateWriteInput,
+) {
+  if (!input.codeGenerated) return input.code
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const suffix = attempt === 0 ? '' : `-${attempt + 1}`
+    const candidate = `${input.code.slice(0, 80 - suffix.length).replace(/-+$/, '')}${suffix}`
+    const { data, error } = await supabase
+      .from('accessory_templates')
+      .select('id')
+      .eq('code', candidate)
+      .maybeSingle()
+    if (error) throw persistenceFailure('Không thể kiểm tra mã mẫu phụ kiện.')
+    if (!data) return candidate
+  }
+  throw new AdminAccessoryTemplatePersistenceError(409, 'ACCESSORY_TEMPLATE_DUPLICATE', 'Không thể tự sinh mã mẫu phụ kiện duy nhất.')
+}
+
 export async function createAdminAccessoryTemplate(input: AdminAccessoryTemplateWriteInput) {
   const supabase = getSupabaseAdmin()
+  const displayOrder = input.displayOrder ?? await nextAccessoryTemplateDisplayOrder(supabase)
+  const code = await accessoryTemplateCodeForCreate(supabase, input)
   const { data: template, error: templateError } = await supabase
     .from('accessory_templates')
     .insert({
-      code: input.code,
+      code,
       name: input.name,
       group_name: input.groupName,
       description: input.description,
-      display_order: input.displayOrder,
+      display_order: displayOrder,
       is_active: input.isActive,
       current_version: 1,
     })

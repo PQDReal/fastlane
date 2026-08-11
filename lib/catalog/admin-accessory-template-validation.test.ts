@@ -34,6 +34,17 @@ describe('admin accessory template validation', () => {
     })).toMatchObject({ code: 'film-cach-nhiet', name: 'Film cách nhiệt', isActive: true })
   })
 
+  it('generates a stable code when the admin omits the technical code', () => {
+    expect(parseAccessoryTemplateWriteInput({
+      name: 'Phụ kiện nội thất',
+      definition,
+    })).toMatchObject({
+      code: 'phu-kien-noi-that',
+      codeGenerated: true,
+      displayOrder: undefined,
+    })
+  })
+
   it('rejects duplicate section keys and unsupported display types', () => {
     expect(() => parseAccessoryTemplateDefinition({
       ...definition,

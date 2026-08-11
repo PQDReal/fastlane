@@ -240,6 +240,8 @@ paths:
     $ref: './paths/admin-products.yaml#/~1admin~1service-labels~1{labelId}'
   /admin/accessory-templates:
     $ref: './paths/admin-accessory-templates.yaml#/~1admin~1accessory-templates'
+  /admin/accessory-templates/lookups:
+    $ref: './paths/admin-accessory-templates.yaml#/~1admin~1accessory-templates~1lookups'
   /admin/accessory-templates/{templateId}:
     $ref: './paths/admin-accessory-templates.yaml#/~1admin~1accessory-templates~1{templateId}'
   /admin/products/{productId}/variants:

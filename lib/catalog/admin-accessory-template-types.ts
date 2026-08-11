@@ -66,8 +66,21 @@ export type AdminAccessoryTemplate = {
   updatedAt: string
 }
 
+export type AdminAccessoryTemplateCategoryLookup = {
+  id: string
+  slug: string
+  name: string
+  displayOrder: number
+}
+
+export type AdminAccessoryTemplateLookups = {
+  groups: string[]
+  categories: AdminAccessoryTemplateCategoryLookup[]
+}
+
 export type AdminAccessoryTemplateWriteInput = {
   code: string
+  codeGenerated?: boolean
   name: string
   groupName?: string | null
   description?: string | null

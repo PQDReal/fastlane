@@ -38,6 +38,21 @@
       '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
       '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
       '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/accessory-templates/lookups:
+  get:
+    tags: [Admin Catalog]
+    operationId: listAdminAccessoryTemplateLookups
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: List lookup values for accessory template editor
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    responses:
+      '200': { description: Accessory template editor lookups, content: { application/json: { schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateLookupsResponse' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
 /admin/accessory-templates/{templateId}:
   parameters:
     - name: templateId

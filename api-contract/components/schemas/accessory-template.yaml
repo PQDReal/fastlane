@@ -101,12 +101,34 @@ AdminAccessoryTemplateListResponse:
   required: [data]
   properties:
     data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplate' } }
+AdminAccessoryTemplateCategoryLookup:
+  type: object
+  additionalProperties: false
+  required: [id, slug, name, displayOrder]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    slug: { type: string, minLength: 1, maxLength: 200 }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    displayOrder: { type: integer, minimum: 0 }
+AdminAccessoryTemplateLookups:
+  type: object
+  additionalProperties: false
+  required: [groups, categories]
+  properties:
+    groups: { type: array, items: { type: string, minLength: 1, maxLength: 100 } }
+    categories: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplateCategoryLookup' } }
+AdminAccessoryTemplateLookupsResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplateLookups' }
 AdminAccessoryTemplateCreateRequest:
   type: object
   additionalProperties: false
-  required: [code, name, definition]
+  required: [name, definition]
   properties:
-    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', description: Optional stable code; generated from name when omitted. }
     name: { type: string, minLength: 1, maxLength: 200 }
     groupName: { type: [string, 'null'], maxLength: 100 }
     description: { type: [string, 'null'], maxLength: 1000 }

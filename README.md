@@ -157,6 +157,7 @@ Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 
 | `GET` | `/api/v1/admin/products/{productId}` | Nạp phụ kiện cũ vào model chỉnh sửa Admin |
 | `PATCH` | `/api/v1/admin/products/{productId}` | Kiểm tra phiên bản và cập nhật toàn bộ aggregate phụ kiện |
 | `GET`, `POST` | `/api/v1/admin/accessory-templates` | Liệt kê và tạo mẫu phụ kiện dùng lại |
+| `GET` | `/api/v1/admin/accessory-templates/lookups` | Lấy nhóm và danh mục cho form mẫu phụ kiện |
 | `GET`, `PATCH`, `POST`, `DELETE` | `/api/v1/admin/accessory-templates/{templateId}` | Xem, cập nhật metadata, tạo revision hoặc xóa mẫu |
 | `GET` | `/api/v1/admin/test-drive/requests` | Lấy danh sách lịch lái thử |
 | `POST` | `/api/v1/admin/test-drive/requests/{requestId}/transitions` | Chuyển trạng thái yêu cầu |
