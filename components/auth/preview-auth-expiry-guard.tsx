@@ -1,55 +1,92 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { PreviewAuthDialog } from './preview-auth-dialog'
 import {
-  createPreviewAuthRetryHref,
+  canReplayAfterPreviewAuth,
   isPreviewAuthRequiredResponse,
   PREVIEW_AUTH_EXPIRY_STORAGE_KEY,
+  PREVIEW_AUTH_RENEWED_EVENT,
   PREVIEW_AUTH_RETRY_PATH,
   PREVIEW_AUTH_STATUS_PATH,
 } from '@/lib/auth/preview-auth-protocol'
 
+type AuthenticationGate = {
+  promise: Promise<void>
+  resolve: () => void
+}
+
 export function PreviewAuthExpiryGuard() {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [manualRetryRequired, setManualRetryRequired] = useState(false)
+  const gateRef = useRef<AuthenticationGate | null>(null)
+
+  const requestAuthentication = useCallback((requiresManualRetry = false) => {
+    try {
+      window.localStorage.removeItem(PREVIEW_AUTH_EXPIRY_STORAGE_KEY)
+    } catch {
+      // The modal and server-side cookie validation still work without storage.
+    }
+    if (requiresManualRetry) setManualRetryRequired(true)
+    setDialogOpen(true)
+    if (!gateRef.current) {
+      let resolve: () => void = () => {}
+      const promise = new Promise<void>((done) => {
+        resolve = done
+      })
+      gateRef.current = { promise, resolve }
+    }
+    return gateRef.current.promise
+  }, [])
+
+  const completeAuthentication = useCallback(() => {
+    const gate = gateRef.current
+    gateRef.current = null
+    setDialogOpen(false)
+    setManualRetryRequired(false)
+    gate?.resolve()
+  }, [])
+
   useEffect(() => {
     const originalFetch = window.fetch
-    let redirecting = false
     let expiryTimer: number | undefined
 
-    const redirectToAuthentication = () => {
-      if (redirecting || window.location.pathname === PREVIEW_AUTH_RETRY_PATH) return
-      redirecting = true
-      window.localStorage.removeItem(PREVIEW_AUTH_EXPIRY_STORAGE_KEY)
-      window.location.replace(createPreviewAuthRetryHref(window.location))
-    }
-
-    const scheduleExpiryRedirect = () => {
+    const scheduleExpiryModal = () => {
       if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
       expiryTimer = undefined
       if (window.location.pathname === PREVIEW_AUTH_RETRY_PATH) return
 
-      const expiresAt = Number(window.localStorage.getItem(PREVIEW_AUTH_EXPIRY_STORAGE_KEY))
+      let expiresAt = 0
+      try {
+        expiresAt = Number(window.localStorage.getItem(PREVIEW_AUTH_EXPIRY_STORAGE_KEY))
+      } catch {
+        return
+      }
       if (!Number.isFinite(expiresAt) || expiresAt <= 0) return
       const remaining = expiresAt - Date.now()
       if (remaining <= 0) {
-        redirectToAuthentication()
+        void requestAuthentication()
         return
       }
       expiryTimer = window.setTimeout(
-        redirectToAuthentication,
+        () => void requestAuthentication(),
         Math.min(remaining + 250, 2_147_483_647),
       )
     }
 
-    const guardedFetch: typeof window.fetch = async (...args) => {
-      const response = await originalFetch(...args)
-      if (!redirecting && isPreviewAuthRequiredResponse(response)) {
-        redirectToAuthentication()
+    const guardedFetch: typeof window.fetch = async (input, init) => {
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      const canReplay = canReplayAfterPreviewAuth(method)
+      const retryInput = canReplay && input instanceof Request ? input.clone() : input
+      const response = await originalFetch(input, init)
+      if (!isPreviewAuthRequiredResponse(response)) return response
 
-        // Do not let the caller show a misleading operation error while the
-        // browser is leaving this page for the environment login form.
-        return new Promise<Response>(() => undefined)
-      }
+      await requestAuthentication(!canReplay)
+      if (canReplay) return originalFetch(retryInput, init)
+
+      // Mutations are never replayed automatically because doing so could
+      // duplicate an order, payment, refund, or another irreversible action.
       return response
     }
 
@@ -62,23 +99,35 @@ export function PreviewAuthExpiryGuard() {
     }
 
     const refreshExpiryState = () => {
-      scheduleExpiryRedirect()
+      scheduleExpiryModal()
       verifySession()
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refreshExpiryState()
     }
 
     window.fetch = guardedFetch
     refreshExpiryState()
     window.addEventListener('focus', refreshExpiryState)
-    window.addEventListener('storage', scheduleExpiryRedirect)
-    document.addEventListener('visibilitychange', scheduleExpiryRedirect)
+    window.addEventListener('storage', scheduleExpiryModal)
+    window.addEventListener(PREVIEW_AUTH_RENEWED_EVENT, scheduleExpiryModal)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
       window.removeEventListener('focus', refreshExpiryState)
-      window.removeEventListener('storage', scheduleExpiryRedirect)
-      document.removeEventListener('visibilitychange', scheduleExpiryRedirect)
+      window.removeEventListener('storage', scheduleExpiryModal)
+      window.removeEventListener(PREVIEW_AUTH_RENEWED_EVENT, scheduleExpiryModal)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (window.fetch === guardedFetch) window.fetch = originalFetch
     }
-  }, [])
+  }, [requestAuthentication])
 
-  return null
+  return (
+    <PreviewAuthDialog
+      open={dialogOpen}
+      manualRetryRequired={manualRetryRequired}
+      onAuthenticated={completeAuthentication}
+    />
+  )
 }

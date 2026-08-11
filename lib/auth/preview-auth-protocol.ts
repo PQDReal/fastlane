@@ -3,6 +3,12 @@ export const PREVIEW_AUTH_REQUIRED_HEADER = 'x-fastlane-auth-error'
 export const PREVIEW_AUTH_RETRY_PATH = '/preview-auth/retry'
 export const PREVIEW_AUTH_STATUS_PATH = '/api/preview-auth/status'
 export const PREVIEW_AUTH_EXPIRY_STORAGE_KEY = 'fastlane:preview-auth-expires-at'
+export const PREVIEW_AUTH_RENEWED_EVENT = 'fastlane:preview-auth-renewed'
+
+export function canReplayAfterPreviewAuth(method: string) {
+  const normalizedMethod = method.toUpperCase()
+  return normalizedMethod === 'GET' || normalizedMethod === 'HEAD'
+}
 
 export function isPreviewAuthRequiredResponse(response: Response) {
   return response.status === 401
