@@ -120,6 +120,11 @@ export function normalizeAdminAccessoryDraft(
     templateVersion: Number.isInteger(row.templateVersion) && Number(row.templateVersion) > 0
       ? Number(row.templateVersion)
       : 1,
+    templateVersionId: typeof row.templateVersionId === 'string'
+      ? row.templateVersionId
+      : row.templateVersionId === null
+        ? null
+        : undefined,
     categoryAssignments: normalizeCategoryAssignments(row.categoryAssignments, row),
     primaryCollectionSlug: typeof row.primaryCollectionSlug === 'string' ? row.primaryCollectionSlug : '',
     modelCollectionSlugs: strings(row.modelCollectionSlugs),

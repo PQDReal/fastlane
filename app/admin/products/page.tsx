@@ -10,6 +10,7 @@ import { ToastViewport, type ToastMessage } from '../../../components/ui/toast'
 import type { AdminRootCategory } from '../../../lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '../../../lib/catalog/service-labels'
 import type { AdminAccessoryEditorData } from '../../../lib/catalog/admin-accessory-write'
+import type { AdminAccessoryTemplate } from '../../../lib/catalog/admin-accessory-template-types'
 
 type AdminProduct = {
   id: string
@@ -160,6 +161,7 @@ export default function AdminProductsPage() {
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const [isLoading, setIsLoading] = useState(true)
   const [serviceLabels, setServiceLabels] = useState<CatalogServiceLabel[]>([])
+  const [accessoryTemplates, setAccessoryTemplates] = useState<AdminAccessoryTemplate[]>([])
   const [assignmentProduct, setAssignmentProduct] = useState<AdminProduct | null>(null)
   const [selectedServiceLabelIds, setSelectedServiceLabelIds] = useState<string[]>([])
   const [savingLabels, setSavingLabels] = useState(false)
@@ -199,6 +201,16 @@ export default function AdminProductsPage() {
       })
       .then((data) => setServiceLabels(Array.isArray(data) ? data : []))
       .catch((error) => notify('error', 'Tải nhãn dịch vụ thất bại', error instanceof Error ? error.message : undefined))
+  }, [notify])
+
+  useEffect(() => {
+    fetch('/api/v1/admin/accessory-templates', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await responseError(response))
+        const body = await response.json() as { data?: unknown }
+        setAccessoryTemplates(Array.isArray(body.data) ? body.data as AdminAccessoryTemplate[] : [])
+      })
+      .catch((error) => notify('warning', 'Chưa tải được mẫu phụ kiện', error instanceof Error ? error.message : undefined))
   }, [notify])
 
   useEffect(() => {
@@ -503,6 +515,7 @@ export default function AdminProductsPage() {
           open={isCreateOpen}
           categories={categories}
           serviceLabels={serviceLabels}
+          accessoryTemplates={accessoryTemplates}
           initialAccessory={editingAccessory}
           onClose={() => {
             setIsCreateOpen(false)

@@ -28,6 +28,7 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   product_type,
   accessory_template_code,
   accessory_template_version,
+  accessory_template_version_id,
   updated_at,
   service_label_assignments:product_service_label_assignments(
     service_label_id,
@@ -89,6 +90,9 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   )
 `
 
+const LEGACY_ADMIN_ACCESSORY_PRODUCT_SELECT = ADMIN_ACCESSORY_PRODUCT_SELECT
+  .replace('  accessory_template_version_id,\n', '')
+
 export class AdminAccessoryPersistenceError extends Error {
   constructor(
     readonly status: 404 | 409 | 422 | 500 | 503,
@@ -101,7 +105,9 @@ export class AdminAccessoryPersistenceError extends Error {
 }
 
 function rpcError(error: { code?: string; message?: string }) {
-  if (error.code === 'PGRST202' || error.message?.includes('save_admin_accessory_product_v3')) {
+  if (error.code === 'PGRST202'
+    || error.message?.includes('save_admin_accessory_product_v4')
+    || error.message?.includes('save_admin_accessory_product_v3')) {
     return new AdminAccessoryPersistenceError(
       503,
       'CATALOG_WRITE_MIGRATION_REQUIRED',
@@ -155,11 +161,19 @@ export async function saveAdminAccessoryProduct(
   request: AdminAccessoryWriteRequest,
   productId: string | null,
 ): Promise<AdminAccessorySaveResult> {
-  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v3', {
+  const payload = adminAccessoryRpcPayload(request)
+  let { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v4', {
     target_product_id: productId,
     expected_updated_at: request.expectedUpdatedAt ?? null,
-    target_payload: adminAccessoryRpcPayload(request),
+    target_payload: payload,
   })
+  if (error?.code === 'PGRST202' && request.templateVersionId === undefined) {
+    ({ data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v3', {
+      target_product_id: productId,
+      expected_updated_at: request.expectedUpdatedAt ?? null,
+      target_payload: payload,
+    }))
+  }
   if (error) throw rpcError(error)
   const result = saveResult(data)
   revalidateTag('accessory-catalog')
@@ -172,13 +186,21 @@ export async function saveAdminAccessoryProduct(
 }
 
 export async function loadAdminAccessoryProduct(productId: string): Promise<AdminAccessoryEditorData> {
-  const { data, error } = await getSupabaseAdmin()
+  let { data, error } = await getSupabaseAdmin()
     .from('products')
     .select(ADMIN_ACCESSORY_PRODUCT_SELECT)
     .eq('id', productId)
     .eq('product_type', 'ACCESSORY')
     .maybeSingle()
 
+  if (error && error.message?.includes('accessory_template_version_id')) {
+    ({ data, error } = await getSupabaseAdmin()
+      .from('products')
+      .select(LEGACY_ADMIN_ACCESSORY_PRODUCT_SELECT)
+      .eq('id', productId)
+      .eq('product_type', 'ACCESSORY')
+      .maybeSingle())
+  }
   if (error) {
     throw new AdminAccessoryPersistenceError(500, 'CATALOG_READ_FAILED', 'Không thể tải dữ liệu phụ kiện.')
   }
