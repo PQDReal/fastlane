@@ -1,0 +1,325 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Copy, Edit, Layers3, Loader2, Plus, Trash2, X } from 'lucide-react'
+
+import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
+import { Button } from '@/components/ui/button'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
+import { ACCESSORY_SECTION_TYPES } from '@/lib/catalog/admin-accessory-draft'
+import type { AdminAccessoryTemplate, AccessoryTemplateDefinition, AccessoryTemplateOptionGroupDefinition, AccessoryTemplateSectionDefinition } from '@/lib/catalog/admin-accessory-template-types'
+
+type FormState = {
+  code: string
+  name: string
+  groupName: string
+  description: string
+  displayOrder: string
+  isActive: boolean
+  suggestedCategorySlugs: string
+  suggestedOptionCodes: string
+  sections: AccessoryTemplateSectionDefinition[]
+  optionGroups: AccessoryTemplateOptionGroupDefinition[]
+}
+
+const EMPTY_FORM: FormState = {
+  code: '',
+  name: '',
+  groupName: '',
+  description: '',
+  displayOrder: '0',
+  isActive: true,
+  suggestedCategorySlugs: '',
+  suggestedOptionCodes: '',
+  sections: [],
+  optionGroups: [],
+}
+
+const inputClass = 'mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100'
+const textareaClass = 'mt-1.5 min-h-24 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100'
+const labelClass = 'block text-sm font-semibold text-slate-700'
+
+function responseError(response: Response) {
+  return response.json().then((body: unknown) => {
+    if (body && typeof body === 'object' && !Array.isArray(body)) {
+      const error = (body as Record<string, unknown>).error
+      if (typeof error === 'string') return error
+    }
+    return 'Có lỗi xảy ra.'
+  }).catch(() => 'Có lỗi xảy ra.')
+}
+
+function formFromTemplate(template: AdminAccessoryTemplate): FormState {
+  const definition = template.definition
+  return {
+    code: template.code,
+    name: template.name,
+    groupName: template.groupName ?? '',
+    description: template.description ?? '',
+    displayOrder: String(template.displayOrder),
+    isActive: template.isActive,
+    suggestedCategorySlugs: definition?.suggestedCategorySlugs.join(', ') ?? '',
+    suggestedOptionCodes: definition?.suggestedOptionCodes.join(', ') ?? '',
+    sections: definition?.sections.map((section) => ({
+      ...section,
+      attributes: (section.attributes ?? []).map((attribute, index) => ({
+        ...attribute,
+        key: attribute.key || `attribute_${index + 1}`,
+      })),
+    })) ?? [],
+    optionGroups: definition?.optionGroups?.map((group) => ({ ...group, values: group.values ?? [] })) ?? [],
+  }
+}
+
+function definitionFromForm(form: FormState): AccessoryTemplateDefinition {
+  return {
+    schema: 'accessory_template_v1',
+    suggestedCategorySlugs: form.suggestedCategorySlugs.split(',').map((value) => value.trim()).filter(Boolean),
+    suggestedOptionCodes: form.suggestedOptionCodes.split(',').map((value) => value.trim()).filter(Boolean),
+    sections: form.sections.map((section) => ({
+      ...section,
+      attributes: section.attributes ?? [],
+      items: section.items ?? [],
+    })),
+    optionGroups: form.optionGroups,
+  }
+}
+
+function freshSection(): AccessoryTemplateSectionDefinition {
+  const definition = ACCESSORY_SECTION_TYPES[0]
+  return { key: `section_${Date.now()}`, type: definition.value, title: definition.defaultTitle, attributes: [] }
+}
+
+function freshOptionGroup(): AccessoryTemplateOptionGroupDefinition {
+  return { key: `option_${Date.now()}`, code: '', name: '', displayType: 'BUTTON', minimumSelections: 0, maximumSelections: 1, values: [] }
+}
+
+export function AccessoryTemplatesManager() {
+  const [templates, setTemplates] = useState<AdminAccessoryTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [editing, setEditing] = useState<AdminAccessoryTemplate | null>(null)
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [open, setOpen] = useState(false)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
+    const id = Date.now() + Math.random()
+    setToasts((items) => [...items, { id, kind, title, message }])
+    window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4200)
+  }, [])
+
+  const loadTemplates = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/v1/admin/accessory-templates?includeInactive=true', { cache: 'no-store' })
+      if (!response.ok) throw new Error(await responseError(response))
+      const body = await response.json() as { data?: unknown }
+      setTemplates(Array.isArray(body.data) ? body.data as AdminAccessoryTemplate[] : [])
+    } catch (error) {
+      notify('error', 'Tải mẫu phụ kiện thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setLoading(false)
+    }
+  }, [notify])
+
+  useEffect(() => { void loadTemplates() }, [loadTemplates])
+
+  const activeCount = useMemo(() => templates.filter((template) => template.isActive).length, [templates])
+
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setOpen(true)
+  }
+
+  function openEdit(template: AdminAccessoryTemplate) {
+    setEditing(template)
+    setForm(formFromTemplate(template))
+    setOpen(true)
+  }
+
+  function cloneTemplate(template: AdminAccessoryTemplate) {
+    const next = formFromTemplate(template)
+    setEditing(null)
+    setForm({ ...next, code: `${next.code}-copy`, name: `${next.name} (bản sao)`, isActive: true })
+    setOpen(true)
+  }
+
+  function closeModal() {
+    if (!saving) setOpen(false)
+  }
+
+  function updateSection(index: number, patch: Partial<AccessoryTemplateSectionDefinition>) {
+    setForm((current) => ({
+      ...current,
+      sections: current.sections.map((section, sectionIndex) => sectionIndex === index ? { ...section, ...patch } : section),
+    }))
+  }
+
+  function addAttribute(sectionIndex: number) {
+    setForm((current) => ({
+      ...current,
+      sections: current.sections.map((section, index) => index === sectionIndex
+        ? { ...section, attributes: [...(section.attributes ?? []), { key: `attribute_${(section.attributes?.length ?? 0) + 1}`, label: '', defaultValue: '' }] }
+        : section),
+    }))
+  }
+
+  function removeAttribute(sectionIndex: number, attributeIndex: number) {
+    setForm((current) => ({
+      ...current,
+      sections: current.sections.map((section, index) => index === sectionIndex
+        ? { ...section, attributes: (section.attributes ?? []).filter((_, currentIndex) => currentIndex !== attributeIndex) }
+        : section),
+    }))
+  }
+
+  function updateAttribute(sectionIndex: number, attributeIndex: number, patch: { key?: string; label?: string; defaultValue?: string }) {
+    setForm((current) => ({
+      ...current,
+      sections: current.sections.map((section, index) => index === sectionIndex
+        ? { ...section, attributes: (section.attributes ?? []).map((attribute, currentIndex) => currentIndex === attributeIndex ? { ...attribute, ...patch } : attribute) }
+        : section),
+    }))
+  }
+
+  function updateOptionGroup(index: number, patch: Partial<AccessoryTemplateOptionGroupDefinition>) {
+    setForm((current) => ({ ...current, optionGroups: current.optionGroups.map((group, groupIndex) => groupIndex === index ? { ...group, ...patch } : group) }))
+  }
+
+  function addOptionValue(groupIndex: number) {
+    setForm((current) => ({ ...current, optionGroups: current.optionGroups.map((group, index) => index === groupIndex ? { ...group, values: [...(group.values ?? []), { code: `value_${(group.values?.length ?? 0) + 1}`, name: '', colorHex: null }] } : group) }))
+  }
+
+  function updateOptionValue(groupIndex: number, valueIndex: number, patch: { code?: string; name?: string; colorHex?: string | null }) {
+    setForm((current) => ({ ...current, optionGroups: current.optionGroups.map((group, index) => index === groupIndex ? { ...group, values: (group.values ?? []).map((value, currentIndex) => currentIndex === valueIndex ? { ...value, ...patch } : value) } : group) }))
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      const definition = definitionFromForm(form)
+      if (!editing) {
+        const response = await fetch('/api/v1/admin/accessory-templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: form.code,
+            name: form.name,
+            groupName: form.groupName || null,
+            description: form.description || null,
+            displayOrder: Number(form.displayOrder) || 0,
+            isActive: form.isActive,
+            definition,
+          }),
+        })
+        if (!response.ok) throw new Error(await responseError(response))
+        notify('success', 'Đã tạo mẫu phụ kiện')
+      } else {
+        const versionResponse = await fetch(`/api/v1/admin/accessory-templates/${editing.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definition, changeNote: 'Cập nhật cấu trúc từ màn hình quản trị', expectedUpdatedAt: editing.updatedAt }),
+        })
+        if (!versionResponse.ok) throw new Error(await responseError(versionResponse))
+        const metadataResponse = await fetch(`/api/v1/admin/accessory-templates/${editing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: form.code,
+            name: form.name,
+            groupName: form.groupName || null,
+            description: form.description || null,
+            displayOrder: Number(form.displayOrder) || 0,
+            isActive: form.isActive,
+          }),
+        })
+        if (!metadataResponse.ok) throw new Error(await responseError(metadataResponse))
+        notify('success', 'Đã cập nhật mẫu phụ kiện')
+      }
+      setOpen(false)
+      await loadTemplates()
+    } catch (error) {
+      notify('error', editing ? 'Cập nhật mẫu thất bại' : 'Tạo mẫu thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function confirmDelete(template: AdminAccessoryTemplate) {
+    const id = Date.now() + Math.random()
+    const inUse = template.usageCount > 0
+    setToasts((items) => [...items, {
+      id,
+      kind: 'warning',
+      title: inUse ? 'Tạm ngừng mẫu phụ kiện?' : 'Xác nhận xóa mẫu phụ kiện',
+      message: inUse
+        ? `Mẫu “${template.name}” đang được dùng bởi ${template.usageCount} sản phẩm và không thể xóa. Bạn có thể tạm ngừng mẫu.`
+        : `Mẫu “${template.name}” sẽ bị xóa cùng các phiên bản chưa được tham chiếu.`,
+      secondaryAction: { label: 'Hủy', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== id)) },
+      action: {
+        label: inUse ? 'Tạm ngừng' : 'Xóa',
+        variant: inUse ? 'default' : 'danger',
+        onClick: () => {
+          setToasts((current) => current.filter((toast) => toast.id !== id))
+          void (inUse ? archiveTemplate(template) : removeTemplate(template))
+        },
+      },
+    }])
+  }
+
+  async function archiveTemplate(template: AdminAccessoryTemplate) {
+    setDeleting(template.id)
+    try {
+      const response = await fetch(`/api/v1/admin/accessory-templates/${template.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isActive: false }) })
+      if (!response.ok) throw new Error(await responseError(response))
+      notify('success', 'Đã tạm ngừng mẫu phụ kiện')
+      await loadTemplates()
+    } catch (error) {
+      notify('error', 'Tạm ngừng mẫu thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  async function removeTemplate(template: AdminAccessoryTemplate) {
+    setDeleting(template.id)
+    try {
+      const response = await fetch(`/api/v1/admin/accessory-templates/${template.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error(await responseError(response))
+      notify('success', 'Đã xóa mẫu phụ kiện')
+      await loadTemplates()
+    } catch (error) {
+      notify('error', 'Xóa mẫu thất bại', error instanceof Error ? error.message : undefined)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <div className="min-w-0 space-y-6">
+      <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Danh mục cấu hình</p><h1 className="mt-1 text-2xl font-bold text-slate-950">Mẫu phụ kiện</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Tạo cấu trúc dùng lại cho nội dung, thông số và thuộc tính SKU. Mỗi lần sửa cấu trúc sẽ tạo một phiên bản mới.</p></div>
+          <Button type="button" onClick={openCreate}><Plus size={16} className="mr-2" />Tạo mẫu</Button>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-slate-600"><span className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-emerald-700">{activeCount} đang hoạt động</span><span className="rounded-md bg-slate-100 px-2.5 py-1.5">{templates.length} mẫu trong hệ thống</span></div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm"><thead className="border-b border-slate-200 bg-slate-50 text-slate-500"><tr><th className="px-5 py-3">Mẫu</th><th className="px-5 py-3">Nhóm</th><th className="px-5 py-3">Phiên bản</th><th className="px-5 py-3">Đang dùng</th><th className="px-5 py-3">Trạng thái</th><th className="px-5 py-3 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-100">
+          {loading && <tr><td colSpan={6} className="px-5 py-12 text-center"><Loader2 className="mx-auto animate-spin text-slate-400" /></td></tr>}
+          {!loading && templates.map((template) => <tr key={template.id} className="transition-colors hover:bg-slate-50"><td className="px-5 py-4"><p className="font-semibold text-slate-900">{template.name}</p><p className="mt-1 font-mono text-xs text-slate-500">{template.code}</p>{template.description && <p className="mt-1 max-w-md text-xs text-slate-500">{template.description}</p>}</td><td className="px-5 py-4 text-slate-600">{template.groupName || 'Chưa phân nhóm'}</td><td className="px-5 py-4 tabular-nums">v{template.currentVersion}</td><td className="px-5 py-4 tabular-nums">{template.usageCount}</td><td className="px-5 py-4"><span className={`rounded-md px-2 py-1 text-xs font-bold ${template.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{template.isActive ? 'Hoạt động' : 'Tạm ngừng'}</span></td><td className="px-5 py-4"><div className="flex justify-end gap-1"><button type="button" onClick={() => openEdit(template)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-brand-50 hover:text-brand-600" aria-label={`Sửa ${template.name}`}><Edit size={16} /></button><button type="button" onClick={() => cloneTemplate(template)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-slate-100 hover:text-slate-800" aria-label={`Nhân bản ${template.name}`}><Copy size={16} /></button><button type="button" onClick={() => confirmDelete(template)} disabled={deleting === template.id} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-red-50 hover:text-red-600 disabled:opacity-50" aria-label={`Xóa ${template.name}`}>{deleting === template.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button></div></td></tr>)}
+          {!loading && templates.length === 0 && <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-500">Chưa có mẫu phụ kiện.</td></tr>}
+        </tbody></table></div>
+      </section>
+
+      <AdminModalPortal><AnimatePresence>{open && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal() }}><motion.div role="dialog" aria-modal="true" aria-labelledby="accessory-template-dialog-title" className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}><form onSubmit={submit}><div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 sm:px-6"><div><h2 id="accessory-template-dialog-title" className="text-lg font-bold text-slate-950">{editing ? 'Sửa mẫu phụ kiện' : 'Tạo mẫu phụ kiện'}</h2><p className="mt-1 text-xs text-slate-500">{editing ? `Lưu sẽ tạo phiên bản v${editing.currentVersion + 1}.` : 'Mẫu mới sẽ bắt đầu ở phiên bản v1.'}</p></div><button type="button" onClick={closeModal} disabled={saving} aria-label="Đóng" className="rounded p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button></div><div className="space-y-6 p-5 sm:p-6"><div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Mã mẫu<input required disabled={Boolean(editing) || saving} value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))} placeholder="film-cach-nhiet" className={inputClass} /></label><label className={labelClass}>Tên mẫu<input required disabled={saving} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Film cách nhiệt" className={inputClass} /></label><label className={labelClass}>Nhóm<input disabled={saving} value={form.groupName} onChange={(event) => setForm((current) => ({ ...current, groupName: event.target.value }))} placeholder="Phụ kiện xe" className={inputClass} /></label><label className={labelClass}>Thứ tự hiển thị<input type="number" min="0" disabled={saving} value={form.displayOrder} onChange={(event) => setForm((current) => ({ ...current, displayOrder: event.target.value }))} className={inputClass} /></label></div><label className={labelClass}>Mô tả<textarea disabled={saving} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Mẫu này dùng cho..." className={textareaClass} /></label><div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Danh mục gợi ý<input disabled={saving} value={form.suggestedCategorySlugs} onChange={(event) => setForm((current) => ({ ...current, suggestedCategorySlugs: event.target.value }))} placeholder="phu-kien-o-to-dien, sac-o-to-dien" className={inputClass} /><span className="mt-1 block text-xs font-normal text-slate-500">Nhập slug, phân cách bằng dấu phẩy.</span></label><label className={labelClass}>Mẫu thuộc tính gợi ý<input disabled={saving} value={form.suggestedOptionCodes} onChange={(event) => setForm((current) => ({ ...current, suggestedOptionCodes: event.target.value }))} placeholder="color, size" className={inputClass} /></label></div><div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-slate-900">Mục nội dung & thuộc tính</h3><p className="mt-1 text-xs leading-5 text-slate-500">Các trường này sẽ được chuẩn bị sẵn khi tạo phụ kiện. Người nhập vẫn có thể bổ sung mục riêng.</p></div><Button type="button" variant="outline" size="sm" onClick={() => setForm((current) => ({ ...current, sections: [...current.sections, freshSection()] }))} disabled={saving}><Plus size={14} className="mr-1" />Thêm mục</Button></div><div className="mt-4 space-y-4">{form.sections.map((section, sectionIndex) => <div key={`${section.key}-${sectionIndex}`} className="rounded-lg border border-slate-200 bg-white p-4"><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_15rem_auto]"><label className={labelClass}>Tên mục<input value={section.title} disabled={saving} onChange={(event) => updateSection(sectionIndex, { title: event.target.value })} className={inputClass} /></label><label className={labelClass}>Loại nội dung<select value={section.type} disabled={saving} onChange={(event) => { const next = ACCESSORY_SECTION_TYPES.find((item) => item.value === event.target.value); updateSection(sectionIndex, { type: event.target.value as AccessoryTemplateSectionDefinition['type'], title: section.type === 'OTHER' ? section.title : next?.defaultTitle ?? section.title }) }} className={inputClass}>{ACCESSORY_SECTION_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label><button type="button" onClick={() => setForm((current) => ({ ...current, sections: current.sections.filter((_, index) => index !== sectionIndex) }))} disabled={saving} aria-label="Xóa mục" className="mt-7 rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button></div><label className={`${labelClass} mt-3`}>Placeholder nội dung<textarea value={section.bodyPlaceholder ?? ''} disabled={saving} onChange={(event) => updateSection(sectionIndex, { bodyPlaceholder: event.target.value })} placeholder="Nội dung mặc định nếu cần..." className="mt-1.5 min-h-16 w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-500" /></label><div className="mt-4 rounded-md border border-dashed border-slate-200 p-3"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Thuộc tính định sẵn</span><button type="button" onClick={() => addAttribute(sectionIndex)} disabled={saving} className="inline-flex items-center gap-1 text-xs font-bold text-brand-700"><Plus size={13} />Thêm thuộc tính</button></div><div className="mt-2 space-y-2">{(section.attributes ?? []).map((attribute, attributeIndex) => <div key={`${attribute.key}-${attributeIndex}`} className="grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_2rem]"><input aria-label="Mã thuộc tính" value={attribute.key} disabled={saving} onChange={(event) => updateAttribute(sectionIndex, attributeIndex, { key: event.target.value })} placeholder="material" className="h-9 rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-brand-500" /><input aria-label="Tên thuộc tính" value={attribute.label} disabled={saving} onChange={(event) => updateAttribute(sectionIndex, attributeIndex, { label: event.target.value })} placeholder="Vật liệu" className="h-9 rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-brand-500" /><input aria-label="Giá trị mặc định" value={attribute.defaultValue ?? ''} disabled={saving} onChange={(event) => updateAttribute(sectionIndex, attributeIndex, { defaultValue: event.target.value })} placeholder="Giá trị mặc định (không bắt buộc)" className="h-9 rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-brand-500" /><button type="button" onClick={() => removeAttribute(sectionIndex, attributeIndex)} disabled={saving} aria-label="Xóa thuộc tính" className="rounded text-slate-400 hover:bg-red-50 hover:text-red-600"><X size={15} className="mx-auto" /></button></div>)}</div></div></div>)}{form.sections.length === 0 && <div className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500"><Layers3 className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-2">Chưa có mục nội dung. Mẫu này sẽ bắt đầu trắng.</p></div>}</div></div><label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.isActive} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} className="h-4 w-4 accent-slate-900" />Cho phép chọn khi thêm phụ kiện</label></div><div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-6"><Button type="button" variant="outline" onClick={closeModal} disabled={saving}>Hủy</Button><Button type="submit" disabled={saving}>{saving && <Loader2 size={15} className="mr-2 animate-spin" />}{editing ? 'Lưu phiên bản' : 'Tạo mẫu'}</Button></div></form></motion.div></motion.div>}</AnimatePresence></AdminModalPortal>
+    </div>
+  )
+}
