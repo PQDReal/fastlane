@@ -821,7 +821,7 @@ function OptionsAndVariantsStep({
                 <label className="flex shrink-0 items-center gap-1.5"><span className="text-[11px] font-bold text-slate-500">Mẫu</span>
                   <select aria-label="Mẫu thuộc tính" value={group.presetCode} onChange={(event) => applyPreset(group, event.target.value)} className="h-8 w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
                     <option value="">Tự tạo</option>
-                    {ACCESSORY_OPTION_PRESETS.map((item) => <option key={item.code} value={item.code}>{item.name} · {item.usageCount} lượt dùng</option>)}
+                    {ACCESSORY_OPTION_PRESETS.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
                   </select>
                 </label>
                 <button type="button" aria-label="Xóa nhóm tùy chọn" onClick={() => removeGroup(group.id)} className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 size={14} />Xóa</button>
