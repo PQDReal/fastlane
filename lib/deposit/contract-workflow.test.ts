@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEPOSIT_ORDER_JOURNEY_STEPS,
   getDepositContractMode,
   calculateContractSignatureDeadline,
   isContractSignatureOverdue,
@@ -9,6 +10,16 @@ import {
 } from './contract-workflow'
 
 describe('deposit contract workflow', () => {
+  it('uses one customer-facing journey for cars and motorbikes', () => {
+    expect(DEPOSIT_ORDER_JOURNEY_STEPS).toEqual([
+      'Chờ xét duyệt',
+      'Xác thực KYC',
+      'Xác nhận đặt mua',
+      'Chờ xe',
+      'Nhận xe',
+    ])
+  })
+
   it('uses the car sales contract for cars', () => {
     expect(getDepositContractMode({ vehicle_type: 'car' })).toBe('CAR_SALES')
   })
@@ -23,6 +34,20 @@ describe('deposit contract workflow', () => {
     expect(getDepositContractMode({ vehicle_type: 'motorbike', car_variant: 'Mua Pin' })).toBe(
       'BIKE_PURCHASE_TERMS'
     )
+  })
+
+  it('recognizes a legacy motorbike from the related variant product type', () => {
+    expect(getDepositContractMode({
+      vehicle_type: null,
+      vehicle_variants: { product_type: 'BIKE' },
+    })).toBe('BIKE_PURCHASE_TERMS')
+  })
+
+  it('keeps an explicit order vehicle type authoritative', () => {
+    expect(getDepositContractMode({
+      vehicle_type: 'car',
+      vehicle_variants: { product_type: 'BIKE' },
+    })).toBe('CAR_SALES')
   })
 
   describe('contract signature deadline calculations', () => {

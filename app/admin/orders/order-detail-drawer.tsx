@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
 import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
@@ -30,8 +30,33 @@ type OrderDetailDrawerProps = {
 
 export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  if (!order || !order.rawDeposit) return null
+  useEffect(() => {
+    if (!isOpen) return
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      previouslyFocused?.focus()
+    }
+  }, [isOpen, onClose])
+
+  // Keep AnimatePresence mounted so clearing the selected order can play the
+  // drawer's exit transition instead of removing it synchronously.
+  if (!order || !order.rawDeposit) return <AnimatePresence />
 
   const d = order.rawDeposit
   const isMotorbike = d.vehicle_type === 'motorbike'
@@ -192,10 +217,11 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                 <AdminOrderStatusBadge presentation={statusPresentation} className="mt-2" />
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng chi tiết đơn đặt xe"
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
               >
                 <X size={20} />
               </button>

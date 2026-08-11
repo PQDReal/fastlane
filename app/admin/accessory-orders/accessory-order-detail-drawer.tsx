@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Clock3, Mail, MapPin, Package, Phone, ReceiptText, X } from 'lucide-react'
+import { Clock3, LoaderCircle, Mail, MapPin, Package, Phone, ReceiptText, X } from 'lucide-react'
 
 import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
 import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
@@ -19,6 +19,9 @@ type AccessoryOrderDetailDrawerProps = {
   isOpen: boolean
   statusHint?: string
   actions?: ReactNode
+  detailLoading: boolean
+  detailLoadError: string | null
+  onRetry: () => void
   onClose: () => void
 }
 
@@ -41,6 +44,9 @@ export function AccessoryOrderDetailDrawer({
   isOpen,
   statusHint,
   actions,
+  detailLoading,
+  detailLoadError,
+  onRetry,
   onClose,
 }: AccessoryOrderDetailDrawerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -118,6 +124,21 @@ export function AccessoryOrderDetailDrawer({
             </header>
 
             <div className="flex-1 space-y-5 overflow-y-auto p-6">
+              {detailLoadError ? (
+                <section role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+                  <p className="font-semibold">Không thể tải chi tiết đơn phụ kiện</p>
+                  <p className="mt-1 text-red-700">{detailLoadError}</p>
+                  <Button type="button" variant="outline" size="sm" onClick={onRetry} className="mt-4 border-red-200 bg-white text-red-700 hover:bg-red-100">
+                    Thử tải lại
+                  </Button>
+                </section>
+              ) : !order.detailsLoaded ? (
+                <section aria-live="polite" className="flex min-h-40 items-center justify-center rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+                  <LoaderCircle aria-hidden="true" size={18} className={detailLoading ? 'mr-2 animate-spin' : 'mr-2'} />
+                  Đang tải chi tiết đơn phụ kiện...
+                </section>
+              ) : (
+                <>
               <section className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Trạng thái</p>
@@ -157,12 +178,12 @@ export function AccessoryOrderDetailDrawer({
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900">{item.product_name_snapshot}</p>
                         {item.variantName && item.variantName !== 'Mặc định' && <p className="mt-1 text-xs text-slate-500">Phiên bản: {item.variantName}</p>}
-                        <ProductOptionSummary options={item.selectedOptions} className="mt-1" />
+                        <ProductOptionSummary options={item.selectedOptions ?? []} className="mt-1" />
                         <p className="mt-1.5 text-xs text-slate-400">SKU: {item.sku || 'Không có'} · Số lượng: {item.quantity}</p>
                       </div>
-                      <p className="shrink-0 whitespace-nowrap text-sm font-bold text-brand-700">{money(item.lineSubtotal)}</p>
+                      <p className="shrink-0 whitespace-nowrap text-sm font-bold text-brand-700">{money(item.lineSubtotal ?? 0)}</p>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">Đơn giá: {money(item.unitPrice)}</p>
+                    <p className="mt-2 text-xs text-slate-500">Đơn giá: {money(item.unitPrice ?? 0)}</p>
                   </article>)}
                   {order.items.length === 0 && <p className="py-3 text-sm text-slate-500">Không có dữ liệu sản phẩm.</p>}
                 </div>
@@ -174,12 +195,14 @@ export function AccessoryOrderDetailDrawer({
                   <h3 className="font-semibold text-slate-800">Thanh toán</h3>
                 </div>
                 <dl className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Tạm tính</dt><dd className="whitespace-nowrap font-medium text-slate-800">{money(order.subtotal)}</dd></div>
-                  {order.discountAmount > 0 && <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Giảm giá</dt><dd className="whitespace-nowrap font-semibold text-emerald-700">-{money(order.discountAmount)}</dd></div>}
+                  <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Tạm tính</dt><dd className="whitespace-nowrap font-medium text-slate-800">{money(order.subtotal ?? order.totalAmount)}</dd></div>
+                  {(order.discountAmount ?? 0) > 0 && <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Giảm giá</dt><dd className="whitespace-nowrap font-semibold text-emerald-700">-{money(order.discountAmount ?? 0)}</dd></div>}
                   <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3"><dt className="font-semibold text-slate-700">Tổng thanh toán</dt><dd className="whitespace-nowrap text-base font-bold text-brand-700">{money(order.totalAmount)}</dd></div>
                   <div className="flex items-center justify-between gap-4"><dt className="text-slate-500">Hoàn tiền</dt><dd>{refundStatus && <AdminOrderStatusBadge presentation={refundStatus} />}</dd></div>
                 </dl>
               </section>
+                </>
+              )}
             </div>
 
             <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">

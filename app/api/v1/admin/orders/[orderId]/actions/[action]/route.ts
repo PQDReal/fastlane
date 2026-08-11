@@ -2,21 +2,13 @@ import { NextResponse } from 'next/server'
 
 import { apiErrorResponse, ApiRouteError } from '@/lib/api/errors'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
+import { requireAdminMutationIdentity } from '@/lib/auth/admin-mutation-identity'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { parseItemId } from '@/lib/cart/validation'
 import { reconcileVnPayRefund, refundCancelledOrder, VnPayRefundError } from '@/lib/services/vnpay-refund-service'
-import { findUserByAuth0Subject } from '@/lib/services/user-service'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type RouteContext = { params: Promise<{ orderId: string; action: string }> }
-
-async function requireAdminIdentity(subject: string) {
-  const admin = await findUserByAuth0Subject(subject)
-  if (!admin || admin.role !== 'ADMIN' || admin.status !== 'ACTIVE') {
-    throw new ApiRouteError(403, 'ADMIN_IDENTITY_REQUIRED', 'Không xác định được tài khoản quản trị thực hiện thao tác.')
-  }
-  return admin
-}
 
 export async function POST(request: Request, context: RouteContext) {
   let adminSubject: string
@@ -34,7 +26,7 @@ export async function POST(request: Request, context: RouteContext) {
     const supabase = getSupabaseAdmin()
 
     if (action === 'cancel') {
-      const admin = await requireAdminIdentity(adminSubject)
+      const admin = await requireAdminMutationIdentity(request, adminSubject)
       const cancellationNote = 'Quản trị viên hủy đơn trước khi giao hàng.'
       const result = await supabase.rpc('cancel_accessory_order_audited', {
         p_order_id: orderId,
@@ -103,7 +95,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (action === 'refund') {
-      const admin = await requireAdminIdentity(adminSubject)
+      const admin = await requireAdminMutationIdentity(request, adminSubject)
       const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       const result = await refundCancelledOrder({
         orderId,

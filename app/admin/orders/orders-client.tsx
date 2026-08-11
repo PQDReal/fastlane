@@ -64,6 +64,15 @@ export function AdminOrdersClient({
     if (duration > 0) setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), duration)
   }, [])
 
+  const closeOrderDetail = useCallback(() => {
+    setSelectedOrder(null)
+  }, [])
+
+  const handleOrderUpdated = useCallback(() => {
+    setSelectedOrder(null)
+    router.refresh()
+  }, [router])
+
   const filteredOrders = orders.filter(o => {
     if (!o.isCar) return false;
     if (vehicleTypeFilter !== 'All' && o.vehicleType !== vehicleTypeFilter) return false;
@@ -243,11 +252,8 @@ export function AdminOrdersClient({
         order={selectedOrder}
         debugActionsEnabled={debugActionsEnabled}
         isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-        onOrderUpdated={() => {
-          setSelectedOrder(null)
-          router.refresh()
-        }}
+        onClose={closeOrderDetail}
+        onOrderUpdated={handleOrderUpdated}
         onShowToast={showToast}
       />
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />

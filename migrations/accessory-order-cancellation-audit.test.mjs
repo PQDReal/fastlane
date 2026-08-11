@@ -9,6 +9,10 @@ const actorIndexesSql = readFileSync(
   new URL('./050_accessory_cancellation_actor_indexes.sql', import.meta.url),
   'utf8',
 )
+const rolloutCompatibilitySql = readFileSync(
+  new URL('./051_accessory_cancellation_rollout_compatibility.sql', import.meta.url),
+  'utf8',
+)
 const customerRoute = readFileSync(
   new URL('../app/api/v1/orders/[orderId]/route.ts', import.meta.url),
   'utf8',
@@ -27,6 +31,10 @@ const vehicleCustomerRoute = readFileSync(
 )
 const accessoryAdminPage = readFileSync(
   new URL('../app/admin/accessory-orders/page.tsx', import.meta.url),
+  'utf8',
+)
+const accessoryAdminDetailRoute = readFileSync(
+  new URL('../app/api/v1/admin/orders/[orderId]/route.ts', import.meta.url),
   'utf8',
 )
 const orderServer = readFileSync(
@@ -73,6 +81,19 @@ describe('accessory order cancellation audit migration', () => {
     expect(sql).toMatch(/revoke all on function public\.cancel_accessory_order\(uuid,uuid,text\)[\s\S]+service_role/i)
   })
 
+  it('keeps the previous service-role command auditable during rollout', () => {
+    expect(rolloutCompatibilitySql).toContain('ROLLOUT_LEGACY_ORDER_CANCELLED:')
+    expect(rolloutCompatibilitySql).toContain('new.cancellation_audit_version := 1')
+    expect(rolloutCompatibilitySql).toContain("'rolloutCompatibility', true")
+    expect(rolloutCompatibilitySql).toContain("event.audit_version = 2")
+    expect(rolloutCompatibilitySql).toMatch(
+      /grant execute on function public\.cancel_accessory_order\(uuid,uuid,text\)[\s\S]+to service_role/i,
+    )
+    expect(rolloutCompatibilitySql).toMatch(
+      /revoke all on function public\.cancel_accessory_order\(uuid,uuid,text\)[\s\S]+from public, anon, authenticated/i,
+    )
+  })
+
   it('passes the real customer and administrator identities from both APIs', () => {
     expect(customerRoute).toContain("rpc('cancel_accessory_order_audited'")
     expect(customerRoute).toContain("p_actor_type: 'CUSTOMER'")
@@ -98,6 +119,15 @@ describe('accessory order cancellation audit migration', () => {
 
   it('disambiguates customer and cancellation-actor user relations', () => {
     expect(accessoryAdminPage).toContain('customer:users!orders_customer_id_fkey!inner')
+    expect(accessoryAdminDetailRoute).toContain('customer:users!orders_customer_id_fkey!inner')
+    expect(accessoryAdminDetailRoute).toContain('cancelled_by:users!orders_cancelled_by_user_id_fkey')
     expect(orderServer).toContain('customer:users!orders_customer_id_fkey!inner')
+  })
+
+  it('loads accessory detail fields only when the drawer is opened', () => {
+    expect(accessoryAdminPage).not.toContain('selected_options_snapshot')
+    expect(accessoryAdminPage).not.toContain('shipping_address')
+    expect(accessoryAdminDetailRoute).toContain('selected_options_snapshot')
+    expect(accessoryAdminDetailRoute).toContain('shipping_address')
   })
 })

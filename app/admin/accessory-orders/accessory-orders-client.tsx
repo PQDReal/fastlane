@@ -18,25 +18,26 @@ export type AdminAccessoryOrder = {
   id: string; orderNumber: string; customerEmail: string
   items: {
     id: string
-    sku: string
     product_name_snapshot: string
-    variantName: string
-    selectedOptions: SelectedProductOption[]
-    unitPrice: number
     quantity: number
-    lineSubtotal: number
+    sku?: string
+    variantName?: string
+    selectedOptions?: SelectedProductOption[]
+    unitPrice?: number
+    lineSubtotal?: number
   }[]
-  subtotal: number
-  discountAmount: number
+  subtotal?: number
+  discountAmount?: number
   totalAmount: number
-  shippingAddress: ShippingAddress | null
-  note: string | null
-  cancellation: OrderCancellationAudit | null
+  shippingAddress?: ShippingAddress | null
+  note?: string | null
+  cancellation?: OrderCancellationAudit | null
   status: AccessoryAdminOrderStatus
   refundStatus: AdminOrderRefundStatus
   refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
   refundNextCheckAt: string | null
   createdAt: string
+  detailsLoaded: boolean
 }
 
 const statusLabel: Record<AdminAccessoryOrder['status'], string> = {
@@ -54,6 +55,9 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'ALL' | AdminAccessoryOrder['status']>('ALL')
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailLoadError, setDetailLoadError] = useState<string | null>(null)
+  const [detailReloadToken, setDetailReloadToken] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const busyRef = useRef<string | null>(null)
   const pollCursorRef = useRef(0)
@@ -64,7 +68,53 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
   }, [orders, query, status])
   const selectedOrder = useMemo(() => orders.find((order) => order.id === selectedOrderId) ?? null, [orders, selectedOrderId])
   const closeOrderDetail = useCallback(() => setSelectedOrderId(null), [])
+  const retryOrderDetail = useCallback(() => setDetailReloadToken((value) => value + 1), [])
   const notify = (toast: Omit<ToastMessage, 'id'>) => setToasts((current) => [...current, { id: Date.now(), ...toast }])
+
+  useEffect(() => {
+    if (!selectedOrderId) {
+      setDetailLoading(false)
+      setDetailLoadError(null)
+      return
+    }
+    if (selectedOrder?.detailsLoaded) {
+      setDetailLoading(false)
+      setDetailLoadError(null)
+      return
+    }
+
+    const controller = new AbortController()
+    setDetailLoading(true)
+    setDetailLoadError(null)
+
+    void fetch(`/api/v1/admin/orders/${selectedOrderId}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(body?.error?.message ?? 'Không thể tải chi tiết đơn phụ kiện.')
+        }
+        if (!body?.data || body.data.id !== selectedOrderId) {
+          throw new Error('Dữ liệu chi tiết đơn phụ kiện không hợp lệ.')
+        }
+        setOrders((current) => current.map((order) => order.id === selectedOrderId
+          ? { ...order, ...body.data, detailsLoaded: true }
+          : order))
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setDetailLoadError(error instanceof Error
+          ? error.message
+          : 'Không thể tải chi tiết đơn phụ kiện.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDetailLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [detailReloadToken, selectedOrder?.detailsLoaded, selectedOrderId])
 
   async function confirmOrder(order: AdminAccessoryOrder) {
     if (busyRef.current) return
@@ -232,7 +282,10 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
       order={selectedOrder}
       isOpen={Boolean(selectedOrder)}
       statusHint={selectedOrder ? statusHint[selectedOrder.status] : undefined}
-      actions={selectedOrder ? orderActions(selectedOrder) : undefined}
+      actions={selectedOrder?.detailsLoaded ? orderActions(selectedOrder) : undefined}
+      detailLoading={detailLoading}
+      detailLoadError={detailLoadError}
+      onRetry={retryOrderDetail}
       onClose={closeOrderDetail}
     />
   </div>

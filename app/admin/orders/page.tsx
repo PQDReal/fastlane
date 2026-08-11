@@ -71,20 +71,27 @@ export default async function AdminOrdersPage() {
   const cancellationEventByOrder = new Map<string, DepositCancellationEvent>()
   const actorEmailById = new Map<string, string>()
   const depositOrderIds = (depositData ?? []).map((deposit: any) => deposit.id)
+  const cancelledDepositOrderIds = (depositData ?? [])
+    .filter((deposit: any) => deposit.status === 'CANCELLED')
+    .map((deposit: any) => deposit.id)
   if (depositOrderIds.length > 0) {
+    const cancellationEventsPromise = cancelledDepositOrderIds.length > 0
+      ? supabase
+        .from('deposit_order_events')
+        .select('id,deposit_order_id,event_type,actor_type,actor_user_id,metadata,occurred_at')
+        .in('deposit_order_id', cancelledDepositOrderIds)
+        .in('event_type', ['DEPOSIT_CANCELLED', 'CONTRACT_EXPIRED'])
+        .order('occurred_at', { ascending: false })
+        .order('id', { ascending: false })
+      : Promise.resolve({ data: [] as DepositCancellationEvent[], error: null })
+
     const [paymentAttemptsResult, cancellationEventsResult] = await Promise.all([
       supabase
         .from('vnpay_deposit_attempts')
         .select('deposit_order_id,status')
         .in('deposit_order_id', depositOrderIds)
         .eq('status', 'PAID'),
-      supabase
-        .from('deposit_order_events')
-        .select('id,deposit_order_id,event_type,actor_type,actor_user_id,metadata,occurred_at')
-        .in('deposit_order_id', depositOrderIds)
-        .in('event_type', ['DEPOSIT_CANCELLED', 'CONTRACT_EXPIRED'])
-        .order('occurred_at', { ascending: false })
-        .order('id', { ascending: false }),
+      cancellationEventsPromise,
     ])
 
     if (paymentAttemptsResult.error) {

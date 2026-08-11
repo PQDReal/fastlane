@@ -1,6 +1,6 @@
 # Audit luồng hủy đơn phụ kiện và đơn đặt xe
 
-Tài liệu này mô tả trạng thái sau migration `049_accessory_order_cancellation_audit.sql`.
+Tài liệu này mô tả trạng thái sau chuỗi migration 049–051 của audit hủy đơn phụ kiện.
 
 ## Kết luận
 
@@ -29,7 +29,7 @@ Mọi yêu cầu mới gọi `cancel_accessory_order_audited` với:
 - `p_reason_code` và `p_note`;
 - `p_event_key`: khóa idempotency ổn định theo đơn.
 
-Command khóa dòng đơn, kiểm tra tài khoản active, kiểm tra role/quyền sở hữu, ghi event audit version 2, rồi gọi command cũ trong cùng transaction để giữ nguyên nghiệp vụ hoàn kho, khuyến mãi và refund status. Quyền gọi trực tiếp command cũ bị thu hồi khỏi runtime role.
+Command khóa dòng đơn, kiểm tra tài khoản active, kiểm tra role/quyền sở hữu, ghi event audit version 2, rồi gọi command cũ trong cùng transaction để giữ nguyên nghiệp vụ hoàn kho, khuyến mãi và refund status. Browser role không được gọi trực tiếp command cũ. Trong giai đoạn rollout, migration 051 mở command cũ riêng cho `service_role` để phiên bản application trước đó tiếp tục hoạt động; trigger sẽ ghi các lần gọi này thành audit version 1 thay vì làm mất dấu thao tác.
 
 ### Dữ liệu truy vết
 
@@ -90,5 +90,7 @@ Nếu đã có giao dịch cọc thành công, command hủy đặt `refund_stat
 
 1. Chạy migration 049 trước. Preflight sẽ dừng toàn bộ transaction nếu schema nền hoặc command `cancel_accessory_order(uuid,uuid,text)` chưa tồn tại.
 2. Chạy migration 050 để bổ sung index cho hai khóa ngoại actor dùng khi truy vết.
-3. Sau khi migration thành công và PostgREST đã reload schema, mới triển khai application code vì API đọc trực tiếp các cột audit mới.
-4. Kiểm tra một lần hủy mới từ customer và một lần từ admin trên môi trường staging; đối chiếu projection `orders` với event tương ứng trong `accessory_order_events`.
+3. Chạy migration 051 để tạo cửa sổ tương thích rollout. Application cũ gọi RPC cũ qua `service_role` sẽ tiếp tục hủy được đơn và tạo event version 1; application mới gọi RPC audited sẽ tạo event version 2.
+4. Triển khai application code sau khi PostgREST đã reload schema. Từ thời điểm này phiên bản cũ và mới có thể cùng tồn tại trong lúc các instance được thay thế.
+5. Kiểm tra một lần hủy mới từ customer và một lần từ admin trên môi trường staging; đối chiếu projection `orders` với event tương ứng trong `accessory_order_events`.
+6. Chỉ sau khi xác nhận không còn instance cũ, tạo một migration hardening riêng để thu hồi lại RPC cũ khỏi `service_role` và khôi phục guard bắt buộc version 2. Không gộp bước này vào migration 051 vì sẽ tái tạo khoảng trống tương thích khi rollout.
