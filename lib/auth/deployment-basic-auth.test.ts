@@ -53,12 +53,15 @@ describe('deployment Basic Auth', () => {
     }, now + 60)).toBe(false)
   })
 
-  it('exempts only the exact signed provider callback methods', () => {
+  it('exempts only the exact independently authenticated endpoint methods', () => {
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn', 'GET')).toBe(true)
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn', 'POST')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn/extra', 'GET')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'POST')).toBe(true)
     expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'GET')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/webhooks/didit/extra', 'POST')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts', 'POST')).toBe(true)
+    expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts', 'GET')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts/extra', 'POST')).toBe(false)
   })
 })
