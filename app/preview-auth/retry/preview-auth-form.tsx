@@ -62,7 +62,7 @@ export function PreviewAuthForm({ returnTo }: { returnTo: string }) {
       >
         <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600"><LockKeyhole aria-hidden="true" /></div>
         <h1 id="preview-auth-title" className="text-2xl font-bold text-slate-950">Phiên truy cập đã hết hạn</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Nhập lại thông tin Basic Auth để tiếp tục. Phiên đăng nhập Auth0 của bạn vẫn được giữ nguyên.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Nhập lại thông tin Basic Auth để tiếp tục.</p>
         <form onSubmit={submit} className="mt-7 grid gap-4">
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">Tên đăng nhập<input autoFocus required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} className="h-11 rounded-lg border border-slate-300 px-3 font-normal outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20" /></label>
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">Mật khẩu<input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 rounded-lg border border-slate-300 px-3 font-normal outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20" /></label>
