@@ -147,6 +147,30 @@ AdminAccessoryEditorData:
   $ref: './product.yaml#/AdminAccessoryEditorData'
 AdminAccessoryEditorResponse:
   $ref: './product.yaml#/AdminAccessoryEditorResponse'
+AccessoryTemplateAttributeDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateAttributeDefinition'
+AccessoryTemplateSectionDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateSectionDefinition'
+AccessoryTemplateOptionValueDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateOptionValueDefinition'
+AccessoryTemplateOptionGroupDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateOptionGroupDefinition'
+AccessoryTemplateDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateDefinition'
+AccessoryTemplateVersion:
+  $ref: './accessory-template.yaml#/AccessoryTemplateVersion'
+AdminAccessoryTemplate:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplate'
+AdminAccessoryTemplateListResponse:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateListResponse'
+AdminAccessoryTemplateCreateRequest:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateCreateRequest'
+AdminAccessoryTemplatePatchRequest:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplatePatchRequest'
+AdminAccessoryTemplateVersionRequest:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateVersionRequest'
+AdminAccessoryTemplateResponse:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateResponse'
 ServiceLabel:
   $ref: './product.yaml#/ServiceLabel'
 ServiceLabelListResponse:

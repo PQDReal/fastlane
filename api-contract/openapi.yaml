@@ -238,6 +238,10 @@ paths:
     $ref: './paths/admin-products.yaml#/~1admin~1service-labels'
   /admin/service-labels/{labelId}:
     $ref: './paths/admin-products.yaml#/~1admin~1service-labels~1{labelId}'
+  /admin/accessory-templates:
+    $ref: './paths/admin-accessory-templates.yaml#/~1admin~1accessory-templates'
+  /admin/accessory-templates/{templateId}:
+    $ref: './paths/admin-accessory-templates.yaml#/~1admin~1accessory-templates~1{templateId}'
   /admin/products/{productId}/variants:
     $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1variants'
   /admin/variants/{variantId}:

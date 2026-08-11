@@ -1,0 +1,125 @@
+/admin/accessory-templates:
+  get:
+    tags: [Admin Catalog]
+    operationId: listAdminAccessoryTemplates
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: List reusable accessory templates
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - name: includeInactive
+        in: query
+        schema: { type: boolean, default: false }
+    responses:
+      '200': { description: Accessory templates, content: { application/json: { schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateListResponse' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Catalog]
+    operationId: createAdminAccessoryTemplate
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: Create a reusable accessory template
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateCreateRequest' }
+    responses:
+      '201': { description: Accessory template created, content: { application/json: { schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateResponse' } } } }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/accessory-templates/{templateId}:
+  parameters:
+    - name: templateId
+      in: path
+      required: true
+      schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' }
+  get:
+    tags: [Admin Catalog]
+    operationId: getAdminAccessoryTemplate
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: Get an accessory template and revision
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    parameters:
+      - name: version
+        in: query
+        schema: { type: integer, minimum: 1 }
+    responses:
+      '200': { description: Accessory template, content: { application/json: { schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateResponse' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  patch:
+    tags: [Admin Catalog]
+    operationId: updateAdminAccessoryTemplate
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: Update accessory template metadata or status
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplatePatchRequest' }
+    responses:
+      '200': { description: Accessory template updated, content: { application/json: { schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateResponse' } } } }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Catalog]
+    operationId: createAdminAccessoryTemplateVersion
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: Create a new immutable accessory template revision
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateVersionRequest' }
+    responses:
+      '201': { description: Accessory template revision created, content: { application/json: { schema: { $ref: '../openapi.yaml#/components/schemas/AdminAccessoryTemplateResponse' } } } }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Catalog]
+    operationId: deleteAdminAccessoryTemplate
+    x-prd-references: [US-A02, FR-ADMN-04]
+    summary: Delete an unused accessory template or reject if in use
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [catalog:manage]
+    responses:
+      '200': { description: Accessory template deleted }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }

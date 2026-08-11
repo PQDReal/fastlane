@@ -1370,6 +1370,236 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /admin/accessory-templates:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: listAdminAccessoryTemplates
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: List reusable accessory templates
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Accessory templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryTemplateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Catalog
+      operationId: createAdminAccessoryTemplate
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: Create a reusable accessory template
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminAccessoryTemplateCreateRequest'
+      responses:
+        '201':
+          description: Accessory template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryTemplateResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/accessory-templates/{templateId}:
+    parameters:
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      tags:
+        - Admin Catalog
+      operationId: getAdminAccessoryTemplate
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: Get an accessory template and revision
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      parameters:
+        - name: version
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Accessory template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryTemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - Admin Catalog
+      operationId: updateAdminAccessoryTemplate
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: Update accessory template metadata or status
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminAccessoryTemplatePatchRequest'
+      responses:
+        '200':
+          description: Accessory template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryTemplateResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Admin Catalog
+      operationId: createAdminAccessoryTemplateVersion
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: Create a new immutable accessory template revision
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminAccessoryTemplateVersionRequest'
+      responses:
+        '201':
+          description: Accessory template revision created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessoryTemplateResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Admin Catalog
+      operationId: deleteAdminAccessoryTemplate
+      x-prd-references:
+        - US-A02
+        - FR-ADMN-04
+      summary: Delete an unused accessory template or reject if in use
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - catalog:manage
+      responses:
+        '200':
+          description: Accessory template deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /admin/products/{productId}/variants:
     post:
       tags:
@@ -6169,15 +6399,18 @@ components:
           $ref: '#/components/schemas/Uuid'
         templateCode:
           type: string
-          enum:
-            - vehicle_fit
-            - window_film
-            - apparel
-            - ev_charger
-            - custom
+          minLength: 1
+          maxLength: 80
+          description: Legacy template code retained during migration; DB-backed templates use templateVersionId.
         templateVersion:
           type: integer
-          const: 1
+          minimum: 1
+        templateVersionId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: DB-backed accessory template revision. Null means Custom.
         categoryAssignments:
           type: array
           minItems: 1
@@ -6409,15 +6642,16 @@ components:
           $ref: '#/components/schemas/Uuid'
         templateCode:
           type: string
-          enum:
-            - vehicle_fit
-            - window_film
-            - apparel
-            - ev_charger
-            - custom
+          minLength: 1
+          maxLength: 80
         templateVersion:
           type: integer
-          const: 1
+          minimum: 1
+        templateVersionId:
+          type:
+            - string
+            - 'null'
+          format: uuid
         categoryAssignments:
           type: array
           items:
@@ -6594,6 +6828,367 @@ components:
           minimum: 0
         isActive:
           type: boolean
+    AccessoryTemplateAttributeDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        - key
+        - label
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:_[a-z0-9]+)*$
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+        defaultValue:
+          type: string
+          maxLength: 1000
+    AccessoryTemplateSectionDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        - key
+        - type
+        - title
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:_[a-z0-9]+)*$
+        type:
+          type: string
+          enum:
+            - TECHNICAL_SPECS
+            - FEATURES
+            - USAGE_GUIDE
+            - CARE_GUIDE
+            - INSTALLATION_GUIDE
+            - PACKAGE_CONTENTS
+            - WARRANTY
+            - SHIPPING_NOTE
+            - PURCHASE_NOTE
+            - SAFETY_NOTE
+            - CAR_GALLERY
+            - OTHER
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        attributes:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AccessoryTemplateAttributeDefinition'
+        items:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+            maxLength: 2000
+        bodyPlaceholder:
+          type: string
+          maxLength: 1000
+    AccessoryTemplateOptionValueDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        colorHex:
+          type:
+            - string
+            - 'null'
+          maxLength: 20
+    AccessoryTemplateOptionGroupDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        - key
+        - code
+        - name
+        - displayType
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 80
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        displayType:
+          type: string
+          enum:
+            - BUTTON
+            - SWATCH
+            - SELECT
+        minimumSelections:
+          type: integer
+          minimum: 0
+          maximum: 20
+        maximumSelections:
+          type: integer
+          minimum: 1
+          maximum: 20
+        values:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AccessoryTemplateOptionValueDefinition'
+    AccessoryTemplateDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        - schema
+        - suggestedCategorySlugs
+        - suggestedOptionCodes
+        - sections
+      properties:
+        schema:
+          type: string
+          const: accessory_template_v1
+        suggestedCategorySlugs:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 200
+        suggestedOptionCodes:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 80
+        sections:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/AccessoryTemplateSectionDefinition'
+        optionGroups:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/AccessoryTemplateOptionGroupDefinition'
+    AccessoryTemplateVersion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - templateId
+        - version
+        - definition
+        - changeNote
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        templateId:
+          $ref: '#/components/schemas/Uuid'
+        version:
+          type: integer
+          minimum: 1
+        definition:
+          $ref: '#/components/schemas/AccessoryTemplateDefinition'
+        changeNote:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+        createdAt:
+          type: string
+          format: date-time
+    AdminAccessoryTemplate:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - groupName
+        - description
+        - displayOrder
+        - isActive
+        - currentVersion
+        - usageCount
+        - currentVersionId
+        - definition
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        groupName:
+          type:
+            - string
+            - 'null'
+          maxLength: 100
+        description:
+          type:
+            - string
+            - 'null'
+          maxLength: 1000
+        displayOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+        currentVersion:
+          type: integer
+          minimum: 1
+        usageCount:
+          type: integer
+          minimum: 0
+        currentVersionId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        definition:
+          oneOf:
+            - $ref: '#/components/schemas/AccessoryTemplateDefinition'
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          oneOf:
+            - $ref: '#/components/schemas/AccessoryTemplateVersion'
+            - type: 'null'
+    AdminAccessoryTemplateListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessoryTemplate'
+    AdminAccessoryTemplateCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - definition
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        groupName:
+          type:
+            - string
+            - 'null'
+          maxLength: 100
+        description:
+          type:
+            - string
+            - 'null'
+          maxLength: 1000
+        displayOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+        definition:
+          $ref: '#/components/schemas/AccessoryTemplateDefinition'
+        changeNote:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+    AdminAccessoryTemplateResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminAccessoryTemplate'
+    AdminAccessoryTemplateVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - definition
+      properties:
+        definition:
+          $ref: '#/components/schemas/AccessoryTemplateDefinition'
+        changeNote:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+        expectedUpdatedAt:
+          type: string
+          format: date-time
+    AdminAccessoryTemplatePatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        groupName:
+          type:
+            - string
+            - 'null'
+          maxLength: 100
+        description:
+          type:
+            - string
+            - 'null'
+          maxLength: 1000
+        displayOrder:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+        expectedUpdatedAt:
+          type: string
+          format: date-time
     VariantCreateRequest:
       type: object
       additionalProperties: false

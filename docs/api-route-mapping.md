@@ -10,11 +10,16 @@
 
 | Runtime route | Methods | OpenAPI path | Classification |
 |---|---|---|---|
+| `/api/contracts/send-otp` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/contracts/sign` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/deposit` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/deposit/quote` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/kyc/complete` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/kyc/create-session` | POST | — | LEGACY_OR_EXTERNAL |
+| `/api/v1/admin/accessory-templates` | GET, POST | `/admin/accessory-templates` | MAPPED |
+| `/api/v1/admin/accessory-templates/{templateId}` | GET, PATCH, DELETE, POST | `/admin/accessory-templates/{templateId}` | MAPPED |
+| `/api/v1/admin/cars` | POST | `/admin/cars` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/cars/{productId}` | GET, PATCH, DELETE | `/admin/cars/{productId}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/catalog-collections` | GET | `/admin/catalog-collections` | MAPPED |
 | `/api/v1/admin/categories` | GET, POST | `/admin/categories` | MAPPED |
 | `/api/v1/admin/categories/{categoryId}` | PATCH, DELETE | `/admin/categories/{categoryId}` | MAPPED |
@@ -25,12 +30,15 @@
 | `/api/v1/admin/inventory` | GET | `/admin/inventory` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/redis` | GET | `/admin/monitoring/redis` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/sentry` | GET | `/admin/monitoring/sentry` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/motorbikes` | POST | `/admin/motorbikes` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/motorbikes/{productId}` | GET, PATCH, DELETE | `/admin/motorbikes/{productId}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/notifications` | GET, POST | `/admin/notifications` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/notifications/{notificationId}/read` | PATCH | `/admin/notifications/{notificationId}/read` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/orders/{orderId}` | GET | `/admin/orders/{orderId}` | MAPPED |
 | `/api/v1/admin/orders/{orderId}/actions/{action}` | POST | `/admin/orders/{orderId}/actions/{action}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/orders/{orderId}/confirm` | POST | `/admin/orders/{orderId}/confirm` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/products` | GET, POST | `/admin/products` | MAPPED |
-| `/api/v1/admin/products/{productId}` | GET, PATCH | `/admin/products/{productId}` | MAPPED |
+| `/api/v1/admin/products/{productId}` | GET, PATCH, DELETE | `/admin/products/{productId}` | MAPPED |
 | `/api/v1/admin/products/{productId}/service-labels` | PUT | `/admin/products/{productId}/service-labels` | MAPPED |
 | `/api/v1/admin/promotions` | GET, POST | `/admin/promotions` | MAPPED |
 | `/api/v1/admin/promotions/{promotionId}` | GET, PATCH, DELETE | `/admin/promotions/{promotionId}` | MAPPED |
@@ -61,6 +69,7 @@
 | `/api/v1/orders/{orderId}/payment` | POST | `/orders/{orderId}/payment` | MISSING_IN_OPENAPI |
 | `/api/v1/payments/vnpay/ipn` | GET | `/payments/vnpay/ipn` | MISSING_IN_OPENAPI |
 | `/api/v1/products` | GET | `/products` | MAPPED |
+| `/api/v1/search/assistant` | POST | `/search/assistant` | MISSING_IN_OPENAPI |
 | `/api/v1/test-drive/requests` | POST | `/test-drive/requests` | MAPPED |
 | `/api/v1/users/me` | GET, PATCH | `/users/me` | MAPPED |
 | `/api/v1/users/me/addresses` | GET, POST | `/users/me/addresses` | MISSING_IN_OPENAPI |
@@ -78,7 +87,6 @@
 - `/admin/loan-packages`
 - `/admin/loan-packages/{loanPackageId}`
 - `/admin/orders`
-- `/admin/orders/{orderId}`
 - `/admin/orders/{orderId}/transitions`
 - `/admin/product-images/{imageId}`
 - `/admin/products/{productId}/images`
