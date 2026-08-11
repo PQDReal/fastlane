@@ -281,8 +281,7 @@ function GeneralStep({
           <input value={draft.name} maxLength={200} onChange={(event) => onChange({ ...draft, name: event.target.value, ...(isEditing ? {} : { slug: accessoryAdminSlug(event.target.value) }) })} placeholder="Ví dụ: Áo mưa cánh dơi hai mũ" className={inputClass} />
         </label>
         <label className={labelClass}>Đường dẫn <span className="text-red-500">*</span>
-          <input readOnly value={draft.slug} maxLength={220} placeholder="ao-mua-canh-doi-hai-mu" className={`${inputClass} bg-slate-50 text-slate-600`} />
-          <span className="mt-1 block text-xs font-normal text-slate-500">{isEditing ? 'Giữ nguyên để không thay đổi URL sản phẩm đã phát hành.' : 'Tự sinh từ tên. Nếu bị trùng, hãy đổi tên phụ kiện.'}</span>
+          <input disabled value={draft.slug} maxLength={220} placeholder="ao-mua-canh-doi-hai-mu" className={`${inputClass} bg-slate-100 text-slate-500 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100`} />
         </label>
       </div>
       <label className={labelClass}>Mô tả sản phẩm <span className="text-red-500">*</span>
