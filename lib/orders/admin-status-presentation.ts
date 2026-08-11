@@ -47,7 +47,7 @@ export function cancelledOrderStatusPresentation(
   refundStatus: AdminOrderRefundStatus,
 ): AdminOrderStatusPresentation {
   if (refundStatus === 'COMPLETED') return presentation('Đã hủy, đã hoàn tiền', 'success')
-  if (refundStatus === 'PENDING') return presentation('Đã hủy, chờ hoàn tiền', 'refundPending')
+  if (refundStatus === 'PENDING') return presentation('Đã hủy, chờ admin xác nhận hoàn tiền', 'refundPending')
   return presentation('Đã hủy', 'cancelled')
 }
 
@@ -108,7 +108,7 @@ export function vehicleOrderStatusPresentation(
   const labels: Record<string, [string, AdminOrderStatusTone]> = {
     CONFIRMED: ['Đã xác nhận', 'info'],
     Confirmed: ['Đã xác nhận', 'info'],
-    PENDING_CONTRACT: [input.vehicleType === 'motorbike' ? 'Chờ xác nhận đặt mua' : 'Chờ ký HĐ', 'contract'],
+    PENDING_CONTRACT: ['Chờ ký hợp đồng', 'contract'],
     CONTRACT_SIGNED: ['Chờ nhận xe', 'success'],
     WAITING_VEHICLE: ['Chờ xe sẵn sàng', 'waiting'],
     PREPARING_DELIVERY: ['Chờ giao xe', 'fulfillment'],

@@ -561,6 +561,21 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi lưu phiên bản sản phẩm: ${pvUpsertError.message}` }, { status: 500 })
   }
 
+  // 5.1 Ensure inventory_items exist for all these variants so they are not out of stock
+  const inventoryRows = productVariantRows.map((r: any) => ({
+    variant_id: r.id,
+    on_hand_quantity: 100,
+    updated_at: new Date().toISOString()
+  }))
+
+  const { error: invUpsertError } = await supabase
+    .from('inventory_items')
+    .upsert(inventoryRows, { onConflict: 'variant_id', ignoreDuplicates: true })
+
+  if (invUpsertError) {
+    console.warn('Failed to upsert default inventory for variants:', invUpsertError)
+  }
+
   const { error: vvUpsertError } = await supabase
     .from('vehicle_variants')
     .upsert(vehicleVariantRows, { onConflict: 'id' })

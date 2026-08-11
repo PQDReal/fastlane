@@ -197,7 +197,7 @@ export default function NewMotorbikePage() {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        setForm(JSON.parse(saved))
+        setForm({ ...initialFormState, ...JSON.parse(saved) })
         notify('success', 'Đã khôi phục bản nháp', 'Dữ liệu trước đó đã được tải lại thành công.')
       } catch (e) {
         notify('error', 'Khôi phục bản nháp thất bại')
@@ -566,7 +566,7 @@ export default function NewMotorbikePage() {
                 className="h-4 w-4 accent-slate-900 rounded focus:ring-brand-500 cursor-pointer"
               />
               <label htmlFor="is_active" className="text-sm font-semibold text-slate-700 cursor-pointer select-none">
-                Kích hoạt hiển thị sản phẩm ngay sau khi tạo
+                Hiển thị
               </label>
             </div>
           </div>

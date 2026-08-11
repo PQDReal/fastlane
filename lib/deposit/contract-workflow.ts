@@ -17,7 +17,7 @@ type ContractOrderLike = {
 export const DEPOSIT_ORDER_JOURNEY_STEPS = [
   'Chờ xét duyệt',
   'Xác thực KYC',
-  'Xác nhận đặt mua',
+  'Ký hợp đồng',
   'Chờ xe',
   'Nhận xe',
 ] as const
@@ -38,8 +38,8 @@ export function getDepositContractMode(order: ContractOrderLike): DepositContrac
 }
 export function contractStageCopy(mode: DepositContractMode) {
   if (mode === 'BIKE_PURCHASE_TERMS') return {
-    status: 'Xác nhận thỏa thuận đặt mua: Thông tin đơn hàng đã sẵn sàng. Vui lòng xem và xác nhận.',
-    action: 'Xem & Xác nhận đặt mua',
+    status: 'Ký hợp đồng: Thỏa thuận đặt mua đã sẵn sàng. Vui lòng xem và xác nhận.',
+    action: 'Xem & Ký hợp đồng',
     title: 'THỎA THUẬN ĐẶT MUA XE MÁY ĐIỆN VINFAST',
     consent: 'Tôi đã đọc, hiểu rõ và đồng ý với các điều khoản của Thỏa thuận đặt mua xe máy điện VinFast.',
   }

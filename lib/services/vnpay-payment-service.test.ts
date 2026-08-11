@@ -2,13 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getSupabaseAdmin: vi.fn(),
-  refundCancelledDepositOrder: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase-admin', () => ({ getSupabaseAdmin: mocks.getSupabaseAdmin }))
-vi.mock('@/lib/services/vnpay-refund-service', () => ({
-  refundCancelledDepositOrder: mocks.refundCancelledDepositOrder,
-}))
 vi.mock('@/lib/mailer', () => ({
   sendPaymentSuccessEmail: vi.fn(),
 }))
@@ -76,7 +72,6 @@ describe('VNPAY deposit callback ownership', () => {
     expect(result.success).toBe(true)
     expect(result.orderKind).toBe('deposit')
     expect(db.rpc).not.toHaveBeenCalled()
-    expect(mocks.refundCancelledDepositOrder).not.toHaveBeenCalled()
   })
 
   it('uses the atomic database command for an IPN success', async () => {
@@ -99,7 +94,7 @@ describe('VNPAY deposit callback ownership', () => {
     }))
   })
 
-  it('queues a provider refund when payment arrives after cancellation', async () => {
+  it('waits for admin confirmation when payment arrives after cancellation', async () => {
     const db = supabaseFor({
       attempt_status: 'PAID',
       order_status: 'CANCELLED',
@@ -108,16 +103,9 @@ describe('VNPAY deposit callback ownership', () => {
       replayed: false,
     })
     mocks.getSupabaseAdmin.mockReturnValue(db.client)
-    mocks.refundCancelledDepositOrder.mockResolvedValue({ refundStatus: 'PENDING' })
-
     const result = await processVnPayCallback(params)
 
     expect(result.success).toBe(false)
-    expect(result.message).toContain('chờ hoàn tiền')
-    expect(mocks.refundCancelledDepositOrder).toHaveBeenCalledWith({
-      orderId: attempt.deposit_order_id,
-      requestedBy: 'SYSTEM:VNPAY_IPN',
-      clientIp: '127.0.0.1',
-    })
+    expect(result.message).toContain('chờ quản trị viên xác nhận hoàn tiền')
   })
 })

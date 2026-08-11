@@ -14,7 +14,7 @@ describe('deposit contract workflow', () => {
     expect(DEPOSIT_ORDER_JOURNEY_STEPS).toEqual([
       'Chờ xét duyệt',
       'Xác thực KYC',
-      'Xác nhận đặt mua',
+      'Ký hợp đồng',
       'Chờ xe',
       'Nhận xe',
     ])

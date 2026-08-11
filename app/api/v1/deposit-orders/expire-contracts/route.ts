@@ -4,7 +4,6 @@ import { randomUUID } from 'node:crypto'
 import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { notifyCustomerContractExpired } from '@/lib/notifications/server'
-import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 
 export async function POST(request: Request) {
   try {
@@ -51,21 +50,7 @@ export async function POST(request: Request) {
         })
       }
 
-      let refundStatus = order.refund_status
-      if (order.refund_status === 'PENDING') {
-        try {
-          const refund = await refundCancelledDepositOrder({
-            orderId: order.order_id,
-            requestedBy: 'SYSTEM:contract-expiry',
-            clientIp: '127.0.0.1',
-          })
-          refundStatus = refund.refundStatus
-        } catch (error) {
-          console.error(`Unable to start automatic refund for expired order ${order.order_id}:`, error)
-        }
-      }
-
-      results.push({ id: order.order_id, status: 'EXPIRED', orderNumber: order.order_number, refundStatus })
+      results.push({ id: order.order_id, status: 'EXPIRED', orderNumber: order.order_number, refundStatus: order.refund_status })
     }
 
     return NextResponse.json({

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, Filter, Search } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { AdminOrderDetailDrawer } from './order-detail-drawer'
 import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
+import { reconcileDepositRefund } from './actions'
 import type { OrderCancellationAudit } from '@/lib/orders/cancellation-audit'
 import {
   vehicleOrderStatusPresentation,
@@ -22,6 +23,8 @@ export type AdminOrderRow = {
   status: string
   payment: string
   refundStatus: AdminOrderRefundStatus
+  refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
+  refundNextCheckAt: string | null
   kyc_status?: string | null
   kyc_session_id?: string | null
   createdAt: string
@@ -46,6 +49,7 @@ export function AdminOrdersClient({
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('All')
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderRow | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const refundPollingRef = useRef(false)
   
   const [toasts, setToasts] = useState<ToastMessage[]>([])
 
@@ -62,6 +66,7 @@ export function AdminOrdersClient({
     const id = Date.now()
     setToasts((items) => [...items, { ...toast, id }])
     if (duration > 0) setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), duration)
+    return id
   }, [])
 
   const closeOrderDetail = useCallback(() => {
@@ -69,9 +74,43 @@ export function AdminOrdersClient({
   }, [])
 
   const handleOrderUpdated = useCallback(() => {
-    setSelectedOrder(null)
     router.refresh()
   }, [router])
+
+  useEffect(() => {
+    setSelectedOrder((current) => current ? orders.find((order) => order.id === current.id) ?? null : null)
+  }, [orders])
+
+  useEffect(() => {
+    const processingOrders = orders.filter((order) => order.status === 'CANCELLED'
+      && order.refundStatus === 'PENDING'
+      && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? ''))
+    if (!processingOrders.length) return
+
+    const now = Date.now()
+    const nextOrder = [...processingOrders].sort((a, b) =>
+      new Date(a.refundNextCheckAt ?? 0).getTime() - new Date(b.refundNextCheckAt ?? 0).getTime())[0]
+    const eligibleAt = new Date(nextOrder.refundNextCheckAt ?? 0).getTime()
+    const delay = Math.max(500, Number.isFinite(eligibleAt) ? eligibleAt - now : 0)
+    const timer = window.setTimeout(async () => {
+      if (refundPollingRef.current) return
+      refundPollingRef.current = true
+      try {
+        const result = await reconcileDepositRefund(nextOrder.id)
+        if (result.success && 'attemptStatus' in result) {
+          if (result.attemptStatus === 'COMPLETED') {
+            showToast({ kind: 'success', title: 'Hoàn tiền thành công', message: nextOrder.orderNumber })
+          } else if (result.attemptStatus === 'FAILED') {
+            showToast({ kind: 'error', title: 'Hoàn tiền thất bại', message: `${nextOrder.orderNumber}. Bạn có thể thử gửi lại yêu cầu.` })
+          }
+        }
+        router.refresh()
+      } finally {
+        refundPollingRef.current = false
+      }
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [orders, router, showToast])
 
   const filteredOrders = orders.filter(o => {
     if (!o.isCar) return false;
@@ -157,7 +196,7 @@ export function AdminOrdersClient({
                   <option value="PENDING_DEPOSIT">Chờ cọc</option>
                   <option value="PENDING_CONFIRMATION">Chờ xét duyệt cọc</option>
                   <option value="CONFIRMED">Đã xác nhận</option>
-                  <option value="PENDING_CONTRACT">Chờ ký HĐ</option>
+                  <option value="PENDING_CONTRACT">Chờ ký hợp đồng</option>
                   <option value="CONTRACT_SIGNED">Đã ký HĐ</option>
                   <option value="WAITING_VEHICLE">Chờ xe sẵn sàng</option>
                   <option value="PREPARING_DELIVERY">Chờ giao xe</option>
@@ -255,6 +294,7 @@ export function AdminOrdersClient({
         onClose={closeOrderDetail}
         onOrderUpdated={handleOrderUpdated}
         onShowToast={showToast}
+        onDismissToast={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}
       />
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
+import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin, RotateCcw } from 'lucide-react'
 import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
 import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { AdminOrderRow } from './orders-client'
@@ -11,6 +11,7 @@ import {
   notifyVehicleReadyForDelivery,
   runDepositDebugAction,
   updateOrderStatus,
+  syncKycStatus,
   type DepositDebugAction,
 } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
@@ -25,10 +26,11 @@ type OrderDetailDrawerProps = {
   isOpen: boolean
   onClose: () => void
   onOrderUpdated: () => void
-  onShowToast: (toast: Omit<ToastMessage, 'id'>) => void
+  onShowToast: (toast: Omit<ToastMessage, 'id'>, duration?: number) => number
+  onDismissToast: (id: number) => void
 }
 
-export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast }: OrderDetailDrawerProps) {
+export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast, onDismissToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -61,6 +63,8 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   const d = order.rawDeposit
   const isMotorbike = d.vehicle_type === 'motorbike'
   const hasIssuedDocumentProjection = Boolean(d.contract_issued_at && d.contract_signature_due_at)
+  const isRefundProcessing = order.refundStatus === 'PENDING'
+    && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')
   const statusPresentation = vehicleOrderStatusPresentation({
     status: order.status,
     refundStatus: order.refundStatus,
@@ -166,13 +170,38 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   }
 
   const requestConfirmRefund = () => {
-    onShowToast({
-      title: 'Xác nhận hoàn tiền?',
-      message: 'Hệ thống sẽ gửi yêu cầu hoàn tiền đặt cọc đến VNPay.',
+    let toastId = 0
+    toastId = onShowToast({
+      title: 'Hoàn tiền qua VNPay?',
+      message: `Hoàn toàn bộ ${formatMoney(order.amount)} cho đơn ${order.orderNumber}. Thao tác có thể không thể thu hồi.`,
       kind: 'warning',
-      secondaryAction: { label: 'Kiểm tra lại', onClick: () => undefined },
-      action: { label: 'Xác nhận hoàn tiền', onClick: () => void handleConfirmRefund() },
-    })
+      secondaryAction: { label: 'Để sau', onClick: () => onDismissToast(toastId) },
+      action: {
+        label: 'Gửi yêu cầu hoàn tiền',
+        variant: 'danger',
+        onClick: () => {
+          onDismissToast(toastId)
+          void handleConfirmRefund()
+        },
+      },
+    }, 0)
+  }
+
+  const handleSyncKyc = async () => {
+    setIsUpdating(true)
+    try {
+      const res = await syncKycStatus(order.id)
+      if (res.success) {
+        onShowToast({ kind: 'success', title: 'Thành công', message: res.message || 'Đã đồng bộ KYC' })
+        onOrderUpdated()
+      } else {
+        onShowToast({ kind: 'error', title: 'Thất bại', message: res.error || 'Lỗi đồng bộ KYC' })
+      }
+    } catch (error: any) {
+      onShowToast({ kind: 'error', title: 'Lỗi', message: error.message || 'Đã xảy ra lỗi hệ thống' })
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const requestCancelOrder = () => {
@@ -256,7 +285,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   ) : null}
                 </div>
                 {order.kyc_status === 'REVIEW' && order.kyc_session_id && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-col gap-2">
                     <a 
                       href={`https://business.didit.me/sessions/${order.kyc_session_id}`}
                       target="_blank"
@@ -265,6 +294,13 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                     >
                       Duyệt KYC trên Didit ↗
                     </a>
+                    <button
+                      onClick={handleSyncKyc}
+                      disabled={isUpdating}
+                      className="w-full text-center py-2 px-4 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      {isUpdating ? 'Đang đồng bộ...' : 'Đồng bộ kết quả từ Didit'}
+                    </button>
                   </div>
                 )}
                 <div className="space-y-3 text-sm">
@@ -381,14 +417,20 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
             {/* Footer Actions */}
             <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               <div className="flex flex-col gap-3">
-                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus !== 'COMPLETED' && (
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && isRefundProcessing && (
+                  <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                    <RotateCcw size={16} className="animate-spin" />
+                    Đang tự động kiểm tra hoàn tiền
+                  </div>
+                )}
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus === 'PENDING' && !isRefundProcessing && (
                   <button
                     onClick={requestConfirmRefund}
                     disabled={isUpdating}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <CheckCircle2 size={16} />
-                    {isUpdating ? 'Đang gửi VNPay...' : 'Xác nhận hoàn tiền'}
+                    <RotateCcw size={16} />
+                    {isUpdating ? 'Đang gửi VNPay...' : order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Xác nhận hoàn tiền'}
                   </button>
                 )}
                 {nextAction && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
@@ -446,13 +488,22 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700">
                     <span>Đang chờ khách hàng thanh toán qua VNPAY</span>
                     {debugActionsEnabled && (
-                      <button
-                        onClick={() => handleDebugAction('mock_deposit_paid')}
-                        disabled={isUpdating}
-                        className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
-                      >
-                        (Debug) Xác nhận cọc
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDebugAction('mock_deposit_paid')}
+                          disabled={isUpdating}
+                          className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          (Debug) Xác nhận cọc
+                        </button>
+                        <button
+                          onClick={() => handleDebugAction('mock_confirm_order')}
+                          disabled={isUpdating}
+                          className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          (Debug) Test: Đã xét duyệt
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

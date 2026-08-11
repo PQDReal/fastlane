@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { reconstructMotorbikeAdminVersions } from '@/lib/motorbike-admin-variants'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -78,13 +79,11 @@ export async function GET(request: Request, context: Context) {
     detail_image_urls,
     specifications: specsObj.specs || {},
     colors: specsObj.color_details || [],
-    versions: (productVariants || []).map((v: any) => ({
-      id: v.id,
-      name: v.name,
-      sku: v.sku,
-      price: Number(v.original_price),
-      deposit_amount: Number(v.deposit_amount),
-    })),
+    versions: reconstructMotorbikeAdminVersions(
+      productVariants || [],
+      specsObj.variants,
+      specsObj.color_details || [],
+    ),
     landing_page_blocks: specsObj.landing_page_blocks || [],
   }
 
@@ -212,25 +211,33 @@ export async function PATCH(request: Request, context: Context) {
   const vvMap = new Map(existingVV?.map((r) => [r.sku, r.id]) || [])
 
   // 3. Form new rows
-  const productVariantRows = versions.map((version: any) => ({
-    id: pvMap.get(version.sku) || randomUUID(),
-    product_id: productId,
-    sku: version.sku,
-    name: version.name,
-    original_price: version.price,
-    sale_price: null,
-    is_active: is_active,
-    option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    metadata: { source: 'admin_motorbike_edit' },
-    deposit_amount: version.deposit_amount,
-  }))
+  const productVariantRows = versions.flatMap((version: any) =>
+    colors.map((colorItem: any, colorIndex: number) => {
+      const sku = `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`
+      return {
+        id: pvMap.get(sku) || randomUUID(),
+        product_id: productId,
+        sku,
+        name: `${version.name} - ${colorItem.color_name}`,
+        original_price: version.price,
+        sale_price: null,
+        is_active: is_active,
+        option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        metadata: { source: 'admin_motorbike_edit', version: version.name, color: colorItem.color_name },
+        deposit_amount: version.deposit_amount,
+      }
+    }),
+  )
 
   const vehicleVariantRows: any[] = []
   const generatedAt = new Date().toISOString()
 
-  productVariantRows.forEach((variantRow: any, versionIndex: number) => {
-    colors.forEach((colorItem: any, colorIndex: number) => {
-      const sku = `${variantRow.sku}-C${String(colorIndex + 1).padStart(2, '0')}`
+  productVariantRows.forEach((variantRow: any, rowIndex: number) => {
+      const versionIndex = Math.floor(rowIndex / colors.length)
+      const colorIndex = rowIndex % colors.length
+      const originalVersion = versions[versionIndex]
+      const colorItem = colors[colorIndex]
+      const sku = variantRow.sku
       const catalogSpecs = {
         ...formattedSpecs,
         catalog: {
@@ -255,23 +262,21 @@ export async function PATCH(request: Request, context: Context) {
         product_name: name,
         deposit_amount: variantRow.deposit_amount,
         specs: catalogSpecs,
-        variant_name: `${name} ${variantRow.name} - ${colorItem.color_name}`,
+        variant_name: `${name} ${originalVersion.name} - ${colorItem.color_name}`,
         sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
         image_car_url: colorItem.image_url,
         image_color_url: colorItem.swatch,
-        version: variantRow.name,
+        version: originalVersion.name,
         is_active: is_active,
       })
-    })
   })
 
   // 4. Perform deletions
   const newPvSkus = productVariantRows.map((r: any) => r.sku)
   const existingPvSkus = existingPV?.map((r) => r.sku) || []
-  const expectedColourSkus = vehicleVariantRows.map((r: any) => r.sku)
-  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s) && !expectedColourSkus.includes(s))
+  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s))
 
   if (pvSkusToDelete.length > 0) {
     const { error: pvDelError } = await supabase
@@ -370,6 +375,33 @@ export async function DELETE(request: Request, context: Context) {
   }
 
   const supabase = getSupabaseAdmin()
+
+  // Never start a destructive cascade when the product is already part of a
+  // deposit order. The database would reject the final product deletion, but
+  // without this preflight all child variants and inventory would already be
+  // gone by then.
+  const { data: referencedDeposit, error: depositReferenceError } = await supabase
+    .from('deposit_orders')
+    .select('id')
+    .eq('product_id', productId)
+    .limit(1)
+    .maybeSingle()
+
+  if (depositReferenceError) {
+    return NextResponse.json(
+      { error: `Không thể kiểm tra đơn đặt cọc liên quan: ${depositReferenceError.message}` },
+      { status: 500 },
+    )
+  }
+  if (referencedDeposit) {
+    return NextResponse.json(
+      {
+        error: 'Sản phẩm đã phát sinh đơn đặt cọc nên không thể xóa. Hãy chuyển sản phẩm sang trạng thái ngừng hoạt động.',
+        code: 'PRODUCT_IN_USE',
+      },
+      { status: 409 },
+    )
+  }
 
   // 1. Get variant IDs to delete child records first
   const { data: variants } = await supabase
