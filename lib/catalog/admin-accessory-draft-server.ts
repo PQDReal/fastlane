@@ -114,6 +114,9 @@ export async function getAdminAccessoryDraft(ownerUserId: string, draftId: strin
 }
 
 export async function saveAdminAccessoryDraft(ownerUserId: string, input: AccessoryDraftWriteInput) {
+  if (input.draftId && input.expectedRevision === undefined) {
+    throw new ApiRouteError(428, 'DRAFT_REVISION_REQUIRED', 'Thiếu revision để bảo vệ bản nháp khỏi bị ghi đè.')
+  }
   const rawDraft = input.draft as Record<string, unknown>
   const rawRootCategoryId = typeof rawDraft.rootCategoryId === 'string' && UUID_PATTERN.test(rawDraft.rootCategoryId)
     ? rawDraft.rootCategoryId
