@@ -159,7 +159,10 @@ function accessoryPlaceholder(
   product: CatalogProduct,
   variantId: string | null | undefined,
   placeholderUrl?: string,
+  allowPlaceholder = true,
 ): CatalogResolvedMedia[] {
+  if (!allowPlaceholder) return []
+
   return [{
     url: placeholderUrl ?? CATALOG_PLACEHOLDER_IMAGE,
     altText: product.name,
@@ -172,6 +175,7 @@ function accessoryPlaceholder(
 function accessoryFallbackMedia(
   product: CatalogProduct,
   placeholderUrl?: string,
+  allowPlaceholder = true,
 ): CatalogResolvedMedia[] {
   if (product.media.product.length > 0) {
     return resolvedRows(product.media.product, 'PRODUCT')
@@ -187,7 +191,7 @@ function accessoryFallbackMedia(
     }))
   }
 
-  return accessoryPlaceholder(product, null, placeholderUrl)
+  return accessoryPlaceholder(product, null, placeholderUrl, allowPlaceholder)
 }
 
 /**
@@ -200,6 +204,7 @@ export function resolveCatalogMedia(
     variantId?: string | null
     selectedOptions?: CatalogSelection
     placeholderUrl?: string
+    allowPlaceholder?: boolean
   } = {},
 ): CatalogResolvedMedia[] {
   const variantMedia = options.variantId
@@ -211,7 +216,11 @@ export function resolveCatalogMedia(
   // legacy image scopes are transitional fallbacks for old accessory rows that
   // have not yet been backfilled into product_media.
   if (product.productType === 'ACCESSORY') {
-    return accessoryFallbackMedia(product, options.placeholderUrl)
+    return accessoryFallbackMedia(
+      product,
+      options.placeholderUrl,
+      options.allowPlaceholder !== false,
+    )
   }
 
   const variantSelection = options.variantId
@@ -239,6 +248,8 @@ export function resolveCatalogMedia(
       source: 'LEGACY',
     }))
   }
+
+  if (options.allowPlaceholder === false) return []
 
   return [{
     url: options.placeholderUrl ?? CATALOG_PLACEHOLDER_IMAGE,
