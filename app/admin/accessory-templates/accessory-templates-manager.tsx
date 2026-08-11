@@ -115,6 +115,14 @@ function freshSection(): AccessoryTemplateSectionDefinition {
   return { key: `section_${Date.now()}`, type: definition.value, title: definition.defaultTitle, attributes: [] }
 }
 
+function cloneSections(sections: AccessoryTemplateSectionDefinition[]) {
+  return sections.map((section) => ({
+    ...section,
+    attributes: (section.attributes ?? []).map((attribute) => ({ ...attribute })),
+    items: section.items ? [...section.items] : undefined,
+  }))
+}
+
 export function AccessoryTemplatesManager() {
   const [templates, setTemplates] = useState<AdminAccessoryTemplate[]>([])
   const [lookups, setLookups] = useState<TemplateLookups>({ groups: [], categories: [] })
@@ -124,6 +132,9 @@ export function AccessoryTemplatesManager() {
   const [editing, setEditing] = useState<AdminAccessoryTemplate | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [open, setOpen] = useState(false)
+  const [contentEditorOpen, setContentEditorOpen] = useState(false)
+  const [contentEditorSections, setContentEditorSections] = useState<AccessoryTemplateSectionDefinition[]>([])
+  const [activeContentSectionKey, setActiveContentSectionKey] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -176,12 +187,14 @@ export function AccessoryTemplatesManager() {
   function openCreate() {
     setEditing(null)
     setForm({ ...EMPTY_FORM, suggestedCategorySlugs: [], sections: [], optionGroups: [] })
+    setContentEditorOpen(false)
     setOpen(true)
   }
 
   function openEdit(template: AdminAccessoryTemplate) {
     setEditing(template)
     setForm(formFromTemplate(template))
+    setContentEditorOpen(false)
     setOpen(true)
   }
 
@@ -189,54 +202,86 @@ export function AccessoryTemplatesManager() {
     const next = formFromTemplate(template)
     setEditing(null)
     setForm({ ...next, code: '', name: `${next.name} (bản sao)`, isActive: true })
+    setContentEditorOpen(false)
     setOpen(true)
   }
 
   function closeModal() {
-    if (!saving) setOpen(false)
+    if (!saving) {
+      setContentEditorOpen(false)
+      setOpen(false)
+    }
   }
 
-  function updateSection(index: number, patch: Partial<AccessoryTemplateSectionDefinition>) {
-    setForm((current) => ({
-      ...current,
-      sections: current.sections.map((section, sectionIndex) => sectionIndex === index ? { ...section, ...patch } : section),
-    }))
+  function openContentEditor() {
+    const sections = cloneSections(form.sections)
+    setContentEditorSections(sections)
+    setActiveContentSectionKey(sections[0]?.key ?? null)
+    setContentEditorOpen(true)
   }
 
-  function addAttribute(sectionIndex: number) {
-    setForm((current) => ({
-      ...current,
-      sections: current.sections.map((section, index) => index === sectionIndex
-        ? { ...section, attributes: [...(section.attributes ?? []), { key: `attribute_${(section.attributes?.length ?? 0) + 1}`, label: '', defaultValue: '' }] }
-        : section),
-    }))
+  function closeContentEditor() {
+    if (!saving) setContentEditorOpen(false)
   }
 
-  function removeAttribute(sectionIndex: number, attributeIndex: number) {
-    setForm((current) => ({
-      ...current,
-      sections: current.sections.map((section, index) => index === sectionIndex
-        ? { ...section, attributes: (section.attributes ?? []).filter((_, currentIndex) => currentIndex !== attributeIndex) }
-        : section),
-    }))
+  function applyContentEditor() {
+    const invalidSection = contentEditorSections.find((section) => !section.title.trim() || !section.type.trim())
+    if (invalidSection) {
+      setActiveContentSectionKey(invalidSection.key)
+      notify('warning', 'Cần hoàn thiện tên và loại của mục nội dung')
+      return
+    }
+    const invalidAttributeSection = contentEditorSections.find((section) => (section.attributes ?? []).some((attribute) => !attribute.label.trim()))
+    if (invalidAttributeSection) {
+      setActiveContentSectionKey(invalidAttributeSection.key)
+      notify('warning', 'Cần nhập tên cho thuộc tính đã thêm')
+      return
+    }
+    setForm((current) => ({ ...current, sections: cloneSections(contentEditorSections) }))
+    setContentEditorOpen(false)
   }
 
-  function updateAttribute(sectionIndex: number, attributeIndex: number, patch: { label?: string; defaultValue?: string }) {
-    setForm((current) => ({
-      ...current,
-      sections: current.sections.map((section, index) => index === sectionIndex
-        ? {
-          ...section,
-          attributes: (section.attributes ?? []).map((attribute, currentIndex) => currentIndex === attributeIndex
-            ? {
-              ...attribute,
-              ...patch,
-              ...(patch.label === undefined ? {} : { key: attributeKeyFromLabel(patch.label, attribute.key) }),
-            }
-            : attribute),
-        }
-        : section),
-    }))
+  function addContentSection() {
+    const section = freshSection()
+    setContentEditorSections((current) => [...current, section])
+    setActiveContentSectionKey(section.key)
+  }
+
+  function removeContentSection(sectionKey: string) {
+    const next = contentEditorSections.filter((section) => section.key !== sectionKey)
+    setContentEditorSections(next)
+    if (activeContentSectionKey === sectionKey) setActiveContentSectionKey(next[0]?.key ?? null)
+  }
+
+  function updateSection(sectionKey: string, patch: Partial<AccessoryTemplateSectionDefinition>) {
+    setContentEditorSections((current) => current.map((section) => section.key === sectionKey ? { ...section, ...patch } : section))
+  }
+
+  function addAttribute(sectionKey: string) {
+    setContentEditorSections((current) => current.map((section) => section.key === sectionKey
+      ? { ...section, attributes: [...(section.attributes ?? []), { key: `attribute_${(section.attributes?.length ?? 0) + 1}`, label: '', defaultValue: '' }] }
+      : section))
+  }
+
+  function removeAttribute(sectionKey: string, attributeIndex: number) {
+    setContentEditorSections((current) => current.map((section) => section.key === sectionKey
+      ? { ...section, attributes: (section.attributes ?? []).filter((_, currentIndex) => currentIndex !== attributeIndex) }
+      : section))
+  }
+
+  function updateAttribute(sectionKey: string, attributeIndex: number, patch: { label?: string; defaultValue?: string }) {
+    setContentEditorSections((current) => current.map((section) => section.key === sectionKey
+      ? {
+        ...section,
+        attributes: (section.attributes ?? []).map((attribute, currentIndex) => currentIndex === attributeIndex
+          ? {
+            ...attribute,
+            ...patch,
+            ...(patch.label === undefined ? {} : { key: attributeKeyFromLabel(patch.label, attribute.key) }),
+          }
+          : attribute),
+      }
+      : section))
   }
 
   function selectedGroupValue() {
@@ -281,6 +326,7 @@ export function AccessoryTemplatesManager() {
         if (!metadataResponse.ok) throw new Error(await responseError(metadataResponse))
         notify('success', 'Đã cập nhật mẫu phụ kiện')
       }
+      setContentEditorOpen(false)
       setOpen(false)
       await loadData()
     } catch (error) {
@@ -341,6 +387,10 @@ export function AccessoryTemplatesManager() {
   }
 
   const generatedCode = accessoryTemplateCodeFromName(form.name)
+  const activeContentSection = contentEditorSections.find((section) => section.key === activeContentSectionKey) ?? null
+  const activeContentSectionIndex = activeContentSection
+    ? contentEditorSections.findIndex((section) => section.key === activeContentSection.key)
+    : -1
 
   return (
     <div className="min-w-0 space-y-6">
@@ -368,7 +418,7 @@ export function AccessoryTemplatesManager() {
         </tbody></table></div>
       </section>
 
-      <AdminModalPortal><AnimatePresence>{open && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal() }}><motion.div role="dialog" aria-modal="true" aria-labelledby="accessory-template-dialog-title" className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
+      <AdminModalPortal><AnimatePresence>{open && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div role="dialog" aria-modal="true" aria-labelledby="accessory-template-dialog-title" className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
         <form onSubmit={submit}>
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 sm:px-6"><div><h2 id="accessory-template-dialog-title" className="text-lg font-bold text-slate-950">{editing ? 'Sửa mẫu phụ kiện' : 'Tạo mẫu phụ kiện'}</h2><p className="mt-1 text-xs text-slate-500">{editing ? `Lưu sẽ tạo phiên bản v${editing.currentVersion + 1}.` : 'Mã mẫu và thứ tự hiển thị sẽ được hệ thống tự sinh.'}</p><p className="mt-1 text-xs text-slate-500"><span className="font-bold text-red-500" aria-hidden="true">*</span> Trường bắt buộc</p></div><button type="button" onClick={closeModal} disabled={saving} aria-label="Đóng" className="rounded p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button></div>
           <div className="space-y-6 p-5 sm:p-6">
@@ -390,14 +440,25 @@ export function AccessoryTemplatesManager() {
                 {categoryOptions.length === 0 && <p className="border border-dashed border-slate-200 p-4 text-sm text-slate-500">Chưa có danh mục taxonomy hoạt động.</p>}
               </div>
             </fieldset>
-            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-slate-900">Mục nội dung & thuộc tính <span className="text-xs font-normal text-slate-500">(không bắt buộc)</span></h3><p className="mt-1 text-xs leading-5 text-slate-500">Các trường này sẽ được chuẩn bị sẵn khi tạo phụ kiện. Mã thuộc tính được tự sinh từ tên.</p></div><Button type="button" variant="outline" size="sm" onClick={() => setForm((current) => ({ ...current, sections: [...current.sections, freshSection()] }))} disabled={saving}><Plus size={14} className="mr-1" />Thêm mục</Button></div>
-              <div className="mt-4 space-y-4">{form.sections.map((section, sectionIndex) => <div key={`${section.key}-${sectionIndex}`} className="rounded-lg border border-slate-200 bg-white p-4"><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_15rem_auto]"><label className={labelClass}>Tên mục <span className="text-red-500" aria-hidden="true">*</span><input required value={section.title} disabled={saving} onChange={(event) => updateSection(sectionIndex, { title: event.target.value })} className={inputClass} /></label><label className={labelClass}>Loại nội dung <span className="text-red-500" aria-hidden="true">*</span><select required value={section.type} disabled={saving} onChange={(event) => { const next = ACCESSORY_SECTION_TYPES.find((item) => item.value === event.target.value); updateSection(sectionIndex, { type: event.target.value as AccessoryTemplateSectionDefinition['type'], title: next?.defaultTitle ?? section.title }) }} className={inputClass}>{ACCESSORY_SECTION_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label><button type="button" onClick={() => setForm((current) => ({ ...current, sections: current.sections.filter((_, index) => index !== sectionIndex) }))} disabled={saving} aria-label="Xóa mục" className="mt-7 rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button></div><label className={`${labelClass} mt-3`}>Placeholder nội dung <span className="text-xs font-normal text-slate-500">(không bắt buộc)</span><textarea value={section.bodyPlaceholder ?? ''} disabled={saving} onChange={(event) => updateSection(sectionIndex, { bodyPlaceholder: event.target.value })} placeholder="Nội dung mặc định nếu cần..." className="mt-1.5 min-h-16 w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-500" /></label><div className="mt-4 rounded-md border border-dashed border-slate-200 p-3"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Thuộc tính định sẵn <span className="font-normal normal-case text-slate-500">(nếu thêm)</span></span><button type="button" onClick={() => addAttribute(sectionIndex)} disabled={saving} className="inline-flex items-center gap-1 text-xs font-bold text-brand-700"><Plus size={13} className="mr-1" />Thêm thuộc tính</button></div><div className="mt-2 space-y-2">{(section.attributes ?? []).map((attribute, attributeIndex) => <div key={`${attribute.key}-${attributeIndex}`} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem]"><label className="block"><span className="mb-1 block text-[11px] font-semibold text-slate-600">Tên thuộc tính <span className="text-red-500" aria-hidden="true">*</span></span><input aria-label="Tên thuộc tính" required value={attribute.label} disabled={saving} onChange={(event) => updateAttribute(sectionIndex, attributeIndex, { label: event.target.value })} placeholder="Vật liệu" className="h-9 w-full rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-brand-500" /></label><label className="block"><span className="mb-1 block text-[11px] font-semibold text-slate-600">Giá trị mặc định <span className="font-normal text-slate-500">(không bắt buộc)</span></span><input aria-label="Giá trị mặc định" value={attribute.defaultValue ?? ''} disabled={saving} onChange={(event) => updateAttribute(sectionIndex, attributeIndex, { defaultValue: event.target.value })} placeholder="Nhập nếu có" className="h-9 w-full rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-brand-500" /></label><button type="button" onClick={() => removeAttribute(sectionIndex, attributeIndex)} disabled={saving} aria-label="Xóa thuộc tính" className="mt-5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600"><X size={15} className="mx-auto" /></button></div>)}</div></div></div>)}{form.sections.length === 0 && <div className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500"><Layers3 className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-2">Chưa có mục nội dung. Mẫu này sẽ bắt đầu trắng.</p></div>}</div>
-            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-slate-900">Mục nội dung & thuộc tính <span className="text-xs font-normal text-slate-500">(không bắt buộc)</span></h3><p className="mt-1 text-xs leading-5 text-slate-500">Chỉnh sửa trong dialog rộng riêng để không làm dài form chính. Các thay đổi chỉ được áp dụng khi bấm “Áp dụng”.</p>{form.sections.length > 0 ? <div className="mt-3 flex flex-wrap gap-2">{form.sections.slice(0, 4).map((section) => <span key={section.key} className="rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600">{section.title || 'Mục chưa đặt tên'}</span>)}{form.sections.length > 4 && <span className="rounded-md bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600">+{form.sections.length - 4} mục</span>}</div> : <p className="mt-3 text-xs text-slate-500">Chưa có mục nội dung. Mẫu này sẽ bắt đầu trắng.</p>}</div><Button type="button" variant="outline" size="sm" onClick={openContentEditor} disabled={saving}><Layers3 size={14} className="mr-1" />{form.sections.length > 0 ? 'Mở trình chỉnh sửa' : 'Thêm mục'}</Button></div></div>
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.isActive} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} className="h-4 w-4 accent-slate-900" />Cho phép chọn khi thêm phụ kiện</label>
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-6"><Button type="button" variant="outline" onClick={closeModal} disabled={saving}>Hủy</Button><Button type="submit" disabled={saving}>{saving && <Loader2 size={15} className="mr-2 animate-spin" />}{editing ? 'Lưu phiên bản' : 'Tạo mẫu'}</Button></div>
         </form>
       </motion.div></motion.div>}</AnimatePresence></AdminModalPortal>
+
+      <AdminModalPortal><AnimatePresence>
+        {contentEditorOpen && <motion.div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div role="dialog" aria-modal="true" aria-labelledby="accessory-template-content-dialog-title" className="flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Trình chỉnh sửa</p><h2 id="accessory-template-content-dialog-title" className="mt-1 text-xl font-bold text-slate-950">Mục nội dung & thuộc tính</h2><p className="mt-1 text-sm text-slate-500"><span className="font-bold text-red-500" aria-hidden="true">*</span> Tên và loại mục bắt buộc; thuộc tính đã thêm phải có tên.</p></div><button type="button" onClick={closeContentEditor} disabled={saving} aria-label="Đóng trình chỉnh sửa" className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><X size={19} /></button></header>
+            <div className="min-h-0 flex-1 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
+              <aside className="border-b border-slate-200 bg-slate-50/70 p-3 lg:border-b-0 lg:border-r"><div className="flex items-center justify-between gap-3 px-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{contentEditorSections.length} mục</span><button type="button" onClick={addContentSection} disabled={saving} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-bold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><Plus size={14} />Thêm mục</button></div><div className="mt-3 flex max-h-48 gap-2 overflow-x-auto lg:max-h-none lg:block lg:space-y-1 lg:overflow-y-auto">{contentEditorSections.map((section, index) => { const selected = section.key === activeContentSectionKey; const typeLabel = ACCESSORY_SECTION_TYPES.find((type) => type.value === section.type)?.label ?? section.type; return <button key={section.key} type="button" aria-pressed={selected} onClick={() => setActiveContentSectionKey(section.key)} className={`flex min-h-14 min-w-48 items-center rounded-lg px-3 py-2 text-left transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:w-full lg:min-w-0 ${selected ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white/80 hover:text-slate-950'}`}><span className="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">{index + 1}</span><span className="min-w-0"><span className="block truncate text-sm font-semibold">{section.title || 'Mục chưa đặt tên'}</span><span className="mt-0.5 block truncate text-[11px] text-slate-500">{typeLabel}</span></span></button> })}{contentEditorSections.length === 0 && <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500 lg:mt-3">Chưa có mục nào.</div>}</div><button type="button" onClick={addContentSection} disabled={saving} className="mt-3 hidden min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-xs font-bold text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:flex"><Plus size={14} />Thêm mục nội dung</button></aside>
+              <div className="min-h-0 overflow-y-auto p-5 sm:p-6">{activeContentSection ? <div className="mx-auto max-w-4xl space-y-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Mục {activeContentSectionIndex + 1}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{activeContentSection.title || 'Mục chưa đặt tên'}</h3></div><button type="button" onClick={() => removeContentSection(activeContentSection.key)} disabled={saving} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 size={14} />Xóa mục</button></div><div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_16rem]"><label className={labelClass}>Tên mục <span className="text-red-500" aria-hidden="true">*</span><input required value={activeContentSection.title} disabled={saving} onChange={(event) => updateSection(activeContentSection.key, { title: event.target.value })} className={inputClass} /></label><label className={labelClass}>Loại nội dung <span className="text-red-500" aria-hidden="true">*</span><select required value={activeContentSection.type} disabled={saving} onChange={(event) => { const next = ACCESSORY_SECTION_TYPES.find((item) => item.value === event.target.value); updateSection(activeContentSection.key, { type: event.target.value as AccessoryTemplateSectionDefinition['type'], title: next?.defaultTitle ?? activeContentSection.title }) }} className={inputClass}>{ACCESSORY_SECTION_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label></div><label className={labelClass}>Placeholder nội dung <span className="text-xs font-normal text-slate-500">(không bắt buộc)</span><textarea value={activeContentSection.bodyPlaceholder ?? ''} disabled={saving} onChange={(event) => updateSection(activeContentSection.key, { bodyPlaceholder: event.target.value })} placeholder="Nội dung mặc định nếu cần..." className={`${textareaClass} min-h-28`} /></label><section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-bold text-slate-900">Thuộc tính định sẵn <span className="text-xs font-normal text-slate-500">(nếu thêm)</span></h4><p className="mt-1 text-xs text-slate-500">Tên thuộc tính là bắt buộc; giá trị mặc định có thể bỏ trống.</p></div><button type="button" onClick={() => addAttribute(activeContentSection.key)} disabled={saving} className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-bold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><Plus size={14} />Thêm thuộc tính</button></div><div className="mt-4 space-y-3">{(activeContentSection.attributes ?? []).map((attribute, attributeIndex) => <div key={`${attribute.key}-${attributeIndex}`} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem]"><label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Tên thuộc tính <span className="text-red-500" aria-hidden="true">*</span></span><input aria-label="Tên thuộc tính" required value={attribute.label} disabled={saving} onChange={(event) => updateAttribute(activeContentSection.key, attributeIndex, { label: event.target.value })} placeholder="Vật liệu" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></label><label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Giá trị mặc định <span className="font-normal text-slate-500">(không bắt buộc)</span></span><input aria-label="Giá trị mặc định" value={attribute.defaultValue ?? ''} disabled={saving} onChange={(event) => updateAttribute(activeContentSection.key, attributeIndex, { defaultValue: event.target.value })} placeholder="Nhập nếu có" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></label><button type="button" onClick={() => removeAttribute(activeContentSection.key, attributeIndex)} disabled={saving} aria-label="Xóa thuộc tính" className="mt-6 rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"><X size={16} className="mx-auto" /></button></div>)}{(activeContentSection.attributes ?? []).length === 0 && <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Chưa có thuộc tính định sẵn.</div>}</div></section></div> : <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 p-8 text-center"><Layers3 className="h-10 w-10 text-slate-300" /><h3 className="mt-3 font-bold text-slate-800">Chưa có mục nội dung</h3><p className="mt-1 max-w-md text-sm text-slate-500">Thêm mục để chuẩn bị nội dung và thuộc tính dùng lại khi tạo phụ kiện.</p><Button type="button" className="mt-4" onClick={addContentSection} disabled={saving}><Plus size={15} className="mr-1" />Thêm mục</Button></div>}</div>
+            </div>
+            <footer className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-6"><Button type="button" variant="outline" onClick={closeContentEditor} disabled={saving}>Hủy</Button><Button type="button" onClick={applyContentEditor} disabled={saving}>Áp dụng thay đổi</Button></footer>
+          </motion.div>
+        </motion.div>}
+      </AnimatePresence></AdminModalPortal>
     </div>
   )
 }
