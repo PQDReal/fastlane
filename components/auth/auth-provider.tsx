@@ -3,6 +3,8 @@
 import { Auth0Provider } from '@auth0/nextjs-auth0/client'
 import { SWRConfig } from 'swr'
 
+import { PreviewAuthExpiryGuard } from './preview-auth-expiry-guard'
+
 export function FastLaneAuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <SWRConfig
@@ -11,7 +13,10 @@ export function FastLaneAuthProvider({ children }: { children: React.ReactNode }
         revalidateOnFocus: false,
       }}
     >
-      <Auth0Provider>{children}</Auth0Provider>
+      <Auth0Provider>
+        <PreviewAuthExpiryGuard />
+        {children}
+      </Auth0Provider>
     </SWRConfig>
   )
 }

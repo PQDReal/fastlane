@@ -51,6 +51,18 @@ export function hasValidDeploymentBasicAuth(
   }
 }
 
+export function hasValidDeploymentBasicAuthCredentials(
+  username: string,
+  password: string,
+  config: DeploymentBasicAuthConfig,
+) {
+  return config.enabled
+    && typeof config.username === 'string'
+    && typeof config.password === 'string'
+    && username === config.username
+    && password === config.password
+}
+
 function encodeBase64Url(bytes: Uint8Array) {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)

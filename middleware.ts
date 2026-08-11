@@ -3,10 +3,7 @@ import { NextResponse } from 'next/server'
 
 import { auth0 } from './lib/auth0'
 import {
-  createDeploymentBasicAuthCookie,
   DEPLOYMENT_BASIC_AUTH_COOKIE,
-  DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
-  hasValidDeploymentBasicAuth,
   hasValidDeploymentBasicAuthCookie,
   isDeploymentBasicAuthExempt,
   readDeploymentBasicAuthConfig,
@@ -15,11 +12,17 @@ import {
   isCartMutationRequest,
   requiresLocalUserValidation,
 } from './lib/auth/middleware-policy'
+import {
+  PREVIEW_AUTH_REQUIRED_CODE,
+  PREVIEW_AUTH_REQUIRED_HEADER,
+  PREVIEW_AUTH_RETRY_PATH,
+  PREVIEW_AUTH_STATUS_PATH,
+} from './lib/auth/preview-auth-protocol'
 import { toPublicAppUrl } from './lib/auth/app-base-url'
 import { findUserByAuth0Subject, findUserByEmail } from './lib/services/user-service'
 
 const swaggerOrigins = new Set(['http://127.0.0.1:8080'])
-const BASIC_AUTH_RETRY_PATH = '/__preview-auth/retry'
+const BASIC_AUTH_SESSION_PATH = '/api/preview-auth/session'
 
 function applyCorsHeaders(response: NextResponse, origin: string) {
   response.headers.set('access-control-allow-origin', origin)
@@ -49,105 +52,44 @@ function clearSessionCookies(request: NextRequest, response: NextResponse) {
 }
 
 export async function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === BASIC_AUTH_RETRY_PATH) {
-    const basicAuthConfig = readDeploymentBasicAuthConfig()
-    const authorization = request.headers.get('authorization')
-    if (hasValidDeploymentBasicAuth(authorization, basicAuthConfig)) {
-      const cookie = await createDeploymentBasicAuthCookie(basicAuthConfig)
-      const requestedReturnTo = request.nextUrl.searchParams.get('returnTo')
-      const returnTo = requestedReturnTo?.startsWith('/')
-        && !requestedReturnTo.startsWith('//')
-        ? requestedReturnTo
-        : '/'
-      const response = NextResponse.redirect(new URL(returnTo, toPublicAppUrl(request.url, process.env, request.headers)))
-      if (cookie) {
-        response.cookies.set({
-          name: DEPLOYMENT_BASIC_AUTH_COOKIE,
-          value: cookie,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
-        })
-      }
-      response.headers.set('cache-control', 'no-store')
-      return response
-    }
-
-    return new NextResponse('Nhập lại thông tin truy cập môi trường.', {
-      status: 401,
-      headers: {
-        'cache-control': 'no-store',
-        'www-authenticate': 'Basic realm="FastLane Preview Retry", charset="UTF-8"',
-      },
-    })
+  if (
+    request.nextUrl.pathname === PREVIEW_AUTH_RETRY_PATH
+    || request.nextUrl.pathname === BASIC_AUTH_SESSION_PATH
+  ) {
+    return NextResponse.next()
   }
 
   if (!isDeploymentBasicAuthExempt(request.nextUrl.pathname, request.method)) {
     const basicAuthConfig = readDeploymentBasicAuthConfig()
-    const authorization = request.headers.get('authorization')
     const hasValidCookie = await hasValidDeploymentBasicAuthCookie(
       request.cookies.get(DEPLOYMENT_BASIC_AUTH_COOKIE)?.value,
       basicAuthConfig,
     )
-    const hasValidCredentials = hasValidDeploymentBasicAuth(
-      authorization,
-      basicAuthConfig,
-    )
-    if (!hasValidCookie && !hasValidCredentials) {
-      const credentialsWereSupplied = authorization?.startsWith('Basic ') === true
+    if (basicAuthConfig.enabled && !hasValidCookie) {
       const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`
-      const retryHref = `${BASIC_AUTH_RETRY_PATH}?returnTo=${encodeURIComponent(returnTo)}`
-      return new NextResponse(
-        credentialsWereSupplied
-          ? `<!doctype html>
-<html lang="vi">
-  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Không thể truy cập</title></head>
-  <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#111;color:#fff;font-family:system-ui,sans-serif">
-    <main style="max-width:420px;padding:32px;text-align:center">
-      <h1 style="font-size:22px">Thông tin đăng nhập không đúng</h1>
-      <p style="color:#cbd5e1;line-height:1.6">Tên đăng nhập hoặc mật khẩu môi trường không chính xác.</p>
-      <a href="${retryHref}" style="display:inline-block;margin-top:12px;border-radius:10px;background:#e19200;padding:12px 20px;color:#111;text-decoration:none;font-weight:700">Đăng nhập lại</a>
-    </main>
-  </body>
-</html>`
-          : 'Yêu cầu xác thực để truy cập môi trường này.',
+      const retryHref = `${PREVIEW_AUTH_RETRY_PATH}?returnTo=${encodeURIComponent(returnTo)}`
+      const acceptsHtml = request.headers.get('accept')?.includes('text/html') === true
+      if ((request.method === 'GET' || request.method === 'HEAD') && acceptsHtml) {
+        return NextResponse.redirect(new URL(retryHref, toPublicAppUrl(request.url, process.env, request.headers)))
+      }
+      return NextResponse.json(
+        { error: { code: 'PREVIEW_AUTH_REQUIRED', message: 'Phiên truy cập môi trường đã hết hạn.' } },
         {
-          status: credentialsWereSupplied ? 403 : 401,
+          status: 401,
           headers: {
             'cache-control': 'no-store',
-            ...(credentialsWereSupplied ? { 'content-type': 'text/html; charset=utf-8' } : {}),
-            ...(credentialsWereSupplied
-              ? {}
-              : { 'www-authenticate': 'Basic realm="FastLane Preview", charset="UTF-8"' }),
+            [PREVIEW_AUTH_REQUIRED_HEADER]: PREVIEW_AUTH_REQUIRED_CODE,
           },
         },
       )
     }
+  }
 
-    if (
-      basicAuthConfig.enabled
-      && !hasValidCookie
-      && hasValidCredentials
-      && (request.method === 'GET' || request.method === 'HEAD')
-    ) {
-      const cookie = await createDeploymentBasicAuthCookie(basicAuthConfig)
-      if (cookie) {
-        const response = NextResponse.redirect(toPublicAppUrl(request.url, process.env, request.headers))
-        response.cookies.set({
-          name: DEPLOYMENT_BASIC_AUTH_COOKIE,
-          value: cookie,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
-        })
-        response.headers.set('cache-control', 'no-store')
-        return response
-      }
-    }
+  if (request.nextUrl.pathname === PREVIEW_AUTH_STATUS_PATH) {
+    return new NextResponse(null, {
+      status: 204,
+      headers: { 'cache-control': 'no-store' },
+    })
   }
 
   const origin = request.headers.get('origin')
