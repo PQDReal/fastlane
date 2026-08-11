@@ -70,6 +70,7 @@ function normalizeValue(value: unknown, index: number): DraftOptionValue {
     name: typeof row.name === 'string' ? row.name : '',
     colorHex: typeof row.colorHex === 'string' ? row.colorHex : '',
     swatchUrl: typeof row.swatchUrl === 'string' ? row.swatchUrl : '',
+    imageUrls: strings(row.imageUrls),
   }
 }
 
@@ -83,7 +84,8 @@ function normalizeGroup(value: unknown, index: number): DraftOptionGroup {
     name: typeof row.name === 'string' ? row.name : '',
     displayType: row.displayType === 'SWATCH' || row.displayType === 'SELECT' ? row.displayType : 'BUTTON',
     minimumSelections: Number.isInteger(row.minimumSelections) ? Number(row.minimumSelections) : legacyRequired ? 1 : 0,
-    maximumSelections: 1,
+    maximumSelections: Number.isInteger(row.maximumSelections) ? Number(row.maximumSelections) : 1,
+    mediaEnabled: typeof row.mediaEnabled === 'boolean' ? row.mediaEnabled : undefined,
     values: Array.isArray(row.values) ? row.values.map(normalizeValue) : [],
   }
 }
@@ -129,6 +131,9 @@ export function normalizeAdminAccessoryDraft(
     primaryCollectionSlug: typeof row.primaryCollectionSlug === 'string' ? row.primaryCollectionSlug : '',
     modelCollectionSlugs: strings(row.modelCollectionSlugs),
     productImageUrls: strings(row.productImageUrls).length > 0 ? strings(row.productImageUrls) : [''],
+    mediaOptionGroupId: typeof row.mediaOptionGroupId === 'string'
+      ? row.mediaOptionGroupId
+      : row.mediaOptionGroupId === null ? null : undefined,
     name: typeof row.name === 'string' ? row.name : '',
     slug: typeof row.slug === 'string' ? row.slug : '',
     description: typeof row.description === 'string' ? row.description : '',

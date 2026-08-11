@@ -64,10 +64,10 @@ import {
 import type { AdminAccessoryTemplate } from '@/lib/catalog/admin-accessory-template-types'
 import { applyDatabaseAccessoryTemplateToDraft } from '@/lib/catalog/admin-accessory-template-draft'
 import {
-  ADMIN_ACCESSORY_SESSION_KEY,
-  restoreAdminAccessoryDraft,
-  serializeAdminAccessoryDraft,
-} from '@/lib/catalog/admin-accessory-session'
+  archiveAdminAccessoryDraft,
+  listAdminAccessoryDrafts,
+  saveAdminAccessoryDraft,
+} from '@/lib/api/admin-accessory-drafts-client'
 import { validateAdminAccessoryDraft } from '@/lib/catalog/admin-accessory-validation'
 import {
   adminAccessoryDraftToWriteRequest,
@@ -78,6 +78,11 @@ import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 const inputClass = 'mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400'
 const textareaClass = 'mt-1.5 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100'
 const labelClass = 'block text-sm font-semibold text-slate-700'
+
+function newDraftClientKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padStart(12, '0')}`
+}
 const VARIANT_BULK_EDITING_ENABLED = true
 
 function draftId(prefix: string) {
@@ -1492,6 +1497,15 @@ export function AccessoryProductCreateDialog({
   const [taxonomyError, setTaxonomyError] = useState<string | null>(null)
   const [taxonomyReloadKey, setTaxonomyReloadKey] = useState(0)
   const [hasLocalDraft, setHasLocalDraft] = useState(false)
+  const [latestDraftId, setLatestDraftId] = useState<string | null>(null)
+  const [draftRecordId, setDraftRecordId] = useState<string | undefined>()
+  const [draftClientKey, setDraftClientKey] = useState(() => newDraftClientKey())
+  const [draftRevision, setDraftRevision] = useState<number | undefined>()
+  const [draftSyncStatus, setDraftSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+  const draftSaveTimerRef = useRef<number | null>(null)
+  const draftSaveSequenceRef = useRef(0)
+  const lastSavedDraftRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
   const reviewTriggerRef = useRef<HTMLButtonElement>(null)
@@ -1506,6 +1520,12 @@ export function AccessoryProductCreateDialog({
     setPendingSuggestedCategoryTemplate(null)
     setReviewDecisionOpen(false)
     setSaving(false)
+    setDraftRecordId(undefined)
+    setDraftClientKey(newDraftClientKey())
+    setDraftRevision(undefined)
+    setDraftSyncStatus('idle')
+    setDraftSavedAt(null)
+    lastSavedDraftRef.current = null
   }, [expectedUpdatedAt, open, productId, rootCategoryId])
 
   useEffect(() => {
@@ -1571,8 +1591,27 @@ export function AccessoryProductCreateDialog({
 
   useEffect(() => {
     if (!open) return
-    setHasLocalDraft(!isEditing && Boolean(window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)))
-  }, [isEditing, open])
+    if (isEditing) {
+      setHasLocalDraft(false)
+      return
+    }
+    let cancelled = false
+    listAdminAccessoryDrafts()
+      .then((records) => {
+        if (cancelled) return
+        const record = records.find((item) => !item.rootCategoryId || item.rootCategoryId === rootCategoryId)
+        setHasLocalDraft(Boolean(record))
+        setLatestDraftId(record?.id ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setHasLocalDraft(false)
+      })
+    return () => { cancelled = true }
+  }, [isEditing, open, rootCategoryId])
+
+  useEffect(() => () => {
+    if (draftSaveTimerRef.current !== null) window.clearTimeout(draftSaveTimerRef.current)
+  }, [])
 
   useEffect(() => {
     if (!open || !pendingSuggestedCategoryTemplate || taxonomyCollections.length === 0) return
@@ -1602,6 +1641,19 @@ export function AccessoryProductCreateDialog({
     const baseline = initialDraft ? initialDraft : accessoryDraftWithRootCategory(rootCategoryId)
     onDirtyChange(JSON.stringify(draft) !== JSON.stringify(baseline))
   }, [draft, initialDraft, onDirtyChange, rootCategoryId])
+
+  useEffect(() => {
+    if (!open || isEditing || view !== 'edit' || draftSyncStatus === 'saving') return
+    const hasUsefulContent = Boolean(draft.name.trim() || draft.description.trim() || draft.categoryAssignments.length || draft.sections.length || draft.optionGroups.length)
+    if (!hasUsefulContent) return
+    const fingerprint = JSON.stringify(draft)
+    if (lastSavedDraftRef.current === fingerprint) return
+    if (draftSaveTimerRef.current !== null) window.clearTimeout(draftSaveTimerRef.current)
+    draftSaveTimerRef.current = window.setTimeout(() => { void saveDraftToDb(draft, false) }, 900)
+    return () => {
+      if (draftSaveTimerRef.current !== null) window.clearTimeout(draftSaveTimerRef.current)
+    }
+  }, [draft, draftSyncStatus, isEditing, open, view])
 
   const validationIssues = useMemo(() => validateAdminAccessoryDraft(draft), [draft])
   const activeDbTemplate = accessoryTemplates.find((template) => template.id === draft.templateVersionId)
@@ -1647,43 +1699,76 @@ export function AccessoryProductCreateDialog({
     setReviewDecisionOpen(false)
   }
 
-  function saveLocalDraft(nextDraft = draft, notify = true) {
+  async function saveDraftToDb(nextDraft = draft, notify = true) {
+    const sequence = ++draftSaveSequenceRef.current
+    setDraftSyncStatus('saving')
     try {
-      window.sessionStorage.setItem(ADMIN_ACCESSORY_SESSION_KEY, serializeAdminAccessoryDraft(nextDraft))
+      const record = await saveAdminAccessoryDraft({
+        draftId: draftRecordId,
+        clientKey: draftClientKey,
+        draft: nextDraft,
+        productId: productId ?? null,
+        expectedRevision: draftRevision,
+      })
+      if (sequence !== draftSaveSequenceRef.current) return false
+      setDraftRecordId(record.id)
+      setLatestDraftId(record.id)
+      setDraftRevision(record.revision)
       setHasLocalDraft(true)
-      if (notify) onNotify('success', 'Đã lưu bản nháp cục bộ', 'Bản mẫu chỉ tồn tại trong phiên trình duyệt hiện tại.')
+      setDraftSavedAt(record.updatedAt)
+      setDraftSyncStatus('saved')
+      lastSavedDraftRef.current = JSON.stringify(nextDraft)
+      if (notify) onNotify('success', 'Đã lưu bản nháp', 'Bản nháp được lưu trên hệ thống và có thể khôi phục ở phiên sau.')
       return true
-    } catch {
-      onNotify('error', 'Không thể lưu bản nháp', 'Bộ nhớ phiên trình duyệt không khả dụng hoặc đã đầy.')
+    } catch (error) {
+      if (sequence === draftSaveSequenceRef.current) {
+        setDraftSyncStatus('error')
+        if (notify) onNotify('error', 'Không thể lưu bản nháp', error instanceof Error ? error.message : undefined)
+      }
       return false
     }
   }
 
-  function restoreLocalDraft() {
-    const serialized = window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)
-    if (!serialized) {
-      setHasLocalDraft(false)
-      onNotify('warning', 'Không có bản nháp cục bộ', 'Hãy lưu bản nháp trước khi khôi phục.')
-      return
-    }
+  async function restoreLocalDraft() {
     try {
-      const restoredDraft = restoreAdminAccessoryDraft(serialized, rootCategoryId)
-      setDraft(restoredDraft)
-      setTemplateCandidate(restoredDraft.templateCode)
+      const records = await listAdminAccessoryDrafts()
+      const record = records.find((item) => item.id === latestDraftId && (!item.rootCategoryId || item.rootCategoryId === rootCategoryId))
+        ?? records.find((item) => !item.rootCategoryId || item.rootCategoryId === rootCategoryId)
+      if (!record) throw new Error('Hãy lưu bản nháp trước khi khôi phục.')
+      setDraftRecordId(record.id)
+      setDraftClientKey(record.clientKey)
+      setDraftRevision(record.revision)
+      setDraftSavedAt(record.updatedAt)
+      setDraftSyncStatus('saved')
+      lastSavedDraftRef.current = JSON.stringify(record.draft)
+      setDraft(record.draft)
+      setTemplateCandidate(record.draft.templateVersionId ?? record.draft.templateCode)
       setTemplateCommitted(true)
       setPendingSuggestedCategoryTemplate(null)
       setView('edit')
-      onNotify('success', 'Đã khôi phục bản nháp', 'Dữ liệu đã được nạp từ phiên trình duyệt hiện tại.')
+      onNotify('success', 'Đã khôi phục bản nháp', 'Dữ liệu đã được nạp từ hệ thống.')
     } catch (error) {
+      setHasLocalDraft(false)
       onNotify('error', 'Không thể khôi phục bản nháp', error instanceof Error ? error.message : 'Dữ liệu bản nháp không hợp lệ.')
     }
   }
 
   function clearLocalDraft() {
-    onConfirmDestructive('Xóa bản nháp cục bộ?', 'Bản nháp trong phiên trình duyệt sẽ không thể khôi phục sau khi xóa.', () => {
-      window.sessionStorage.removeItem(ADMIN_ACCESSORY_SESSION_KEY)
-      setHasLocalDraft(false)
-      onNotify('success', 'Đã xóa bản nháp cục bộ')
+    const id = draftRecordId ?? latestDraftId
+    onConfirmDestructive('Xóa bản nháp?', 'Bản nháp trên hệ thống sẽ được đưa vào lưu trữ và không còn xuất hiện khi khôi phục.', async () => {
+      if (!id) return
+      try {
+        await archiveAdminAccessoryDraft(id, draftRevision)
+        setHasLocalDraft(false)
+        setLatestDraftId(null)
+        if (id === draftRecordId) {
+          setDraftRecordId(undefined)
+          setDraftRevision(undefined)
+        }
+        onNotify('success', 'Đã xóa bản nháp')
+      } catch (error) {
+        onNotify('error', 'Không thể xóa bản nháp', error instanceof Error ? error.message : undefined)
+      }
     })
   }
 
@@ -1739,7 +1824,14 @@ export function AccessoryProductCreateDialog({
       if (typeof saved.id !== 'string' || typeof saved.updatedAt !== 'string' || typeof saved.isActive !== 'boolean') {
         throw new Error('Kết quả lưu sản phẩm không hợp lệ.')
       }
-      if (!isEditing) window.sessionStorage.removeItem(ADMIN_ACCESSORY_SESSION_KEY)
+      if (!isEditing && draftRecordId) {
+        try {
+          await archiveAdminAccessoryDraft(draftRecordId, draftRevision)
+          setHasLocalDraft(false)
+        } catch {
+          onNotify('warning', 'Sản phẩm đã lưu nhưng chưa dọn bản nháp', 'Bạn có thể xóa bản nháp này ở lần mở form sau.')
+        }
+      }
       setReviewDecisionOpen(false)
       onSaved({
         id: saved.id,
@@ -1862,7 +1954,7 @@ export function AccessoryProductCreateDialog({
             </main>
 
             <footer className="flex items-center gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-              <div className="min-w-0 flex-1">{view === 'template' ? (templateCommitted ? <Button type="button" variant="outline" disabled={saving} onClick={() => { setTemplateCandidate(draft.templateCode); setView('edit') }}><ChevronLeft size={16} className="mr-2" />Quay lại form</Button> : <button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50">Đổi loại sản phẩm</button>) : view === 'preview' ? <Button type="button" variant="outline" disabled={saving} onClick={() => setView('edit')}><ChevronLeft size={16} className="mr-2" />Quay lại chỉnh sửa</Button> : !isEditing ? <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50 sm:hidden">Đổi loại</button><Button type="button" variant="outline" disabled={saving} onClick={() => saveLocalDraft()}><Save size={15} className="mr-2" />Lưu cục bộ</Button><Button type="button" variant="outline" disabled={!hasLocalDraft || saving} onClick={restoreLocalDraft}><RotateCcw size={15} className="mr-2" />Khôi phục</Button>{hasLocalDraft && <button type="button" disabled={saving} onClick={clearLocalDraft} className="px-2 py-2 text-xs font-semibold text-slate-500 transition hover:text-red-600 disabled:opacity-50">Xóa nháp</button>}</div> : <span className="text-xs font-semibold text-slate-500">Mọi thay đổi sẽ được kiểm tra lại trước khi lưu.</span>}</div>
+              <div className="min-w-0 flex-1">{view === 'template' ? (templateCommitted ? <Button type="button" variant="outline" disabled={saving} onClick={() => { setTemplateCandidate(draft.templateCode); setView('edit') }}><ChevronLeft size={16} className="mr-2" />Quay lại form</Button> : <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50">Đổi loại sản phẩm</button>{hasLocalDraft && <Button type="button" variant="outline" disabled={saving} onClick={() => void restoreLocalDraft()}><RotateCcw size={15} className="mr-2" />Khôi phục nháp</Button>}</div>) : view === 'preview' ? <Button type="button" variant="outline" disabled={saving} onClick={() => setView('edit')}><ChevronLeft size={16} className="mr-2" />Quay lại chỉnh sửa</Button> : !isEditing ? <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50 sm:hidden">Đổi loại</button><Button type="button" variant="outline" disabled={draftSyncStatus === 'saving' || saving} onClick={() => void saveDraftToDb()}><Save size={15} className="mr-2" />Lưu nháp</Button><Button type="button" variant="outline" disabled={!hasLocalDraft || saving} onClick={() => void restoreLocalDraft()}><RotateCcw size={15} className="mr-2" />Khôi phục</Button>{hasLocalDraft && <button type="button" disabled={saving} onClick={clearLocalDraft} className="px-2 py-2 text-xs font-semibold text-slate-500 transition hover:text-red-600 disabled:opacity-50">Xóa nháp</button>}{draftSyncStatus === 'saving' && <span className="text-xs font-medium text-slate-500">Đang lưu…</span>}{draftSyncStatus === 'saved' && <span className="text-xs font-medium text-emerald-600">Đã lưu trên hệ thống</span>}{draftSyncStatus === 'error' && <span className="text-xs font-medium text-red-600">Chưa đồng bộ</span>}</div> : <span className="text-xs font-semibold text-slate-500">Mọi thay đổi sẽ được kiểm tra lại trước khi lưu.</span>}</div>
               {view !== 'template' && <span className="hidden text-xs font-semibold text-slate-500 md:inline">{reviewBlockers.length === 0 ? 'Đã đủ thông tin bắt buộc' : `Còn ${reviewBlockers.length} mục trước khi hiển thị`}</span>}
               {view === 'template' ? <Button type="button" disabled={!templateCandidate || saving} onClick={confirmTemplateSelection}>{templateSelectionChanges ? 'Áp dụng và tiếp tục' : 'Tiếp tục'}</Button> : view === 'preview' ? <button ref={reviewTriggerRef} type="button" disabled={saving} onClick={() => setReviewDecisionOpen(true)} className="inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:opacity-50"><Check size={16} className="mr-2" />{isEditing ? 'Lưu' : 'Duyệt'}</button> : <Button type="button" disabled={saving} onClick={() => setView('preview')}><Eye size={16} className="mr-2" />Xem trước</Button>}
             </footer>
@@ -1873,8 +1965,7 @@ export function AccessoryProductCreateDialog({
               triggerRef={reviewTriggerRef}
               onClose={() => { if (!saving) setReviewDecisionOpen(false) }}
               onSaveDraft={isEditing ? undefined : () => {
-                saveLocalDraft()
-                setReviewDecisionOpen(false)
+                void saveDraftToDb().then((saved) => { if (saved) setReviewDecisionOpen(false) })
               }}
               onPublish={() => void persistReview()}
               mode={isEditing ? 'edit' : 'create'}
