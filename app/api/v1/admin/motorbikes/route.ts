@@ -58,7 +58,6 @@ export async function POST(request: Request) {
     name,
     slug,
     description,
-    is_active = true,
     listing_image_url,
     hero_image_url,
     detail_image_urls = [],
@@ -67,6 +66,7 @@ export async function POST(request: Request) {
     versions = [],
     landing_page_blocks = [],
   } = body
+  const isActive = body.is_active === true
 
   // Basic validation
   if (!name?.trim() || !slug?.trim()) {
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
       slug,
       description,
       product_type: 'BIKE',
-      is_active,
+      is_active: isActive,
       specifications: formattedSpecs,
       image_urls,
       displayed_price: displayedPrice,
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
       name: `${version.name} - ${colorItem.color_name}`,
       original_price: version.price,
       sale_price: null,
-      is_active: is_active,
+      is_active: isActive,
       option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       metadata: { source: 'admin_motorbike_creation', version: version.name, color: colorItem.color_name },
       deposit_amount: version.deposit_amount,
@@ -223,7 +223,7 @@ export async function POST(request: Request) {
         image_car_url: colorItem.image_url,
         image_color_url: colorItem.swatch,
         version: origVersion.name,
-        is_active: is_active,
+        is_active: isActive,
         product_variant_id: variantRow.id,
       })
   })
