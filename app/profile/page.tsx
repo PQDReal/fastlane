@@ -15,7 +15,12 @@ import { ProductOptionSummary } from '@/components/product-option-summary'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { getMyProfile, updateMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import type { AccessoryOrder, AccessoryOrderSummary } from '@/lib/cart/types'
-import { contractStageCopy, getDepositContractMode, hasIssuedDepositDocumentProjection } from '@/lib/deposit/contract-workflow'
+import {
+  contractStageCopy,
+  DEPOSIT_ORDER_JOURNEY_STEPS,
+  getDepositContractMode,
+  hasIssuedDepositDocumentProjection,
+} from '@/lib/deposit/contract-workflow'
 
 function OrderItemThumbnail({ src, productName }: { src: string | null; productName: string }) {
   const [failed, setFailed] = useState(false)
@@ -439,7 +444,7 @@ function ProfileContent() {
         'PENDING_DEPOSIT': 'Chờ cọc',
         'PENDING_CONFIRMATION': 'Chờ xét duyệt cọc',
         'CONFIRMED': 'Đã xác nhận',
-        'PENDING_CONTRACT': isMotorbike ? 'Chờ xác nhận đặt mua' : 'Chờ ký hợp đồng',
+        'PENDING_CONTRACT': 'Chờ ký hợp đồng',
         'CONTRACT_SIGNED': 'Chờ nhận xe',
         'WAITING_VEHICLE': 'Chờ xe sẵn sàng',
         'PREPARING_DELIVERY': 'Chờ giao xe',
@@ -562,13 +567,13 @@ function ProfileContent() {
                     if (activeTab === 'car-orders') {
                       const status = order.status;
                       const vVariant = order.depositDetails?.vehicleVariant;
-                      const isMotorbikeOrder = order.vehicleType === 'motorbike'
-                        || (vVariant as any)?.product_type === 'motorbike';
-                      const contractCopy = contractStageCopy(getDepositContractMode({
+                      const contractMode = getDepositContractMode({
                         vehicle_type: order.vehicleType,
                         car_variant: order.carVariant,
                         vehicle_variants: vVariant,
-                      }));
+                      });
+                      const isMotorbikeOrder = contractMode === 'BIKE_PURCHASE_TERMS';
+                      const contractCopy = contractStageCopy(contractMode);
                       const hasContractDocument = hasIssuedDepositDocumentProjection(
                         order.contractIssuedAt,
                         order.contractSignatureDueAt,
@@ -715,13 +720,10 @@ function ProfileContent() {
                         ? step <= currentStepIdx
                         : step < currentStepIdx;
 
-                      const stepsList = [
-                        { step: 1, label: '1. Chờ xét duyệt' },
-                        { step: 2, label: '2. Xác thực KYC' },
-                        { step: 3, label: isMotorbikeOrder ? '3. Xác nhận đặt mua' : '3. Ký hợp đồng' },
-                        { step: 4, label: '4. Chờ xe' },
-                        { step: 5, label: '5. Nhận xe' },
-                      ];
+                      const stepsList = DEPOSIT_ORDER_JOURNEY_STEPS.map((label, index) => ({
+                        step: index + 1,
+                        label: `${index + 1}. ${label}`,
+                      }));
 
                       const stateBox = (
                         <div className="w-full space-y-3">

@@ -296,7 +296,7 @@ export function ContractViewer({ order, onSign, onSendOtp, canSign = false }: Co
             size="default"
             className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
           >
-            {isSendingOtp ? 'Đang gửi mã...' : contractMode === 'CAR_SALES' ? 'Ký hợp đồng' : 'Xác nhận thỏa thuận'}
+            {isSendingOtp ? 'Đang gửi mã...' : 'Ký hợp đồng'}
           </Button>
         </div>
       ) : isSigned ? (

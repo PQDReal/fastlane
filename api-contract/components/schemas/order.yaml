@@ -4,7 +4,7 @@ PaymentTransactionType: { type: string, enum: [charge, refund] }
 PaymentTransactionStage: { type: string, enum: [initial, balance, cancellation] }
 PaymentTransactionStatus: { type: string, enum: [pending, succeeded, failed] }
 RefundStatus: { type: string, enum: [NotRequired, Pending, PartiallyRefunded, Refunded, Failed] }
-CancellationActor: { type: string, enum: [customer, admin, system] }
+CancellationActor: { type: string, enum: [customer, admin, system, unknown], description: unknown is reserved for legacy cancellations whose actor cannot be reconstructed safely. }
 CancellationReason:
   type: string
   enum: [changed_mind, configuration_change, payment_unavailable, duplicate_order, payment_deadline_expired, inventory_unavailable, admin_decision, other]

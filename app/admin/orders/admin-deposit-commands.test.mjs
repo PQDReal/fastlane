@@ -5,6 +5,7 @@ const source = readFileSync(new URL('./actions.ts', import.meta.url), 'utf8')
 const drawerSource = readFileSync(new URL('./order-detail-drawer.tsx', import.meta.url), 'utf8')
 const clientSource = readFileSync(new URL('./orders-client.tsx', import.meta.url), 'utf8')
 const pageSource = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8')
+const statusPresentationSource = readFileSync(new URL('../../../lib/orders/admin-status-presentation.ts', import.meta.url), 'utf8')
 const refundServiceSource = readFileSync(new URL('../../../lib/services/vnpay-refund-service.ts', import.meta.url), 'utf8')
 const customerCancellationSource = readFileSync(new URL('../../api/v1/deposit-orders/[orderId]/route.ts', import.meta.url), 'utf8')
 const expirySource = readFileSync(new URL('../../api/v1/deposit-orders/expire-contracts/route.ts', import.meta.url), 'utf8')
@@ -53,7 +54,9 @@ describe('admin deposit commands', () => {
   })
 
   it('uses the cancelled badge color after a refund completes', () => {
-    expect(clientSource).toMatch(/refundStatus === 'COMPLETED'[\s\S]+style: getStatusStyle\('CANCELLED'\)/)
+    expect(statusPresentationSource).toContain("if (refundStatus === 'COMPLETED')")
+    expect(statusPresentationSource).toContain("'success'")
+    expect(clientSource).toContain('<AdminOrderStatusBadge presentation={displayStatus} />')
   })
 
   it('requires admin confirmation before sending a deposit refund', () => {

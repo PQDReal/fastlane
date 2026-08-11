@@ -20,18 +20,18 @@ export async function DELETE(_request: Request, context: RouteContext) {
     const supabase = getSupabaseAdmin()
 
     let lookup = await supabase.from('deposit_orders')
-      .select('id,order_number,status,contract_signed_at,customer_id,email')
+      .select('id,order_number,status,contract_signed_at,customer_id,email,cancellation_reason_code')
       .eq('id', orderId)
       .eq('customer_id', customer.id)
-      .maybeSingle<{ id: string; order_number: string; status: string; contract_signed_at?: string | null; customer_id: string | null; email: string | null }>()
+      .maybeSingle<{ id: string; order_number: string; status: string; contract_signed_at?: string | null; customer_id: string | null; email: string | null; cancellation_reason_code?: string | null }>()
     if (lookup.error) throw lookup.error
 
     if (!lookup.data) {
       lookup = await supabase.from('deposit_orders')
-        .select('id,order_number,status,contract_signed_at,customer_id,email')
+        .select('id,order_number,status,contract_signed_at,customer_id,email,cancellation_reason_code')
         .eq('id', orderId)
         .eq('email', normalizeDepositOwnerEmail(customer.email))
-        .maybeSingle<{ id: string; order_number: string; status: string; contract_signed_at?: string | null; customer_id: string | null; email: string | null }>()
+        .maybeSingle<{ id: string; order_number: string; status: string; contract_signed_at?: string | null; customer_id: string | null; email: string | null; cancellation_reason_code?: string | null }>()
       if (lookup.error) throw lookup.error
     }
 
@@ -41,14 +41,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     await claimGuestDepositOrder(supabase, lookup.data, customer)
 
-    const ALLOWED_CANCEL_STATUSES = ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING', 'CONFIRMED', 'PENDING_CONTRACT']
+    const ALLOWED_CANCEL_STATUSES = ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING', 'CONFIRMED', 'PENDING_CONTRACT', 'CANCELLED']
     if (!ALLOWED_CANCEL_STATUSES.includes(lookup.data.status) || lookup.data.contract_signed_at) {
       throw new ApiRouteError(409, 'DEPOSIT_CANNOT_BE_CANCELLED', 'Đơn đặt cọc ở trạng thái hiện tại hoặc đã ký hợp đồng không thể tự hủy.')
     }
 
-    const cancellationReason = lookup.data.status === 'PENDING_CONTRACT'
-      ? 'CUSTOMER_CANCELLED_PENDING_SIGNATURE'
-      : 'CUSTOMER_CANCELLED_BEFORE_CONTRACT'
+    const cancellationReason = ['CUSTOMER_CANCELLED_BEFORE_CONTRACT', 'CUSTOMER_CANCELLED_PENDING_SIGNATURE']
+      .includes(lookup.data.cancellation_reason_code ?? '')
+      ? lookup.data.cancellation_reason_code as 'CUSTOMER_CANCELLED_BEFORE_CONTRACT' | 'CUSTOMER_CANCELLED_PENDING_SIGNATURE'
+      : lookup.data.status === 'PENDING_CONTRACT'
+        ? 'CUSTOMER_CANCELLED_PENDING_SIGNATURE'
+        : 'CUSTOMER_CANCELLED_BEFORE_CONTRACT'
 
     const { data: cancelled, error: cancelError } = await supabase.rpc('cancel_deposit_order_before_signature', {
       p_order_id: orderId,
@@ -60,9 +63,11 @@ export async function DELETE(_request: Request, context: RouteContext) {
       throw new ApiRouteError(409, 'DEPOSIT_CANNOT_BE_CANCELLED', 'Trạng thái đơn vừa thay đổi. Vui lòng tải lại trang.')
     }
 
-    await notifyAdminCustomerCancelledDeposit({ id: orderId, orderNumber: lookup.data.order_number }).catch((error) => {
-      console.error('Unable to notify admins about customer deposit cancellation:', { orderId, error })
-    })
+    if (!cancelled.replayed) {
+      await notifyAdminCustomerCancelledDeposit({ id: orderId, orderNumber: lookup.data.order_number }).catch((error) => {
+        console.error('Unable to notify admins about customer deposit cancellation:', { orderId, error })
+      })
+    }
 
     return NextResponse.json({
       data: {

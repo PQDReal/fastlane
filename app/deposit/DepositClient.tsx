@@ -1432,10 +1432,10 @@ export function DepositClient({
 
         {/* LEFT COLUMN: CAR SHOWCASE */}
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-          
+
           {/* SLEEK TOP BAR */}
           <div className="w-full px-8 py-8 flex flex-col gap-5 z-50 relative">
-            
+
             {/* ROW 1: TOGGLES */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full">
               {/* VEHICLE TYPE TOGGLE */}
@@ -1474,13 +1474,13 @@ export function DepositClient({
               {/* VIEW TOGGLE */}
               {!isMotorbike && !currentCar.name.includes('MPV') && (
                 <div className="inline-flex items-center gap-2 bg-slate-50 backdrop-blur-xl p-1.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
-                  <button 
+                  <button
                     onClick={() => setViewMode('exterior')}
                     className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'exterior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
                   >
                     Ngoại thất
                   </button>
-                  <button 
+                  <button
                     onClick={() => setViewMode('interior')}
                     className={`whitespace-nowrap px-8 py-2.5 rounded-full text-sm font-bold tracking-wider transition-all duration-300 ${viewMode === 'interior' ? 'bg-slate-900 text-white shadow-lg scale-105' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
                   >

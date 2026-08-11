@@ -63,7 +63,7 @@ export default function ContractPageClient({ order }: { order: any }) {
       
       showToast(
         'success',
-        isMotorbikeTerms ? 'Xác nhận thỏa thuận thành công' : 'Ký hợp đồng thành công',
+        'Ký hợp đồng thành công',
         'Đơn mua xe của bạn đã được chuyển sang trạng thái chờ xe.',
       )
       

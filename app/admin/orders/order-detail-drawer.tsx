@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin, RotateCcw } from 'lucide-react'
+import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
+import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { AdminOrderRow } from './orders-client'
 import {
   confirmDepositRefund,
@@ -13,6 +15,10 @@ import {
   type DepositDebugAction,
 } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
+import {
+  depositPaymentStatusPresentation,
+  vehicleOrderStatusPresentation,
+} from '@/lib/orders/admin-status-presentation'
 
 type OrderDetailDrawerProps = {
   order: AdminOrderRow | null
@@ -26,14 +32,50 @@ type OrderDetailDrawerProps = {
 
 export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast, onDismissToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  if (!order || !order.rawDeposit) return null
+  useEffect(() => {
+    if (!isOpen) return
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      previouslyFocused?.focus()
+    }
+  }, [isOpen, onClose])
+
+  // Keep AnimatePresence mounted so clearing the selected order can play the
+  // drawer's exit transition instead of removing it synchronously.
+  if (!order || !order.rawDeposit) return <AnimatePresence />
 
   const d = order.rawDeposit
   const isMotorbike = d.vehicle_type === 'motorbike'
   const hasIssuedDocumentProjection = Boolean(d.contract_issued_at && d.contract_signature_due_at)
   const isRefundProcessing = order.refundStatus === 'PENDING'
     && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')
+  const statusPresentation = vehicleOrderStatusPresentation({
+    status: order.status,
+    refundStatus: order.refundStatus,
+    payment: order.payment,
+    vehicleType: order.vehicleType,
+  })
+  const paymentPresentation = depositPaymentStatusPresentation({
+    status: order.status,
+    refundStatus: order.refundStatus,
+    payment: order.payment,
+  })
 
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN', {
@@ -162,6 +204,16 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
     }
   }
 
+  const requestCancelOrder = () => {
+    onShowToast({
+      title: 'Hủy đơn đặt xe?',
+      message: `${order.orderNumber} sẽ bị hủy; khoản cọc đã thanh toán sẽ được chuyển sang quy trình hoàn tiền.`,
+      kind: 'warning',
+      secondaryAction: { label: 'Giữ đơn', onClick: () => undefined },
+      action: { label: 'Hủy đơn hàng', variant: 'danger', onClick: () => void handleUpdateStatus('CANCELLED') },
+    })
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -177,6 +229,9 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
           {/* Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-deposit-order-detail-title"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -186,12 +241,16 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
+                <h2 id="admin-deposit-order-detail-title" className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
                 <p className="text-sm text-slate-500 font-medium">{order.orderNumber}</p>
+                <AdminOrderStatusBadge presentation={statusPresentation} className="mt-2" />
               </div>
               <button
+                ref={closeButtonRef}
+                type="button"
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                aria-label="Đóng chi tiết đơn đặt xe"
+                className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
               >
                 <X size={20} />
               </button>
@@ -199,6 +258,10 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+              {order.status === 'CANCELLED' && order.cancellationAudit && (
+                <OrderCancellationAuditCard audit={order.cancellationAudit} />
+              )}
               
               {/* Customer Info */}
               <section className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
@@ -324,13 +387,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Trạng thái TT cọc:</span>
-                    <span className={`font-semibold ${order.status === 'CANCELLED' && order.payment === 'Paid' ? 'text-orange-600' : order.payment === 'Paid' ? 'text-green-600' : 'text-slate-600'}`}>
-                      {order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED'
-                        ? 'Đã hủy, đã hoàn tiền'
-                        : order.status === 'CANCELLED' && order.payment === 'Paid'
-                        ? 'Đã hủy, chờ admin xác nhận hoàn tiền'
-                        : order.payment === 'Paid' ? 'Đã đặt cọc' : 'Chờ đặt cọc'}
-                    </span>
+                    <AdminOrderStatusBadge presentation={paymentPresentation} />
                   </div>
                 </div>
               </section>
@@ -453,7 +510,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
                 {!['CANCELLED', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                   <button
-                    onClick={() => handleUpdateStatus('CANCELLED')}
+                    onClick={requestCancelOrder}
                     disabled={isUpdating}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-red-50 text-red-600 border border-red-200 font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                   >

@@ -70,10 +70,10 @@ export async function POST(request: Request) {
         await updateDepositOrderWithKycFallback(supabase, orderId, {
           kyc_status: 'REVIEW', kyc_session_id: sessionId, updated_at: new Date().toISOString(),
         })
-        return NextResponse.json({ 
-          success: true, 
-          status: 'REVIEW', 
-          message: 'Quá trình xác minh cần được nhân viên xét duyệt thủ công. Vui lòng chờ.' 
+        return NextResponse.json({
+          success: true,
+          status: 'REVIEW',
+          message: 'Quá trình xác minh cần được nhân viên xét duyệt thủ công. Vui lòng chờ.'
         })
       }
       if (decisionStatus === 'declined' || decisionStatus === 'rejected' || decisionStatus === 'resubmitted') {
