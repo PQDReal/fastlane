@@ -265,14 +265,12 @@ function ClassificationStep({
 function GeneralStep({
   draft,
   serviceLabels,
-  slugEdited,
-  onSlugEdited,
+  isEditing,
   onChange,
 }: {
   draft: AdminAccessoryDraft
   serviceLabels: CatalogServiceLabel[]
-  slugEdited: boolean
-  onSlugEdited: () => void
+  isEditing: boolean
   onChange: (next: AdminAccessoryDraft) => void
 }) {
   return (
@@ -280,10 +278,11 @@ function GeneralStep({
       <SectionHeading title="Thông tin chung" />
       <div className="grid gap-5 lg:grid-cols-2">
         <label className={labelClass}>Tên phụ kiện <span className="text-red-500">*</span>
-          <input value={draft.name} maxLength={200} onChange={(event) => onChange({ ...draft, name: event.target.value, slug: slugEdited ? draft.slug : accessoryAdminSlug(event.target.value) })} placeholder="Ví dụ: Áo mưa cánh dơi hai mũ" className={inputClass} />
+          <input value={draft.name} maxLength={200} onChange={(event) => onChange({ ...draft, name: event.target.value, ...(isEditing ? {} : { slug: accessoryAdminSlug(event.target.value) }) })} placeholder="Ví dụ: Áo mưa cánh dơi hai mũ" className={inputClass} />
         </label>
         <label className={labelClass}>Đường dẫn <span className="text-red-500">*</span>
-          <input value={draft.slug} maxLength={220} onChange={(event) => { onSlugEdited(); onChange({ ...draft, slug: accessoryAdminSlug(event.target.value) }) }} placeholder="ao-mua-canh-doi-hai-mu" className={inputClass} />
+          <input readOnly value={draft.slug} maxLength={220} placeholder="ao-mua-canh-doi-hai-mu" className={`${inputClass} bg-slate-50 text-slate-600`} />
+          <span className="mt-1 block text-xs font-normal text-slate-500">{isEditing ? 'Giữ nguyên để không thay đổi URL sản phẩm đã phát hành.' : 'Tự sinh từ tên. Nếu bị trùng, hãy đổi tên phụ kiện.'}</span>
         </label>
       </div>
       <label className={labelClass}>Mô tả sản phẩm <span className="text-red-500">*</span>
@@ -1488,7 +1487,6 @@ export function AccessoryProductCreateDialog({
   const [templateCandidate, setTemplateCandidate] = useState<string | null>(() => initialDraft?.templateVersionId ?? initialDraft?.templateCode ?? null)
   const [templateCommitted, setTemplateCommitted] = useState(Boolean(initialDraft))
   const [pendingSuggestedCategoryTemplate, setPendingSuggestedCategoryTemplate] = useState<string | null>(null)
-  const [slugEdited, setSlugEdited] = useState(false)
   const [reviewDecisionOpen, setReviewDecisionOpen] = useState(false)
   const [taxonomyCollections, setTaxonomyCollections] = useState<DraftCollection[]>([])
   const [taxonomyLoading, setTaxonomyLoading] = useState(false)
@@ -1507,7 +1505,6 @@ export function AccessoryProductCreateDialog({
     setTemplateCandidate(initialDraft?.templateCode ?? null)
     setTemplateCommitted(Boolean(initialDraft))
     setPendingSuggestedCategoryTemplate(null)
-    setSlugEdited(Boolean(initialDraft))
     setReviewDecisionOpen(false)
     setSaving(false)
   }, [expectedUpdatedAt, open, productId, rootCategoryId])
@@ -1648,7 +1645,6 @@ export function AccessoryProductCreateDialog({
     setTemplateCandidate(initialDraft?.templateCode ?? null)
     setTemplateCommitted(Boolean(initialDraft))
     setPendingSuggestedCategoryTemplate(null)
-    setSlugEdited(false)
     setReviewDecisionOpen(false)
   }
 
@@ -1677,7 +1673,6 @@ export function AccessoryProductCreateDialog({
       setTemplateCandidate(restoredDraft.templateCode)
       setTemplateCommitted(true)
       setPendingSuggestedCategoryTemplate(null)
-      setSlugEdited(true)
       setView('edit')
       onNotify('success', 'Đã khôi phục bản nháp', 'Dữ liệu đã được nạp từ phiên trình duyệt hiện tại.')
     } catch (error) {
@@ -1851,7 +1846,7 @@ export function AccessoryProductCreateDialog({
                           <Button type="button" variant="outline" disabled={saving} onClick={returnToTemplateSelection}><ChevronLeft size={16} className="mr-2" />Quay lại bước chọn mẫu</Button>
                         </section>
                         <section id="accessory-editor-classification" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><ClassificationStep draft={draft} collections={taxonomyCollections} taxonomyLoading={taxonomyLoading} taxonomyError={taxonomyError} onRetryTaxonomy={() => setTaxonomyReloadKey((value) => value + 1)} onChange={setDraft} onConfirmDestructive={onConfirmDestructive} /></section>
-                        <section id="accessory-editor-general" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><GeneralStep draft={draft} serviceLabels={serviceLabels} slugEdited={slugEdited} onSlugEdited={() => setSlugEdited(true)} onChange={setDraft} /></section>
+                        <section id="accessory-editor-general" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><GeneralStep draft={draft} serviceLabels={serviceLabels} isEditing={isEditing} onChange={setDraft} /></section>
                         <section id="accessory-editor-content" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><ContentStep draft={draft} onChange={setDraft} /></section>
                         <section id="accessory-editor-commerce" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                           <OptionsAndVariantsStep draft={draft} onChange={setDraft} onConfirmDestructive={onConfirmDestructive} />

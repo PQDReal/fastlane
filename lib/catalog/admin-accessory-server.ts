@@ -125,7 +125,11 @@ function rpcError(error: { code?: string; message?: string }) {
     )
   }
   if (error.code === '23505') {
-    return new AdminAccessoryPersistenceError(409, 'CATALOG_IDENTITY_CONFLICT', 'Slug hoặc SKU đã được sử dụng.')
+    return new AdminAccessoryPersistenceError(
+      409,
+      'CATALOG_IDENTITY_CONFLICT',
+      'Đường dẫn hoặc SKU đã được sử dụng. Hãy đổi tên phụ kiện để hệ thống sinh đường dẫn khác; nếu lỗi vẫn còn, hãy kiểm tra SKU.',
+    )
   }
   if (error.code === '22P02' || error.code === '22003' || error.code === '22023' || error.code === '23514' || error.code === '23503') {
     return new AdminAccessoryPersistenceError(
