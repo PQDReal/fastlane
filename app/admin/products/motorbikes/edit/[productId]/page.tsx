@@ -285,6 +285,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     }])
   }
 
+  const restoreMotorbikeSpec = (key: string) => updateMotorbikeSpecVisibility(key, true)
+
   // Add/Remove colors
   const addColor = () => {
     setForm((current) => ({
@@ -713,8 +715,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
             {/* Core Specs Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 bg-slate-50 rounded-xl p-5 border border-slate-100">
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <BatteryCharging size={14} className="text-brand-600" /> Quãng đường/Sạc
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <BatteryCharging size={14} className="text-brand-600" /> Quãng đường/Sạc<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? restoreMotorbikeSpec('Quãng đường đi được mỗi lần sạc') : removeMotorbikeSpec('Quãng đường đi được mỗi lần sạc')} className={form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -726,8 +728,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Zap size={14} className="text-brand-600" /> Công suất tối đa
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Zap size={14} className="text-brand-600" /> Công suất tối đa<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? restoreMotorbikeSpec('Công suất tối đa') : removeMotorbikeSpec('Công suất tối đa')} className={form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -739,8 +741,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Gauge size={14} className="text-brand-600" /> Tốc độ tối đa
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Gauge size={14} className="text-brand-600" /> Tốc độ tối đa<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? restoreMotorbikeSpec('Tốc độ tối đa') : removeMotorbikeSpec('Tốc độ tối đa')} className={form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -752,8 +754,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Clock size={14} className="text-brand-600" /> Thời gian sạc
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Clock size={14} className="text-brand-600" /> Thời gian sạc<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? restoreMotorbikeSpec('Thời gian sạc tiêu chuẩn') : removeMotorbikeSpec('Thời gian sạc tiêu chuẩn')} className={form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
