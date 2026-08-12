@@ -1,15 +1,43 @@
 'use client'
 
-import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
-import { useCallback, useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Wrench, X } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { Search, Plus, Filter, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { ToastViewport, type ToastMessage } from '../../../components/ui/toast'
 import type { AdminRootCategory } from '../../../lib/catalog/admin-accessory-draft'
-import type { CatalogServiceLabel } from '../../../lib/catalog/service-labels'
+import { consumeAdminFlashToast } from '../../../lib/admin-flash-toast'
+
+function ProductActionButton({
+  label,
+  onClick,
+  disabled = false,
+  destructive = false,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  destructive?: boolean
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`group/action relative rounded p-2 text-slate-400 transition active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 ${destructive ? 'hover:bg-red-50 hover:text-red-600' : 'hover:bg-brand-50 hover:text-brand-600'}`}
+    >
+      {children}
+      <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover/action:opacity-100 group-focus-visible/action:opacity-100">
+        {label}
+      </span>
+    </button>
+  )
+}
 
 type AdminProduct = {
   id: string
@@ -22,7 +50,6 @@ type AdminProduct = {
   category: string
   sku?: string
   specifications?: any
-  service_label_assignments?: Array<{ service_label_id: string }>
 }
 
 function isVehicleImage(url: string | null | undefined): boolean {
@@ -160,20 +187,20 @@ export default function AdminProductsPage() {
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const [isLoading, setIsLoading] = useState(true)
-  const [serviceLabels, setServiceLabels] = useState<CatalogServiceLabel[]>([])
-  const [assignmentProduct, setAssignmentProduct] = useState<AdminProduct | null>(null)
-  const [selectedServiceLabelIds, setSelectedServiceLabelIds] = useState<string[]>([])
-  const [savingLabels, setSavingLabels] = useState(false)
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [productsReloadKey, setProductsReloadKey] = useState(0)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
-  const assignmentCloseRef = useRef<HTMLButtonElement>(null)
 
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
     const id = Date.now() + Math.random()
     setToasts((items) => [...items, { id, kind, title, message }])
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4500)
   }, [])
+
+  useEffect(() => {
+    const toast = consumeAdminFlashToast(window.sessionStorage)
+    if (toast) notify(toast.kind, toast.title, toast.message)
+  }, [notify])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -189,29 +216,6 @@ export default function AdminProductsPage() {
       .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]))
   }, [])
-
-  useEffect(() => {
-    fetch('/api/v1/admin/service-labels', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await responseError(response))
-        return response.json()
-      })
-      .then((data) => setServiceLabels(Array.isArray(data) ? data : []))
-      .catch((error) => notify('error', 'Tải nhãn dịch vụ thất bại', error instanceof Error ? error.message : undefined))
-  }, [notify])
-
-  useEffect(() => {
-    if (!assignmentProduct) return
-    const timer = window.setTimeout(() => assignmentCloseRef.current?.focus(), 80)
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !savingLabels) setAssignmentProduct(null)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.clearTimeout(timer)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [assignmentProduct, savingLabels])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -240,41 +244,6 @@ export default function AdminProductsPage() {
   }, [categoryFilter, debouncedSearch, page, productsReloadKey])
   const formatMoney = (val: number | null) => val === null ? '—' : new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN')
-
-  function openServiceLabels(product: AdminProduct) {
-    setAssignmentProduct(product)
-    setSelectedServiceLabelIds((product.service_label_assignments ?? []).map((item) => item.service_label_id))
-  }
-
-  function toggleServiceLabel(id: string) {
-    setSelectedServiceLabelIds((current) => current.includes(id)
-      ? current.filter((value) => value !== id)
-      : [...current, id])
-  }
-
-  async function saveServiceLabels() {
-    if (!assignmentProduct) return
-    setSavingLabels(true)
-    try {
-      const response = await fetch(`/api/v1/admin/products/${assignmentProduct.id}/service-labels`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceLabelIds: selectedServiceLabelIds }),
-      })
-      if (!response.ok) throw new Error(await responseError(response))
-      const body = await response.json()
-      const savedIds = Array.isArray(body.serviceLabelIds) ? body.serviceLabelIds : []
-      setProducts((items) => items.map((product) => product.id === assignmentProduct.id
-        ? { ...product, service_label_assignments: savedIds.map((id: string) => ({ service_label_id: id })) }
-        : product))
-      setAssignmentProduct(null)
-      notify('success', 'Cập nhật nhãn phụ kiện thành công')
-    } catch (error) {
-      notify('error', 'Cập nhật nhãn phụ kiện thất bại', error instanceof Error ? error.message : undefined)
-    } finally {
-      setSavingLabels(false)
-    }
-  }
 
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null)
 
@@ -405,74 +374,84 @@ export default function AdminProductsPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto max-h-[calc(100vh-340px)] overflow-y-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0 z-10">
-              <tr>
-                <th className="px-6 py-4">Sản phẩm</th>
-                <th className="px-6 py-4">Mã (SKU)</th>
-                <th className="px-6 py-4">Danh mục</th>
-                <th className="px-6 py-4">Giá</th>
-                <th className="px-6 py-4">Trạng thái</th>
-                <th className="px-6 py-4">Ngày tạo</th>
-                <th className="relative w-28 px-6 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    <div className="flex justify-center items-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        {/* Responsive list: reuse the minmax(0, ...) layout used by order lists. */}
+        <div className="max-h-[calc(100vh-340px)] overflow-x-hidden overflow-y-auto">
+          <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(120px,.9fr)_minmax(112px,.9fr)_minmax(116px,.9fr)_minmax(88px,.55fr)] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:sticky xl:top-0 xl:z-10 xl:grid xl:gap-5">
+            <span>Sản phẩm</span>
+            <span>Mã (SKU)</span>
+            <span>Danh mục</span>
+            <span>Giá</span>
+            <span>Trạng thái</span>
+            <span>Ngày tạo</span>
+            <span className="text-right">Thao tác</span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {isLoading ? (
+              <div className="flex min-h-32 items-center justify-center px-6 py-12 text-slate-500">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              </div>
+            ) : products.map((product) => (
+              <div key={product.id} className="group grid w-full grid-cols-1 gap-4 px-5 py-4 text-sm transition-colors hover:bg-slate-50 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(120px,.9fr)_minmax(112px,.9fr)_minmax(116px,.9fr)_minmax(88px,.55fr)] xl:items-center xl:gap-5">
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Sản phẩm</span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-100">
+                      {getProductThumbnail(product) ? (
+                        <img src={getProductThumbnail(product)!} alt={product.name} className="h-auto w-8 object-contain animate-fade-in" />
+                      ) : (
+                        <span className="text-xs text-slate-400">No img</span>
+                      )}
                     </div>
-                  </td>
-                </tr>
-              ) : products.map(product => (
-                <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
-                        {getProductThumbnail(product) ? (
-                          <img src={getProductThumbnail(product)!} alt={product.name} className="w-8 h-auto object-contain animate-fade-in" />
-                        ) : (
-                          <span className="text-xs text-slate-400">No img</span>
-                        )}
-                      </div>
-                      <span className="font-semibold text-slate-900">{product.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 font-medium">{product.sku}</td>
-                  <td className="px-6 py-4 text-slate-600">{product.category}</td>
-                  <td className="px-6 py-4 font-semibold text-slate-900">{formatMoney(product.displayed_price)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold uppercase ${
-                      product.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {product.is_active ? 'Hoạt động' : 'Bản nháp'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500">{formatDate(product.created_at)}</td>
-                  <td className="relative w-28 px-6 py-4 text-right">
-                    <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      {product.product_type === 'ACCESSORY' && <button type="button" onClick={() => openServiceLabels(product)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-brand-50 hover:text-brand-600" aria-label={`Gán nhãn dịch vụ cho ${product.name}`}><Wrench size={16}/></button>}
-                      <button type="button" onClick={() => openProductEditor(product)} className="rounded p-2 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={`Sửa ${product.name}`}><Edit size={16}/></button>
-                      <button type="button" disabled={deletingProductId === product.id} onClick={() => confirmDeleteProduct(product)} className="rounded p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50" aria-label={`Xóa ${product.name}`}>{deletingProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16}/>}</button>
-                    </div>
-                    <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
-                  </td>
-                </tr>
-              ))}
-              
-              {!isLoading && products.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    Không tìm thấy sản phẩm nào.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    <p className="min-w-0 truncate font-semibold text-slate-900" title={product.name}>{product.name}</p>
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Mã (SKU)</span>
+                  <p className="truncate font-medium text-slate-500" title={product.sku}>{product.sku}</p>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Danh mục</span>
+                  <p className="truncate text-slate-600" title={product.category}>{product.category}</p>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Giá</span>
+                  <p className="whitespace-nowrap font-semibold text-slate-900">{formatMoney(product.displayed_price)}</p>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Trạng thái</span>
+                  <span className={`inline-flex max-w-full items-center rounded-md px-2 py-1 text-xs font-bold uppercase ${
+                    product.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <span className="truncate">{product.is_active ? 'Hoạt động' : 'Bản nháp'}</span>
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Ngày tạo</span>
+                  <time dateTime={product.created_at} className="whitespace-nowrap text-slate-500">{formatDate(product.created_at)}</time>
+                </div>
+
+                <div className="min-w-0 xl:text-right">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Thao tác</span>
+                  <div className="flex items-center gap-2 xl:justify-end xl:opacity-0 xl:transition-opacity xl:group-focus-within:opacity-100 xl:group-hover:opacity-100">
+                    <ProductActionButton label="Chỉnh sửa sản phẩm" onClick={() => openProductEditor(product)}><Edit size={16}/></ProductActionButton>
+                    <ProductActionButton label="Xóa sản phẩm" destructive disabled={deletingProductId === product.id} onClick={() => confirmDeleteProduct(product)}>{deletingProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16}/>}</ProductActionButton>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {!isLoading && products.length === 0 && (
+              <div className="px-6 py-12 text-center text-slate-500">
+                Không tìm thấy sản phẩm nào.
+              </div>
+            )}
+          </div>
         </div>
         {!isLoading && meta.total > 0 && (
           <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
@@ -485,20 +464,6 @@ export default function AdminProductsPage() {
           </div>
         )}      </div>
 
-      <AdminModalPortal><AnimatePresence>
-        {assignmentProduct && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !savingLabels) setAssignmentProduct(null) }}>
-            <motion.div role="dialog" aria-modal="true" aria-labelledby="product-service-label-dialog-title" className="w-full max-w-lg rounded-xl bg-white shadow-2xl" initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
-              <div className="flex items-center justify-between border-b px-6 py-4"><div><h2 id="product-service-label-dialog-title" className="text-lg font-bold">Gán nhãn dịch vụ</h2><p className="mt-1 text-sm text-slate-500">{assignmentProduct.name}</p></div><button ref={assignmentCloseRef} type="button" onClick={() => setAssignmentProduct(null)} disabled={savingLabels} className="rounded p-2 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label="Đóng"><X size={18} /></button></div>
-              <div className="space-y-3 p-6">
-                {serviceLabels.filter((label) => label.isActive).map((label) => <label key={label.id} className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition active:scale-[0.99] hover:bg-slate-50"><input type="checkbox" checked={selectedServiceLabelIds.includes(label.id)} onChange={() => toggleServiceLabel(label.id)} className="mt-0.5 h-4 w-4 accent-slate-900 focus-visible:ring-2 focus-visible:ring-brand-500" /><span><span className="block text-sm font-semibold text-slate-800">{label.name}</span>{label.description && <span className="mt-1 block text-xs text-slate-500">{label.description}</span>}</span></label>)}
-                {serviceLabels.filter((label) => label.isActive).length === 0 && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-slate-500">Chưa có nhãn dịch vụ đang hoạt động.</p>}
-              </div>
-              <div className="flex justify-end gap-3 border-t px-6 py-4"><Button type="button" variant="outline" onClick={() => setAssignmentProduct(null)} disabled={savingLabels}>Hủy</Button><Button type="button" onClick={() => void saveServiceLabels()} disabled={savingLabels} className="bg-slate-900 text-white">{savingLabels && <Loader2 size={16} className="mr-2 animate-spin" />}Lưu nhãn</Button></div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence></AdminModalPortal>
     </div>
   )
 }

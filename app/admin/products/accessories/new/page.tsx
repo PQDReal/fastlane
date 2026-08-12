@@ -8,6 +8,7 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import type { AdminRootCategory } from '@/lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 import type { AdminAccessoryTemplate } from '@/lib/catalog/admin-accessory-template-types'
+import { storeAdminFlashToast } from '@/lib/admin-flash-toast'
 
 function responseError(response: Response) {
   return response.json().catch(() => null).then((body: unknown) => {
@@ -76,7 +77,14 @@ export default function NewAccessoryProductPage() {
           onClose={() => router.push('/admin/products')}
           onChangeType={() => router.push('/admin/products')}
           onDirtyChange={() => undefined}
-          onSaved={() => router.push('/admin/products')}
+          onSaved={() => {
+            storeAdminFlashToast(window.sessionStorage, {
+              kind: 'success',
+              title: 'Đã tạo phụ kiện',
+              message: 'Phụ kiện mới đã được lưu thành công.',
+            })
+            router.push('/admin/products')
+          }}
           onNotify={notify}
           onConfirmDestructive={(title, message, onConfirm, confirmLabel = 'Tiếp tục') => {
             const id = Date.now() + Math.random()

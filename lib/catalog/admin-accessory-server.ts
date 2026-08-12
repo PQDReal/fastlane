@@ -106,8 +106,7 @@ export class AdminAccessoryPersistenceError extends Error {
 
 function rpcError(error: { code?: string; message?: string }) {
   if (error.code === 'PGRST202'
-    || error.message?.includes('save_admin_accessory_product_v4')
-    || error.message?.includes('save_admin_accessory_product_v3')) {
+    || error.message?.includes('save_admin_accessory_product')) {
     return new AdminAccessoryPersistenceError(
       503,
       'CATALOG_WRITE_MIGRATION_REQUIRED',
@@ -166,18 +165,11 @@ export async function saveAdminAccessoryProduct(
   productId: string | null,
 ): Promise<AdminAccessorySaveResult> {
   const payload = adminAccessoryRpcPayload(request)
-  let { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v4', {
+  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product', {
     target_product_id: productId,
     expected_updated_at: request.expectedUpdatedAt ?? null,
     target_payload: payload,
   })
-  if (error?.code === 'PGRST202' && request.templateVersionId === undefined) {
-    ({ data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v3', {
-      target_product_id: productId,
-      expected_updated_at: request.expectedUpdatedAt ?? null,
-      target_payload: payload,
-    }))
-  }
   if (error) throw rpcError(error)
   const result = saveResult(data)
   revalidateTag('accessory-catalog')

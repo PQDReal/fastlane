@@ -141,7 +141,7 @@ npm run dev
 
 Khi chạy toàn bộ bằng Compose, web tự kết nối tới service `redis`. Trên Render hoặc môi trường production, khai báo `REDIS_URL` của managed Redis thay vì địa chỉ `localhost`.
 
-Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 016](migrations/016_admin_accessory_aggregate_write.sql) và [migration 052](migrations/052_accessory_template_registry.sql). Migration 052 chuyển các mẫu phụ kiện vào DB, tạo version bất biến và mở rộng RPC bằng `save_admin_accessory_product_v4`; ứng dụng không tự động chạy DDL khi khởi động. Nếu runtime trả `503`, hãy áp dụng các migration vào đúng Supabase project trước khi thử lại.
+Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 052](migrations/052_accessory_template_registry.sql) và [migration 055](migrations/055_consolidate_admin_accessory_writer.sql). Migration 055 hợp nhất chuỗi RPC cũ vào writer canonical `save_admin_accessory_product`; các hàm `v2`/`v3`/`v4` chỉ là alias tương thích trong giai đoạn dev. Ứng dụng không tự động chạy DDL khi khởi động. Nếu runtime trả `503`, hãy áp dụng các migration vào đúng Supabase project trước khi thử lại.
 
 ## API đang triển khai
 

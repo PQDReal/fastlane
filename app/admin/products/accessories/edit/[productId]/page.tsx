@@ -9,6 +9,7 @@ import type { AdminRootCategory } from '@/lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 import type { AdminAccessoryTemplate } from '@/lib/catalog/admin-accessory-template-types'
 import type { AdminAccessoryEditorData } from '@/lib/catalog/admin-accessory-write'
+import { storeAdminFlashToast } from '@/lib/admin-flash-toast'
 
 async function responseError(response: Response) {
   const body: unknown = await response.json().catch(() => null)
@@ -73,7 +74,14 @@ export default function EditAccessoryProductPage({ params }: { params: Promise<{
       onClose={() => router.push('/admin/products')}
       onChangeType={() => router.push('/admin/products')}
       onDirtyChange={() => undefined}
-      onSaved={() => router.push('/admin/products')}
+      onSaved={() => {
+        storeAdminFlashToast(window.sessionStorage, {
+          kind: 'success',
+          title: 'Đã cập nhật phụ kiện',
+          message: 'Thay đổi đã được lưu thành công.',
+        })
+        router.push('/admin/products')
+      }}
       onNotify={notify}
       onConfirmDestructive={(title, message, onConfirm, confirmLabel = 'Tiếp tục') => {
         const id = Date.now() + Math.random()
