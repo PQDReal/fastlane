@@ -729,6 +729,8 @@ export default function NewCarPage() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
   }
 
+  const renderCustomSpecs = (section: string) => form.specification_fields.filter((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.section === section && field.visible !== false).map((field) => <div key={field.key}><div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{field.label}</label><button type="button" onClick={() => removeSpecField(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${field.label}`}><Trash2 size={14} /></button></div><input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" /></div>)
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
@@ -1039,7 +1041,6 @@ export default function NewCarPage() {
                     <input autoFocus value={specDraft.label} onChange={(event) => setSpecDraft((draft) => ({ ...draft, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Kích thước lốp" className="h-10 w-full rounded-md border px-3 text-sm" />
                     <input value={specDraft.value} onChange={(event) => setSpecDraft((draft) => ({ ...draft, value: event.target.value }))} placeholder="Giá trị, ví dụ: 215/55 R18" className="h-10 w-full rounded-md border px-3 text-sm" />
                     <select value={specDraft.section} onChange={(event) => setSpecDraft((draft) => ({ ...draft, section: event.target.value }))} className="h-10 w-full rounded-md border px-3 text-sm">{['Vận hành & Pin', 'Kích thước & Trọng lượng', 'Nội thất & Ngoại thất', 'Hệ thống An toàn'].map((section) => <option key={section}>{section}</option>)}</select>
-                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={specDraft.visible} onChange={(event) => setSpecDraft((draft) => ({ ...draft, visible: event.target.checked }))} /> Hiển thị trên sản phẩm</label>
                   </div>
                   <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={saveSpecDraft} disabled={!specDraft.label.trim()}>Thêm thông số</Button></div>
                 </div>
@@ -1073,6 +1074,7 @@ export default function NewCarPage() {
                     />
                   </div>
                 ))}
+                {renderCustomSpecs('Vận hành & Pin')}
               </div>
             </div>
 
@@ -1100,6 +1102,7 @@ export default function NewCarPage() {
                     />
                   </div>
                 ))}
+                {renderCustomSpecs('Kích thước & Trọng lượng')}
               </div>
             </div>
 
@@ -1127,6 +1130,7 @@ export default function NewCarPage() {
                     />
                   </div>
                 ))}
+                {renderCustomSpecs('Nội thất & Ngoại thất')}
               </div>
             </div>
 
@@ -1152,14 +1156,9 @@ export default function NewCarPage() {
                     />
                   </div>
                 ))}
+                {renderCustomSpecs('Hệ thống An toàn')}
               </div>
             </div>
-            {form.specification_fields.filter((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible).map((field) => (
-              <div key={field.key} className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
-                <div className="flex items-center justify-between"><h4 className="text-sm font-bold text-slate-800">{field.section}</h4><button type="button" onClick={() => removeSpecField(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${field.label}`}><Trash2 size={16} /></button></div>
-                <div><label className="text-xs font-semibold text-slate-600">{field.label}</label><input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" /></div>
-              </div>
-            ))}
           </div>
         )}
 
