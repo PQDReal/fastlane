@@ -31,6 +31,7 @@ import { CombinationMultiSelect } from '@/components/admin/combination-multi-sel
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
+import { DEFAULT_VEHICLE_SPEC_FIELDS, normalizeVehicleSpecFields, type VehicleSpecField } from '@/lib/vehicle-specifications'
 
 const colorMap: Record<string, string> = {
   'Solar Ruby': '#941B26',
@@ -130,6 +131,7 @@ interface FormState {
     'Hệ thống ABS': string
     'Hệ thống EBD': string
   }
+  specification_fields: VehicleSpecField[]
   colors: ColorEntry[]
   advanced_color_price: number
   interiors: InteriorEntry[]
@@ -207,6 +209,7 @@ const initialFormState: FormState = {
     'Hệ thống ABS': '',
     'Hệ thống EBD': '',
   },
+  specification_fields: DEFAULT_VEHICLE_SPEC_FIELDS,
   colors: [
     { color_name: 'Trắng (Brahminy White)', image_url: '', swatch: '', color_type: 'STANDARD' },
     { color_name: 'Xám (Neptune Grey)', image_url: '', swatch: '', color_type: 'STANDARD' },
@@ -258,6 +261,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
         }
         const payload = await res.json()
         const dbState = payload.data as FormState
+        dbState.specification_fields = normalizeVehicleSpecFields(dbState.specification_fields)
 
         // Check if there is an autosaved edit snapshot in this tab
         const saved = sessionStorage.getItem(STORAGE_KEY)
@@ -407,6 +411,30 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
         },
         landing_page_blocks: nextBlocks
       }
+    })
+  }
+
+  const updateSpecField = (key: string, patch: Partial<VehicleSpecField>) => {
+    setForm((current) => ({
+      ...current,
+      specification_fields: current.specification_fields.map((field) => field.key === key ? { ...field, ...patch } : field),
+    }))
+  }
+
+  const addSpecField = () => {
+    const key = `Thông số mới ${form.specification_fields.length + 1}`
+    setForm((current) => ({
+      ...current,
+      specifications: { ...current.specifications, [key]: '' },
+      specification_fields: [...current.specification_fields, { key, label: key, section: 'Thông số khác', visible: true }],
+    }))
+  }
+
+  const removeSpecField = (key: string) => {
+    setForm((current) => {
+      const nextSpecifications = { ...current.specifications }
+      delete nextSpecifications[key as keyof typeof nextSpecifications]
+      return { ...current, specifications: nextSpecifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
     })
   }
 
@@ -1028,6 +1056,25 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
               <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết và cấu hình xe.</p>
             </div>
 
+            <div className="rounded-xl border border-brand-100 bg-brand-50/30 p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Tùy chỉnh bộ thông số mặc định</h4>
+                  <p className="mt-1 text-xs text-slate-500">Bỏ chọn để ẩn chỉ số trên sản phẩm này, hoặc sửa nhãn hiển thị. Bộ mặc định vẫn được dùng cho sản phẩm mới.</p>
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={addSpecField}><Plus size={14} className="mr-1" /> Thêm chỉ số</Button>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {form.specification_fields.map((field) => (
+                  <div key={field.key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2">
+                    <input type="checkbox" checked={field.visible} onChange={(event) => updateSpecField(field.key, { visible: event.target.checked })} aria-label={`Hiển thị ${field.label}`} />
+                    <input value={field.label} onChange={(event) => updateSpecField(field.key, { label: event.target.value })} className="h-8 min-w-0 flex-1 rounded border border-slate-200 px-2 text-xs" />
+                    <button type="button" onClick={() => removeSpecField(field.key)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label={`Xóa ${field.label}`}><Trash2 size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* 1. Performance & Powertrain */}
             <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2 text-slate-800">
@@ -1043,9 +1090,9 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Dung lượng pin', key: 'Dung lượng pin', placeholder: 'Ví dụ: 37.23 kWh' },
                   { label: 'Thời gian sạc nhanh', key: 'Thời gian sạc nhanh', placeholder: 'Ví dụ: Khoảng 30 phút (10-70%)' },
                   { label: 'Công suất sạc DC tối đa', key: 'Công suất sạc DC tối đa', placeholder: 'Ví dụ: 60 kW' },
-                ].map((spec) => (
+                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1070,9 +1117,9 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Khoảng sáng gầm xe', key: 'Khoảng sáng gầm xe', placeholder: 'Ví dụ: 182 mm' },
                   { label: 'Khối lượng / Tải trọng', key: 'Khối lượng / Tải trọng', placeholder: 'Ví dụ: 1360/325 kg' },
                   { label: 'Số chỗ ngồi *', key: 'Số chỗ ngồi', placeholder: 'Ví dụ: 5 ghế' },
-                ].map((spec) => (
+                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1097,9 +1144,9 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Hệ thống giải trí', key: 'Hệ thống giải trí', placeholder: 'Ví dụ: Màn hình cảm ứng 10 inch' },
                   { label: 'Hệ thống điều hòa', key: 'Hệ thống điều hòa', placeholder: 'Ví dụ: Tự động, có màng lọc PM2.5' },
                   { label: 'Điều chỉnh ghế lái', key: 'Điều chỉnh ghế lái', placeholder: 'Ví dụ: Chỉnh cơ 6 hướng' },
-                ].map((spec) => (
+                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1122,9 +1169,9 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Hệ thống túi khí', key: 'Hệ thống túi khí', placeholder: 'Ví dụ: 4 túi khí' },
                   { label: 'Hệ thống ABS (Chống bó cứng phanh)', key: 'Hệ thống ABS', placeholder: 'Ví dụ: Có' },
                   { label: 'Hệ thống EBD (Phân phối lực phanh điện tử)', key: 'Hệ thống EBD', placeholder: 'Ví dụ: Có' },
-                ].map((spec) => (
+                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
                     <input
                       type="text"
                       placeholder={spec.placeholder}

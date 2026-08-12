@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
 import { revalidateTag } from 'next/cache'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     versions = [],
     advanced_color_price = 0,
     landing_page_blocks = [],
+    specification_fields,
   } = body
 
   // Basic validation
@@ -255,6 +257,8 @@ export async function POST(request: Request) {
       detail_images: detail_image_urls,
     },
     landing_page_blocks
+    , specification_fields: normalizeVehicleSpecFields(specification_fields)
+    , specifications_flat: specifications
   }
 
   const supabase = getSupabaseAdmin()
