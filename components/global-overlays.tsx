@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useAppStore } from '@/lib/store'
+import { SalesAgentShell } from '@/components/sales-agent/sales-agent-shell'
 
 const LazySearchModal = dynamic(
   () => import('@/components/search-modal').then((module) => module.SearchModal),
@@ -22,6 +23,7 @@ export function GlobalOverlays() {
       {/* Keep the animation mounted across route changes. An add-to-cart
           request may finish after the user has already opened /cart. */}
       <LazyCartFlyAnimation />
+      <SalesAgentShell />
     </>
   )
 }

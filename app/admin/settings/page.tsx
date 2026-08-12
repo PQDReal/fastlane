@@ -2,6 +2,7 @@
 
 import { Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SalesAgentProviderManager } from './sales-agent-provider-manager'
 
 export default function AdminSettingsPage() {
   return (
@@ -36,6 +37,8 @@ export default function AdminSettingsPage() {
           </label>
         </div>
       </div>
+
+      <SalesAgentProviderManager />
     </div>
   )
 }

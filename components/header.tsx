@@ -8,6 +8,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import useSWR from 'swr'
 import { useAppStore } from '@/lib/store'
+import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
 import { CustomerNotifications } from '@/components/customer-notifications'
@@ -48,6 +49,7 @@ export function Header() {
     cartLoaded,
     syncCartOwner,
   } = useAppStore()
+  const setSalesAgentOpen = useSalesAgentStore((state) => state.setOpen)
   const userSubject = typeof user?.sub === 'string' ? user.sub : null
   const { data: profile, error: profileError } = useSWR(
     userSubject ? ['fastlane-profile', userSubject] : null,
@@ -241,6 +243,7 @@ export function Header() {
 
         <div className={`flex shrink-0 items-center justify-end gap-3 transition-colors duration-500 xl:gap-5 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
           <button aria-label="Mở trợ lý tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><img src="/images/search-ai.png" alt="Tìm kiếm AI" className={`h-[23px] w-auto object-contain ${headerSolid ? 'brightness-0 opacity-70' : 'brightness-0 invert opacity-90'}`} /></button>
+          {salesAgentUiEnabled && <button aria-label="Mở Sales Agent" className="rounded-full p-1.5 transition hover:bg-black/5 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" onClick={() => setSalesAgentOpen(true)}><Bot size={22} strokeWidth={2} /></button>}
           {(!userSubject || isAdmin === false) && <Link
             aria-label="Giỏ hàng"
             href="/cart"
