@@ -415,16 +415,24 @@ export default function NewCarPage() {
   const removeSpecField = (key: string) => {
     const field = form.specification_fields.find((item) => item.key === key)
     if (DEFAULT_VEHICLE_SPEC_FIELDS.some((item) => item.key === key)) {
-      updateSpecField(key, { visible: false })
+      const toastId = Date.now() + Math.random()
+      setToasts((items) => [...items, {
+        id: toastId,
+        kind: 'warning',
+        title: 'Xác nhận ẩn thông tin?',
+        message: `Thông tin “${field?.label || key}” sẽ không hiển thị sau khi lưu.`,
+        action: { label: 'Ẩn thông tin', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); updateSpecField(key, { visible: false }) } },
+        secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+      }])
       return
     }
     const toastId = Date.now() + Math.random()
     setToasts((items) => [...items, {
       id: toastId,
       kind: 'warning',
-      title: 'Xác nhận xóa thông số?',
-      message: `Thông số “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
-      action: { label: 'Xóa', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); removeSpecFieldNow(key) } },
+      title: 'Xác nhận xóa thông tin?',
+      message: `Thông tin “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
+      action: { label: 'Xóa thông tin', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); removeSpecFieldNow(key) } },
       secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
     }])
   }
@@ -1095,7 +1103,7 @@ export default function NewCarPage() {
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
-                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
                     </> })()}
                   </div>
                 ))}

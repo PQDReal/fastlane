@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Undo2,
   X,
   Zap,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
 
 interface ColorEntry {
   color_name: string
@@ -74,6 +76,7 @@ interface FormState {
     'Tiêu chuẩn chống nước động cơ': string
     'Kích thước lốp Trước - Sau': string
   }
+  specification_fields: VehicleSpecField[]
   colors: ColorEntry[]
   advanced_color_price: number
   versions: VersionEntry[]
@@ -106,6 +109,7 @@ const initialFormState: FormState = {
     'Tiêu chuẩn chống nước động cơ': '',
     'Kích thước lốp Trước - Sau': '',
   },
+  specification_fields: DEFAULT_MOTORBIKE_SPEC_FIELDS,
   colors: [],
   advanced_color_price: 0,
   versions: [],
@@ -159,7 +163,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           }
         }
 
-        setForm(dbState)
+        setForm({ ...dbState, specification_fields: Array.isArray(dbState.specification_fields) ? dbState.specification_fields : DEFAULT_MOTORBIKE_SPEC_FIELDS.map((field) => ({ ...field })) })
         setOriginalForm(dbState)
       } catch (e: any) {
         notify('error', 'Tải sản phẩm thất bại', e.message)
@@ -262,6 +266,23 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
         [key]: val,
       },
     }))
+  }
+
+  const updateMotorbikeSpecVisibility = (key: string, visible: boolean) => {
+    setForm((current) => ({ ...current, specification_fields: current.specification_fields.map((field) => field.key === key ? { ...field, visible } : field) }))
+  }
+
+  const removeMotorbikeSpec = (key: string) => {
+    const field = form.specification_fields.find((item) => item.key === key)
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [...items, {
+      id: toastId,
+      kind: 'warning',
+      title: 'Xác nhận ẩn thông tin?',
+      message: `Thông tin “${field?.label || key}” sẽ không hiển thị sau khi lưu.`,
+      action: { label: 'Ẩn thông tin', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); updateMotorbikeSpecVisibility(key, false) } },
+      secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+    }])
   }
 
   // Add/Remove colors
@@ -759,9 +780,9 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 { label: 'Hệ thống giảm xóc', key: 'Giảm xóc', placeholder: 'Ví dụ: Giảm chấn thủy lực' },
                 { label: 'Chuẩn chống nước động cơ', key: 'Tiêu chuẩn chống nước động cơ', placeholder: 'Ví dụ: IP67' },
                 { label: 'Kích thước lốp Trước - Sau', key: 'Kích thước lốp Trước - Sau', placeholder: 'Ví dụ: 90/90-12 Trước & Sau' },
-              ].map((spec) => (
+              ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                 <div key={spec.key}>
-                  <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                  <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{spec.label}</label><button type="button" onClick={() => removeMotorbikeSpec(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Ẩn thông tin ${spec.label}`}><Trash2 size={14} /></button></div>
                   <input
                     type="text"
                     placeholder={spec.placeholder}
