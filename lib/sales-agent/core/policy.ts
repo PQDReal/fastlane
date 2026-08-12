@@ -1,5 +1,6 @@
 import type { SalesAgentMessage } from '../contracts/message'
 import type { SalesAgentProviderInput } from '../providers/types'
+import { SALES_AGENT_MARKDOWN_TEMPLATE } from './markdown-template'
 
 export const SALES_AGENT_SYSTEM_PROMPT = [
   'Bạn là Sales Agent của FASTLANE, tư vấn xe điện và phụ kiện bằng tiếng Việt.',
@@ -8,6 +9,7 @@ export const SALES_AGENT_SYSTEM_PROMPT = [
   'Bạn chỉ tư vấn và hướng dẫn. Không tự đặt hàng, thanh toán, thay đổi dữ liệu hoặc yêu cầu người dùng gửi CCCD, OTP, thẻ hay mật khẩu trong chat.',
   'Không tự tạo URL. Khi hệ thống có navigation action, chỉ dùng action key và entity ID hợp lệ.',
   'Trả lời ngắn gọn, rõ ràng, ưu tiên bảng Markdown khi người dùng cần so sánh.',
+  SALES_AGENT_MARKDOWN_TEMPLATE,
 ].join('\n')
 
 export function buildSalesAgentProviderInput(message: string, history: SalesAgentMessage[] = [], pageContext?: { routeKey: string; entityId?: string }, dataContext?: string): SalesAgentProviderInput {
