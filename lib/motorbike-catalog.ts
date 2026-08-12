@@ -12,6 +12,8 @@ export type MotorbikeCatalogColor = {
   name: string
   imageUrl: string
   swatchUrl: string
+  type: 'STANDARD' | 'ADVANCED'
+  priceAdjustment: number
   order: number
 }
 
@@ -124,6 +126,8 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
         name: row.color,
         imageUrl: row.image_car_url,
         swatchUrl: row.image_color_url,
+        type: (record(record(row.specs).catalog).color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD') as 'STANDARD' | 'ADVANCED',
+        priceAdjustment: number(record(record(row.specs).catalog).color_price_adjustment),
         order: orderOf(row, 'color_order'),
       }]),
     ).values()].sort((left, right) => left.order - right.order)

@@ -77,6 +77,7 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
     sale_price,
     is_active,
     created_at,
+    inventory:inventory_items(on_hand_quantity),
     option_mappings:product_variant_option_values(option_group_id,option_value_id)
   ),
   media:product_media(
@@ -162,6 +163,44 @@ export async function saveAdminAccessoryProduct(
   })
   if (error) throw rpcError(error)
   const result = saveResult(data)
+
+  const supabase = getSupabaseAdmin()
+  const { data: persistedVariants, error: variantReadError } = await supabase
+    .from('product_variants')
+    .select('id,name,created_at')
+    .eq('product_id', result.id)
+    .order('created_at', { ascending: true })
+  if (variantReadError) {
+    throw new AdminAccessoryPersistenceError(500, 'INVENTORY_VARIANTS_READ_FAILED', 'Đã lưu phụ kiện nhưng không thể xác định các SKU để tạo tồn kho.')
+  }
+  if ((persistedVariants ?? []).length < request.variants.length) {
+    if (!productId) await supabase.from('products').delete().eq('id', result.id)
+    throw new AdminAccessoryPersistenceError(500, 'INVENTORY_VARIANT_MAPPING_FAILED', 'Số SKU đã lưu không khớp dữ liệu tồn kho ban đầu.')
+  }
+
+  const unused = [...(persistedVariants ?? [])]
+  const inventoryRows = request.variants.map((variant) => {
+    let index = variant.existingId
+      ? unused.findIndex((row) => row.id === variant.existingId)
+      : unused.findIndex((row) => row.name === variant.name)
+    if (index < 0) index = 0
+    const [persisted] = index >= 0 ? unused.splice(index, 1) : []
+    if (!persisted) {
+      throw new AdminAccessoryPersistenceError(500, 'INVENTORY_VARIANT_MAPPING_FAILED', `Không thể ánh xạ tồn kho cho biến thể ${variant.name}.`)
+    }
+    return {
+      variant_id: persisted.id,
+      on_hand_quantity: variant.stockQuantity,
+      updated_at: new Date().toISOString(),
+    }
+  })
+  const { error: inventoryError } = await supabase
+    .from('inventory_items')
+    .upsert(inventoryRows, { onConflict: 'variant_id' })
+  if (inventoryError) {
+    if (!productId) await supabase.from('products').delete().eq('id', result.id)
+    throw new AdminAccessoryPersistenceError(500, 'INVENTORY_WRITE_FAILED', `Không thể lưu tồn kho ban đầu: ${inventoryError.message}`)
+  }
   revalidateTag('accessory-catalog')
   await Promise.all([
     deleteRedisKey(ACCESSORY_CATALOG_SUMMARY_CACHE_KEY),

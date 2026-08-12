@@ -42,6 +42,7 @@ export type AdminAccessoryVariantInput = {
   name: string
   originalPrice: number
   salePrice: number | null
+  stockQuantity: number
   isActive: boolean
   optionValues: Record<string, string>
   imageUrls: string[]
@@ -327,11 +328,12 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
   const variants = value.map((item, variantIndex) => {
     const path = `variants.${variantIndex}`
     const variant = record(item, path)
-    exactKeys(variant, ['existingId', 'name', 'originalPrice', 'salePrice', 'isActive', 'optionValues', 'imageUrls'], path)
+    exactKeys(variant, ['existingId', 'name', 'originalPrice', 'salePrice', 'stockQuantity', 'isActive', 'optionValues', 'imageUrls'], path)
     const originalPrice = integer(variant.originalPrice, `${path}.originalPrice`, 0, MAX_MONEY)
     const salePrice = variant.salePrice === null
       ? null
       : integer(variant.salePrice, `${path}.salePrice`, 0, MAX_MONEY)
+    const stockQuantity = integer(variant.stockQuantity, `${path}.stockQuantity`, 0, Number.MAX_SAFE_INTEGER)
     if (salePrice !== null && salePrice >= originalPrice) {
       fail(`${path}.salePrice`, 'VARIANT_SALE_PRICE_INVALID', 'Giá khuyến mại phải thấp hơn giá niêm yết.')
     }
@@ -362,6 +364,7 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
       name: requiredString(variant.name, `${path}.name`, { max: 200 }),
       originalPrice,
       salePrice,
+      stockQuantity,
       isActive: boolean(variant.isActive, `${path}.isActive`),
       optionValues,
       imageUrls: urlArray(variant.imageUrls, `${path}.imageUrls`),
@@ -587,6 +590,7 @@ export function adminAccessoryDraftToWriteRequest(
         name: variant.name.trim(),
         originalPrice: Number(variant.originalPrice),
         salePrice: variant.salePrice.trim() ? Number(variant.salePrice) : null,
+        stockQuantity: Number(variant.stockQuantity ?? '0'),
         isActive: variant.isActive,
         optionValues,
         imageUrls: nonEmptyUrls(variant.imageUrls),
@@ -616,6 +620,7 @@ export function adminAccessoryRpcPayload(request: AdminAccessoryWriteRequest) {
   const representative = sourceVariants[0] ?? payload.variants[0]
   return {
     ...payload,
+    variants: payload.variants.map(({ stockQuantity: _stockQuantity, ...variant }) => variant),
     productImageUrls: representative?.imageUrls ?? [],
     optionGroups: payload.optionGroups.map((group) => ({
       ...group,

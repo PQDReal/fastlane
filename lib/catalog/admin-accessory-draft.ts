@@ -85,6 +85,7 @@ export type DraftVariant = {
   sku: string
   originalPrice: string
   salePrice: string
+  stockQuantity?: string
   isActive: boolean
   isIncluded?: boolean
   selections: Record<string, string | null>
@@ -269,6 +270,7 @@ export function createAdminAccessoryDraft(): AdminAccessoryDraft {
       sku: '',
       originalPrice: '',
       salePrice: '',
+      stockQuantity: '0',
       isActive: true,
       isIncluded: true,
       selections: {},
@@ -390,6 +392,7 @@ export function buildVariantMatrix(groups: DraftOptionGroup[], currentVariants: 
       sku: '',
       originalPrice: '',
       salePrice: '',
+      stockQuantity: '0',
       isActive: true,
       isIncluded: true,
       selections: selection,

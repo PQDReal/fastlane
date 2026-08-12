@@ -34,6 +34,7 @@ function payload() {
       name: 'Mặc định',
       originalPrice: 500000,
       salePrice: null,
+      stockQuantity: 0,
       isActive: true,
       optionValues: {},
       imageUrls: ['https://cdn.example.com/sku.webp'],
