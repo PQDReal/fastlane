@@ -285,7 +285,7 @@ export async function POST(request: Request) {
     } else {
       const result = await getSupabaseAdmin()
         .from('vehicle_variants')
-        .select('id,color,version,variant_name,product_variant_id')
+        .select('id,color,version,variant_name,interior_color,product_variant_id')
         .eq('product_id', quote.productId)
         .eq('is_active', true)
       if (result.error) throw result.error
@@ -294,6 +294,7 @@ export async function POST(request: Request) {
         matchesDepositVehicleVariant(variant, {
           vehicleVariant: input.vehicleVariant,
           exteriorColor: input.exteriorColor,
+          interiorColor: input.interiorColor ?? undefined,
         }),
       )
       if (matches.length !== 1 || !matches[0].product_variant_id) {

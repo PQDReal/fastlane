@@ -47,7 +47,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   try {
     const { data } = await supabase
       .from('products')
-      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active)')
+      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active, color_type, color_price_adjustment, interior_color)')
       .eq('product_type', 'CAR')
     if (data) dbProducts = data
   } catch (e) {
@@ -93,7 +93,10 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
           .map((v: any) => ({
             name: v.color,
             image: v.image_car_url,
-            swatch: v.image_color_url
+            swatch: v.image_color_url,
+            type: v.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+            priceAdjustment: Number(v.color_price_adjustment || 0),
+            interiorColor: v.interior_color || undefined,
           }))
         
         const uniqueColorsMap = new Map()
@@ -123,7 +126,10 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
         .map((v: any) => ({
           name: v.color,
           image: v.image_car_url,
-          swatch: v.image_color_url
+          swatch: v.image_color_url,
+          type: v.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+          priceAdjustment: Number(v.color_price_adjustment || 0),
+          interiorColor: v.interior_color || undefined,
         }))
     } else if (specsObj.fallback_colors) {
       colors = specsObj.fallback_colors

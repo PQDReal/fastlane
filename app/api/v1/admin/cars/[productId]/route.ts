@@ -91,7 +91,7 @@ export async function GET(request: Request, context: Context) {
 
   const { data: vehicleVariants, error: vvError } = await supabase
     .from('vehicle_variants')
-    .select('product_variant_id,version,color,sku,price,deposit_amount,specs')
+    .select('product_variant_id,version,color,sku,price,deposit_amount,specs,interior_color,color_type,color_price_adjustment,image_car_url,image_color_url,is_active')
     .eq('product_id', productId)
 
   if (vvError) {
@@ -143,6 +143,22 @@ export async function GET(request: Request, context: Context) {
       color_type: color.color_type === 'ADVANCED' || legacySurcharge > 0 ? 'ADVANCED' : 'STANDARD',
     }
   })
+
+  // vehicle_variants is the canonical deposit/catalog source. Project its
+  // colour metadata into the admin editor so the dashboard and deposit page
+  // cannot disagree about tiers or available colours.
+  const canonicalColors = new Map<string, any>()
+  for (const row of vehicleVariants ?? []) {
+    if (!row.color || row.is_active === false || canonicalColors.has(String(row.color))) continue
+    canonicalColors.set(String(row.color), {
+      color_name: row.color,
+      image_url: row.image_car_url || '',
+      swatch: row.image_color_url || '',
+      color_type: row.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+      price_adjustment: Number(row.color_price_adjustment || 0),
+    })
+  }
+  if (canonicalColors.size > 0) colors = Array.from(canonicalColors.values())
 
   const isVehicleImage = (url: string | null | undefined): boolean => {
     if (!url) return false

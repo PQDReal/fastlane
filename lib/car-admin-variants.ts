@@ -15,6 +15,9 @@ type VehicleVariantRecord = {
   price?: number | string | null
   deposit_amount?: number | string | null
   specs?: Record<string, any> | null
+  interior_color?: string | null
+  color_type?: 'STANDARD' | 'ADVANCED' | null
+  color_price_adjustment?: number | string | null
 }
 
 type NamedColor = { color_name?: string | null }
@@ -50,6 +53,14 @@ function stripColorFromSku(sku: unknown, color: unknown) {
 }
 
 function vehicleInteriors(row: VehicleVariantRecord) {
+  const columnInterior = text(row.interior_color)
+  if (columnInterior) {
+    return [{
+      interior_name: columnInterior,
+      image_url: text(row.specs?.catalog?.interior_image_url),
+      swatch: text(row.specs?.catalog?.interior_swatch_url),
+    }]
+  }
   const catalogInterior = text(row.specs?.catalog?.interior_color)
   if (catalogInterior) {
     return [{

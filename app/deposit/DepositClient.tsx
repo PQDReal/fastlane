@@ -1078,22 +1078,27 @@ export function DepositClient({
   }, [draftEnabled])
 
   let baseColors = isMotorbike ? colors : colors.slice(0, 4)
-  let advancedColors = isMotorbike ? [] : colors.slice(4)
+  // Prefer canonical classification collected on vehicle_variants. Keep the
+  // legacy rules only for static/old rows that have no classification yet.
+  let advancedColors = isMotorbike
+    ? []
+    : colors.filter((color: any) => color.type === 'ADVANCED')
 
-  if (!isMotorbike && currentCar.name === 'VF 2') {
+  const hasCanonicalColorMetadata = !isMotorbike && colors.some((color: any) => color.type === 'ADVANCED' || Number(color.priceAdjustment) > 0)
+  if (!hasCanonicalColorMetadata && !isMotorbike && currentCar.name === 'VF 2') {
     const vf2Base = ['Infinity Blanc', 'Solar Ruby', 'Desat Silver']
     baseColors = colors.filter((c: any) => vf2Base.includes(c.name))
     advancedColors = colors.filter((c: any) => !vf2Base.includes(c.name))
-  } else if (currentCar.name === 'VF 5') {
+  } else if (!hasCanonicalColorMetadata && currentCar.name === 'VF 5') {
     baseColors = colors.slice(0, 3)
     advancedColors = colors.slice(3)
-  } else if (currentCar.name === 'VF 6') {
+  } else if (!hasCanonicalColorMetadata && currentCar.name === 'VF 6') {
     baseColors = colors.filter((c: any) => c.name !== 'Urban Mint')
     advancedColors = colors.filter((c: any) => c.name === 'Urban Mint')
-  } else if (currentCar.name === 'VF 7') {
+  } else if (!hasCanonicalColorMetadata && currentCar.name === 'VF 7') {
     baseColors = colors.filter((c: any) => c.name !== 'Urban Mint')
     advancedColors = colors.filter((c: any) => c.name === 'Urban Mint')
-  } else if (currentCar.name === 'VF 9') {
+  } else if (!hasCanonicalColorMetadata && currentCar.name === 'VF 9') {
     const vf9Advanced = ['Ivy Green', 'Desat Silver']
     baseColors = colors.filter((c: any) => !vf9Advanced.includes(c.name))
     advancedColors = colors.filter((c: any) => vf9Advanced.includes(c.name))
@@ -1105,7 +1110,8 @@ export function DepositClient({
     effectiveDbVariants.find(
       (variant: any) =>
         variant.version === selectedVariantName &&
-        variant.color === selectedColor,
+        variant.color === selectedColor &&
+        (!selectedInteriorColor || variant.interior_color === selectedInteriorColor),
     ) ||
     effectiveDbVariants.find((variant: any) => variant.version === selectedVariantName)
   const basePrice =
@@ -1116,8 +1122,9 @@ export function DepositClient({
   const isAdvancedColor = advancedColors.some(
     (color: any) => color.name === selectedColor,
   )
+  const selectedColorMetadata = colors.find((color: any) => color.name === selectedColor)
   const colorPrice = isAdvancedColor
-    ? Number(currentCar.advanced_color_price) ||
+    ? Number(selectedColorMetadata?.priceAdjustment) || Number(currentCar.advanced_color_price) ||
       (currentCar.name.includes('MPV')
         ? 10_000_000
         : ['VF 7', 'VF 9'].includes(currentCar.name) ||
@@ -1170,6 +1177,7 @@ export function DepositClient({
     (variant: any) =>
       variant.version === selectedVariantName &&
       variant.color === selectedColor &&
+      (!selectedInteriorColor || variant.interior_color === selectedInteriorColor) &&
       variant.image_car_url
   )
 
