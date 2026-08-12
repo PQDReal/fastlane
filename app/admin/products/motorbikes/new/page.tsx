@@ -319,6 +319,10 @@ export default function NewMotorbikePage() {
 
   const addCustomMotorbikeSpec = () => {
     const label = specDraft.label.trim()
+    if (!label && specDraft.value.trim()) {
+      notify('warning', 'Thiếu tên thông số', 'Giá trị đã nhập cần đi kèm tên thông số.')
+      return
+    }
     if (!label) {
       notify('warning', 'Chưa nhập tên thông số', 'Vui lòng nhập tên thông số trước khi thêm.')
       return
