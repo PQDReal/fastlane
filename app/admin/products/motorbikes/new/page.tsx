@@ -170,7 +170,7 @@ export default function NewMotorbikePage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false)
-  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Thông tin bổ sung' })
+  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Thông số bổ sung' })
 
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
@@ -293,15 +293,24 @@ export default function NewMotorbikePage() {
     setForm((current) => ({ ...current, specification_fields: current.specification_fields.map((field) => field.key === key ? { ...field, visible } : field) }))
   }
 
+  const removeMotorbikeSpecNow = (key: string) => {
+    setForm((current) => {
+      const specifications = { ...current.specifications }
+      delete specifications[key as keyof typeof specifications]
+      return { ...current, specifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
+    })
+  }
+
   const removeMotorbikeSpec = (key: string) => {
     const field = form.specification_fields.find((item) => item.key === key)
+    const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((item) => item.key === key)
     const toastId = Date.now() + Math.random()
     setToasts((items) => [...items, {
       id: toastId,
       kind: 'warning',
-      title: 'Xác nhận ẩn thông tin?',
-      message: `Thông tin “${field?.label || key}” sẽ không hiển thị sau khi lưu.`,
-      action: { label: 'Ẩn thông tin', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); updateMotorbikeSpecVisibility(key, false) } },
+      title: isDefault ? 'Xác nhận ẩn thông số?' : 'Xác nhận xóa thông số?',
+      message: isDefault ? `Thông số “${field?.label || key}” sẽ không hiển thị sau khi lưu.` : `Thông số “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
+      action: { label: isDefault ? 'Ẩn thông số' : 'Xóa thông số', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); isDefault ? updateMotorbikeSpecVisibility(key, false) : removeMotorbikeSpecNow(key) } },
       secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
     }])
   }
@@ -316,7 +325,7 @@ export default function NewMotorbikePage() {
       specifications: { ...current.specifications, [label]: specDraft.value },
       specification_fields: [...current.specification_fields.filter((field) => field.key !== label), { key: label, label, section: specDraft.section, visible: true }],
     }))
-    setSpecDraft({ label: '', value: '', section: 'Thông tin bổ sung' })
+    setSpecDraft({ label: '', value: '', section: 'Thông số bổ sung' })
     setIsSpecDialogOpen(false)
   }
 
@@ -1412,7 +1421,7 @@ export default function NewMotorbikePage() {
           <motion.div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl" initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 8 }}>
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900">Thêm thông số kỹ thuật</h3><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng"><X size={18} /></button></div>
             <div className="mt-5 space-y-4">
-              <input value={specDraft.label} onChange={(event) => setSpecDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Tên thông tin, ví dụ: Công nghệ sạc" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+              <input value={specDraft.label} onChange={(event) => setSpecDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Công nghệ sạc" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
               <input value={specDraft.value} onChange={(event) => setSpecDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Giá trị, ví dụ: Sạc nhanh 20 phút" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
             </div>
             <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={addCustomMotorbikeSpec}>Thêm thông số</Button></div>
