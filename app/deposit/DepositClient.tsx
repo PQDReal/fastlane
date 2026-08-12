@@ -1150,7 +1150,7 @@ export function DepositClient({
   const advancedColors = isMotorbike
     ? []
     : colors.filter((color: any) => color.type === 'ADVANCED')
-  const advancedColorAdjustments = Array.from(new Set(
+  const advancedColorAdjustments = Array.from(new Set<number>(
     advancedColors
       .map((color: any) => Number(color.priceAdjustment || 0))
       .filter((price: number) => price > 0),
