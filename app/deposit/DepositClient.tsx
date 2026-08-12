@@ -19,6 +19,10 @@ import {
   type DepositDraft,
   type StoredDepositDraft,
 } from '../../lib/deposit/draft'
+import {
+  matchesDepositVehicleVariant,
+  vehicleSelectionKey,
+} from '../../lib/deposit/vehicle-variant'
 
 type LocationOption = { code: number; name: string }
 type DepositQuote = {
@@ -27,6 +31,12 @@ type DepositQuote = {
   discountAmount: number
   totalEstimatedPrice: number
   promotion: { id: string; code: string; name: string } | null
+}
+
+function getVehicleVariantName(vehicleName: string, version: string): string {
+  return vehicleSelectionKey(version).startsWith(vehicleSelectionKey(vehicleName))
+    ? version
+    : `${vehicleName} ${version}`
 }
 
 const DEPOSIT_STEPS = [
@@ -319,6 +329,8 @@ export function DepositClient({
   const [openShowroom, setOpenShowroom] = useState(false)
   const [dbVariants, setDbVariants] = useState<any[]>([])
   const [dbVariantsLoading, setDbVariantsLoading] = useState(false)
+  const [dbVariantsLoaded, setDbVariantsLoaded] = useState(false)
+  const [dbVariantsSourceKey, setDbVariantsSourceKey] = useState<string | null>(null)
   const [applyingPromotion, setApplyingPromotion] = useState(false)
   const [promotionSuccess, setPromotionSuccess] = useState<string | null>(null)
 
@@ -457,7 +469,10 @@ export function DepositClient({
 
     async function fetchVariants() {
       setDbVariants([])
+      setDbVariantsLoaded(false)
+      setDbVariantsSourceKey(null)
       setDbVariantsLoading(true)
+      let sourceKey: string | null = null
       try {
         const vehicles = vehicleType === 'motorbike' ? motorbikesData : carsData
         const currentCarObj = vehicles.find(c => c.name === selectedCarId) || vehicles[0]
@@ -465,6 +480,7 @@ export function DepositClient({
           setDbVariants([])
           return
         }
+        sourceKey = `${vehicleType}:${currentCarObj.product_id || currentCarObj.name}`
         const query = currentCarObj.product_id
           ? `product_id=${encodeURIComponent(currentCarObj.product_id)}`
           : `product_name=${encodeURIComponent(currentCarObj.name)}`
@@ -475,13 +491,18 @@ export function DepositClient({
         const data = await res.json()
         if (!controller.signal.aborted) {
           setDbVariants(Array.isArray(data) ? data : [])
+          setDbVariantsSourceKey(sourceKey)
         }
       } catch (err) {
         if (controller.signal.aborted) return
         console.error(err)
         setDbVariants([])
+        setDbVariantsSourceKey(sourceKey)
       } finally {
-        if (!controller.signal.aborted) setDbVariantsLoading(false)
+        if (!controller.signal.aborted) {
+          setDbVariantsLoading(false)
+          setDbVariantsLoaded(true)
+        }
       }
     }
     fetchVariants()
@@ -936,7 +957,11 @@ export function DepositClient({
   const isMotorbike = currentCar.product_type === 'motorbike'
   const currentSpecs = specsData[currentCar.name] || {}
   
-  const effectiveDbVariants = dbVariants.length > 0 ? dbVariants : (currentCar.dbVariants || [])
+  const expectedDbVariantsSourceKey =
+    `${vehicleType}:${currentCar.product_id || currentCar.name}`
+  const hasCurrentDbVariants =
+    dbVariantsLoaded && dbVariantsSourceKey === expectedDbVariantsSourceKey
+  const effectiveDbVariants = hasCurrentDbVariants ? dbVariants : []
   
   const activeDbVersions = Array.from(new Set(
     effectiveDbVariants
@@ -944,13 +969,7 @@ export function DepositClient({
       .map((v: any) => v.version)
   ))
 
-  let variants = (
-    activeDbVersions.length > 0 
-      ? activeDbVersions as string[]
-      : isMotorbike
-        ? currentCar.variants || []
-        : Object.keys(currentSpecs.variants || {})
-  ).sort((a: string, b: string) => {
+  const variants = (hasCurrentDbVariants ? activeDbVersions as string[] : []).sort((a: string, b: string) => {
     if (currentCar.name === 'VF 8') {
       if (a.toLowerCase().includes('plus')) return -1
       if (b.toLowerCase().includes('plus')) return 1
@@ -960,22 +979,14 @@ export function DepositClient({
     if (b.toLowerCase().includes('plus')) return -1
     return 0
   })
-  
-  if (!isMotorbike && currentCar.name === 'VF 3') {
-    variants = ['Eco', 'Plus']
-  } else if (!isMotorbike && currentCar.name === 'VF 2') {
-    variants = ['Tiêu chuẩn']
-  } else if (!isMotorbike && currentCar.name.includes('MPV')) {
-    variants = ['Tiêu chuẩn']
-  }
   const colors = currentCar.colors || []
+  const variantSelectionKey = variants.join('|')
+  const variantsPending = dbVariantsLoading || !hasCurrentDbVariants
   
   // Update default variant when car changes
   useEffect(() => {
     setSelectedPackages([])
-    if (variants.length > 0) {
-       setSelectedVariant(`${currentCar.name} ${variants[0]}`)
-    }
+    setSelectedVariant('')
     if (colors.length > 0) {
       setSelectedColor(colors[0].name)
     }
@@ -984,6 +995,23 @@ export function DepositClient({
       setViewMode('exterior')
     }
   }, [selectedCarId, currentCar.name])
+
+  useEffect(() => {
+    if (!hasCurrentDbVariants || dbVariantsLoading || variants.length === 0) return
+    setSelectedVariant((current) => {
+      const availableSelections = variants.map((variant) =>
+        getVehicleVariantName(currentCar.name, variant),
+      )
+      return availableSelections.includes(current)
+        ? current
+        : availableSelections[0]
+    })
+  }, [
+    currentCar.name,
+    dbVariantsLoading,
+    hasCurrentDbVariants,
+    variantSelectionKey,
+  ])
 
   useEffect(() => {
     const pending = pendingDraftSelectionRef.current
@@ -1101,6 +1129,29 @@ export function DepositClient({
 
   const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
   const selectedVariantData = currentSpecs.variants?.[selectedVariantName]
+  const hasSelectedVehicleVariant = variants.some(
+    (variant: string) =>
+      selectedVariant === getVehicleVariantName(currentCar.name, variant),
+  )
+  const selectedInventoryVariant = hasSelectedVehicleVariant
+    ? dbVariants.find((variant: any) =>
+        matchesDepositVehicleVariant(variant, {
+          vehicleVariant: selectedVariant,
+          exteriorColor: selectedColor,
+        }),
+      )
+    : undefined
+  const selectedVehicleOutOfStock =
+    hasSelectedVehicleVariant &&
+    dbVariantsLoaded &&
+    !dbVariantsLoading &&
+    (!selectedInventoryVariant?.product_variant_id ||
+      Number(selectedInventoryVariant.inventory?.on_hand_quantity ?? 0) <= 0)
+  const vehicleInventoryUnavailable =
+    !hasSelectedVehicleVariant ||
+    !dbVariantsLoaded ||
+    dbVariantsLoading ||
+    selectedVehicleOutOfStock
   const matchingDbVariant =
     effectiveDbVariants.find(
       (variant: any) =>
@@ -1717,15 +1768,23 @@ export function DepositClient({
               <>
 
             {/* VARIANT SELECTION */}
-            {variants.length > 0 && (
-              <div className="mb-12">
-                <div className="flex items-baseline justify-between mb-6">
-                  <h3 className="text-2xl font-bold tracking-tight">Phiên bản</h3>
+            <div className="mb-12">
+              <div className="flex items-baseline justify-between mb-6">
+                <h3 className="text-2xl font-bold tracking-tight">Phiên bản</h3>
+              </div>
+
+              {variantsPending ? (
+                <div role="status" className="rounded-2xl border-2 border-slate-100 bg-slate-50 p-6 text-sm font-semibold text-slate-500">
+                  Đang tải phiên bản...
                 </div>
-                
+              ) : variants.length === 0 ? (
+                <div role="status" className="rounded-2xl border-2 border-amber-100 bg-amber-50 p-6 text-sm font-semibold text-amber-700">
+                  Hiện chưa có phiên bản đang hoạt động.
+                </div>
+              ) : (
                 <div className="grid grid-cols-1 gap-4">
                   {variants.map((v: string) => {
-                    const variantName = `${currentCar.name} ${v}`
+                    const variantName = getVehicleVariantName(currentCar.name, v)
                     const isSelected = selectedVariant === variantName
                     return (
                       <div 
@@ -1779,8 +1838,8 @@ export function DepositClient({
                     )
                   })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* UPGRADE PACKAGES */}
             {(() => {
@@ -1888,6 +1947,12 @@ export function DepositClient({
               )}
             </div>
             
+            {selectedVehicleOutOfStock && (
+              <p role="alert" className="mb-8 -mt-3 text-sm font-semibold text-red-600">
+                Sản phẩm đang tạm hết hàng.
+              </p>
+            )}
+
             {/* INTERIOR COLOR SELECTION */}
             {!isMotorbike && (
               <div className="mb-8">
@@ -2388,8 +2453,8 @@ export function DepositClient({
                      )}
                      <button 
                        onClick={handleNextStep}
-                       disabled={isSubmitting}
-                       className={`flex items-center justify-center gap-1 sm:gap-2 bg-slate-900 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm tracking-wide sm:tracking-widest whitespace-nowrap shrink-0 transition-all uppercase ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-800 hover:gap-3 hover:shadow-xl active:scale-95'}`}
+                       disabled={isSubmitting || (currentStep === 1 && vehicleInventoryUnavailable)}
+                       className={`flex items-center justify-center gap-1 sm:gap-2 bg-slate-900 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm tracking-wide sm:tracking-widest whitespace-nowrap shrink-0 transition-all uppercase ${isSubmitting || (currentStep === 1 && vehicleInventoryUnavailable) ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-800 hover:gap-3 hover:shadow-xl active:scale-95'}`}
                      >
                        {isSubmitting ? 'Đang xử lý...' : (currentStep === 1 || currentStep === 2 ? 'Tiếp tục' : 'Thanh toán đặt cọc')} {!isSubmitting && <ArrowRight className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
                      </button>
