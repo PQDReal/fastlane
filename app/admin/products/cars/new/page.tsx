@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Undo2,
   X,
   Zap,
 } from 'lucide-react'
@@ -407,8 +408,16 @@ export default function NewCarPage() {
     })
   }
 
+  const restoreDefaultSpecField = (key: string) => {
+    updateSpecField(key, { visible: true })
+  }
+
   const removeSpecField = (key: string) => {
     const field = form.specification_fields.find((item) => item.key === key)
+    if (DEFAULT_VEHICLE_SPEC_FIELDS.some((item) => item.key === key)) {
+      updateSpecField(key, { visible: false })
+      return
+    }
     const toastId = Date.now() + Math.random()
     setToasts((items) => [...items, {
       id: toastId,
@@ -1075,9 +1084,10 @@ export default function NewCarPage() {
                   { label: 'Dung lượng pin', key: 'Dung lượng pin', placeholder: 'Ví dụ: 37.23 kWh' },
                   { label: 'Thời gian sạc nhanh', key: 'Thời gian sạc nhanh', placeholder: 'Ví dụ: Khoảng 30 phút (10-70%)' },
                   { label: 'Công suất sạc DC tối đa', key: 'Công suất sạc DC tối đa', placeholder: 'Ví dụ: 60 kW' },
-                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
+                ].map((spec) => (
                   <div key={spec.key}>
-                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1085,6 +1095,8 @@ export default function NewCarPage() {
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
                 {renderCustomSpecs('Vận hành & Pin')}
@@ -1103,9 +1115,10 @@ export default function NewCarPage() {
                   { label: 'Khoảng sáng gầm xe', key: 'Khoảng sáng gầm xe', placeholder: 'Ví dụ: 182 mm' },
                   { label: 'Khối lượng / Tải trọng', key: 'Khối lượng / Tải trọng', placeholder: 'Ví dụ: 1360/325 kg' },
                   { label: 'Số chỗ ngồi *', key: 'Số chỗ ngồi', placeholder: 'Ví dụ: 5 ghế' },
-                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
+                ].map((spec) => (
                   <div key={spec.key}>
-                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1113,6 +1126,8 @@ export default function NewCarPage() {
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
                 {renderCustomSpecs('Kích thước & Trọng lượng')}
@@ -1131,9 +1146,10 @@ export default function NewCarPage() {
                   { label: 'Hệ thống giải trí', key: 'Hệ thống giải trí', placeholder: 'Ví dụ: Màn hình cảm ứng 10 inch' },
                   { label: 'Hệ thống điều hòa', key: 'Hệ thống điều hòa', placeholder: 'Ví dụ: Tự động, có màng lọc PM2.5' },
                   { label: 'Điều chỉnh ghế lái', key: 'Điều chỉnh ghế lái', placeholder: 'Ví dụ: Chỉnh cơ 6 hướng' },
-                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
+                ].map((spec) => (
                   <div key={spec.key}>
-                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1141,6 +1157,8 @@ export default function NewCarPage() {
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
                 {renderCustomSpecs('Nội thất & Ngoại thất')}
@@ -1157,9 +1175,10 @@ export default function NewCarPage() {
                   { label: 'Hệ thống túi khí', key: 'Hệ thống túi khí', placeholder: 'Ví dụ: 4 túi khí' },
                   { label: 'Hệ thống ABS (Chống bó cứng phanh)', key: 'Hệ thống ABS', placeholder: 'Ví dụ: Có' },
                   { label: 'Hệ thống EBD (Phân phối lực phanh điện tử)', key: 'Hệ thống EBD', placeholder: 'Ví dụ: Có' },
-                ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
+                ].map((spec) => (
                   <div key={spec.key}>
-                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1167,6 +1186,8 @@ export default function NewCarPage() {
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
                 {renderCustomSpecs('Hệ thống An toàn')}
