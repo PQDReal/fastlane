@@ -19,6 +19,7 @@ import {
   Loader2,
   Palette,
   Plus,
+  Pencil,
   RefreshCw,
   Save,
   Trash2,
@@ -237,6 +238,8 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false)
+  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Vận hành & Pin', visible: true })
 
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
@@ -436,6 +439,18 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
       delete nextSpecifications[key as keyof typeof nextSpecifications]
       return { ...current, specifications: nextSpecifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
     })
+  }
+
+  const saveSpecDraft = () => {
+    const label = specDraft.label.trim()
+    if (!label) return
+    setForm((current) => ({
+      ...current,
+      specifications: { ...current.specifications, [label]: specDraft.value },
+      specification_fields: [...current.specification_fields.filter((field) => field.key !== label), { key: label, label, section: specDraft.section, visible: specDraft.visible }],
+    }))
+    setSpecDraft({ label: '', value: '', section: 'Vận hành & Pin', visible: true })
+    setIsSpecDialogOpen(false)
   }
 
   // Add/Remove colors
@@ -1056,24 +1071,26 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
               <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết và cấu hình xe.</p>
             </div>
 
-            <div className="rounded-xl border border-brand-100 bg-brand-50/30 p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Tùy chỉnh bộ thông số mặc định</h4>
-                  <p className="mt-1 text-xs text-slate-500">Bỏ chọn để ẩn chỉ số trên sản phẩm này, hoặc sửa nhãn hiển thị. Bộ mặc định vẫn được dùng cho sản phẩm mới.</p>
-                </div>
-                <Button type="button" size="sm" variant="outline" onClick={addSpecField}><Plus size={14} className="mr-1" /> Thêm chỉ số</Button>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {form.specification_fields.map((field) => (
-                  <div key={field.key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2">
-                    <input type="checkbox" checked={field.visible} onChange={(event) => updateSpecField(field.key, { visible: event.target.checked })} aria-label={`Hiển thị ${field.label}`} />
-                    <input value={field.label} onChange={(event) => updateSpecField(field.key, { label: event.target.value })} className="h-8 min-w-0 flex-1 rounded border border-slate-200 px-2 text-xs" />
-                    <button type="button" onClick={() => removeSpecField(field.key)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label={`Xóa ${field.label}`}><Trash2 size={14} /></button>
-                  </div>
-                ))}
-              </div>
+            <div className="flex justify-end">
+              <Button type="button" size="sm" variant="outline" onClick={() => setIsSpecDialogOpen(true)}><Plus size={14} className="mr-1" /> Thêm thông số</Button>
             </div>
+
+            {isSpecDialogOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="add-spec-title">
+                <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                  <div className="flex items-center justify-between"><h4 id="add-spec-title" className="text-base font-bold">Thêm thông số kỹ thuật</h4><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng">×</button></div>
+                  <div className="mt-5 space-y-4">
+                    <input autoFocus value={specDraft.label} onChange={(event) => setSpecDraft((draft) => ({ ...draft, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Kích thước lốp" className="h-10 w-full rounded-md border px-3 text-sm" />
+                    <input value={specDraft.value} onChange={(event) => setSpecDraft((draft) => ({ ...draft, value: event.target.value }))} placeholder="Giá trị, ví dụ: 215/55 R18" className="h-10 w-full rounded-md border px-3 text-sm" />
+                    <select value={specDraft.section} onChange={(event) => setSpecDraft((draft) => ({ ...draft, section: event.target.value }))} className="h-10 w-full rounded-md border px-3 text-sm">
+                      {['Vận hành & Pin', 'Kích thước & Trọng lượng', 'Nội thất & Ngoại thất', 'Hệ thống An toàn'].map((section) => <option key={section}>{section}</option>)}
+                    </select>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={specDraft.visible} onChange={(event) => setSpecDraft((draft) => ({ ...draft, visible: event.target.checked }))} /> Hiển thị trên sản phẩm</label>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={saveSpecDraft} disabled={!specDraft.label.trim()}>Thêm thông số</Button></div>
+                </div>
+              </div>
+            )}
 
             {/* 1. Performance & Powertrain */}
             <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
@@ -1092,7 +1109,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Công suất sạc DC tối đa', key: 'Công suất sạc DC tối đa', placeholder: 'Ví dụ: 60 kW' },
                 ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
+                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1119,7 +1136,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Số chỗ ngồi *', key: 'Số chỗ ngồi', placeholder: 'Ví dụ: 5 ghế' },
                 ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
+                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1146,7 +1163,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Điều chỉnh ghế lái', key: 'Điều chỉnh ghế lái', placeholder: 'Ví dụ: Chỉnh cơ 6 hướng' },
                 ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
+                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1171,7 +1188,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   { label: 'Hệ thống EBD (Phân phối lực phanh điện tử)', key: 'Hệ thống EBD', placeholder: 'Ví dụ: Có' },
                 ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label>
+                    <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{form.specification_fields.find((field) => field.key === spec.key)?.label || spec.label}</label><button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button></div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
@@ -1183,6 +1200,12 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                 ))}
               </div>
             </div>
+            {form.specification_fields.filter((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible).map((field) => (
+              <div key={field.key} className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+                <div className="flex items-center justify-between"><h4 className="text-sm font-bold text-slate-800">{field.section}</h4><button type="button" onClick={() => removeSpecField(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${field.label}`}><Trash2 size={16} /></button></div>
+                <div><label className="text-xs font-semibold text-slate-600">{field.label}</label><input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" /></div>
+              </div>
+            ))}
           </div>
         )}
 
