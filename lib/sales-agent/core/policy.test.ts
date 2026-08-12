@@ -9,6 +9,7 @@ describe('Sales Agent Markdown policy', () => {
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('| Tiêu chí | [Xe A] | [Xe B] |')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('MẪU HƯỚNG DẪN / THỦ TỤC')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('MẪU THIẾU DỮ LIỆU')
+    expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('\\[ ... \\]')
     expect(SALES_AGENT_SYSTEM_PROMPT).toContain(SALES_AGENT_MARKDOWN_TEMPLATE)
   })
 

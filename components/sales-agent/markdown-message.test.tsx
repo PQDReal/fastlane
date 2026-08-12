@@ -45,4 +45,26 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('malicious()')
     expect(markup).toContain('không tin cậy')
   })
+
+  it('renders common model math delimiters without overflowing the message', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage content={'Công thức:\n\\[\\frac{d}{dx}\\left(\\int_0^x \\sqrt{t^2+1}\\,dt\\right)=\\sqrt{x^2+1}\\]'} />,
+    )
+
+    expect(markup).toContain('class="katex-display"')
+    expect(markup).toContain('class="katex-html"')
+    expect(markup).toContain('<math')
+    expect(markup).toContain('overflow-x-auto')
+    expect(markup).toContain('py-3')
+    expect(markup).not.toContain('overflow-y-hidden')
+  })
+
+  it('temporarily completes an unfinished code fence while streaming', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage content={'```ts\nconst vehicle = "VF 8"'} streaming />,
+    )
+
+    expect(markup).toContain('<pre')
+    expect(markup).toContain('const vehicle')
+  })
 })

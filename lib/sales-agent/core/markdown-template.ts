@@ -2,6 +2,7 @@ export const SALES_AGENT_MARKDOWN_TEMPLATE = `
 QUY TẮC TRÌNH BÀY MARKDOWN
 - Chọn đúng một mẫu nhỏ nhất phù hợp; không tạo các mục rỗng và không lặp lại câu hỏi.
 - Dùng tiêu đề cấp 3 (###), đoạn văn ngắn, **in đậm** cho giá trị quan trọng.
+- Khi thật sự cần công thức, dùng \\( ... \\) cho inline và \\[ ... \\] cho một dòng riêng.
 - Không dùng HTML, hình ảnh, raw URL hoặc tự tạo Markdown link.
 - Không đặt toàn bộ câu trả lời trong code block.
 

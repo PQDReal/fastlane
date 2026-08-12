@@ -1,8 +1,8 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowUp, Bot, Loader2, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { ArrowDown, ArrowUp, Bot, Loader2, X } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
@@ -18,6 +18,12 @@ const SUGGESTIONS = [
   'Giá xe hiện tại',
   'Phụ kiện nên mua',
 ]
+
+const BOTTOM_THRESHOLD = 48
+
+function isNearBottom(element: HTMLElement) {
+  return element.scrollHeight - element.clientHeight - element.scrollTop <= BOTTOM_THRESHOLD
+}
 
 function parseSseChunk(buffer: string, onEvent: (payload: Record<string, unknown>) => void) {
   const chunks = buffer.split('\n\n')
@@ -44,20 +50,47 @@ export function SalesAgentShell() {
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [showScrollButton, setShowScrollButton] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const listRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const followBottomRef = useRef(true)
+  const autoScrollUntilRef = useRef(0)
   const pathname = usePathname()
   const reduceMotion = useReducedMotion()
 
+  const scrollToLatest = useCallback(() => {
+    const list = listRef.current
+    if (!list) return
+    followBottomRef.current = true
+    autoScrollUntilRef.current = Date.now() + 250
+    setShowScrollButton(false)
+    list.scrollTop = list.scrollHeight
+  }, [])
+
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [messages, reduceMotion])
+    const content = contentRef.current
+    if (!content) return
+    const observer = new ResizeObserver(() => {
+      if (!followBottomRef.current) return
+      scrollToLatest()
+    })
+    observer.observe(content)
+    return () => observer.disconnect()
+  }, [open, scrollToLatest])
+
+  useLayoutEffect(() => {
+    if (!open || !followBottomRef.current) return
+    scrollToLatest()
+  }, [messages, open, scrollToLatest])
 
   if (!salesAgentUiEnabled) return null
 
   async function send(messageOverride?: string) {
     const message = (messageOverride ?? draft).trim()
     if (!message || sending) return
+    followBottomRef.current = true
+    setShowScrollButton(false)
     setDraft('')
     const assistantId = crypto.randomUUID()
     const userMessage: DisplayMessage = { id: crypto.randomUUID(), role: 'user', content: message }
@@ -121,16 +154,56 @@ export function SalesAgentShell() {
     {open && <>
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
       <motion.button type="button" aria-label="Đóng Sales Agent" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-slate-950/30 backdrop-blur-[1px] md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18 }} />
-      <motion.aside role="dialog" aria-label="Trợ lý mua xe FASTLANE" className="fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[380px]" initial={{ opacity: 0, x: reduceMotion ? 0 : 20, y: reduceMotion ? 0 : 16 }} animate={{ opacity: 1, x: 0, y: 0 }} exit={{ opacity: 0, x: reduceMotion ? 0 : 20, y: reduceMotion ? 0 : 16 }} transition={{ duration: reduceMotion ? 0 : 0.22, ease: 'easeOut' }}>
+      <motion.aside role="dialog" aria-label="Trợ lý mua xe FASTLANE" className="fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[380px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}>
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-950 px-4 py-3 text-white">
           <div className="flex min-w-0 items-center gap-2.5"><span className="rounded-lg bg-brand-500/20 p-2 text-brand-300"><Bot size={18} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold">Trợ lý mua xe</p><p className="truncate text-[11px] text-slate-400">Xe · phụ kiện · thủ tục</p></div></div>
           <button type="button" onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400" aria-label="Đóng Sales Agent"><X size={18} /></button>
         </div>
-        <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto bg-slate-50/70 p-3" aria-live="polite">
-          {!messages.length && <div className="space-y-2.5"><div className="flex items-end gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-100 bg-white text-brand-600 shadow-sm"><Bot size={15} /></span><div className="max-w-[84%] rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-700 shadow-sm">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div></div><div className="flex flex-wrap gap-1.5 pl-9">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
-          {messages.map((item) => <div key={item.id} className={`flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[84%] rounded-2xl px-3 py-2.5 ${item.role === 'user' ? 'rounded-br-md bg-slate-900 text-white' : item.error ? 'rounded-bl-md border border-red-200 bg-red-50' : 'rounded-bl-md bg-slate-100'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} /> : <p className="whitespace-pre-wrap text-sm leading-5">{item.content}</p>}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
+        <div
+          ref={listRef}
+          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/70 p-3"
+          style={{ overflowAnchor: showScrollButton ? 'auto' : 'none' }}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          onScroll={(event) => {
+            const nearBottom = isNearBottom(event.currentTarget)
+            if (nearBottom) {
+              followBottomRef.current = true
+              setShowScrollButton(false)
+              return
+            }
+            if (Date.now() <= autoScrollUntilRef.current) return
+            followBottomRef.current = false
+            setShowScrollButton(true)
+          }}
+          onWheel={(event) => {
+            const target = event.target instanceof Element ? event.target : null
+            if (target?.closest('[data-scrollable], .katex-display')) return
+            if (event.deltaY >= 0) return
+            if (event.currentTarget.scrollHeight - event.currentTarget.clientHeight <= 1) return
+            autoScrollUntilRef.current = 0
+            followBottomRef.current = false
+            setShowScrollButton(true)
+          }}
+          onTouchMove={(event) => {
+            const target = event.target instanceof Element ? event.target : null
+            if (target?.closest('[data-scrollable], .katex-display')) return
+            if (event.currentTarget.scrollHeight - event.currentTarget.clientHeight <= 1) return
+            autoScrollUntilRef.current = 0
+            followBottomRef.current = false
+            setShowScrollButton(true)
+          }}
+        >
+          <div ref={contentRef} className="min-w-0 space-y-2">
+          {!messages.length && <div className="min-w-0 space-y-2.5"><div className="py-2 text-sm leading-5 text-slate-700">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div><div className="flex flex-wrap gap-1.5">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
+          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
+          </div>
         </div>
-        <form onSubmit={(event) => { event.preventDefault(); void send() }} className="border-t border-slate-200 p-3"><div className="flex items-end gap-1.5 rounded-xl border border-slate-300 bg-white p-1.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100"><textarea value={draft} onChange={(event) => setDraft(event.target.value.slice(0, 2_000))} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} disabled={sending} rows={1} placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'} className="min-h-9 flex-1 resize-none border-0 bg-transparent px-2 py-1 text-sm leading-5 outline-none disabled:cursor-not-allowed disabled:opacity-60" aria-label="Câu hỏi cho Sales Agent" /><Button type="submit" size="icon" disabled={!draft.trim() || sending} className="h-9 w-9 shrink-0 bg-brand-600 text-white hover:bg-brand-700" aria-label="Gửi câu hỏi"><ArrowUp size={16} /></Button></div><p className="mt-1.5 text-[10px] text-slate-400">Không gửi CCCD, OTP, thẻ hoặc mật khẩu.</p></form>
+        <div className="relative">
+          {showScrollButton && <button type="button" onClick={scrollToLatest} className="absolute -top-11 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:bg-slate-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label="Cuộn đến tin nhắn mới nhất"><ArrowDown size={15} /></button>}
+          <form onSubmit={(event) => { event.preventDefault(); void send() }} className="border-t border-slate-200 p-3"><div className="flex min-w-0 items-end gap-1.5 rounded-xl border border-slate-300 bg-white p-1.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100"><textarea value={draft} onChange={(event) => setDraft(event.target.value.slice(0, 2_000))} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} disabled={sending} rows={1} placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'} className="min-h-9 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-1 text-sm leading-5 outline-none disabled:cursor-not-allowed disabled:opacity-60" aria-label="Câu hỏi cho Sales Agent" /><Button type="submit" size="icon" disabled={!draft.trim() || sending} className="h-9 w-9 shrink-0 bg-brand-600 text-white hover:bg-brand-700" aria-label="Gửi câu hỏi"><ArrowUp size={16} /></Button></div><p className="mt-1.5 text-[10px] text-slate-400">Không gửi CCCD, OTP, thẻ hoặc mật khẩu.</p></form>
+        </div>
       </motion.aside>
     </>}
   </AnimatePresence>
