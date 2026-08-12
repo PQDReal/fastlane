@@ -1113,6 +1113,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   <div className="flex items-center justify-between"><h4 id="add-spec-title" className="text-base font-bold">Thêm thông số kỹ thuật</h4><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng">×</button></div>
                   <div className="mt-5 space-y-4">
                     <input autoFocus value={specDraft.label} onChange={(event) => setSpecDraft((draft) => ({ ...draft, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Kích thước lốp" className="h-10 w-full rounded-md border px-3 text-sm" />
+                    <p className="mt-1 text-xs text-red-600"><strong>Lưu ý:</strong> Không được trùng với 1 trong tên thông số hiện có.</p>
                     <input value={specDraft.value} onChange={(event) => setSpecDraft((draft) => ({ ...draft, value: event.target.value }))} placeholder="Giá trị, ví dụ: 215/55 R18" className="h-10 w-full rounded-md border px-3 text-sm" />
                     <select value={specDraft.section} onChange={(event) => setSpecDraft((draft) => ({ ...draft, section: event.target.value }))} className="h-10 w-full rounded-md border px-3 text-sm">
                       {['Vận hành & Pin', 'Kích thước & Trọng lượng', 'Nội thất & Ngoại thất', 'Hệ thống An toàn'].map((section) => <option key={section}>{section}</option>)}
