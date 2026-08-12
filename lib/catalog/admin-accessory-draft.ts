@@ -96,6 +96,8 @@ export type AdminAccessoryDraft = {
   rootCategoryId: string
   templateCode: AccessoryTemplateCode
   templateVersion: number
+  /** Database revision provenance; null means the blank Custom workflow. */
+  templateVersionId?: string | null
   categoryAssignments: DraftCategoryAssignment[]
   primaryCollectionSlug?: string
   modelCollectionSlugs?: string[]
@@ -167,6 +169,15 @@ export function applyAccessoryTemplateCategoryDefaults(
 ) {
   if (draft.categoryAssignments.length > 0) return draft
   const suggestedSlugs = accessoryTemplate(templateCode)?.suggestedCategorySlugs ?? []
+  return applyAccessoryCategoryDefaultsFromSlugs(draft, collections, suggestedSlugs)
+}
+
+export function applyAccessoryCategoryDefaultsFromSlugs(
+  draft: AdminAccessoryDraft,
+  collections: DraftCollection[],
+  suggestedSlugs: string[],
+) {
+  if (draft.categoryAssignments.length > 0) return draft
   const categories = accessoryCategoryCollections(collections)
   const categoryAssignments = suggestedSlugs.flatMap((slug) => {
     const category = categories.find((item) => item.slug === slug)

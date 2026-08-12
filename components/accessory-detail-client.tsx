@@ -7,6 +7,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ImageOff,
   Loader2,
   Minus,
   Plus,
@@ -304,8 +305,9 @@ export function AccessoryDetailClient({
     () => resolveCatalogMedia(product, {
       variantId: selectedVariant?.id,
       selectedOptions: selection,
+      allowPlaceholder: !previewMode,
     }),
-    [product, selectedVariant?.id, selection],
+    [product, previewMode, selectedVariant?.id, selection],
   )
   const activeMedia = selectedMedia[selectedMediaIndex] ?? selectedMedia[0]
   const purchaseMedia = selectedMedia.find((media) => media.mediaType === 'IMAGE')
@@ -433,10 +435,18 @@ export function AccessoryDetailClient({
         <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-10">
           <section aria-label="Hình ảnh sản phẩm" className="min-w-0">
             <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center overflow-hidden border border-slate-200 bg-white">
-              <div className="absolute left-4 top-4 z-10 rounded-sm border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
-                Media {String(selectedMediaIndex + 1).padStart(2, '0')} / {String(selectedMedia.length).padStart(2, '0')}
-              </div>
-              <AnimatePresence initial={false} custom={mediaDirection}>
+              {selectedMedia.length > 0 && (
+                <div className="absolute left-4 top-4 z-10 rounded-sm border border-slate-200 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
+                  Media {String(selectedMediaIndex + 1).padStart(2, '0')} / {String(selectedMedia.length).padStart(2, '0')}
+                </div>
+              )}
+              {selectedMedia.length === 0 ? (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-sm font-medium text-slate-400">
+                  <ImageOff size={42} strokeWidth={1.5} aria-hidden="true" />
+                  <span>Chưa gắn ảnh</span>
+                </div>
+              ) : (
+                <AnimatePresence initial={false} custom={mediaDirection}>
                 {activeMedia && (
                   <motion.div
                     key={`${activeMedia.url}-${selectedMediaIndex}`}
@@ -466,7 +476,8 @@ export function AccessoryDetailClient({
                     <MediaPreview media={activeMedia} productName={product.name} />
                   </motion.div>
                 )}
-              </AnimatePresence>
+                </AnimatePresence>
+              )}
               {selectedMedia.length > 1 && (
                 <>
                   <button

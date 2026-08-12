@@ -31,7 +31,7 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
 
-const STORAGE_KEY = 'FASTLANE_MOTORBIKE_DRAFT'
+const STORAGE_KEY = 'fastlane.admin.products.motorbikes.new.v1'
 
 interface ColorEntry {
   color_name: string
@@ -176,9 +176,9 @@ export default function NewMotorbikePage() {
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4000)
   }, [])
 
-  // 2. Load draft from localStorage on mount
+  // 2. Load the current-tab session snapshot on mount
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
@@ -191,16 +191,16 @@ export default function NewMotorbikePage() {
     }
   }, [])
 
-  // 3. Save draft to localStorage on change
+  // 3. Save the current-tab session snapshot on change
   useEffect(() => {
     if (form !== initialFormState) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         setForm({ ...initialFormState, ...JSON.parse(saved) })
@@ -214,14 +214,14 @@ export default function NewMotorbikePage() {
 
   // Reject draft / Start fresh
   const handleDiscardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp', 'Bắt đầu điền thông tin mới.')
   }
 
   // Cancel action (Ask confirmation via warning toast if draft exists)
   const handleCancel = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (!saved) {
       router.push('/admin/products')
       return
@@ -240,7 +240,7 @@ export default function NewMotorbikePage() {
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            localStorage.removeItem(STORAGE_KEY)
+            sessionStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy tạo mới', 'Bản nháp lưu tạm đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -483,7 +483,7 @@ export default function NewMotorbikePage() {
       }
 
       notify('success', 'Lưu sản phẩm thành công', 'Xe máy điện đã được thêm vào hệ thống.')
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)

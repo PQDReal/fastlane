@@ -206,6 +206,7 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
     rootCategoryId: text(row.category_id),
     templateCode,
     templateVersion,
+    templateVersionId: text(row.accessory_template_version_id) || null,
     categoryAssignments,
     primaryCollectionSlug: '',
     modelCollectionSlugs: [],

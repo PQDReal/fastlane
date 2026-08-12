@@ -18,8 +18,6 @@ import {
   Minus,
   PackagePlus,
   Plus,
-  RotateCcw,
-  Save,
   Trash2,
   Upload,
   X,
@@ -37,6 +35,7 @@ import {
   accessoryAdminSlug,
   accessoryModelCollectionsForCategory,
   applyAccessoryTemplateCategoryDefaults,
+  applyAccessoryCategoryDefaultsFromSlugs,
   buildVariantMatrix,
   createDraftOptionValue,
   createAdminAccessoryDraft,
@@ -60,6 +59,8 @@ import {
   isTemplateSectionKey,
   type AccessoryTemplateCode,
 } from '@/lib/catalog/admin-accessory-templates'
+import type { AdminAccessoryTemplate } from '@/lib/catalog/admin-accessory-template-types'
+import { applyDatabaseAccessoryTemplateToDraft } from '@/lib/catalog/admin-accessory-template-draft'
 import {
   ADMIN_ACCESSORY_SESSION_KEY,
   restoreAdminAccessoryDraft,
@@ -75,6 +76,7 @@ import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 const inputClass = 'mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400'
 const textareaClass = 'mt-1.5 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100'
 const labelClass = 'block text-sm font-semibold text-slate-700'
+
 const VARIANT_BULK_EDITING_ENABLED = true
 
 function draftId(prefix: string) {
@@ -99,18 +101,23 @@ function SectionHeading({ title }: { title: string }) {
 }
 
 function TemplateSelectionStep({
-  selectedCode,
+  selectedKey,
   currentCode,
   revisiting,
+  templates,
   onSelect,
 }: {
-  selectedCode: AccessoryTemplateCode | null
+  selectedKey: string | null
   currentCode: AccessoryTemplateCode
   revisiting: boolean
-  onSelect: (templateCode: AccessoryTemplateCode) => void
+  templates: AdminAccessoryTemplate[]
+  onSelect: (templateKey: string) => void
 }) {
   const currentTemplate = accessoryTemplate(currentCode)
-  const changingTemplate = revisiting && selectedCode !== null && selectedCode !== currentCode
+  const changingTemplate = revisiting && selectedKey !== null && selectedKey !== currentCode
+  const cards = templates.length > 0
+    ? [...templates.map((template) => ({ key: template.id, group: template.groupName || 'Mẫu phụ kiện', label: template.name, description: template.description || 'Mẫu dùng lại cho phụ kiện.', custom: false })), { key: 'custom', group: 'Khác', label: 'Tùy chỉnh', description: 'Bắt đầu với form trống và tự thêm nội dung.', custom: true }]
+    : ACCESSORY_TEMPLATE_DEFINITIONS.map((template) => ({ key: template.code, group: template.group, label: template.label, description: template.description, custom: template.code === 'custom' }))
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8">
@@ -125,15 +132,15 @@ function TemplateSelectionStep({
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {ACCESSORY_TEMPLATE_DEFINITIONS.map((template) => {
-            const selected = selectedCode === template.code
-            const custom = template.code === 'custom'
+          {cards.map((template) => {
+            const selected = selectedKey === template.key
+            const custom = template.custom
             return (
               <button
-                key={template.code}
+                key={template.key}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onSelect(template.code)}
+                onClick={() => onSelect(template.key)}
                 className={`relative min-h-28 rounded-lg border p-4 pr-11 text-left transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${selected ? 'border-brand-600 bg-brand-50 ring-2 ring-brand-100' : custom ? 'border-dashed border-slate-300 bg-slate-50 hover:border-slate-500' : 'border-slate-200 bg-white hover:border-slate-400'}`}
               >
                 <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-500">{template.group}</span>
@@ -257,14 +264,12 @@ function ClassificationStep({
 function GeneralStep({
   draft,
   serviceLabels,
-  slugEdited,
-  onSlugEdited,
+  isEditing,
   onChange,
 }: {
   draft: AdminAccessoryDraft
   serviceLabels: CatalogServiceLabel[]
-  slugEdited: boolean
-  onSlugEdited: () => void
+  isEditing: boolean
   onChange: (next: AdminAccessoryDraft) => void
 }) {
   return (
@@ -272,10 +277,10 @@ function GeneralStep({
       <SectionHeading title="Thông tin chung" />
       <div className="grid gap-5 lg:grid-cols-2">
         <label className={labelClass}>Tên phụ kiện <span className="text-red-500">*</span>
-          <input value={draft.name} maxLength={200} onChange={(event) => onChange({ ...draft, name: event.target.value, slug: slugEdited ? draft.slug : accessoryAdminSlug(event.target.value) })} placeholder="Ví dụ: Áo mưa cánh dơi hai mũ" className={inputClass} />
+          <input value={draft.name} maxLength={200} onChange={(event) => onChange({ ...draft, name: event.target.value, ...(isEditing ? {} : { slug: accessoryAdminSlug(event.target.value) }) })} placeholder="Ví dụ: Áo mưa cánh dơi hai mũ" className={inputClass} />
         </label>
         <label className={labelClass}>Đường dẫn <span className="text-red-500">*</span>
-          <input value={draft.slug} maxLength={220} onChange={(event) => { onSlugEdited(); onChange({ ...draft, slug: accessoryAdminSlug(event.target.value) }) }} placeholder="ao-mua-canh-doi-hai-mu" className={inputClass} />
+          <input disabled value={draft.slug} maxLength={220} placeholder="ao-mua-canh-doi-hai-mu" className={`${inputClass} bg-slate-100 text-slate-500 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100`} />
         </label>
       </div>
       <label className={labelClass}>Mô tả sản phẩm <span className="text-red-500">*</span>
@@ -816,7 +821,7 @@ function OptionsAndVariantsStep({
                 <label className="flex shrink-0 items-center gap-1.5"><span className="text-[11px] font-bold text-slate-500">Mẫu</span>
                   <select aria-label="Mẫu thuộc tính" value={group.presetCode} onChange={(event) => applyPreset(group, event.target.value)} className="h-8 w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
                     <option value="">Tự tạo</option>
-                    {ACCESSORY_OPTION_PRESETS.map((item) => <option key={item.code} value={item.code}>{item.name} · {item.usageCount} lượt dùng</option>)}
+                    {ACCESSORY_OPTION_PRESETS.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
                   </select>
                 </label>
                 <button type="button" aria-label="Xóa nhóm tùy chọn" onClick={() => removeGroup(group.id)} className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 size={14} />Xóa</button>
@@ -1446,6 +1451,7 @@ export function AccessoryProductCreateDialog({
   open,
   rootCategoryId,
   serviceLabels,
+  accessoryTemplates,
   onClose,
   onChangeType,
   onDirtyChange,
@@ -1460,6 +1466,7 @@ export function AccessoryProductCreateDialog({
   open: boolean
   rootCategoryId: string
   serviceLabels: CatalogServiceLabel[]
+  accessoryTemplates: AdminAccessoryTemplate[]
   onClose: () => void
   onChangeType: () => void
   onDirtyChange: (dirty: boolean) => void
@@ -1476,16 +1483,14 @@ export function AccessoryProductCreateDialog({
     ? cloneAccessoryDraft(initialDraft)
     : accessoryDraftWithRootCategory(rootCategoryId))
   const [view, setView] = useState<AccessoryEditorView>(() => initialDraft ? 'edit' : 'template')
-  const [templateCandidate, setTemplateCandidate] = useState<AccessoryTemplateCode | null>(() => initialDraft?.templateCode ?? null)
+  const [templateCandidate, setTemplateCandidate] = useState<string | null>(() => initialDraft?.templateVersionId ?? initialDraft?.templateCode ?? null)
   const [templateCommitted, setTemplateCommitted] = useState(Boolean(initialDraft))
-  const [pendingSuggestedCategoryTemplate, setPendingSuggestedCategoryTemplate] = useState<AccessoryTemplateCode | null>(null)
-  const [slugEdited, setSlugEdited] = useState(false)
+  const [pendingSuggestedCategoryTemplate, setPendingSuggestedCategoryTemplate] = useState<string | null>(null)
   const [reviewDecisionOpen, setReviewDecisionOpen] = useState(false)
   const [taxonomyCollections, setTaxonomyCollections] = useState<DraftCollection[]>([])
   const [taxonomyLoading, setTaxonomyLoading] = useState(false)
   const [taxonomyError, setTaxonomyError] = useState<string | null>(null)
   const [taxonomyReloadKey, setTaxonomyReloadKey] = useState(0)
-  const [hasLocalDraft, setHasLocalDraft] = useState(false)
   const [saving, setSaving] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
   const reviewTriggerRef = useRef<HTMLButtonElement>(null)
@@ -1493,11 +1498,11 @@ export function AccessoryProductCreateDialog({
   useEffect(() => {
     if (!open) return
     setDraft(initialDraft ? cloneAccessoryDraft(initialDraft) : accessoryDraftWithRootCategory(rootCategoryId))
+    setTemplateCandidate(initialDraft?.templateVersionId ?? initialDraft?.templateCode ?? null)
     setView(initialDraft ? 'edit' : 'template')
     setTemplateCandidate(initialDraft?.templateCode ?? null)
     setTemplateCommitted(Boolean(initialDraft))
     setPendingSuggestedCategoryTemplate(null)
-    setSlugEdited(Boolean(initialDraft))
     setReviewDecisionOpen(false)
     setSaving(false)
   }, [expectedUpdatedAt, open, productId, rootCategoryId])
@@ -1564,19 +1569,13 @@ export function AccessoryProductCreateDialog({
   }, [open, rootCategoryId, taxonomyReloadKey])
 
   useEffect(() => {
-    if (!open) return
-    setHasLocalDraft(!isEditing && Boolean(window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)))
-  }, [isEditing, open])
-
-  useEffect(() => {
     if (!open || !pendingSuggestedCategoryTemplate || taxonomyCollections.length === 0) return
-    setDraft((current) => applyAccessoryTemplateCategoryDefaults(
-      current,
-      taxonomyCollections,
-      pendingSuggestedCategoryTemplate,
-    ))
+    const databaseTemplate = accessoryTemplates.find((template) => template.id === pendingSuggestedCategoryTemplate)
+    setDraft((current) => databaseTemplate
+      ? applyAccessoryCategoryDefaultsFromSlugs(current, taxonomyCollections, databaseTemplate.definition?.suggestedCategorySlugs ?? [])
+      : applyAccessoryTemplateCategoryDefaults(current, taxonomyCollections, pendingSuggestedCategoryTemplate as AccessoryTemplateCode))
     setPendingSuggestedCategoryTemplate(null)
-  }, [open, pendingSuggestedCategoryTemplate, taxonomyCollections])
+  }, [accessoryTemplates, open, pendingSuggestedCategoryTemplate, taxonomyCollections])
 
   useEffect(() => {
     if (!open) return
@@ -1598,11 +1597,42 @@ export function AccessoryProductCreateDialog({
     onDirtyChange(JSON.stringify(draft) !== JSON.stringify(baseline))
   }, [draft, initialDraft, onDirtyChange, rootCategoryId])
 
+  useEffect(() => {
+    if (!open || isEditing) return
+    try {
+      const serialized = window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)
+      if (!serialized) return
+      const restoredDraft = restoreAdminAccessoryDraft(serialized, rootCategoryId)
+      const hasContent = Boolean(restoredDraft.name.trim() || restoredDraft.description.trim() || restoredDraft.categoryAssignments.length || restoredDraft.optionGroups.length)
+      if (!hasContent) return
+      setDraft(restoredDraft)
+      setTemplateCandidate(restoredDraft.templateVersionId ?? restoredDraft.templateCode)
+      setTemplateCommitted(true)
+      setView('edit')
+      onNotify('success', 'Đã khôi phục dữ liệu phiên làm việc', 'Bạn có thể tiếp tục nhập phụ kiện.')
+    } catch {
+      window.sessionStorage.removeItem(ADMIN_ACCESSORY_SESSION_KEY)
+    }
+  }, [isEditing, onNotify, open, rootCategoryId])
+
+  useEffect(() => {
+    if (!open || isEditing) return
+    const timer = window.setTimeout(() => {
+      try {
+        window.sessionStorage.setItem(ADMIN_ACCESSORY_SESSION_KEY, serializeAdminAccessoryDraft(draft))
+      } catch {
+        // Session storage is best effort; publishing remains the source of truth.
+      }
+    }, 650)
+    return () => window.clearTimeout(timer)
+  }, [draft, isEditing, open])
+
   const validationIssues = useMemo(() => validateAdminAccessoryDraft(draft), [draft])
-  const activeTemplate = accessoryTemplate(draft.templateCode)
+  const activeDbTemplate = accessoryTemplates.find((template) => template.id === draft.templateVersionId)
+  const activeLegacyTemplate = accessoryTemplate(draft.templateCode)
   const templateSelectionChanges = templateCommitted
     && templateCandidate !== null
-    && templateCandidate !== draft.templateCode
+    && templateCandidate !== (draft.templateVersionId ?? draft.templateCode)
   const optionErrors = validationIssues.filter((issue) => issue.section === 'options' && issue.severity === 'error')
   const variantErrors = validationIssues.filter((issue) => issue.section === 'variants' && issue.severity === 'error')
   const commerceComplete = optionErrors.length === 0 && variantErrors.length === 0
@@ -1638,64 +1668,27 @@ export function AccessoryProductCreateDialog({
     setTemplateCandidate(initialDraft?.templateCode ?? null)
     setTemplateCommitted(Boolean(initialDraft))
     setPendingSuggestedCategoryTemplate(null)
-    setSlugEdited(false)
     setReviewDecisionOpen(false)
   }
 
-  function saveLocalDraft(nextDraft = draft, notify = true) {
-    try {
-      window.sessionStorage.setItem(ADMIN_ACCESSORY_SESSION_KEY, serializeAdminAccessoryDraft(nextDraft))
-      setHasLocalDraft(true)
-      if (notify) onNotify('success', 'Đã lưu bản nháp cục bộ', 'Bản mẫu chỉ tồn tại trong phiên trình duyệt hiện tại.')
-      return true
-    } catch {
-      onNotify('error', 'Không thể lưu bản nháp', 'Bộ nhớ phiên trình duyệt không khả dụng hoặc đã đầy.')
-      return false
-    }
-  }
-
-  function restoreLocalDraft() {
-    const serialized = window.sessionStorage.getItem(ADMIN_ACCESSORY_SESSION_KEY)
-    if (!serialized) {
-      setHasLocalDraft(false)
-      onNotify('warning', 'Không có bản nháp cục bộ', 'Hãy lưu bản nháp trước khi khôi phục.')
-      return
-    }
-    try {
-      const restoredDraft = restoreAdminAccessoryDraft(serialized, rootCategoryId)
-      setDraft(restoredDraft)
-      setTemplateCandidate(restoredDraft.templateCode)
-      setTemplateCommitted(true)
-      setPendingSuggestedCategoryTemplate(null)
-      setSlugEdited(true)
-      setView('edit')
-      onNotify('success', 'Đã khôi phục bản nháp', 'Dữ liệu đã được nạp từ phiên trình duyệt hiện tại.')
-    } catch (error) {
-      onNotify('error', 'Không thể khôi phục bản nháp', error instanceof Error ? error.message : 'Dữ liệu bản nháp không hợp lệ.')
-    }
-  }
-
-  function clearLocalDraft() {
-    onConfirmDestructive('Xóa bản nháp cục bộ?', 'Bản nháp trong phiên trình duyệt sẽ không thể khôi phục sau khi xóa.', () => {
-      window.sessionStorage.removeItem(ADMIN_ACCESSORY_SESSION_KEY)
-      setHasLocalDraft(false)
-      onNotify('success', 'Đã xóa bản nháp cục bộ')
-    })
-  }
-
   function returnToTemplateSelection() {
-    setTemplateCandidate(draft.templateCode)
+    setTemplateCandidate(draft.templateVersionId ?? draft.templateCode)
     setView('template')
   }
 
   function confirmTemplateSelection() {
     if (!templateCandidate) return
+    const databaseTemplate = accessoryTemplates.find((template) => template.id === templateCandidate)
     if (draft.categoryAssignments.length === 0) {
       setPendingSuggestedCategoryTemplate(templateCandidate)
     }
-    setDraft((current) => templateCandidate === current.templateCode && templateCommitted
+    setDraft((current) => templateCommitted && templateCandidate === (current.templateVersionId ?? current.templateCode)
       ? current
-      : applyAccessoryTemplateToDraft(current, templateCandidate))
+      : databaseTemplate
+        ? applyDatabaseAccessoryTemplateToDraft(current, databaseTemplate, taxonomyCollections)
+        : templateCandidate === 'custom'
+          ? { ...current, templateCode: 'custom', templateVersion: 1, templateVersionId: null, sections: current.sections.filter((section) => !isTemplateSectionKey(section.id)), optionGroups: current.optionGroups.filter((group) => !group.id.startsWith('tplgrp_')) }
+          : applyAccessoryTemplateToDraft(current, templateCandidate as AccessoryTemplateCode))
     setTemplateCommitted(true)
     setView('edit')
   }
@@ -1787,7 +1780,7 @@ export function AccessoryProductCreateDialog({
               <AnimatePresence mode="wait" initial={false}>
                 {view === 'template' ? (
                   <motion.div key="template" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.16 }}>
-                    <TemplateSelectionStep selectedCode={templateCandidate} currentCode={draft.templateCode} revisiting={templateCommitted} onSelect={setTemplateCandidate} />
+                    <TemplateSelectionStep selectedKey={templateCandidate} currentCode={draft.templateCode} revisiting={templateCommitted} templates={accessoryTemplates} onSelect={setTemplateCandidate} />
                   </motion.div>
                 ) : view === 'edit' ? (
                   <motion.div key="edit" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.16 }}>
@@ -1832,11 +1825,11 @@ export function AccessoryProductCreateDialog({
 
                       <div className="min-w-0 flex-1 space-y-4 p-4 sm:p-5 lg:p-6">
                         <section className="flex flex-col gap-3 rounded-lg border border-brand-200 bg-brand-50/60 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                          <div><p className="text-xs font-bold uppercase tracking-wide text-brand-700">Mẫu nhập đang dùng</p><p className="mt-1 text-sm font-bold text-slate-900">{activeTemplate?.label ?? draft.templateCode}</p></div>
+                          <div><p className="text-xs font-bold uppercase tracking-wide text-brand-700">Mẫu nhập đang dùng</p><p className="mt-1 text-sm font-bold text-slate-900">{activeDbTemplate?.name ?? activeLegacyTemplate?.label ?? draft.templateCode}</p></div>
                           <Button type="button" variant="outline" disabled={saving} onClick={returnToTemplateSelection}><ChevronLeft size={16} className="mr-2" />Quay lại bước chọn mẫu</Button>
                         </section>
                         <section id="accessory-editor-classification" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><ClassificationStep draft={draft} collections={taxonomyCollections} taxonomyLoading={taxonomyLoading} taxonomyError={taxonomyError} onRetryTaxonomy={() => setTaxonomyReloadKey((value) => value + 1)} onChange={setDraft} onConfirmDestructive={onConfirmDestructive} /></section>
-                        <section id="accessory-editor-general" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><GeneralStep draft={draft} serviceLabels={serviceLabels} slugEdited={slugEdited} onSlugEdited={() => setSlugEdited(true)} onChange={setDraft} /></section>
+                        <section id="accessory-editor-general" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><GeneralStep draft={draft} serviceLabels={serviceLabels} isEditing={isEditing} onChange={setDraft} /></section>
                         <section id="accessory-editor-content" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><ContentStep draft={draft} onChange={setDraft} /></section>
                         <section id="accessory-editor-commerce" className="scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                           <OptionsAndVariantsStep draft={draft} onChange={setDraft} onConfirmDestructive={onConfirmDestructive} />
@@ -1853,7 +1846,7 @@ export function AccessoryProductCreateDialog({
             </main>
 
             <footer className="flex items-center gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-              <div className="min-w-0 flex-1">{view === 'template' ? (templateCommitted ? <Button type="button" variant="outline" disabled={saving} onClick={() => { setTemplateCandidate(draft.templateCode); setView('edit') }}><ChevronLeft size={16} className="mr-2" />Quay lại form</Button> : <button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50">Đổi loại sản phẩm</button>) : view === 'preview' ? <Button type="button" variant="outline" disabled={saving} onClick={() => setView('edit')}><ChevronLeft size={16} className="mr-2" />Quay lại chỉnh sửa</Button> : !isEditing ? <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50 sm:hidden">Đổi loại</button><Button type="button" variant="outline" disabled={saving} onClick={() => saveLocalDraft()}><Save size={15} className="mr-2" />Lưu cục bộ</Button><Button type="button" variant="outline" disabled={!hasLocalDraft || saving} onClick={restoreLocalDraft}><RotateCcw size={15} className="mr-2" />Khôi phục</Button>{hasLocalDraft && <button type="button" disabled={saving} onClick={clearLocalDraft} className="px-2 py-2 text-xs font-semibold text-slate-500 transition hover:text-red-600 disabled:opacity-50">Xóa nháp</button>}</div> : <span className="text-xs font-semibold text-slate-500">Mọi thay đổi sẽ được kiểm tra lại trước khi lưu.</span>}</div>
+              <div className="min-w-0 flex-1">{view === 'template' ? (templateCommitted ? <Button type="button" variant="outline" disabled={saving} onClick={() => { setTemplateCandidate(draft.templateCode); setView('edit') }}><ChevronLeft size={16} className="mr-2" />Quay lại form</Button> : <button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50">Đổi loại sản phẩm</button>) : view === 'preview' ? <Button type="button" variant="outline" disabled={saving} onClick={() => setView('edit')}><ChevronLeft size={16} className="mr-2" />Quay lại chỉnh sửa</Button> : !isEditing ? <button type="button" onClick={onChangeType} disabled={saving} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:opacity-50 sm:hidden">Đổi loại</button> : <span className="text-xs font-semibold text-slate-500">Mọi thay đổi sẽ được kiểm tra lại trước khi lưu.</span>}</div>
               {view !== 'template' && <span className="hidden text-xs font-semibold text-slate-500 md:inline">{reviewBlockers.length === 0 ? 'Đã đủ thông tin bắt buộc' : `Còn ${reviewBlockers.length} mục trước khi hiển thị`}</span>}
               {view === 'template' ? <Button type="button" disabled={!templateCandidate || saving} onClick={confirmTemplateSelection}>{templateSelectionChanges ? 'Áp dụng và tiếp tục' : 'Tiếp tục'}</Button> : view === 'preview' ? <button ref={reviewTriggerRef} type="button" disabled={saving} onClick={() => setReviewDecisionOpen(true)} className="inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:opacity-50"><Check size={16} className="mr-2" />{isEditing ? 'Lưu' : 'Duyệt'}</button> : <Button type="button" disabled={saving} onClick={() => setView('preview')}><Eye size={16} className="mr-2" />Xem trước</Button>}
             </footer>
@@ -1863,10 +1856,7 @@ export function AccessoryProductCreateDialog({
               blockers={reviewBlockers}
               triggerRef={reviewTriggerRef}
               onClose={() => { if (!saving) setReviewDecisionOpen(false) }}
-              onSaveDraft={isEditing ? undefined : () => {
-                saveLocalDraft()
-                setReviewDecisionOpen(false)
-              }}
+              onSaveDraft={undefined}
               onPublish={() => void persistReview()}
               mode={isEditing ? 'edit' : 'create'}
               saving={saving}

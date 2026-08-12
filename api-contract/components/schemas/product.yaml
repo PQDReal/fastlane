@@ -622,8 +622,9 @@ AdminAccessoryWriteRequest:
   properties:
     expectedUpdatedAt: { type: string, format: date-time, description: Required by PATCH for optimistic concurrency and omitted by POST. }
     categoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    templateCode: { type: string, enum: [vehicle_fit, window_film, apparel, ev_charger, custom] }
-    templateVersion: { type: integer, const: 1 }
+    templateCode: { type: string, minLength: 1, maxLength: 80, description: Legacy template code retained during migration; DB-backed templates use templateVersionId. }
+    templateVersion: { type: integer, minimum: 1 }
+    templateVersionId: { type: [string, 'null'], format: uuid, description: DB-backed accessory template revision. Null means Custom. }
     categoryAssignments:
       type: array
       minItems: 1
@@ -731,8 +732,9 @@ AdminAccessoryDraft:
   required: [rootCategoryId, templateCode, templateVersion, categoryAssignments, name, slug, description, isActive, serviceLabelIds, sections, optionGroups, variants]
   properties:
     rootCategoryId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    templateCode: { type: string, enum: [vehicle_fit, window_film, apparel, ev_charger, custom] }
-    templateVersion: { type: integer, const: 1 }
+    templateCode: { type: string, minLength: 1, maxLength: 80 }
+    templateVersion: { type: integer, minimum: 1 }
+    templateVersionId: { type: [string, 'null'], format: uuid }
     categoryAssignments:
       type: array
       items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryCategoryAssignment' }

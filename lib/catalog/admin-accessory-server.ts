@@ -28,6 +28,7 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   product_type,
   accessory_template_code,
   accessory_template_version,
+  accessory_template_version_id,
   updated_at,
   service_label_assignments:product_service_label_assignments(
     service_label_id,
@@ -90,6 +91,9 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   )
 `
 
+const LEGACY_ADMIN_ACCESSORY_PRODUCT_SELECT = ADMIN_ACCESSORY_PRODUCT_SELECT
+  .replace('  accessory_template_version_id,\n', '')
+
 export class AdminAccessoryPersistenceError extends Error {
   constructor(
     readonly status: 404 | 409 | 422 | 500 | 503,
@@ -102,7 +106,8 @@ export class AdminAccessoryPersistenceError extends Error {
 }
 
 function rpcError(error: { code?: string; message?: string }) {
-  if (error.code === 'PGRST202' || error.message?.includes('save_admin_accessory_product_v3')) {
+  if (error.code === 'PGRST202'
+    || error.message?.includes('save_admin_accessory_product')) {
     return new AdminAccessoryPersistenceError(
       503,
       'CATALOG_WRITE_MIGRATION_REQUIRED',
@@ -120,7 +125,11 @@ function rpcError(error: { code?: string; message?: string }) {
     )
   }
   if (error.code === '23505') {
-    return new AdminAccessoryPersistenceError(409, 'CATALOG_IDENTITY_CONFLICT', 'Slug hoặc SKU đã được sử dụng.')
+    return new AdminAccessoryPersistenceError(
+      409,
+      'CATALOG_IDENTITY_CONFLICT',
+      'Đường dẫn hoặc SKU đã được sử dụng. Hãy đổi tên phụ kiện để hệ thống sinh đường dẫn khác; nếu lỗi vẫn còn, hãy kiểm tra SKU.',
+    )
   }
   if (error.code === '22P02' || error.code === '22003' || error.code === '22023' || error.code === '23514' || error.code === '23503') {
     return new AdminAccessoryPersistenceError(
@@ -156,10 +165,11 @@ export async function saveAdminAccessoryProduct(
   request: AdminAccessoryWriteRequest,
   productId: string | null,
 ): Promise<AdminAccessorySaveResult> {
-  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v3', {
+  const payload = adminAccessoryRpcPayload(request)
+  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product', {
     target_product_id: productId,
     expected_updated_at: request.expectedUpdatedAt ?? null,
-    target_payload: adminAccessoryRpcPayload(request),
+    target_payload: payload,
   })
   if (error) throw rpcError(error)
   const result = saveResult(data)
@@ -211,13 +221,21 @@ export async function saveAdminAccessoryProduct(
 }
 
 export async function loadAdminAccessoryProduct(productId: string): Promise<AdminAccessoryEditorData> {
-  const { data, error } = await getSupabaseAdmin()
+  let { data, error } = await getSupabaseAdmin()
     .from('products')
     .select(ADMIN_ACCESSORY_PRODUCT_SELECT)
     .eq('id', productId)
     .eq('product_type', 'ACCESSORY')
     .maybeSingle()
 
+  if (error && error.message?.includes('accessory_template_version_id')) {
+    ({ data, error } = await getSupabaseAdmin()
+      .from('products')
+      .select(LEGACY_ADMIN_ACCESSORY_PRODUCT_SELECT)
+      .eq('id', productId)
+      .eq('product_type', 'ACCESSORY')
+      .maybeSingle())
+  }
   if (error) {
     throw new AdminAccessoryPersistenceError(500, 'CATALOG_READ_FAILED', 'Không thể tải dữ liệu phụ kiện.')
   }
