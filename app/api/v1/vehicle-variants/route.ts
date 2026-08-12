@@ -53,6 +53,9 @@ export async function GET(request: Request) {
   return NextResponse.json(rows.map((row) => ({
     ...row,
     interior_color: (() => {
+      if (typeof row.interior_color === 'string' && row.interior_color.trim()) {
+        return row.interior_color
+      }
       const specs = row.specs && typeof row.specs === 'object' && !Array.isArray(row.specs)
         ? row.specs as Record<string, unknown>
         : {}
