@@ -193,10 +193,6 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     ...JSON.parse(fs.readFileSync(specsDataPath, 'utf8')),
     ...buildMotorbikeDepositSpecs(motorbikesData),
   }
-  if (specsData['VF 8'] && !specsData['VinFast VF 8 The All-New 2026']) {
-    specsData['VinFast VF 8 The All-New 2026'] = specsData['VF 8']
-  }
-
   // Inject specs for database-driven dynamic cars
   unmatchedProducts.forEach((p: any) => {
     const specsObj = p.specifications || {}
