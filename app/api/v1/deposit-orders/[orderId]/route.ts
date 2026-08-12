@@ -6,6 +6,7 @@ import { parseItemId } from '@/lib/cart/validation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { notifyAdminCustomerCancelledDeposit } from '@/lib/notifications/server'
 import { claimGuestDepositOrder, normalizeDepositOwnerEmail } from '@/lib/deposit/order-ownership'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 
 type RouteContext = { params: Promise<{ orderId: string }> }
 
@@ -64,6 +65,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
     }
 
     if (!cancelled.replayed) {
+      await invalidateVehicleCatalogCaches().catch((error) => {
+        console.error('Unable to invalidate vehicle inventory caches after customer cancellation:', error)
+      })
       await notifyAdminCustomerCancelledDeposit({ id: orderId, orderNumber: lookup.data.order_number }).catch((error) => {
         console.error('Unable to notify admins about customer deposit cancellation:', { orderId, error })
       })

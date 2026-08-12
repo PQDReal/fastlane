@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { notifyCustomerContractExpired } from '@/lib/notifications/server'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 
 export async function POST(request: Request) {
   try {
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
     if (!expiredOrders || expiredOrders.length === 0) {
       return NextResponse.json({ message: 'Không có đơn đặt cọc nào quá hạn xác nhận tài liệu.', processedCount: 0 })
     }
+
+    await invalidateVehicleCatalogCaches().catch((error) => {
+      console.error('Unable to invalidate vehicle inventory caches after contract expiry:', error)
+    })
 
     const results = []
 

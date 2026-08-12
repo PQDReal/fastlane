@@ -9,6 +9,7 @@ import { reconcileVnPayDepositRefund, refundCancelledDepositOrder } from '@/lib/
 import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
 import { assertDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
 import { createDebugVnpayTransactionNo } from '@/lib/deposit/debug-transaction'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 
 async function requireAdmin() {
   const user = await getCurrentUser()
@@ -34,6 +35,12 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
         replayed: boolean
       }>()
       if (error || !data) throw error || new Error('Không thể hủy đơn đặt cọc.')
+
+      if (!data.replayed) {
+        await invalidateVehicleCatalogCaches().catch((cacheError) => {
+          console.error('Unable to invalidate vehicle inventory caches after admin cancellation:', cacheError)
+        })
+      }
 
       revalidatePath('/admin/orders')
       revalidatePath('/profile')
