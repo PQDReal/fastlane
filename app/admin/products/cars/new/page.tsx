@@ -399,12 +399,25 @@ export default function NewCarPage() {
     setForm((current) => ({ ...current, specifications: { ...current.specifications, [key]: '' }, specification_fields: [...current.specification_fields, { key, label: key, section: 'Thông số khác', visible: true }] }))
   }
 
-  const removeSpecField = (key: string) => {
+  const removeSpecFieldNow = (key: string) => {
     setForm((current) => {
       const specifications = { ...current.specifications }
       delete specifications[key as keyof typeof specifications]
       return { ...current, specifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
     })
+  }
+
+  const removeSpecField = (key: string) => {
+    const field = form.specification_fields.find((item) => item.key === key)
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [...items, {
+      id: toastId,
+      kind: 'warning',
+      title: 'Xác nhận xóa thông số?',
+      message: `Thông số “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
+      action: { label: 'Xóa', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); removeSpecFieldNow(key) } },
+      secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+    }])
   }
 
   const saveSpecDraft = () => {
