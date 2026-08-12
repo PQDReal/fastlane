@@ -274,7 +274,7 @@ const loadNextCachedAccessoryCatalogSummary = unstable_cache(
       products: (catalogResult.data ?? []).map(mapCatalogProduct),
     }
   },
-  ['accessory-catalog-summary-v1'],
+  ['accessory-catalog-summary-v2'],
   {
     revalidate: 300,
     tags: ['accessory-catalog'],
@@ -308,7 +308,7 @@ async function loadAccessoryProductsByIds(ids: string[]): Promise<CatalogProduct
       }
       return (data ?? []).map(mapCatalogProduct)
     },
-    ['accessory-catalog-products-v1', ...uniqueIds],
+    ['accessory-catalog-products-v2', ...uniqueIds],
     {
       revalidate: 300,
       tags: ['accessory-catalog'],
@@ -381,7 +381,7 @@ export async function getAccessoryCatalogProductBySlug(
       if (error) throw new Error(`Unable to read accessory catalog product: ${error.message}`)
       return data ? mapCatalogProduct(data) : null
     },
-    ['accessory-catalog-product-v1', slug],
+    ['accessory-catalog-product-v2', slug],
     {
       revalidate: 300,
       tags: ['accessory-catalog', `accessory:${slug}`],
