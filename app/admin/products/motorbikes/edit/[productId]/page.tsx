@@ -765,6 +765,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   className="mt-2 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500"
                 />
               </div>
+              {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
             </div>
 
             {/* General Specs Grid */}
@@ -782,9 +783,10 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 { label: 'Hệ thống giảm xóc', key: 'Giảm xóc', placeholder: 'Ví dụ: Giảm chấn thủy lực' },
                 { label: 'Chuẩn chống nước động cơ', key: 'Tiêu chuẩn chống nước động cơ', placeholder: 'Ví dụ: IP67' },
                 { label: 'Kích thước lốp Trước - Sau', key: 'Kích thước lốp Trước - Sau', placeholder: 'Ví dụ: 90/90-12 Trước & Sau' },
-              ].filter((spec) => form.specification_fields.find((field) => field.key === spec.key)?.visible !== false).map((spec) => (
+              ].map((spec) => (
                 <div key={spec.key}>
-                  <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{spec.label}</label><button type="button" onClick={() => removeMotorbikeSpec(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Ẩn thông tin ${spec.label}`}><Trash2 size={14} /></button></div>
+                  {(() => { const isRemoved = form.specification_fields.find((field) => field.key === spec.key)?.visible === false; return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{spec.label}</label><button type="button" onClick={() => isRemoved ? restoreMotorbikeSpec(spec.key) : removeMotorbikeSpec(spec.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông tin ${spec.label}` : `Ẩn thông tin ${spec.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
                   <input
                     type="text"
                     placeholder={spec.placeholder}
@@ -792,6 +794,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                     className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
+                  {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
                 </div>
               ))}
             </div>
