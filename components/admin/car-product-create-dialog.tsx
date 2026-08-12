@@ -359,14 +359,14 @@ export function CarProductCreateDialog({
 
   useEffect(() => {
     if (!open || isEditing) return
-    const stored = localStorage.getItem(ADMIN_CAR_SESSION_KEY)
+    const stored = sessionStorage.getItem(ADMIN_CAR_SESSION_KEY)
     if (!stored) return
     try {
       const restored = restoreAdminCarDraft(stored, rootCategoryId)
       setDraft(restored)
       onNotify('success', 'Đã khôi phục bản nháp ô tô điện', 'Bản lưu nháp chưa hoàn tất trước đó đã được tải lên.')
     } catch {
-      localStorage.removeItem(ADMIN_CAR_SESSION_KEY)
+      sessionStorage.removeItem(ADMIN_CAR_SESSION_KEY)
     }
   }, [open, rootCategoryId, isEditing, onNotify])
 
@@ -375,8 +375,8 @@ export function CarProductCreateDialog({
     const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft ?? createAdminAccessoryDraft())
     onDirtyChange(dirty)
     if (!isEditing) {
-      if (dirty) localStorage.setItem(ADMIN_CAR_SESSION_KEY, serializeAdminCarDraft(draft))
-      else localStorage.removeItem(ADMIN_CAR_SESSION_KEY)
+      if (dirty) sessionStorage.setItem(ADMIN_CAR_SESSION_KEY, serializeAdminCarDraft(draft))
+      else sessionStorage.removeItem(ADMIN_CAR_SESSION_KEY)
     }
   }, [draft, open, initialDraft, rootCategoryId, isEditing, onDirtyChange])
 
@@ -396,7 +396,7 @@ export function CarProductCreateDialog({
       })
       if (!response.ok) throw new Error('Save failed')
       const result = await response.json()
-      if (!isEditing) localStorage.removeItem(ADMIN_CAR_SESSION_KEY)
+      if (!isEditing) sessionStorage.removeItem(ADMIN_CAR_SESSION_KEY)
       onSaved(result)
     } catch (e) {
       onNotify('error', 'Lưu thất bại', (e as Error).message)

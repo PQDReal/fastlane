@@ -9,6 +9,7 @@ import { CarProductCreateDialog } from '@/components/admin/car-product-create-di
 import { ToastViewport, type ToastKind, type ToastMessage } from '@/components/ui/toast'
 import type { AdminRootCategory } from '@/lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
+import type { AdminAccessoryTemplate } from '@/lib/catalog/admin-accessory-template-types'
 import type {
   AdminAccessoryEditorData,
   AdminAccessorySaveResult,
@@ -20,6 +21,7 @@ export function ProductCreateDialog({
   open,
   categories,
   serviceLabels,
+  accessoryTemplates,
   onClose,
   onAfterClose,
   onSaved,
@@ -28,6 +30,7 @@ export function ProductCreateDialog({
   open: boolean
   categories: AdminRootCategory[]
   serviceLabels: CatalogServiceLabel[]
+  accessoryTemplates: AdminAccessoryTemplate[]
   onClose: () => void
   onAfterClose?: () => void
   onSaved: (result: AdminAccessorySaveResult) => void
@@ -203,6 +206,7 @@ export function ProductCreateDialog({
           open={open}
           rootCategoryId={activeCategory.id}
           serviceLabels={serviceLabels}
+          accessoryTemplates={accessoryTemplates}
           onClose={requestClose}
           onChangeType={requestChangeType}
           onDirtyChange={setWorkflowDirty}

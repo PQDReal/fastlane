@@ -141,7 +141,7 @@ npm run dev
 
 Khi chạy toàn bộ bằng Compose, web tự kết nối tới service `redis`. Trên Render hoặc môi trường production, khai báo `REDIS_URL` của managed Redis thay vì địa chỉ `localhost`.
 
-Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 016](migrations/016_admin_accessory_aggregate_write.sql). Migration cài RPC service-role-only `save_admin_accessory_product`; ứng dụng không tự động chạy DDL khi khởi động. Nếu runtime trả `503`, hãy áp dụng migration vào đúng Supabase project trước khi thử lại.
+Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 052](migrations/052_accessory_template_registry.sql) và [migration 055](migrations/055_consolidate_admin_accessory_writer.sql). Migration 055 hợp nhất chuỗi RPC cũ vào writer canonical `save_admin_accessory_product`; các hàm `v2`/`v3`/`v4` chỉ là alias tương thích trong giai đoạn dev. Ứng dụng không tự động chạy DDL khi khởi động. Nếu runtime trả `503`, hãy áp dụng các migration vào đúng Supabase project trước khi thử lại.
 
 ## API đang triển khai
 
@@ -156,6 +156,9 @@ Luồng tạo/sửa phụ kiện yêu cầu database đã áp dụng [migration 
 | `POST` | `/api/v1/admin/products` | Kiểm tra và tạo toàn bộ aggregate phụ kiện trong một transaction |
 | `GET` | `/api/v1/admin/products/{productId}` | Nạp phụ kiện cũ vào model chỉnh sửa Admin |
 | `PATCH` | `/api/v1/admin/products/{productId}` | Kiểm tra phiên bản và cập nhật toàn bộ aggregate phụ kiện |
+| `GET`, `POST` | `/api/v1/admin/accessory-templates` | Liệt kê và tạo mẫu phụ kiện dùng lại |
+| `GET` | `/api/v1/admin/accessory-templates/lookups` | Lấy nhóm và danh mục cho form mẫu phụ kiện |
+| `GET`, `PATCH`, `POST`, `DELETE` | `/api/v1/admin/accessory-templates/{templateId}` | Xem, cập nhật metadata, tạo revision hoặc xóa mẫu |
 | `GET` | `/api/v1/admin/test-drive/requests` | Lấy danh sách lịch lái thử |
 | `POST` | `/api/v1/admin/test-drive/requests/{requestId}/transitions` | Chuyển trạng thái yêu cầu |
 

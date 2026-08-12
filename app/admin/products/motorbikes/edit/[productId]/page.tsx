@@ -120,7 +120,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const [isSaving, setIsSaving] = useState(false)
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
 
-  const STORAGE_KEY = `FASTLANE_MOTORBIKE_EDIT_DRAFT_${productId}`
+  const STORAGE_KEY = `fastlane.admin.products.motorbikes.edit.${productId}.v1`
 
   // Toast notify helper
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -141,8 +141,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
         const payload = await res.json()
         const dbState = payload.data as FormState
 
-        // Check if there is an autosaved edit draft in localStorage
-        const saved = localStorage.getItem(STORAGE_KEY)
+        // Check if there is an autosaved edit snapshot in this tab
+        const saved = sessionStorage.getItem(STORAGE_KEY)
         if (saved) {
           try {
             const parsed = JSON.parse(saved)
@@ -165,16 +165,16 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     void fetchProduct()
   }, [productId, notify, STORAGE_KEY])
 
-  // Save edit draft to localStorage on form changes (only after loading is complete)
+  // Save edit snapshot to this tab on form changes (only after loading is complete)
   useEffect(() => {
     if (!isLoading && form !== initialFormState) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form, isLoading, STORAGE_KEY])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as FormState
@@ -202,7 +202,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
 
   // Discard draft
   const handleDiscardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp chỉnh sửa', 'Tiếp tục dùng dữ liệu từ cơ sở dữ liệu.')
   }
@@ -211,7 +211,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const handleCancel = () => {
     const isFormDirty = originalForm ? JSON.stringify(form) !== JSON.stringify(originalForm) : false
     if (!isFormDirty) {
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       router.push('/admin/products')
       return
     }
@@ -229,7 +229,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            localStorage.removeItem(STORAGE_KEY)
+            sessionStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy chỉnh sửa', 'Bản nháp chỉnh sửa tạm thời đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -423,7 +423,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
       }
 
       notify('success', 'Cập nhật sản phẩm thành công', 'Thông tin xe máy điện đã được lưu lại.')
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)

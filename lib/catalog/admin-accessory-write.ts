@@ -60,6 +60,7 @@ export type AdminAccessoryWriteRequest = {
   categoryId: string
   templateCode: AccessoryTemplateCode
   templateVersion: number
+  templateVersionId?: string | null
   categoryAssignments: AdminAccessoryCategoryAssignmentInput[]
   name: string
   slug: string
@@ -414,7 +415,7 @@ export function parseAdminAccessoryWriteRequest(
 ): AdminAccessoryWriteRequest {
   const input = record(value, 'body')
   exactKeys(input, [
-    'expectedUpdatedAt', 'categoryId', 'templateCode', 'templateVersion', 'categoryAssignments',
+    'expectedUpdatedAt', 'categoryId', 'templateCode', 'templateVersion', 'templateVersionId', 'categoryAssignments',
     // Legacy v1 taxonomy shape. It remains accepted only during rollout.
     'primaryCollectionId', 'modelCollectionIds',
     'name', 'slug', 'description', 'isActive', 'serviceLabelIds', 'content',
@@ -430,17 +431,24 @@ export function parseAdminAccessoryWriteRequest(
   const usesNewTaxonomy = input.categoryAssignments !== undefined
     || input.templateCode !== undefined
     || input.templateVersion !== undefined
+    || input.templateVersionId !== undefined
   const usesLegacyTaxonomy = input.primaryCollectionId !== undefined || input.modelCollectionIds !== undefined
   if (usesNewTaxonomy && usesLegacyTaxonomy) {
     fail('body', 'TAXONOMY_SHAPE_CONFLICT', 'Không thể gửi đồng thời cấu trúc phân loại cũ và mới.')
   }
   let templateCode: AccessoryTemplateCode
   let templateVersion: number
+  let templateVersionId: string | null | undefined
   let categoryAssignments: AdminAccessoryCategoryAssignmentInput[]
   if (usesNewTaxonomy) {
-    templateCode = typeof input.templateCode === 'string' ? input.templateCode as AccessoryTemplateCode : fail('templateCode', 'TEMPLATE_CODE_REQUIRED', 'Cần chọn mẫu nhập phụ kiện.')
-    templateVersion = integer(input.templateVersion, 'templateVersion', 1, 100)
-    if (!accessoryTemplate(templateCode, templateVersion)) {
+    templateCode = typeof input.templateCode === 'string'
+      ? input.templateCode as AccessoryTemplateCode
+      : 'custom'
+    templateVersion = input.templateVersion === undefined ? 1 : integer(input.templateVersion, 'templateVersion', 1, 100)
+    templateVersionId = input.templateVersionId === null || input.templateVersionId === undefined
+      ? input.templateVersionId
+      : uuid(input.templateVersionId, 'templateVersionId')
+    if (!templateVersionId && !accessoryTemplate(templateCode, templateVersion)) {
       fail('templateCode', 'TEMPLATE_VERSION_UNSUPPORTED', 'Mẫu nhập phụ kiện hoặc phiên bản không được hỗ trợ.')
     }
     categoryAssignments = parseCategoryAssignments(input.categoryAssignments)
@@ -452,6 +460,7 @@ export function parseAdminAccessoryWriteRequest(
     }
     templateCode = 'custom'
     templateVersion = 1
+    templateVersionId = null
     categoryAssignments = [{
       categoryId: primaryCollectionId,
       compatibilityMode: modelCollectionIds.length > 0 ? 'SELECTED_MODELS' : 'ALL_MODELS',
@@ -474,6 +483,7 @@ export function parseAdminAccessoryWriteRequest(
     categoryId: uuid(input.categoryId, 'categoryId'),
     templateCode,
     templateVersion,
+    ...(templateVersionId !== undefined ? { templateVersionId } : {}),
     categoryAssignments,
     name: requiredString(input.name, 'name', { max: 200 }),
     slug: requiredString(input.slug, 'slug', { max: 220, pattern: SLUG_PATTERN }),
@@ -598,6 +608,7 @@ export function adminAccessoryDraftToWriteRequest(
     categoryId: draft.rootCategoryId,
     templateCode: draft.templateCode,
     templateVersion: draft.templateVersion,
+    ...(draft.templateVersionId !== undefined ? { templateVersionId: draft.templateVersionId } : {}),
     categoryAssignments,
     name: draft.name,
     slug: draft.slug,

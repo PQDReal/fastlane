@@ -228,7 +228,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
 
-  const STORAGE_KEY = `FASTLANE_CAR_EDIT_DRAFT_${productId}`
+  const STORAGE_KEY = `fastlane.admin.products.cars.edit.${productId}.v1`
 
   // 1. Toast notify helper
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -249,8 +249,8 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
         const payload = await res.json()
         const dbState = payload.data as FormState
 
-        // Check if there is an autosaved edit draft in localStorage
-        const saved = localStorage.getItem(STORAGE_KEY)
+        // Check if there is an autosaved edit snapshot in this tab
+        const saved = sessionStorage.getItem(STORAGE_KEY)
         if (saved) {
           try {
             const parsed = JSON.parse(saved)
@@ -273,16 +273,16 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
     void fetchProduct()
   }, [productId, notify, STORAGE_KEY])
 
-  // 3. Save draft to localStorage on change (only after loading is complete)
+  // 3. Save edit snapshot to this tab on change (only after loading is complete)
   useEffect(() => {
     if (!isLoading && form !== initialFormState) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form, isLoading, STORAGE_KEY])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         setForm(JSON.parse(saved))
@@ -296,14 +296,14 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
 
   // Reject draft / Start fresh
   const handleDiscardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp', 'Bắt đầu điền thông tin mới.')
   }
 
   // Cancel action
   const handleCancel = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (!saved) {
       router.push('/admin/products')
       return
@@ -322,7 +322,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            localStorage.removeItem(STORAGE_KEY)
+            sessionStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy chỉnh sửa', 'Bản nháp lưu tạm đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -580,7 +580,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
       }
 
       notify('success', 'Lưu sản phẩm thành công', 'Thông tin xe ô tô điện đã được cập nhật thành công.')
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)
