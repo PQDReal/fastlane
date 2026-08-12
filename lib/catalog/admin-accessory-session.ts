@@ -9,7 +9,7 @@ import {
 } from '@/lib/catalog/admin-accessory-draft'
 import { isAccessoryTemplateCode } from '@/lib/catalog/admin-accessory-templates'
 
-export const ADMIN_ACCESSORY_SESSION_KEY = 'fastlane.admin.accessory.prototype.v5'
+export const ADMIN_ACCESSORY_SESSION_KEY = 'fastlane.admin.products.accessories.new.v1'
 export const ADMIN_ACCESSORY_SESSION_VERSION = 6
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

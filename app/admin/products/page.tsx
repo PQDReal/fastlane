@@ -2,15 +2,14 @@
 
 import { AdminModalPortal } from '@/components/admin/admin-modal-portal'
 import { useCallback, useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Search, Plus, Filter, MoreHorizontal, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Wrench, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ProductCreateDialog } from '../../../components/admin/product-create/product-create-dialog'
 import { Button } from '../../../components/ui/button'
 import { ToastViewport, type ToastMessage } from '../../../components/ui/toast'
 import type { AdminRootCategory } from '../../../lib/catalog/admin-accessory-draft'
 import type { CatalogServiceLabel } from '../../../lib/catalog/service-labels'
-import type { AdminAccessoryEditorData } from '../../../lib/catalog/admin-accessory-write'
-import type { AdminAccessoryTemplate } from '../../../lib/catalog/admin-accessory-template-types'
 
 type AdminProduct = {
   id: string
@@ -152,6 +151,7 @@ async function responseError(response: Response) {
 }
 
 export default function AdminProductsPage() {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
@@ -161,13 +161,10 @@ export default function AdminProductsPage() {
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const [isLoading, setIsLoading] = useState(true)
   const [serviceLabels, setServiceLabels] = useState<CatalogServiceLabel[]>([])
-  const [accessoryTemplates, setAccessoryTemplates] = useState<AdminAccessoryTemplate[]>([])
   const [assignmentProduct, setAssignmentProduct] = useState<AdminProduct | null>(null)
   const [selectedServiceLabelIds, setSelectedServiceLabelIds] = useState<string[]>([])
   const [savingLabels, setSavingLabels] = useState(false)
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [editingAccessory, setEditingAccessory] = useState<AdminAccessoryEditorData | undefined>()
-  const [loadingEditProductId, setLoadingEditProductId] = useState<string | null>(null)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [productsReloadKey, setProductsReloadKey] = useState(0)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const assignmentCloseRef = useRef<HTMLButtonElement>(null)
@@ -201,16 +198,6 @@ export default function AdminProductsPage() {
       })
       .then((data) => setServiceLabels(Array.isArray(data) ? data : []))
       .catch((error) => notify('error', 'Tải nhãn dịch vụ thất bại', error instanceof Error ? error.message : undefined))
-  }, [notify])
-
-  useEffect(() => {
-    fetch('/api/v1/admin/accessory-templates', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await responseError(response))
-        const body = await response.json() as { data?: unknown }
-        setAccessoryTemplates(Array.isArray(body.data) ? body.data as AdminAccessoryTemplate[] : [])
-      })
-      .catch((error) => notify('warning', 'Chưa tải được mẫu phụ kiện', error instanceof Error ? error.message : undefined))
   }, [notify])
 
   useEffect(() => {
@@ -348,39 +335,20 @@ export default function AdminProductsPage() {
     ])
   }
 
-  async function openProductEditor(product: AdminProduct) {
+  function openProductEditor(product: AdminProduct) {
     if (product.product_type === 'BIKE') {
-      window.location.href = `/admin/products/motorbikes/edit/${product.id}`
+      router.push(`/admin/products/motorbikes/edit/${product.id}`)
       return
     }
     if (product.product_type === 'CAR') {
-      window.location.href = `/admin/products/cars/edit/${product.id}`
+      router.push(`/admin/products/cars/edit/${product.id}`)
       return
     }
     if (product.product_type !== 'ACCESSORY') {
       notify('warning', 'Chưa hỗ trợ loại sản phẩm này', 'Hiện form chỉnh sửa đầy đủ chỉ áp dụng cho phụ kiện, xe ô tô và xe máy điện.')
       return
     }
-    setLoadingEditProductId(product.id)
-    try {
-      const response = await fetch(`/api/v1/admin/products/${encodeURIComponent(product.id)}`, {
-        cache: 'no-store',
-      })
-      if (!response.ok) throw new Error(await responseError(response))
-      const payload: unknown = await response.json()
-      const data = payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>).data
-        : null
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        throw new Error('Dữ liệu chỉnh sửa sản phẩm không hợp lệ.')
-      }
-      setEditingAccessory(data as AdminAccessoryEditorData)
-      setIsCreateOpen(true)
-    } catch (error) {
-      notify('error', 'Tải phụ kiện thất bại', error instanceof Error ? error.message : undefined)
-    } finally {
-      setLoadingEditProductId(null)
-    }
+    router.push(`/admin/products/accessories/edit/${product.id}`)
   }
 
   return (
@@ -391,9 +359,16 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Sản phẩm</h1>
           <p className="text-sm text-slate-500 mt-1">Quản lý xe, phụ kiện và bảng giá.</p>
         </div>
-        <Button onClick={() => { setEditingAccessory(undefined); setIsCreateOpen(true) }} className="bg-slate-900 text-white hover:bg-slate-800 shrink-0">
-          <Plus size={16} className="mr-2" /> Thêm sản phẩm
-        </Button>
+        <div className="relative shrink-0">
+          <Button type="button" onClick={() => setCreateMenuOpen((value) => !value)} className="bg-slate-900 text-white hover:bg-slate-800">
+            <Plus size={16} className="mr-2" /> Thêm sản phẩm
+          </Button>
+          {createMenuOpen && <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
+            <Link href="/admin/products/accessories/new" onClick={() => setCreateMenuOpen(false)} className="block w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50">Phụ kiện</Link>
+            <Link href="/admin/products/cars/new" onClick={() => setCreateMenuOpen(false)} className="block w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50">Ô tô điện</Link>
+            <Link href="/admin/products/motorbikes/new" onClick={() => setCreateMenuOpen(false)} className="block w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50">Xe máy điện</Link>
+          </div>}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
@@ -481,7 +456,7 @@ export default function AdminProductsPage() {
                   <td className="relative w-28 px-6 py-4 text-right">
                     <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       {product.product_type === 'ACCESSORY' && <button type="button" onClick={() => openServiceLabels(product)} className="rounded p-2 text-slate-400 transition active:scale-95 hover:bg-brand-50 hover:text-brand-600" aria-label={`Gán nhãn dịch vụ cho ${product.name}`}><Wrench size={16}/></button>}
-                      <button type="button" disabled={loadingEditProductId === product.id} onClick={() => void openProductEditor(product)} className="rounded p-2 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50" aria-label={`Sửa ${product.name}`}>{loadingEditProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Edit size={16}/>}</button>
+                      <button type="button" onClick={() => openProductEditor(product)} className="rounded p-2 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={`Sửa ${product.name}`}><Edit size={16}/></button>
                       <button type="button" disabled={deletingProductId === product.id} onClick={() => confirmDeleteProduct(product)} className="rounded p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50" aria-label={`Xóa ${product.name}`}>{deletingProductId === product.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16}/>}</button>
                     </div>
                     <button className="absolute right-6 top-1/2 inline-block -translate-y-1/2 p-2 text-slate-400 transition-opacity group-hover:pointer-events-none group-hover:opacity-0"><MoreHorizontal size={16}/></button>
@@ -509,26 +484,6 @@ export default function AdminProductsPage() {
             </div>
           </div>
         )}      </div>
-
-      <AdminModalPortal>
-        <ProductCreateDialog
-          open={isCreateOpen}
-          categories={categories}
-          serviceLabels={serviceLabels}
-          accessoryTemplates={accessoryTemplates}
-          initialAccessory={editingAccessory}
-          onClose={() => {
-            setIsCreateOpen(false)
-          }}
-          onAfterClose={() => setEditingAccessory(undefined)}
-          onSaved={() => {
-            const wasEditing = Boolean(editingAccessory)
-            setIsCreateOpen(false)
-            setProductsReloadKey((value) => value + 1)
-            notify('success', wasEditing ? 'Đã cập nhật sản phẩm phụ kiện' : 'Đã tạo sản phẩm phụ kiện')
-          }}
-        />
-      </AdminModalPortal>
 
       <AdminModalPortal><AnimatePresence>
         {assignmentProduct && (
