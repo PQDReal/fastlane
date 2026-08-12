@@ -758,7 +758,7 @@ export default function NewMotorbikePage() {
                   className="mt-2 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500"
                 />
               </div>
-              {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+              {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin hiển thị <strong>màu đỏ</strong> sẽ không được hiển thị sau khi lưu</p>}
             </div>
 
             {/* General Specs Grid */}
