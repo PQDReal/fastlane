@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
 import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { reconstructCarAdminConfiguration } from '@/lib/car-admin-variants'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -77,16 +78,37 @@ export async function GET(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi tải phiên bản sản phẩm: ${pvError.message}` }, { status: 500 })
   }
 
+  const variantIds = (productVariants || []).map((variant: any) => variant.id)
+  const { data: inventoryItems, error: inventoryError } = variantIds.length > 0
+    ? await supabase.from('inventory_items').select('variant_id, on_hand_quantity').in('variant_id', variantIds)
+    : { data: [], error: null }
+  if (inventoryError) {
+    return NextResponse.json({ error: `Lỗi tải tồn kho: ${inventoryError.message}` }, { status: 500 })
+  }
+  const inventoryByVariantId = new Map(
+    (inventoryItems || []).map((item: any) => [item.variant_id, Number(item.on_hand_quantity)]),
+  )
+
+  const { data: vehicleVariants, error: vvError } = await supabase
+    .from('vehicle_variants')
+    .select('product_variant_id,version,color,sku,price,deposit_amount,specs,interior_color,color_type,color_price_adjustment,image_car_url,image_color_url,is_active')
+    .eq('product_id', productId)
+
+  if (vvError) {
+    return NextResponse.json({ error: `Lỗi tải cấu hình xe: ${vvError.message}` }, { status: 500 })
+  }
+
   const specsObj = product.specifications || {}
   const image_urls = product.image_urls || []
 
-  const colors = (specsObj.fallback_colors || []).map((c: any) => ({
+  let colors = (specsObj.fallback_colors || []).map((c: any) => ({
     color_name: c.name,
     image_url: c.image,
-    swatch: c.swatch
+    swatch: c.swatch,
+    color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
   }))
 
-  const interiors = (specsObj.interiors || []).map((i: any) => ({
+  let interiors = (specsObj.interiors || []).map((i: any) => ({
     interior_name: i.name,
     image_url: i.image,
     swatch: i.swatch
@@ -105,6 +127,38 @@ export async function GET(request: Request, context: Context) {
   } catch (err) {
     console.error('Lỗi đọc cars.json trong API route:', err)
   }
+
+  // Cars seeded before the colour-tier model store their surcharge as
+  // `price_delta` in cars.json. Preserve that information when opening the
+  // Admin editor instead of silently converting all legacy colours to standard.
+  const richColorByName = new Map<string, any>(
+    (Array.isArray(carRichData?.colors) ? carRichData.colors : [])
+      .filter((color: any) => color?.name)
+      .map((color: any) => [String(color.name), color]),
+  )
+  colors = colors.map((color: any) => {
+    const legacySurcharge = Number(richColorByName.get(String(color.color_name))?.price_delta ?? 0)
+    return {
+      ...color,
+      color_type: color.color_type === 'ADVANCED' || legacySurcharge > 0 ? 'ADVANCED' : 'STANDARD',
+    }
+  })
+
+  // vehicle_variants is the canonical deposit/catalog source. Project its
+  // colour metadata into the admin editor so the dashboard and deposit page
+  // cannot disagree about tiers or available colours.
+  const canonicalColors = new Map<string, any>()
+  for (const row of vehicleVariants ?? []) {
+    if (!row.color || row.is_active === false || canonicalColors.has(String(row.color))) continue
+    canonicalColors.set(String(row.color), {
+      color_name: row.color,
+      image_url: row.image_car_url || '',
+      swatch: row.image_color_url || '',
+      color_type: row.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+      price_adjustment: Number(row.color_price_adjustment || 0),
+    })
+  }
+  if (canonicalColors.size > 0) colors = Array.from(canonicalColors.values())
 
   const isVehicleImage = (url: string | null | undefined): boolean => {
     if (!url) return false
@@ -218,6 +272,38 @@ export async function GET(request: Request, context: Context) {
     'Hệ thống EBD': versionSpecs?.safety?.ebd || '',
   }
 
+  const reconstructed = reconstructCarAdminConfiguration({
+    productVariants: productVariants || [],
+    vehicleVariants: vehicleVariants || [],
+    inventoryByVariantId,
+    declaredVersions: Object.keys(specsObj.specs || {}),
+    colors,
+    interiors,
+  })
+  interiors = reconstructed.interiors
+  const compatibilityRows = Array.isArray(specsObj.variant_compatibility) ? specsObj.variant_compatibility : []
+  const reconstructedVersions = reconstructed.versions.map((version) => {
+    const rows = compatibilityRows.filter((entry: any) => entry.version === version.name)
+    if (version.compatible_colors.length === 0 && rows.length > 0) {
+      version.compatible_colors = Array.from(new Set(rows.map((entry: any) => String(entry.exterior_color))))
+      version.interiors_by_color = Object.fromEntries(version.compatible_colors.map((exterior: string) => [
+        exterior,
+        Array.from(new Set(rows
+          .filter((entry: any) => entry.exterior_color === exterior)
+          .map((entry: any) => String(entry.interior_color))
+          .filter(Boolean))),
+      ]))
+    }
+    if (version.compatible_colors.length === 0) {
+      version.compatible_colors = colors.map((color: any) => String(color.color_name))
+      version.interiors_by_color = Object.fromEntries(version.compatible_colors.map((exterior: string) => [
+        exterior,
+        interiors.map((interior: any) => String(interior.interior_name)),
+      ]))
+    }
+    return version
+  })
+
   const formState = {
     name: product.name,
     slug: product.slug,
@@ -230,13 +316,11 @@ export async function GET(request: Request, context: Context) {
     specifications: reconstructedSpecifications,
     colors,
     interiors,
-    versions: (productVariants || []).map((v: any) => ({
-      id: v.id,
-      name: v.name,
-      sku: v.sku,
-      price: Number(v.original_price),
-      deposit_amount: Number(v.deposit_amount),
-    })),
+    versions: reconstructedVersions,
+    advanced_color_price: Number(product.advanced_color_price || Math.max(
+      0,
+      ...[...richColorByName.values()].map((color: any) => Number(color?.price_delta ?? 0)),
+    )),
     landing_page_blocks: specsObj.landing_page_blocks || [],
   }
 
@@ -281,6 +365,7 @@ export async function PATCH(request: Request, context: Context) {
     detail_image_urls = [],
     specifications = {},
     colors = [],
+    advanced_color_price = 0,
     interiors = [],
     versions = [],
     landing_page_blocks = [],
@@ -300,7 +385,49 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
   }
 
-  const displayedPrice = Math.min(...versions.map((v: any) => Number(v.price)))
+  const colorNames = new Set(colors.map((color: any) => String(color.color_name)))
+  const advancedColorPrice = Math.max(0, Number(advanced_color_price) || 0)
+  const priceForConfiguration = (version: any, color: any) =>
+    Number(version.price) + (color.color_type === 'ADVANCED' ? advancedColorPrice : 0)
+  const interiorNames = new Set(interiors.map((interior: any) => String(interior.interior_name)))
+  const sellableConfigurations = versions.flatMap((version: any, versionIndex: number) => {
+    const selectedColors = Array.isArray(version.compatible_colors)
+      ? Array.from(new Set(version.compatible_colors.map(String)))
+      : colors.map((color: any) => String(color.color_name))
+    return selectedColors.flatMap((colorName: string) => {
+      if (!colorNames.has(colorName)) return []
+      const selectedInteriors = Array.isArray(version.interiors_by_color?.[colorName])
+        ? Array.from(new Set(version.interiors_by_color[colorName].map(String)))
+        : interiors.map((interior: any) => String(interior.interior_name))
+      return selectedInteriors.flatMap((interiorName: string) => {
+        if (!interiorNames.has(interiorName)) return []
+        const colorIndex = colors.findIndex((color: any) => color.color_name === colorName)
+        const interiorIndex = interiors.findIndex((interior: any) => interior.interior_name === interiorName)
+        return [{ version, versionIndex, color: colors[colorIndex], colorIndex, interior: interiors[interiorIndex], interiorIndex }]
+      })
+    })
+  })
+  const configurationSignatures = sellableConfigurations.map(
+    ({ version, color, interior }: any) => `${version.sku}\u001f${color.color_name}\u001f${interior.interior_name}`,
+  )
+  if (sellableConfigurations.length === 0 || new Set(configurationSignatures).size !== configurationSignatures.length) {
+    return NextResponse.json({ error: 'Các tổ hợp phiên bản, ngoại thất và nội thất phải hợp lệ, không trùng nhau.' }, { status: 400 })
+  }
+  if (sellableConfigurations.some(({ version, color, interior }: any) => {
+    const value = Number(version.stock_by_configuration?.[JSON.stringify([color.color_name, interior.interior_name])] ?? 0)
+    return !Number.isInteger(value) || value < 0
+  })) {
+    return NextResponse.json({ error: 'Tồn kho của từng cấu hình phải là số nguyên không âm.' }, { status: 400 })
+  }
+  if (sellableConfigurations.some(({ version, color }: any) => {
+    const value = priceForConfiguration(version, color)
+    return !Number.isFinite(value) || value <= 0
+  })) {
+    return NextResponse.json({ error: 'Giá bán của từng phiên bản và màu ngoại thất phải lớn hơn 0.' }, { status: 400 })
+  }
+
+  const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) =>
+    priceForConfiguration(version, color)))
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
 
   // Form structured image_urls array
@@ -402,13 +529,20 @@ export async function PATCH(request: Request, context: Context) {
     fallback_colors: colors.map((c: any) => ({
       name: c.color_name,
       image: c.image_url,
-      swatch: c.swatch
+      swatch: c.swatch,
+      color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+      price_adjustment: c.color_type === 'ADVANCED' ? advancedColorPrice : 0,
     })),
     fallback_color_images: colors.map((c: any) => c.image_url),
     interiors: interiors.map((i: any) => ({
       name: i.interior_name,
       image: i.image_url,
       swatch: i.swatch
+    })),
+    variant_compatibility: sellableConfigurations.map(({ version, color, interior }: any) => ({
+      version: version.name,
+      exterior_color: color.color_name,
+      interior_color: interior.interior_name,
     })),
     gallery: {
       all_images: image_urls,
@@ -434,6 +568,7 @@ export async function PATCH(request: Request, context: Context) {
       specifications: formattedSpecs,
       image_urls,
       displayed_price: displayedPrice,
+      advanced_color_price: advancedColorPrice,
       updated_at: new Date().toISOString(),
     })
     .eq('id', productId)
@@ -450,31 +585,37 @@ export async function PATCH(request: Request, context: Context) {
   const vvMap = new Map(existingVV?.map((r) => [r.sku, r.id]) || [])
 
   // 3. Form new rows
-  const productVariantRows = versions.map((version: any) => ({
-    id: pvMap.get(version.sku) || randomUUID(),
+  const productVariantRows = sellableConfigurations.map(({ version, color, colorIndex, interior, interiorIndex }: any) => {
+    const sku = `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}-I${String(interiorIndex + 1).padStart(2, '0')}`
+    return {
+    id: pvMap.get(sku) || randomUUID(),
     product_id: productId,
-    sku: version.sku,
-    name: version.name,
-    original_price: version.price,
+    sku,
+    name: `${version.name} - ${color.color_name} - ${interior.interior_name}`,
+      original_price: priceForConfiguration(version, color),
     sale_price: null,
     is_active: is_active,
-    option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    metadata: { source: 'admin_car_edit' },
+    option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(color.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}&interior=${String(interior.interior_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    metadata: { source: 'admin_car_edit', base_sku: version.sku, version: version.name, color: color.color_name, interior_color: interior.interior_name },
     deposit_amount: version.deposit_amount,
-  }))
+    }
+  })
 
   const vehicleVariantRows: any[] = []
   const generatedAt = new Date().toISOString()
 
-  productVariantRows.forEach((variantRow: any, versionIndex: number) => {
-    colors.forEach((colorItem: any, colorIndex: number) => {
-      const sku = `${variantRow.sku}-C${String(colorIndex + 1).padStart(2, '0')}`
+  productVariantRows.forEach((variantRow: any, rowIndex: number) => {
+      const { versionIndex, colorIndex, color: colorItem, interior: interiorItem } = sellableConfigurations[rowIndex]
+      const sourceVersion = versions[versionIndex]
+      const sku = variantRow.sku
       const catalogSpecs = {
         ...formattedSpecs,
         catalog: {
           source: 'products/product_variants',
           sale_price: null,
           color_order: colorIndex + 1,
+          color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+          color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
           description,
           migrated_at: generatedAt,
           product_slug: slug,
@@ -483,6 +624,9 @@ export async function PATCH(request: Request, context: Context) {
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
           listing_image_url,
+          interior_color: interiorItem.interior_name,
+          interior_image_url: interiorItem.image_url,
+          interior_swatch_url: interiorItem.swatch,
         },
       }
 
@@ -493,17 +637,16 @@ export async function PATCH(request: Request, context: Context) {
         product_name: name,
         deposit_amount: variantRow.deposit_amount,
         specs: catalogSpecs,
-        variant_name: `${name} ${variantRow.name} - ${colorItem.color_name}`,
+        variant_name: `${name} ${sourceVersion.name} - ${colorItem.color_name} - ${interiorItem.interior_name}`,
         sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
         image_car_url: colorItem.image_url,
         image_color_url: colorItem.swatch,
-        version: variantRow.name,
+        version: sourceVersion.name,
         is_active: is_active,
         product_variant_id: variantRow.id,
       })
-    })
   })
 
   // 4. Perform deletions
@@ -561,19 +704,24 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi lưu phiên bản sản phẩm: ${pvUpsertError.message}` }, { status: 500 })
   }
 
-  // 5.1 Ensure inventory_items exist for all these variants so they are not out of stock
-  const inventoryRows = productVariantRows.map((r: any) => ({
-    variant_id: r.id,
-    on_hand_quantity: 100,
-    updated_at: new Date().toISOString()
-  }))
+  // 5.1 Persist inventory for each exact version/exterior/interior combination.
+  const inventoryRows = productVariantRows.map((r: any, rowIndex: number) => {
+    const { version, color, interior } = sellableConfigurations[rowIndex]
+    return {
+      variant_id: r.id,
+      on_hand_quantity: Number(
+        version.stock_by_configuration?.[JSON.stringify([color.color_name, interior.interior_name])] ?? 0,
+      ),
+      updated_at: new Date().toISOString(),
+    }
+  })
 
   const { error: invUpsertError } = await supabase
     .from('inventory_items')
-    .upsert(inventoryRows, { onConflict: 'variant_id', ignoreDuplicates: true })
+    .upsert(inventoryRows, { onConflict: 'variant_id' })
 
   if (invUpsertError) {
-    console.warn('Failed to upsert default inventory for variants:', invUpsertError)
+    return NextResponse.json({ error: `Lỗi lưu tồn kho cấu hình xe: ${invUpsertError.message}` }, { status: 500 })
   }
 
   const { error: vvUpsertError } = await supabase

@@ -11,6 +11,15 @@ type ColorRecord = {
   color_name?: string | null
 }
 
+type VehicleVariantRecord = {
+  product_variant_id?: string | null
+  version?: string | null
+  color?: string | null
+  sku?: string | null
+  price?: number | string | null
+  deposit_amount?: number | string | null
+}
+
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -70,7 +79,7 @@ export function reconstructMotorbikeAdminVersions(
 
   for (const variant of productVariants) {
     const name = versionName(variant, declared, colors)
-    const sku = baseSku(variant.sku)
+    const sku = baseSku(variant.metadata?.base_sku ?? variant.sku)
     const identity = key(name) || key(sku)
     if (!identity || grouped.has(identity)) continue
 
@@ -89,4 +98,80 @@ export function reconstructMotorbikeAdminVersions(
     const rightOrder = order.get(key(right.name)) ?? Number.MAX_SAFE_INTEGER
     return leftOrder - rightOrder
   })
+}
+
+/** Rebuild the Admin model from canonical sellable vehicle configurations. */
+export function reconstructMotorbikeAdminConfiguration(input: {
+  productVariants: ProductVariantRecord[]
+  vehicleVariants: VehicleVariantRecord[]
+  inventoryByVariantId: Map<string, number>
+  declaredVersions?: unknown
+  colors: ColorRecord[]
+}) {
+  const productVariantById = new Map(input.productVariants
+    .filter((row) => row.id)
+    .map((row) => [String(row.id), row]))
+  const versions = new Map<string, {
+    id?: string
+    name: string
+    sku: string
+    price: number
+    deposit_amount: number
+    compatible_colors: string[]
+    stock_by_color: Record<string, number>
+  }>()
+
+  for (const row of input.vehicleVariants) {
+    const name = text(row.version)
+    const color = text(row.color)
+    if (!name || !color) continue
+    const linked = row.product_variant_id
+      ? productVariantById.get(String(row.product_variant_id))
+      : undefined
+    const identity = key(name)
+    if (!versions.has(identity)) {
+      versions.set(identity, {
+        id: linked?.id || undefined,
+        name,
+        sku: baseSku(linked?.metadata?.base_sku ?? linked?.sku ?? row.sku),
+        price: Number(row.price ?? linked?.original_price ?? 0),
+        deposit_amount: Number(row.deposit_amount ?? linked?.deposit_amount ?? 0),
+        compatible_colors: [],
+        stock_by_color: {},
+      })
+    }
+    const version = versions.get(identity)!
+    if (!version.compatible_colors.includes(color)) version.compatible_colors.push(color)
+    version.stock_by_color[color] = row.product_variant_id
+      ? input.inventoryByVariantId.get(String(row.product_variant_id)) ?? 0
+      : 0
+  }
+
+  if (versions.size === 0) {
+    return reconstructMotorbikeAdminVersions(input.productVariants, input.declaredVersions, input.colors)
+      .map((version) => {
+        const exactRows = input.productVariants.filter((row) =>
+          text(row.metadata?.version) === version.name && text(row.metadata?.color))
+        const compatibleColors = Array.from(new Set(exactRows
+          .map((row) => text(row.metadata?.color)).filter(Boolean)))
+        return {
+          ...version,
+          compatible_colors: compatibleColors.length > 0
+            ? compatibleColors
+            : input.colors.map((color) => text(color.color_name)).filter(Boolean),
+          stock_by_color: Object.fromEntries(exactRows.map((row) => [
+            text(row.metadata?.color),
+            row.id ? input.inventoryByVariantId.get(String(row.id)) ?? 0 : 0,
+          ])),
+        }
+      })
+  }
+
+  const declared = Array.isArray(input.declaredVersions)
+    ? input.declaredVersions.map(text).filter(Boolean)
+    : []
+  const order = new Map(declared.map((name, index) => [key(name), index]))
+  return [...versions.values()].sort((left, right) =>
+    (order.get(key(left.name)) ?? Number.MAX_SAFE_INTEGER)
+      - (order.get(key(right.name)) ?? Number.MAX_SAFE_INTEGER))
 }
