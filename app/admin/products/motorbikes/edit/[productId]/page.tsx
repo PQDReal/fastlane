@@ -127,6 +127,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false)
+  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Thông tin bổ sung' })
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
 
   const STORAGE_KEY = `fastlane.admin.products.motorbikes.edit.${productId}.v1`
@@ -286,6 +288,18 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   }
 
   const restoreMotorbikeSpec = (key: string) => updateMotorbikeSpecVisibility(key, true)
+
+  const addCustomMotorbikeSpec = () => {
+    const label = specDraft.label.trim()
+    if (!label) return
+    setForm((current) => ({
+      ...current,
+      specifications: { ...current.specifications, [label]: specDraft.value },
+      specification_fields: [...current.specification_fields.filter((field) => field.key !== label), { key: label, label, section: specDraft.section, visible: true }],
+    }))
+    setSpecDraft({ label: '', value: '', section: 'Thông tin bổ sung' })
+    setIsSpecDialogOpen(false)
+  }
 
   // Add/Remove colors
   const addColor = () => {
@@ -707,9 +721,12 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
 
         {activeTab === 'specs' && (
           <div className="space-y-6">
-            <div>
+            <div className="flex items-start justify-between">
+              <div>
               <h3 className="text-base font-bold text-slate-900">Thông số kỹ thuật của xe</h3>
               <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết.</p>
+              </div>
+              <Button type="button" onClick={() => setIsSpecDialogOpen(true)} className="bg-amber-50 text-amber-700 hover:bg-amber-100"><Plus size={14} /> Thêm thông tin</Button>
             </div>
 
             {/* Core Specs Grid */}
@@ -796,6 +813,14 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   />
                   {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
                   </> })()}
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+              {form.specification_fields.filter((field) => !DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false).map((field) => (
+                <div key={field.key}>
+                  <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{field.label}</label><button type="button" onClick={() => removeMotorbikeSpec(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa thông tin ${field.label}`}><Trash2 size={14} /></button></div>
+                  <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
                 </div>
               ))}
             </div>
@@ -1409,6 +1434,19 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {isSpecDialogOpen && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl" initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 8 }}>
+            <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900">Thêm thông tin kỹ thuật</h3><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng"><X size={18} /></button></div>
+            <div className="mt-5 space-y-4">
+              <input value={specDraft.label} onChange={(event) => setSpecDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Tên thông tin, ví dụ: Công nghệ sạc" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+              <input value={specDraft.value} onChange={(event) => setSpecDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Giá trị, ví dụ: Sạc nhanh 20 phút" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+            </div>
+            <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={addCustomMotorbikeSpec}>Thêm thông tin</Button></div>
+          </motion.div>
+        </motion.div>}
+      </AnimatePresence>
 
       {/* Recover Draft Dialog overlay */}
       <AnimatePresence>
