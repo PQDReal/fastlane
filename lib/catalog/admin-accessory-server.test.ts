@@ -4,6 +4,7 @@ import type { AdminAccessoryWriteRequest } from '@/lib/catalog/admin-accessory-w
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
+  from: vi.fn(),
   revalidateTag: vi.fn(),
   deleteRedisKey: vi.fn(),
   deleteRedisKeysByPrefix: vi.fn(),
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 vi.mock('@/lib/supabase-admin', () => ({
-  getSupabaseAdmin: () => ({ rpc: mocks.rpc }),
+  getSupabaseAdmin: () => ({ rpc: mocks.rpc, from: mocks.from }),
 }))
 vi.mock('@/lib/redis', () => ({
   deleteRedisKey: mocks.deleteRedisKey,
@@ -57,6 +58,30 @@ function request(): AdminAccessoryWriteRequest {
 describe('saveAdminAccessoryProduct', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    const productVariantsQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{
+          id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          name: 'Mặc định',
+          created_at: '2026-08-12T03:01:00.000000+00:00',
+        }],
+        error: null,
+      }),
+    }
+    const inventoryItemsQuery = {
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+    }
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'product_variants') return productVariantsQuery
+      if (table === 'inventory_items') return inventoryItemsQuery
+      return {
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      }
+    })
     mocks.deleteRedisKey.mockResolvedValue(undefined)
     mocks.deleteRedisKeysByPrefix.mockResolvedValue(undefined)
   })
