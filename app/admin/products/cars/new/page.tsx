@@ -1081,7 +1081,7 @@ export default function NewCarPage() {
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
@@ -1109,7 +1109,7 @@ export default function NewCarPage() {
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
@@ -1137,7 +1137,7 @@ export default function NewCarPage() {
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
@@ -1163,7 +1163,7 @@ export default function NewCarPage() {
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
