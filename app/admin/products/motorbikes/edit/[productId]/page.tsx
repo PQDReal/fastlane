@@ -1462,7 +1462,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
             <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900">Thêm thông số kỹ thuật</h3><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng"><X size={18} /></button></div>
             <div className="mt-5 space-y-4">
               <input value={specDraft.label} onChange={(event) => setSpecDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Công nghệ sạc" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
-              <p className="mt-1 text-xs text-slate-500">Không được trùng với 1 trong tên thông số hiện có.</p>
+              <p className="mt-1 text-xs font-bold text-red-600">Lưu ý: <strong>Không được trùng với 1 trong tên thông số hiện có.</strong></p>
               <input value={specDraft.value} onChange={(event) => setSpecDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Giá trị, ví dụ: Sạc nhanh 20 phút" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
             </div>
             <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={addCustomMotorbikeSpec}>Thêm thông số</Button></div>
