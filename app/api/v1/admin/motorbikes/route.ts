@@ -5,7 +5,7 @@ import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
-import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -294,6 +294,7 @@ export async function POST(request: Request) {
   await Promise.all([
     deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
     deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 
