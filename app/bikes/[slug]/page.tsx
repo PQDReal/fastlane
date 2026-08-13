@@ -9,8 +9,11 @@ import {
   BatteryCharging,
   Calculator,
   Check,
+  Clock,
   CircleHelp,
   FileDown,
+  Gauge,
+  Zap,
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
 import LandingPageRenderer from '../../../components/landing-page-renderer'
@@ -97,18 +100,6 @@ function findSpecValue(
   })
 
   return partial?.[1] ?? ''
-}
-
-function getHeadlineValue(value: string): string {
-  if (!value) {
-    return 'N/A'
-  }
-
-  const match = value.match(
-    /\d+(?:[.,]\d+)?\s*(?:km\/h|km|kwh|kw|w|giờ|gio|h|phút|phut|kg|l)?/i,
-  )
-
-  return match?.[0]?.trim() || value
 }
 
 function formatPrice(price: unknown): string {
@@ -446,46 +437,27 @@ export default async function BikeDetailPage(
       ) : (
         <>
           {/* HIGHLIGHTS */}
-          <section
-            id="performance"
-            className="bg-muted py-24"
-          >
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="grid grid-cols-2 gap-8 text-center md:grid-cols-4 md:gap-12">
-            {[
-              [
-                getHeadlineValue(range),
-                'Quãng đường',
-              ],
-              [
-                getHeadlineValue(maxPower),
-                'Công suất tối đa',
-              ],
-              [
-                getHeadlineValue(maxSpeed),
-                'Tốc độ tối đa',
-              ],
-              [
-                getHeadlineValue(chargingTime),
-                'Thời gian sạc',
-              ],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="flex flex-col items-center px-3"
-              >
-                <p className="mb-2 text-3xl font-bold tracking-tighter md:text-5xl">
-                  {value}
-                </p>
-
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {label}
-                </p>
+          <section id="performance" className="border-y border-slate-100 bg-white py-16">
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: 'Quãng đường', value: range || 'N/A', icon: BatteryCharging },
+                  { label: 'Công suất tối đa', value: maxPower || 'N/A', icon: Zap },
+                  { label: 'Tốc độ tối đa', value: maxSpeed || 'N/A', icon: Gauge },
+                  { label: 'Thời gian sạc', value: chargingTime || 'N/A', icon: Clock },
+                ].map((stat) => {
+                  const Icon = stat.icon
+                  return (
+                    <div key={stat.label} className="flex min-h-[236px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
+                      <Icon className="mb-5 h-9 w-9 text-brand-500" strokeWidth={2} />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{stat.label}</span>
+                      <span className="mt-4 max-w-[240px] text-2xl font-bold leading-tight text-slate-950">{stat.value}</span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
 
       {/* CUSTOMER UTILITIES */}
       <section className="border-b border-black/5 bg-background py-14 sm:py-16">

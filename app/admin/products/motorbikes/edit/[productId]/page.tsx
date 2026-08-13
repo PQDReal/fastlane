@@ -1685,10 +1685,10 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     ].map((stat, idx) => {
                       const Icon = stat.icon
                       return (
-                        <div key={idx} className="flex flex-col items-center text-center p-6 bg-slate-950/40 rounded-xl border border-white/5">
+                        <div key={idx} className="flex min-h-[198px] flex-col items-center justify-center text-center p-6 bg-slate-950/80 rounded-2xl border border-white/10">
                           <Icon className="h-8 w-8 text-brand-500 mb-3" />
                           <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold">{stat.label}</span>
-                          <span className="text-xl font-bold mt-2 text-white">{stat.value}</span>
+                          <span className="mt-3 max-w-[240px] text-2xl font-bold leading-tight text-white">{stat.value}</span>
                         </div>
                       )
                     })}
