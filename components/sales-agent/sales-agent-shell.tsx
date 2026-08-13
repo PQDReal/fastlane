@@ -30,6 +30,7 @@ type DisplayInteraction = {
 type DisplayMessage = SalesAgentMessage & { id: string; pending?: boolean; error?: boolean; interaction?: DisplayInteraction }
 type InteractionSubmission = { selectedOptionIds: string[]; freeText?: string }
 type InteractionSearchResult = DisplayInteraction
+type InteractionSearchCallback = (result: InteractionSearchResult, selectedOptionIds: string[]) => void
 
 const SUGGESTIONS = [
   'Tư vấn mẫu xe phù hợp',
@@ -62,7 +63,7 @@ function parseSseChunk(buffer: string, onEvent: (payload: Record<string, unknown
   return remainder
 }
 
-function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, onSearchResult }: { interaction: DisplayInteraction; conversationId?: string; disabled: boolean; onSubmit: (selection: InteractionSubmission) => void; onSearchResult: (result: InteractionSearchResult) => void }) {
+function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, onSearchResult }: { interaction: DisplayInteraction; conversationId?: string; disabled: boolean; onSubmit: (selection: InteractionSubmission) => void; onSearchResult: InteractionSearchCallback }) {
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const [freeText, setFreeText] = useState('')
   const [showValidation, setShowValidation] = useState(false)
@@ -97,7 +98,7 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
       }).then(async (response) => {
         if (!response.ok) return
         const result = await response.json() as InteractionSearchResult
-        if (searchSequenceRef.current === sequence) onSearchResultRef.current(result)
+        if (searchSequenceRef.current === sequence) onSearchResultRef.current(result, selectedOptionIdsRef.current)
       }).catch(() => undefined).finally(() => {
         if (searchSequenceRef.current === sequence) setSearching(false)
       })
@@ -272,11 +273,15 @@ export function SalesAgentShell() {
     }
   }
 
-  function updateInteractionSearch(messageId: string, current: DisplayInteraction, result: InteractionSearchResult) {
+  function updateInteractionSearch(messageId: string, current: DisplayInteraction, result: InteractionSearchResult, selectedOptionIds: string[]) {
     setMessages((items) => items.map((item) => {
       if (item.id !== messageId || !item.interaction) return item
-      const selectedOptions = current.options.filter((option) => result.options.every((next) => next.optionId !== option.optionId))
-      return { ...item, interaction: { ...result, options: [...result.options, ...selectedOptions] } }
+      const selectedIds = new Set(selectedOptionIds)
+      const merged = [...result.options, ...current.options.filter((option) => selectedIds.has(option.optionId))]
+      const unique = [...new Map(merged.map((option) => [option.optionId, option])).values()]
+      const selectedOptions = unique.filter((option) => selectedIds.has(option.optionId))
+      const otherOptions = unique.filter((option) => !selectedIds.has(option.optionId))
+      return { ...item, interaction: { ...result, options: [...otherOptions.slice(0, Math.max(0, 8 - selectedOptions.length)), ...selectedOptions].slice(0, 8) } }
     }))
   }
 
@@ -335,7 +340,7 @@ export function SalesAgentShell() {
         >
           <div ref={contentRef} className="min-w-0 space-y-2">
           {!messages.length && <div className="min-w-0 space-y-2.5"><div className="py-2 text-sm leading-5 text-slate-700">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div><div className="flex flex-wrap gap-1.5">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
-          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.interaction && <ChoiceInteraction interaction={item.interaction} conversationId={conversationIdRef.current} disabled={sending} onSearchResult={(result) => updateInteractionSearch(item.id, item.interaction!, result)} onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)} />}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
+          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.interaction && <ChoiceInteraction interaction={item.interaction} conversationId={conversationIdRef.current} disabled={sending} onSearchResult={(result, selectedOptionIds) => updateInteractionSearch(item.id, item.interaction!, result, selectedOptionIds)} onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)} />}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
           </div>
         </div>
         <div className="relative">
