@@ -24,6 +24,12 @@ function promotionIntent(message: string) {
   return ['khuyen mai', 'uu dai', 'giam gia', 'promotion', 'ma giam'].some((phrase) => normalized.includes(phrase))
 }
 
+function staticKnowledgeIntent(message: string) {
+  const normalized = normalizeProductSearchText(message)
+  return ['thu tuc', 'huong dan', 'chinh sach', 'quy trinh', 'bao hanh', 'bao duong', 'giay to', 'tin tuc']
+    .some((phrase) => normalized.includes(phrase))
+}
+
 function vehicleDetailsIntent(message: string) {
   const normalized = normalizeProductSearchText(message)
   return ['thong so', 'pin', 'dong co', 'toc do', 'quang duong', 'pham vi', 'cong suat', 'sac', 'gia', 'ton kho']
@@ -35,7 +41,19 @@ function genericCatalogIntent(message: string) {
   return ['tu van', 'goi y', 'tim', 'mau xe', 'ngan sach'].some((phrase) => normalized.includes(phrase))
 }
 
+function requestedCatalogEntityType(message: string): 'CAR' | 'BIKE' | 'ACCESSORY' {
+  const normalized = normalizeProductSearchText(message)
+  if (normalized.includes('phu kien')) return 'ACCESSORY'
+  if (['xe may', 'evo', 'feliz', 'klara', 'vento', 'theon'].some((term) => normalized.includes(term))) return 'BIKE'
+  return 'CAR'
+}
+
 export async function planSalesAgentTools(message: string): Promise<SalesAgentToolPlan> {
+  // Procedures, policies and guides require citation-backed knowledge. Until
+  // the RAG tool is available, do not route keyword overlaps such as “pin” or
+  // “phụ kiện” into catalog tools and accidentally present them as evidence.
+  if (staticKnowledgeIntent(message) && !promotionIntent(message)) return { calls: [] }
+
   const wantsCompare = compareIntent(message)
   const wantsAccessory = accessoryIntent(message)
   const wantsPromotion = promotionIntent(message)
@@ -48,10 +66,10 @@ export async function planSalesAgentTools(message: string): Promise<SalesAgentTo
   const references = vehicles.map((vehicle) => vehicle.id)
   let calls: SalesAgentToolCall[] = []
 
-  if (wantsAccessory) {
-    calls = [{ name: 'discover_accessories', arguments: { query: message, vehicleProductId: vehicles.length === 1 ? vehicles[0].id : undefined, limit: 6 } }]
-  } else if (wantsPromotion) {
+  if (wantsPromotion) {
     calls = [{ name: 'get_current_promotions', arguments: { productType: vehicles.length === 1 ? vehicles[0].productType : undefined } }]
+  } else if (wantsAccessory) {
+    calls = [{ name: 'discover_accessories', arguments: { query: message, vehicleProductId: vehicles.length === 1 ? vehicles[0].id : undefined, limit: 6 } }]
   } else if (wantsCompare) {
     calls = references.length >= 2
       ? [{ name: 'compare_vehicles', arguments: { productIds: references } }]
@@ -68,5 +86,5 @@ export async function planSalesAgentTools(message: string): Promise<SalesAgentTo
     return { calls, navigationIntent: { actionKey: 'VIEW_PRODUCT', entityId: entity.id, entityType: entity.productType } }
   }
   if (wantsCompare) return { calls, navigationIntent: { actionKey: 'OPEN_COMPARE' } }
-  return { calls, navigationIntent: { actionKey: 'BROWSE_CATALOG', entityType: wantsAccessory ? 'ACCESSORY' : 'CAR' } }
+  return { calls, navigationIntent: { actionKey: 'BROWSE_CATALOG', entityType: requestedCatalogEntityType(message) } }
 }

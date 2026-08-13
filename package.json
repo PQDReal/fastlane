@@ -16,6 +16,7 @@
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "test": "vitest run",
+    "test:sales-agent-evals": "vitest run lib/sales-agent/evals/corpus.test.ts lib/sales-agent/architecture.test.ts",
     "typecheck": "tsc --noEmit",
     "check:performance-budget": "node scripts/check-performance-budget.mjs",
     "check:openapi": "npm --prefix api-contract run check:openapi",
