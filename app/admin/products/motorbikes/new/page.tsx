@@ -37,7 +37,7 @@ const STORAGE_KEY = 'fastlane.admin.products.motorbikes.new.v1'
 const MOTORBIKE_FORM_RENDERED_SPEC_KEYS = new Set([
   'Quãng đường đi được mỗi lần sạc', 'Công suất tối đa', 'Tốc độ tối đa', 'Thời gian sạc tiêu chuẩn',
   'Dài x Rộng x Cao', 'Chiều cao yên', 'Khoảng sáng gầm', 'Thể tích cốp', 'Trọng lượng', 'Khóa xe',
-  'Loại pin/ắc quy', 'Đèn pha trước', 'Phanh trước và sau', 'Giảm xóc', 'Tiêu chuẩn chống nước động cơ',
+  'Đèn pha trước', 'Phanh trước và sau', 'Giảm xóc', 'Tiêu chuẩn chống nước động cơ',
   'Kích thước lốp Trước - Sau',
 ])
 
@@ -806,6 +806,18 @@ export default function NewMotorbikePage() {
               {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin hiển thị <strong>màu đỏ</strong> sẽ không được hiển thị sau khi lưu</p>}
             </div>
 
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && field.section === 'Vận hành & Pin' && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
+                <div key={field.key}>
+                  {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
+                  <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
+                  {isRemoved && isDefault && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
+                </div>
+              ))}
+            </div>
+
             <h4 className="mt-8 text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Kích thước & Tiện ích</h4>
             {/* General Specs Grid */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
@@ -816,7 +828,6 @@ export default function NewMotorbikePage() {
                 { label: 'Thể tích cốp', key: 'Thể tích cốp', placeholder: 'Ví dụ: 25 Lít' },
                 { label: 'Trọng lượng', key: 'Trọng lượng', placeholder: 'Ví dụ: 110 kg' },
                 { label: 'Khóa xe', key: 'Khóa xe', placeholder: 'Ví dụ: Smartkey' },
-                { label: 'Loại pin/ắc quy', key: 'Loại pin/ắc quy', placeholder: 'Ví dụ: Pin LFP' },
                 { label: 'Đèn pha trước', key: 'Đèn pha trước', placeholder: 'Ví dụ: Đèn LED' },
                 { label: 'Phanh trước và sau', key: 'Phanh trước và sau', placeholder: 'Ví dụ: Phanh đĩa Trước / Phanh cơ Sau' },
                 { label: 'Hệ thống giảm xóc', key: 'Giảm xóc', placeholder: 'Ví dụ: Giảm chấn thủy lực' },
@@ -839,7 +850,7 @@ export default function NewMotorbikePage() {
               ))}
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
-              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && field.section !== 'Vận hành & Pin' && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
                 <div key={field.key}>
                   {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
                   <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
