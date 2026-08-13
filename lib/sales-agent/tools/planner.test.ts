@@ -70,6 +70,21 @@ describe('sales agent deterministic tool planner', () => {
     })
   })
 
+  it('grounds a bike category recommendation and budget in search_catalog arguments', async () => {
+    await expect(planSalesAgentTools('Tìm xe máy điện dưới 20 triệu còn hàng')).resolves.toEqual({
+      calls: [{
+        name: 'search_catalog',
+        arguments: {
+          query: 'Tìm xe máy điện dưới 20 triệu còn hàng',
+          productTypes: ['BIKE'],
+          maxPrice: 20_000_000,
+          stockFilter: 'IN_STOCK',
+          limit: 8,
+        },
+      }],
+    })
+  })
+
   it('does not choose comparison vehicles when the request is ambiguous', async () => {
     await expect(planSalesAgentTools('So sánh pin và tốc độ')).resolves.toEqual({ calls: [] })
   })

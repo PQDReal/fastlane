@@ -29,4 +29,33 @@ describe('sales agent catalog context', () => {
     const result = await searchSalesAgentCatalog('VF 8 đi được bao xa')
     expect(result[0]?.name).toBe('VF 8')
   })
+
+  it('returns BIKE rows for a category-only query before applying the result limit', async () => {
+    const { getSupabaseAdmin } = await import('@/lib/supabase-admin')
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), gte: vi.fn(), lte: vi.fn(), textSearch: vi.fn(), ilike: vi.fn(), order: vi.fn(), limit: vi.fn() }
+    query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.in.mockReturnValue(query); query.gte.mockReturnValue(query); query.lte.mockReturnValue(query); query.textSearch.mockReturnValue(query); query.ilike.mockReturnValue(query); query.order.mockReturnValue(query)
+    query.limit.mockResolvedValue({ data: [
+      { id: 'bike-1', name: 'VinFast Evo Grand', slug: 'vinfast-evo-grand', product_type: 'BIKE', displayed_price: 22000000, specifications: {}, product_variants: [] },
+      { id: 'bike-2', name: 'VinFast Feliz S', slug: 'vinfast-feliz-s', product_type: 'MOTORBIKE', displayed_price: 30000000, specifications: {}, product_variants: [] },
+    ], error: null })
+    vi.mocked(getSupabaseAdmin).mockReturnValue({ from: vi.fn().mockReturnValue(query) } as any)
+
+    const result = await searchSalesAgentCatalog('Có những mẫu xe máy điện nào?', 8)
+
+    expect(result.map((item) => item.productType)).toEqual(['BIKE', 'BIKE'])
+    expect(query.in).toHaveBeenCalledWith('product_type', ['BIKE', 'MOTORBIKE'])
+  })
+
+  it('keeps a bike category query with a budget as a BIKE browse', async () => {
+    const { getSupabaseAdmin } = await import('@/lib/supabase-admin')
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), gte: vi.fn(), lte: vi.fn(), textSearch: vi.fn(), ilike: vi.fn(), order: vi.fn(), limit: vi.fn() }
+    query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.in.mockReturnValue(query); query.gte.mockReturnValue(query); query.lte.mockReturnValue(query); query.textSearch.mockReturnValue(query); query.ilike.mockReturnValue(query); query.order.mockReturnValue(query)
+    query.limit.mockResolvedValue({ data: [{ id: 'bike-1', name: 'VinFast Evo Grand', slug: 'vinfast-evo-grand', product_type: 'BIKE', displayed_price: 15000000, specifications: {}, product_variants: [{ id: 'v1', name: 'Standard', sku: 'EVO-1', original_price: 15000000, sale_price: null, is_active: true, inventory_items: null }] }], error: null })
+    vi.mocked(getSupabaseAdmin).mockReturnValue({ from: vi.fn().mockReturnValue(query) } as any)
+
+    const result = await searchSalesAgentCatalog({ query: 'Xe máy điện dưới 20 triệu', productTypes: ['BIKE'], maxPrice: 20000000 }, 8)
+
+    expect(result[0]?.productType).toBe('BIKE')
+    expect(query.textSearch).not.toHaveBeenCalled()
+  })
 })

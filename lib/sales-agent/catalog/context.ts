@@ -8,6 +8,7 @@ import {
   type VehicleSpecKey,
 } from '@/lib/catalog/vehicle-specifications'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { classifySalesAgentProductType } from './product-type'
 
 export type SalesAgentProductType = VehicleProductType | 'ACCESSORY'
 export type SalesAgentAvailabilityState = 'IN_STOCK' | 'OUT_OF_STOCK' | 'UNKNOWN'
@@ -121,18 +122,20 @@ const IDENTITY_SELECT = 'id,name,slug,product_type'
 
 const SEARCH_STOP_WORDS = new Set([
   'xe', 'oto', 'o', 'to', 'dien', 'may', 'mau', 'dong', 'loai', 'san', 'pham',
+  'co', 'nhung', 'nao', 'mot', 'nhat', 'nhieu',
   'tu', 'van', 'giup', 'minh', 'toi', 'can', 'muon', 'tim', 'cho', 'hoi', 've',
   'thong', 'so', 'ky', 'thuat', 'gia', 'hien', 'tai', 'bao', 'nhieu', 'sanh',
   'hay', 'goi', 'y', 'phu', 'kien', 'duoi', 'tren', 'trieu', 'nghin', 'vnd',
   'hop', 'ngan', 'sach',
-  'di', 'duoc', 'xa', 'toc', 'do', 'cong', 'suat', 'pin', 'dung', 'luong',
+  'di', 'duoc', 'xa', 'toc', 'do', 'cong', 'suat', 'pin', 'dung', 'luong', 'con', 'hang', 'dang',
   'quang', 'duong', 'pham', 'vi', 'khuyen', 'mai', 'uu', 'dai',
 ])
 
 function productType(value: string | null): SalesAgentProductType | null {
-  if (value === 'ACCESSORY') return 'ACCESSORY'
-  if (value === 'BIKE' || value === 'MOTORBIKE') return 'BIKE'
-  if (value === 'CAR' || value === 'VEHICLE') return 'CAR'
+  const normalized = value?.toUpperCase()
+  if (normalized === 'ACCESSORY') return 'ACCESSORY'
+  if (normalized === 'BIKE' || normalized === 'MOTORBIKE') return 'BIKE'
+  if (normalized === 'CAR' || normalized === 'VEHICLE') return 'CAR'
   return null
 }
 
@@ -205,17 +208,21 @@ function aggregateAvailability(variants: ProductVariantRow[]) {
 }
 
 function requestedProductType(query: string): SalesAgentProductType | null {
-  const normalized = normalizeProductSearchText(query)
-  if (normalized.includes('phu kien')) return 'ACCESSORY'
-  if (normalized.includes('xe may')) return 'BIKE'
-  if (normalized.includes('o to')) return 'CAR'
-  return null
+  return classifySalesAgentProductType(query).type
 }
 
 function termsForQuery(query: string) {
-  return normalizeProductSearchText(query)
+  const classification = classifySalesAgentProductType(query)
+  const nameQuery = classification.nameQuery
+    .replace(/\b(?:duoi|toi da|tren|tu|ngan sach|tam gia)\s+\d+(?:\s+\d+)?\s*(?:ty|trieu|nghin|vnd)?\b/g, ' ')
+    .replace(/\b(?:dang co san|co san|con hang)\b/g, ' ')
+  const terms = nameQuery
     .split(' ')
     .filter((term) => (term.length > 1 || /^\d+$/.test(term)) && !SEARCH_STOP_WORDS.has(term))
+  // A category plus a numeric budget is still a category browse. Numeric
+  // tokens must not become product-name FTS terms and erase the catalog.
+  if (classification.type && terms.every((term) => /^\d+$/.test(term))) return []
+  return terms
 }
 
 function searchScore(item: SalesAgentCatalogFact, query: string) {
@@ -236,10 +243,24 @@ function searchOptions(value: string | SalesAgentCatalogSearchOptions, limit?: n
   return value
 }
 
+function databaseProductTypes(type: SalesAgentProductType): string[] {
+  if (type === 'BIKE') return ['BIKE', 'MOTORBIKE']
+  if (type === 'CAR') return ['CAR', 'VEHICLE']
+  return ['ACCESSORY']
+}
+
+function effectiveProductTypes(options: SalesAgentCatalogSearchOptions, query: string) {
+  const queryType = requestedProductType(query)
+  const requestedTypes = options.productTypes?.length ? [...new Set(options.productTypes)] : undefined
+  if (queryType && requestedTypes && !requestedTypes.includes(queryType)) return { conflict: true as const, types: [] as SalesAgentProductType[] }
+  if (queryType) return { conflict: false as const, types: [queryType] }
+  return { conflict: false as const, types: requestedTypes }
+}
+
 function applyCommonFilters(query: any, options: SalesAgentCatalogSearchOptions) {
   let next = query.eq('is_active', true)
   if (options.productTypes?.length) {
-    const databaseTypes = options.productTypes.map((type) => type === 'BIKE' ? 'BIKE' : type)
+    const databaseTypes = [...new Set(options.productTypes.flatMap(databaseProductTypes))]
     next = next.in('product_type', databaseTypes)
   }
   // displayed_price is only a candidate prefilter. Effective price is recomputed
@@ -312,16 +333,22 @@ export async function searchSalesAgentCatalog(
   legacyLimit = 8,
 ): Promise<SalesAgentCatalogFact[]> {
   const options = searchOptions(value, legacyLimit)
+  const typeSelection = effectiveProductTypes(options, options.query ?? '')
+  if (typeSelection.conflict) return []
+  const effectiveOptions = {
+    ...options,
+    ...(typeSelection.types ? { productTypes: typeSelection.types } : {}),
+  }
   const dataAsOf = new Date().toISOString()
-  const rows = await listCandidateRows(options)
-  const requestedType = options.productTypes?.length === 1 ? options.productTypes[0] : requestedProductType(options.query ?? '')
-  const limit = Math.min(20, Math.max(1, options.limit ?? 8))
+  const rows = await listCandidateRows(effectiveOptions)
+  const requestedType = typeSelection.types?.length === 1 ? typeSelection.types[0] : requestedProductType(options.query ?? '')
+  const limit = Math.min(20, Math.max(1, effectiveOptions.limit ?? 8))
   return rows
     .map((row) => toCatalogFact(row, dataAsOf))
     .filter((item): item is SalesAgentCatalogFact => Boolean(item))
     .filter((item) => !requestedType || item.productType === requestedType)
-    .filter((item) => !options.stockFilter || options.stockFilter === 'ALL' || item.availability === 'IN_STOCK')
-    .filter((item) => withinPriceRange(item, options))
+    .filter((item) => !effectiveOptions.stockFilter || effectiveOptions.stockFilter === 'ALL' || item.availability === 'IN_STOCK')
+    .filter((item) => withinPriceRange(item, effectiveOptions))
     .map((item) => ({ item, score: searchScore(item, options.query ?? '') }))
     .filter(({ score }) => score >= 0)
     .sort((left, right) => right.score - left.score || (left.item.price ?? Number.MAX_SAFE_INTEGER) - (right.item.price ?? Number.MAX_SAFE_INTEGER))
@@ -384,7 +411,7 @@ export async function getSalesAgentVehicleSnapshots(productIds: string[]): Promi
     .select(PRODUCT_SELECT)
     .eq('is_active', true)
     .in('id', ids)
-    .in('product_type', ['CAR', 'BIKE'])
+    .in('product_type', ['CAR', 'BIKE', 'MOTORBIKE', 'VEHICLE'])
   if (error) throw new Error(`Không thể đọc chi tiết xe: ${error.message}`)
   const byId = new Map(((data ?? []) as unknown as ProductRow[]).map((row) => [String(row.id), row]))
   return ids.flatMap((id) => {
@@ -403,7 +430,7 @@ export async function resolveSalesAgentVehicleReferences(query: string, limit = 
     .from('products')
     .select(IDENTITY_SELECT)
     .eq('is_active', true)
-    .in('product_type', ['CAR', 'BIKE'])
+    .in('product_type', ['CAR', 'BIKE', 'MOTORBIKE', 'VEHICLE'])
     .limit(50)
   if (error) throw new Error(`Không thể xác định mẫu xe: ${error.message}`)
   return ((data ?? []) as ProductIdentityRow[])

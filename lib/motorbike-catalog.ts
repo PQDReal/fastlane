@@ -181,7 +181,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
     supabase
       .from('products')
       .select('id')
-      .eq('product_type', 'BIKE')
+      .in('product_type', ['BIKE', 'MOTORBIKE'])
       .eq('is_active', true),
   ])
 
@@ -205,7 +205,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   const { data, error } = await supabase
     .from('vehicle_variants')
     .select('id,product_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
-    .eq('product_type', 'BIKE')
+    .in('product_type', ['BIKE', 'MOTORBIKE'])
     .eq('is_active', true)
 
   if (error) {

@@ -2,6 +2,7 @@ import 'server-only'
 
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import { resolveSalesAgentVehicleReferences } from '../catalog/context'
+import { classifySalesAgentProductType } from '../catalog/product-type'
 import type { SalesAgentMessage } from '../contracts/message'
 import type { SalesAgentToolCall } from '../contracts/tool'
 import {
@@ -19,14 +20,14 @@ export type SalesAgentToolPlan = {
 
 function requestedCatalogEntityType(message: string): 'CAR' | 'BIKE' | 'ACCESSORY' {
   const normalized = normalizeProductSearchText(message)
-  if (normalized.includes('phu kien')) return 'ACCESSORY'
+  const classified = classifySalesAgentProductType(message).type
+  if (classified) return classified
   if (['xe may', 'evo', 'feliz', 'klara', 'vento', 'theon'].some((term) => normalized.includes(term))) return 'BIKE'
   return 'CAR'
 }
 
 function hasExplicitCatalogEntityType(message: string) {
-  const normalized = normalizeProductSearchText(message)
-  return ['o to', 'xe may', 'phu kien'].some((term) => normalized.includes(term))
+  return classifySalesAgentProductType(message).type !== null
 }
 
 export async function planSalesAgentTools(message: string, history: SalesAgentMessage[] = []): Promise<SalesAgentToolPlan> {
@@ -71,11 +72,16 @@ export async function planSalesAgentTools(message: string, history: SalesAgentMe
   } else if (wantsDetails && references.length === 1) {
     calls = [{ name: 'get_vehicle_details', arguments: { productId: references[0] } }]
   } else if (wantsCatalog || wantsDetails || effectiveWantsCompare) {
+    const classifiedType = classifySalesAgentProductType(message).type
+    const criteria = conversationState.slots.criteria ?? []
     calls = [{
       name: 'search_catalog',
       arguments: {
         query: message,
-        ...(wantsCatalog && !hasExplicitCatalogEntityType(message) ? { productTypes: ['CAR', 'BIKE'] } : {}),
+        ...(classifiedType ? { productTypes: [classifiedType] } : wantsCatalog && !hasExplicitCatalogEntityType(message) ? { productTypes: ['CAR', 'BIKE'] } : {}),
+        ...(conversationState.slots.minPrice !== undefined ? { minPrice: conversationState.slots.minPrice } : {}),
+        ...(conversationState.slots.maxPrice !== undefined ? { maxPrice: conversationState.slots.maxPrice } : {}),
+        ...(criteria.includes('availability') ? { stockFilter: 'IN_STOCK' as const } : {}),
         limit: 8,
       },
     }]
