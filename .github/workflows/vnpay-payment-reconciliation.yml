@@ -23,9 +23,11 @@ jobs:
         run: |
           test -n "$APP_BASE_URL"
           test -n "$CRON_SECRET"
-          curl --fail-with-body --silent --show-error \
+          response="$(curl --fail-with-body --silent --show-error \
             --retry 2 \
             --max-time 90 \
             --request POST \
             --header "Authorization: Bearer $CRON_SECRET" \
-            "${APP_BASE_URL%/}/api/v1/payments/vnpay/reconcile"
+            "${APP_BASE_URL%/}/api/v1/payments/vnpay/reconcile")"
+          echo "$response" | jq .
+          test "$(echo "$response" | jq -r '.errorCount // -1')" -eq 0

@@ -590,6 +590,10 @@ function ProfileContent() {
                   {userOrders.map(order => {
                     if (activeTab === 'car-orders') {
                       const status = order.status;
+                      const isPendingVehiclePayment = ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING'].includes(status)
+                        && order.paymentStatus === 'Pending';
+                      const paymentVerifying = isPendingVehiclePayment && order.latestPaymentAttemptStatus === 'PENDING';
+                      const paymentFailed = isPendingVehiclePayment && order.latestPaymentAttemptStatus === 'FAILED';
                       const vVariant = order.depositDetails?.vehicleVariant;
                       const contractMode = getDepositContractMode({
                         vehicle_type: order.vehicleType,
@@ -730,6 +734,14 @@ function ProfileContent() {
                           break;
                       }
 
+                      if (paymentVerifying) {
+                        stateIcon = <RotateCcw className="w-5 h-5 shrink-0 animate-spin text-amber-500" />;
+                        stateText = 'Đang xác minh thanh toán. Trạng thái sẽ tự động cập nhật khi có kết quả từ VNPay.';
+                      } else if (paymentFailed) {
+                        stateIcon = <XCircle className="w-5 h-5 shrink-0 text-red-500" />;
+                        stateText = 'Thanh toán thất bại. Bạn có thể thực hiện thanh toán lại.';
+                      }
+
                       const currentStepIdx = (() => {
                         if (['PENDING_CONFIRMATION', 'PENDING_DEPOSIT', 'PENDING'].includes(status)) return 1;
                         if (['CONFIRMED'].includes(status)) return order.kycStatus === 'APPROVED' ? 3 : 2;
@@ -779,6 +791,22 @@ function ProfileContent() {
                       );
 
                       const showPaidBadge = order.paymentStatus === 'Paid';
+                      const vehicleDisplayStatus = paymentVerifying
+                        ? 'Đang xác minh thanh toán'
+                        : paymentFailed
+                          ? 'Thanh toán thất bại'
+                          : isJourneyComplete
+                            ? 'Đã hoàn thành'
+                            : translateStatus(status, true, undefined, isMotorbikeOrder);
+                      const vehicleStatusBadgeClass = paymentFailed
+                        ? 'border-red-200 bg-red-50 text-red-700'
+                        : paymentVerifying
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : isJourneyComplete
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : status === 'CANCELLED'
+                              ? 'border-red-200 bg-red-50 text-red-700'
+                              : 'border-amber-200 bg-amber-50 text-amber-700';
                       const displayColor = (order as any).exteriorColor || vVariant?.color || '';
 
                       const isExpanded = expandedVehicleOrderId === order.id
@@ -808,9 +836,15 @@ function ProfileContent() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="truncate text-lg font-bold text-gray-900 sm:text-xl">VinFast {cleanCarModel}</h3>
-                                <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${isJourneyComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : status === 'CANCELLED' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-                                  {isJourneyComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : status === 'CANCELLED' ? <XCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
-                                  {isJourneyComplete ? 'Đã hoàn thành' : translateStatus(status, true, undefined, isMotorbikeOrder)}
+                                <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${vehicleStatusBadgeClass}`}>
+                                  {paymentVerifying
+                                    ? <RotateCcw className="h-3.5 w-3.5 animate-spin" />
+                                    : paymentFailed || status === 'CANCELLED'
+                                      ? <XCircle className="h-3.5 w-3.5" />
+                                      : isJourneyComplete
+                                        ? <CheckCircle2 className="h-3.5 w-3.5" />
+                                        : <Clock className="h-3.5 w-3.5" />}
+                                  {vehicleDisplayStatus}
                                 </span>
                               </div>
                               <p className="mt-1 truncate text-sm font-medium text-gray-500">{cleanCarVariant}{displayColor ? ` / ${displayColor}` : ''}</p>
@@ -856,7 +890,7 @@ function ProfileContent() {
                                   </div>
                                   <div className="flex flex-col gap-3 border-t border-gray-100 pt-5">
                                     {actionBtn}
-                                    {status === 'PENDING_DEPOSIT' && order.paymentStatus === 'Pending' && (
+                                    {status === 'PENDING_DEPOSIT' && order.paymentStatus === 'Pending' && !paymentVerifying && (
                                       <button
                                         type="button"
                                         onClick={() => void payDepositOrder(order)}
@@ -1246,21 +1280,27 @@ function ProfileContent() {
                       )}
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Trạng thái đặt cọc</span>
-                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${selectedOrder.status === 'CANCELLED'
+                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING'].includes(selectedOrder.status) && selectedOrder.paymentStatus === 'Pending' && selectedOrder.latestPaymentAttemptStatus === 'FAILED'
                           ? 'bg-red-100 text-red-700'
-                          : selectedOrder.paymentStatus === 'Paid'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
-                          }`}>
-                          {selectedOrder.status === 'CANCELLED'
-                            ? selectedOrder.refundStatus === 'Completed'
-                              ? 'Đã hủy, đã hoàn tiền'
-                              : selectedOrder.paymentStatus === 'Paid'
-                                ? 'Đã hủy, chờ hoàn tiền'
-                                : 'Đã hủy cọc'
+                          : selectedOrder.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-700'
                             : selectedOrder.paymentStatus === 'Paid'
-                              ? 'Đã đặt cọc'
-                              : 'Chờ thanh toán'}
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                          {['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING'].includes(selectedOrder.status) && selectedOrder.paymentStatus === 'Pending' && selectedOrder.latestPaymentAttemptStatus === 'PENDING'
+                            ? 'Đang xác minh thanh toán'
+                            : ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION', 'PENDING'].includes(selectedOrder.status) && selectedOrder.paymentStatus === 'Pending' && selectedOrder.latestPaymentAttemptStatus === 'FAILED'
+                              ? 'Thanh toán thất bại'
+                              : selectedOrder.status === 'CANCELLED'
+                                ? selectedOrder.refundStatus === 'Completed'
+                                  ? 'Đã hủy, đã hoàn tiền'
+                                  : selectedOrder.paymentStatus === 'Paid'
+                                    ? 'Đã hủy, chờ hoàn tiền'
+                                    : 'Đã hủy cọc'
+                                : selectedOrder.paymentStatus === 'Paid'
+                                  ? 'Đã đặt cọc'
+                                  : 'Chờ thanh toán'}
                         </span>
                       </div>
                       <div className="border-t border-gray-200 pt-4 flex justify-between items-center">

@@ -1,7 +1,17 @@
 import crypto from 'node:crypto'
 
 export type VnPayParams = Record<string, string>
+export type VnPayTransactionOutcome = 'PAID' | 'FAILED' | 'PENDING'
 const SANDBOX_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
+
+/** Classifies the payment result returned by VNPAY QueryDR. */
+export function vnPayTransactionOutcome(status: string): VnPayTransactionOutcome {
+  // 10 (delivered) and 20 (settled to merchant) can only follow a successful payment.
+  if (['00', '10', '20'].includes(status)) return 'PAID'
+  // Error, reversed, suspected fraud, timed out, or cancelled are terminal failures.
+  if (['02', '04', '07', '08', '11'].includes(status)) return 'FAILED'
+  return 'PENDING'
+}
 
 export class VnPayConfigError extends Error {
   constructor() {
