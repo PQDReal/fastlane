@@ -10,6 +10,7 @@ import { MarkdownMessage } from './markdown-message'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
 import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agent/contracts/message'
 import { getVisibleSalesAgentInteractionOptions, SALES_AGENT_INTERACTION_VISIBLE_OPTIONS } from '@/lib/sales-agent/contracts/interaction-view'
+import type { SalesAgentInteractionMetric } from '@/lib/sales-agent/contracts/telemetry'
 
 type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean }
 type DisplayInteraction = {
@@ -48,6 +49,15 @@ function selectionFingerprint(optionIds: string[]) {
   return [...new Set(optionIds)].sort().join('|')
 }
 
+function emitInteractionMetric(metric: SalesAgentInteractionMetric) {
+  void fetch('/api/v1/sales-agent/metrics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(metric),
+    keepalive: true,
+  }).catch(() => undefined)
+}
+
 function parseSseChunk(buffer: string, onEvent: (payload: Record<string, unknown>) => void) {
   const chunks = buffer.split('\n\n')
   const remainder = chunks.pop() ?? ''
@@ -78,12 +88,26 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
   const interactionTokenRef = useRef(interaction.continuationToken)
   const selectedOptionIdsRef = useRef(selectedOptionIds)
   const onSearchResultRef = useRef(onSearchResult)
+  const freeTextMetricSentRef = useRef(false)
+  const submittedMetricRef = useRef(Boolean(interaction.submitted))
+  const abandonmentTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   interactionTokenRef.current = interaction.continuationToken
   selectedOptionIdsRef.current = selectedOptionIds
   onSearchResultRef.current = onSearchResult
+  submittedMetricRef.current = Boolean(interaction.submitted)
   const selectionCount = selectedOptionIds.length
   const canSubmit = selectionCount >= interaction.minSelections && selectionCount <= interaction.maxSelections
   const displayOptions = getVisibleSalesAgentInteractionOptions(interaction.options, selectedOptionIds, expanded)
+
+  useEffect(() => {
+    if (abandonmentTimerRef.current) clearTimeout(abandonmentTimerRef.current)
+    emitInteractionMetric({ event: 'interaction_viewed', slot: interaction.slot, mode: interaction.mode, resultCount: interaction.options.length })
+    return () => {
+      abandonmentTimerRef.current = setTimeout(() => {
+        if (!submittedMetricRef.current) emitInteractionMetric({ event: 'interaction_abandoned', slot: interaction.slot, mode: interaction.mode })
+      }, 0)
+    }
+  }, [interaction.interactionId])
 
   useEffect(() => {
     if (interaction.slot !== 'vehicles' && interaction.slot !== 'vehicle') return
@@ -96,6 +120,7 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
       const requestSelectedOptionIds = selectedOptionIdsRef.current
       const requestSelectionFingerprint = selectionFingerprint(requestSelectedOptionIds)
       setSearching(true)
+      emitInteractionMetric({ event: 'interaction_search', slot: interaction.slot, mode: interaction.mode })
       void fetch('/api/v1/sales-agent/interactions/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,9 +183,9 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
         </button>
       })}
     </div>
-    {interaction.allowFreeText && <input value={freeText} onChange={(event) => setFreeText(event.target.value.slice(0, 500))} disabled={disabled || interaction.submitted} placeholder="Hoặc nhập câu trả lời…" className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:opacity-60" aria-label="Câu trả lời nhập thêm" />}
+    {interaction.allowFreeText && <input value={freeText} onChange={(event) => { const value = event.target.value.slice(0, 500); setFreeText(value); if (value.trim() && !freeTextMetricSentRef.current) { freeTextMetricSentRef.current = true; emitInteractionMetric({ event: 'interaction_free_text', slot: interaction.slot, mode: interaction.mode }) } }} disabled={disabled || interaction.submitted} placeholder="Hoặc nhập câu trả lời…" className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:opacity-60" aria-label="Câu trả lời nhập thêm" />}
     {(interaction.slot === 'vehicles' || interaction.slot === 'vehicle') && <div className="mt-2"><label htmlFor={`sales-agent-interaction-search-${interaction.interactionId}`} className="sr-only">Tìm thêm mẫu xe</label><input id={`sales-agent-interaction-search-${interaction.interactionId}`} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value.slice(0, 120))} disabled={disabled} placeholder="Tìm thêm mẫu xe…" className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:opacity-60" />{searching && <p className="mt-1 text-[10px] text-slate-500" aria-live="polite">Đang tìm mẫu xe…</p>}</div>}
-    {interaction.options.length > SALES_AGENT_INTERACTION_VISIBLE_OPTIONS && <button type="button" onClick={() => setExpanded((value) => !value)} className="mt-2 min-h-8 rounded-md px-1 text-xs font-semibold text-brand-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{expanded ? 'Thu gọn' : `Xem thêm ${interaction.options.length - SALES_AGENT_INTERACTION_VISIBLE_OPTIONS} lựa chọn`}</button>}
+    {interaction.options.length > SALES_AGENT_INTERACTION_VISIBLE_OPTIONS && <button type="button" onClick={() => setExpanded((value) => { const next = !value; emitInteractionMetric({ event: next ? 'interaction_expanded' : 'interaction_collapsed', slot: interaction.slot, mode: interaction.mode, resultCount: interaction.options.length }); return next })} className="mt-2 min-h-8 rounded-md px-1 text-xs font-semibold text-brand-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{expanded ? 'Thu gọn' : `Xem thêm ${interaction.options.length - SALES_AGENT_INTERACTION_VISIBLE_OPTIONS} lựa chọn`}</button>}
     {showValidation && <p className="mt-2 text-[11px] text-red-600" role="alert">Vui lòng chọn từ {interaction.minSelections} đến {interaction.maxSelections} lựa chọn.</p>}
     <button type="submit" disabled={disabled || interaction.submitted || (!canSubmit && !interaction.allowFreeText)} className="mt-2 min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition hover:bg-brand-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50">{interaction.submitLabel}</button>
   </form>
@@ -297,6 +322,7 @@ export function SalesAgentShell() {
     const labels = selection.selectedOptionIds.map((optionId) => interaction.options.find((option) => option.optionId === optionId)?.label).filter(Boolean)
     const message = selection.freeText || labels.join(', ')
     if (!message) return
+    emitInteractionMetric({ event: 'interaction_submitted', slot: interaction.slot, mode: interaction.mode, resultCount: selection.selectedOptionIds.length })
     setMessages((items) => items.map((item) => item.id === messageId && item.interaction ? { ...item, interaction: { ...item.interaction, submitted: true } } : item))
     void send(message, { interactionId: interaction.interactionId, selectedOptionIds: selection.selectedOptionIds, ...(selection.freeText ? { freeText: selection.freeText } : {}), continuationToken: interaction.continuationToken })
   }
