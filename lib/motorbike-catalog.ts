@@ -53,6 +53,7 @@ export type MotorbikeCatalogItem = {
 type VehicleVariantRow = {
   id: string
   product_id: string
+  product_variant_id: string | null
   product_name: string
   deposit_amount: number | string
   specs: unknown
@@ -79,6 +80,7 @@ type ActiveProductRow = {
 }
 
 type ActiveProductVariant = {
+  id: string
   sku: string
   original_price: number | string
   sale_price: number | string | null
@@ -132,12 +134,15 @@ function buildAuthorityPriceMap(rows: ActiveProductRow[]) {
       .filter((variant) => variant.is_active !== false)
       .flatMap((variant) => {
         const price = effectiveProductVariantPrice(variant)
-        return price === null ? [] : [{ sku: normalizedSku(variant.sku), price }]
+        return price === null ? [] : [{ id: variant.id, sku: normalizedSku(variant.sku), price }]
       })
     for (const variant of productPrices) {
-      const key = `${product.id}:${variant.sku}`
+      const key = `${product.id}:variant:${variant.id}`
       const current = prices.get(key)
       if (current === undefined || variant.price < current) prices.set(key, variant.price)
+      const skuKey = `${product.id}:sku:${variant.sku}`
+      const currentSkuPrice = prices.get(skuKey)
+      if (currentSkuPrice === undefined || variant.price < currentSkuPrice) prices.set(skuKey, variant.price)
     }
     const minimum = productPrices.reduce<number | null>((current, variant) => current === null ? variant.price : Math.min(current, variant.price), null)
     if (minimum !== null) prices.set(`${product.id}:*`, minimum)
@@ -156,7 +161,10 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
   return [...grouped.values()].map((productRows) => {
     const sourceRows = productRows.map((row) => ({
       ...row,
-      price: authorityPrices.get(`${row.product_id}:${normalizedSku(row.sku)}`)
+      price: (row.product_variant_id
+        ? authorityPrices.get(`${row.product_id}:variant:${row.product_variant_id}`)
+        : undefined)
+        ?? authorityPrices.get(`${row.product_id}:sku:${normalizedSku(row.sku)}`)
         ?? number(row.price),
     }))
     const first = sourceRows[0]
@@ -231,7 +239,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
     supabase.rpc('list_active_motorbike_catalog'),
     supabase
       .from('products')
-      .select('id,product_variants(sku,original_price,sale_price,is_active)')
+      .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
       .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
       .eq('is_active', true),
   ])
@@ -257,7 +265,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
 
   const { data, error } = await supabase
     .from('vehicle_variants')
-    .select('id,product_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
+    .select('id,product_id,product_variant_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
     .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
     .eq('is_active', true)
 
