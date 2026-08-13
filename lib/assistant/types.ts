@@ -37,5 +37,5 @@ export type AssistantResponse = {
   message: string | null
   followUpQuestion: string | null
   products: AssistantProduct[]
-  source: 'rules' | 'rules+llm'
+  source: 'rules'
 }

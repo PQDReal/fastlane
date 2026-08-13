@@ -9,8 +9,11 @@ import {
   BatteryCharging,
   Calculator,
   Check,
+  Clock,
   CircleHelp,
   FileDown,
+  Gauge,
+  Zap,
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
 import LandingPageRenderer from '../../../components/landing-page-renderer'
@@ -99,18 +102,6 @@ function findSpecValue(
   return partial?.[1] ?? ''
 }
 
-function getHeadlineValue(value: string): string {
-  if (!value) {
-    return 'N/A'
-  }
-
-  const match = value.match(
-    /\d+(?:[.,]\d+)?\s*(?:km\/h|km|kwh|kw|w|giờ|gio|h|phút|phut|kg|l)?/i,
-  )
-
-  return match?.[0]?.trim() || value
-}
-
 function formatPrice(price: unknown): string {
   if (
     price === null ||
@@ -151,7 +142,13 @@ export default async function BikeDetailPage(
     displayed_price: motorbike.displayedPrice,
   }
   const rawSpecifications = motorbike.specifications
-  const specifications = motorbike.specifications
+  const visibleSpecificationFields = motorbike.specificationFields.filter((field) => field.visible !== false)
+  const specificationLabels = new Map(visibleSpecificationFields.map((field) => [field.key, field.label]))
+  const specifications = Object.fromEntries(
+    visibleSpecificationFields
+      .map((field) => [field.key, motorbike.specifications[field.key] ?? ''])
+      .filter(([, value]) => asString(value) !== ''),
+  )
   const listingImage = motorbike.listingImageUrl
   const heroImage = {
     src: motorbike.heroImageUrl,
@@ -163,9 +160,6 @@ export default async function BikeDetailPage(
   }))
   const colorImages = motorbike.colors.map((color) => color.imageUrl)
   const detailImages = motorbike.detailImageUrls
-
-  const displayImgs = detailImages.slice(0, 2)
-  const displayIntImgs = detailImages.slice(2, 3)
 
   const specEntries =
     getSpecEntries(specifications)
@@ -195,38 +189,24 @@ export default async function BikeDetailPage(
     ],
   )
 
-  const dimensionAliases = [
-    'dai x rong x cao',
-    'chieu cao yen',
-    'khoang sang gam',
-    'trong luong',
-    'tai trong',
-    'the tich cop',
-    'kich thuoc lop',
-    'khoang cach truc banh',
-  ]
-
-  const dimensionEntries =
-    specEntries.filter(([key]) => {
-      const normalizedKey =
-        normalizeText(key)
-
-      return dimensionAliases.some(
-        (alias) =>
-          normalizedKey.includes(alias),
-      )
-    })
-
-  const performanceEntries =
-    specEntries.filter(([key]) => {
-      const normalizedKey =
-        normalizeText(key)
-
-      return !dimensionAliases.some(
-        (alias) =>
-          normalizedKey.includes(alias),
-      )
-    })
+  const specificationSections = new Map(
+    visibleSpecificationFields.map((field) => [field.key, normalizeText(field.section)]),
+  )
+  const headlineSpecificationKeys = new Set([
+    'Quãng đường đi được mỗi lần sạc',
+    'Công suất tối đa',
+    'Tốc độ tối đa',
+    'Thời gian sạc tiêu chuẩn',
+  ])
+  const dimensionEntries = specEntries.filter(([key]) => {
+    if (headlineSpecificationKeys.has(key)) return false
+    const section = specificationSections.get(key) ?? ''
+    return section.includes('kich thuoc') || section.includes('tien ich')
+  })
+  const performanceEntries = specEntries.filter(([key]) => (
+    !headlineSpecificationKeys.has(key) &&
+    !dimensionEntries.some(([entryKey]) => entryKey === key)
+  ))
 
   const technologyFeatures = [
     {
@@ -457,46 +437,27 @@ export default async function BikeDetailPage(
       ) : (
         <>
           {/* HIGHLIGHTS */}
-          <section
-            id="performance"
-            className="bg-muted py-24"
-          >
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="grid grid-cols-2 gap-8 text-center md:grid-cols-4 md:gap-12">
-            {[
-              [
-                getHeadlineValue(range),
-                'Quãng đường',
-              ],
-              [
-                getHeadlineValue(maxPower),
-                'Công suất tối đa',
-              ],
-              [
-                getHeadlineValue(maxSpeed),
-                'Tốc độ tối đa',
-              ],
-              [
-                getHeadlineValue(chargingTime),
-                'Thời gian sạc',
-              ],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="flex flex-col items-center px-3"
-              >
-                <p className="mb-2 text-3xl font-bold tracking-tighter md:text-5xl">
-                  {value}
-                </p>
-
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {label}
-                </p>
+          <section id="performance" className="border-y border-slate-100 bg-white py-16">
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: 'Quãng đường', value: range || 'N/A', icon: BatteryCharging },
+                  { label: 'Công suất tối đa', value: maxPower || 'N/A', icon: Zap },
+                  { label: 'Tốc độ tối đa', value: maxSpeed || 'N/A', icon: Gauge },
+                  { label: 'Thời gian sạc', value: chargingTime || 'N/A', icon: Clock },
+                ].map((stat) => {
+                  const Icon = stat.icon
+                  return (
+                    <div key={stat.label} className="flex min-h-[236px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
+                      <Icon className="mb-5 h-9 w-9 text-brand-500" strokeWidth={2} />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{stat.label}</span>
+                      <span className="mt-4 max-w-[240px] text-2xl font-bold leading-tight text-slate-950">{stat.value}</span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
 
       {/* CUSTOMER UTILITIES */}
       <section className="border-b border-black/5 bg-background py-14 sm:py-16">
@@ -589,64 +550,36 @@ export default async function BikeDetailPage(
         <BikeColorSelector
           colors={bikeColors}
           images={colorImages}
+          description={description}
         />
       )}
 
       {/* DESIGN SECTION */}
-      <section
-        id="design"
-        className="bg-background py-32"
-      >
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="mb-16">
-            <h2 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
-              Thiết kế dành cho nhịp sống hiện đại
-            </h2>
-
-            <p className="max-w-2xl text-xl text-muted-foreground">
-              {description}
-            </p>
+      <section id="design" className="bg-slate-950 py-20 text-white">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h2>
+            <p className="mt-2 text-xs text-white/50">Hình ảnh thực tế chi tiết của xe.</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            {displayImgs[0] && (
-              <div className="overflow-hidden rounded-[2rem] md:col-span-2">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {detailImages.slice(0, 20).map((url, index) => (
+              <div
+                key={`${url}-${index}`}
+                className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900"
+              >
                 <Image
-                  src={displayImgs[0]}
-                  alt={`Thiết kế ${product.name}`}
-                  width={1440}
-                  height={810}
-                  sizes="(max-width: 1024px) 100vw, 1440px"
-                  className="h-auto w-full object-cover"
+                  src={url}
+                  alt={`Chi tiết ${product.name} ${index + 1}`}
+                  fill
+                  sizes={index === 0 ? '(max-width: 768px) 100vw, 960px' : '(max-width: 768px) 100vw, 480px'}
+                  className="object-cover transition duration-700 group-hover:scale-105"
                 />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12">
+                  <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
+                </div>
               </div>
-            )}
-
-            {displayImgs[1] && (
-              <div className="aspect-square overflow-hidden rounded-[2rem]">
-                <Image
-                  src={displayImgs[1]}
-                  alt={`Ngoại hình ${product.name}`}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            )}
-
-            {displayIntImgs[0] && (
-              <div className="relative aspect-square overflow-hidden rounded-[2rem]">
-                <Image
-                  src={displayIntImgs[0]}
-                  alt={`Chi tiết ${product.name}`}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            )}
+            ))}
           </div>
         </div>
       </section>
@@ -779,22 +712,20 @@ export default async function BikeDetailPage(
               </h3>
 
               <ul className="space-y-4">
-                {performanceEntries
-                  .slice(0, 14)
-                  .map(([key, value]) => (
-                    <li
-                      key={key}
-                      className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {key}
-                      </span>
+                {performanceEntries.map(([key, value]) => (
+                  <li
+                    key={key}
+                    className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      {specificationLabels.get(key) || key}
+                    </span>
 
-                      <span className="max-w-[55%] text-right font-semibold">
-                        {value}
-                      </span>
-                    </li>
-                  ))}
+                    <span className="max-w-[55%] text-right font-semibold">
+                      {value}
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -811,7 +742,7 @@ export default async function BikeDetailPage(
                       className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
                     >
                       <span className="text-muted-foreground">
-                        {key}
+                        {specificationLabels.get(key) || key}
                       </span>
 
                       <span className="max-w-[55%] text-right font-semibold">

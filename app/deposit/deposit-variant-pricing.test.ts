@@ -24,4 +24,11 @@ describe('deposit vehicle variant price ownership', () => {
     expect(api).toContain("replace(/[%_]/g, '')")
     expect(api).not.toContain('`%${productName}%`')
   })
+
+  it('caches deposit vehicle metadata but keeps inventory fresh', () => {
+    expect(api).toContain('depositVehicleMetadataCacheKey')
+    expect(api).toContain('readRedisJson<VehicleVariantMetadataRow[]>')
+    expect(api).toContain('writeRedisJson(cacheKey, rows, DEPOSIT_VEHICLE_METADATA_TTL_SECONDS)')
+    expect(api.indexOf("readRedisJson<VehicleVariantMetadataRow[]>")).toBeLessThan(api.indexOf(".from('inventory_items')"))
+  })
 })

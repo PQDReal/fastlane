@@ -20,6 +20,8 @@ type VehicleVariantRecord = {
   deposit_amount?: number | string | null
 }
 
+import { normalizeMotorbikeVersionName } from '@/lib/motorbike-version'
+
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -36,24 +38,15 @@ function versionName(
   variant: ProductVariantRecord,
   declaredVersions: string[],
   colors: ColorRecord[],
+  productName = '',
 ) {
   const metadataVersion = text(variant.metadata?.version)
-  if (metadataVersion) return metadataVersion
+  if (metadataVersion) {
+    return normalizeMotorbikeVersionName(metadataVersion, declaredVersions, colors, productName)
+  }
 
   const rowName = text(variant.name)
-  const declared = declaredVersions.find((name) => {
-    const normalizedName = key(name)
-    const normalizedRow = key(rowName)
-    return normalizedRow === normalizedName || normalizedRow.startsWith(`${normalizedName} - `)
-  })
-  if (declared) return declared
-
-  const matchingColor = colors
-    .map((color) => text(color.color_name))
-    .filter(Boolean)
-    .find((color) => key(rowName).endsWith(` - ${key(color)}`))
-
-  return matchingColor ? rowName.slice(0, -(matchingColor.length + 3)).trim() : rowName
+  return normalizeMotorbikeVersionName(rowName, declaredVersions, colors, productName)
 }
 
 /**
@@ -65,6 +58,7 @@ export function reconstructMotorbikeAdminVersions(
   productVariants: ProductVariantRecord[],
   declaredVersions: unknown,
   colors: ColorRecord[],
+  productName = '',
 ) {
   const declared = Array.isArray(declaredVersions)
     ? declaredVersions.map(text).filter(Boolean)
@@ -78,7 +72,7 @@ export function reconstructMotorbikeAdminVersions(
   }>()
 
   for (const variant of productVariants) {
-    const name = versionName(variant, declared, colors)
+    const name = versionName(variant, declared, colors, productName)
     const sku = baseSku(variant.metadata?.base_sku ?? variant.sku)
     const identity = key(name) || key(sku)
     if (!identity || grouped.has(identity)) continue
@@ -107,6 +101,7 @@ export function reconstructMotorbikeAdminConfiguration(input: {
   inventoryByVariantId: Map<string, number>
   declaredVersions?: unknown
   colors: ColorRecord[]
+  productName?: string
 }) {
   const productVariantById = new Map(input.productVariants
     .filter((row) => row.id)
@@ -122,7 +117,12 @@ export function reconstructMotorbikeAdminConfiguration(input: {
   }>()
 
   for (const row of input.vehicleVariants) {
-    const name = text(row.version)
+    const name = normalizeMotorbikeVersionName(
+      row.version,
+      Array.isArray(input.declaredVersions) ? input.declaredVersions : [],
+      input.colors,
+      input.productName,
+    )
     const color = text(row.color)
     if (!name || !color) continue
     const linked = row.product_variant_id
@@ -148,7 +148,7 @@ export function reconstructMotorbikeAdminConfiguration(input: {
   }
 
   if (versions.size === 0) {
-    return reconstructMotorbikeAdminVersions(input.productVariants, input.declaredVersions, input.colors)
+    return reconstructMotorbikeAdminVersions(input.productVariants, input.declaredVersions, input.colors, input.productName)
       .map((version) => {
         const exactRows = input.productVariants.filter((row) =>
           text(row.metadata?.version) === version.name && text(row.metadata?.color))

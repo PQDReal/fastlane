@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Undo2,
   X,
   Zap,
 } from 'lucide-react'
@@ -31,6 +32,7 @@ import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
+import { DEFAULT_VEHICLE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
 
 const STORAGE_KEY = 'fastlane.admin.products.cars.new.v1'
 
@@ -131,6 +133,7 @@ interface FormState {
     'Hệ thống ABS': string
     'Hệ thống EBD': string
   }
+  specification_fields: VehicleSpecField[]
   colors: ColorEntry[]
   advanced_color_price: number
   interiors: InteriorEntry[]
@@ -208,6 +211,7 @@ const initialFormState: FormState = {
     'Hệ thống ABS': '',
     'Hệ thống EBD': '',
   },
+  specification_fields: DEFAULT_VEHICLE_SPEC_FIELDS,
   colors: [
     { color_name: 'Trắng (Brahminy White)', image_url: '', swatch: '', color_type: 'STANDARD' },
     { color_name: 'Xám (Neptune Grey)', image_url: '', swatch: '', color_type: 'STANDARD' },
@@ -228,6 +232,8 @@ export default function NewCarPage() {
   const router = useRouter()
   const [form, setForm] = useState<FormState>(initialFormState)
   const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'specs' | 'variants' | 'landing_page'>('basic')
+  const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false)
+  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Vận hành & Pin', visible: true })
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -383,6 +389,64 @@ export default function NewCarPage() {
         landing_page_blocks: nextBlocks
       }
     })
+  }
+
+  const updateSpecField = (key: string, patch: Partial<VehicleSpecField>) => {
+    setForm((current) => ({ ...current, specification_fields: current.specification_fields.map((field) => field.key === key ? { ...field, ...patch } : field) }))
+  }
+
+  const addSpecField = () => {
+    const key = `Thông số mới ${form.specification_fields.length + 1}`
+    setForm((current) => ({ ...current, specifications: { ...current.specifications, [key]: '' }, specification_fields: [...current.specification_fields, { key, label: key, section: 'Thông số khác', visible: true }] }))
+  }
+
+  const removeSpecFieldNow = (key: string) => {
+    setForm((current) => {
+      const specifications = { ...current.specifications }
+      delete specifications[key as keyof typeof specifications]
+      return { ...current, specifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
+    })
+  }
+
+  const restoreDefaultSpecField = (key: string) => {
+    updateSpecField(key, { visible: true })
+  }
+
+  const removeSpecField = (key: string) => {
+    const field = form.specification_fields.find((item) => item.key === key)
+    if (DEFAULT_VEHICLE_SPEC_FIELDS.some((item) => item.key === key)) {
+      const toastId = Date.now() + Math.random()
+      setToasts((items) => [...items, {
+        id: toastId,
+        kind: 'warning',
+        title: 'Xác nhận ẩn thông tin?',
+        message: `Thông tin “${field?.label || key}” sẽ không hiển thị sau khi lưu.`,
+        action: { label: 'Ẩn thông tin', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); updateSpecField(key, { visible: false }) } },
+        secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+      }])
+      return
+    }
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [...items, {
+      id: toastId,
+      kind: 'warning',
+      title: 'Xác nhận xóa thông tin?',
+      message: `Thông tin “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
+      action: { label: 'Xóa thông tin', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); removeSpecFieldNow(key) } },
+      secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+    }])
+  }
+
+  const saveSpecDraft = () => {
+    const label = specDraft.label.trim()
+    if (!label) return
+    setForm((current) => ({
+      ...current,
+      specifications: { ...current.specifications, [label]: specDraft.value },
+      specification_fields: [...current.specification_fields.filter((field) => field.key !== label), { key: label, label, section: specDraft.section, visible: specDraft.visible }],
+    }))
+    setSpecDraft({ label: '', value: '', section: 'Vận hành & Pin', visible: true })
+    setIsSpecDialogOpen(false)
   }
 
   // Add/Remove colors
@@ -695,6 +759,8 @@ export default function NewCarPage() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
   }
 
+  const renderCustomSpecs = (section: string) => form.specification_fields.filter((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.section === section && field.visible !== false).map((field) => <div key={field.key}><div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{field.label}</label><button type="button" onClick={() => removeSpecField(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${field.label}`}><Trash2 size={14} /></button></div><input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" /></div>)
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
@@ -994,6 +1060,24 @@ export default function NewCarPage() {
               <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết và cấu hình xe.</p>
             </div>
 
+            <div className="flex justify-end">
+              <Button type="button" size="sm" variant="outline" onClick={() => setIsSpecDialogOpen(true)}><Plus size={14} className="mr-1" /> Thêm thông số</Button>
+            </div>
+            {isSpecDialogOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="add-spec-title">
+                <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                  <div className="flex items-center justify-between"><h4 id="add-spec-title" className="text-base font-bold">Thêm thông số kỹ thuật</h4><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng">×</button></div>
+                  <div className="mt-5 space-y-4">
+                    <input autoFocus value={specDraft.label} onChange={(event) => setSpecDraft((draft) => ({ ...draft, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Kích thước lốp" className="h-10 w-full rounded-md border px-3 text-sm" />
+                    <p className="mt-1 text-xs text-red-600"><strong>Lưu ý:</strong> Không được trùng với 1 trong tên thông số hiện có.</p>
+                    <input value={specDraft.value} onChange={(event) => setSpecDraft((draft) => ({ ...draft, value: event.target.value }))} placeholder="Giá trị, ví dụ: 215/55 R18" className="h-10 w-full rounded-md border px-3 text-sm" />
+                    <select value={specDraft.section} onChange={(event) => setSpecDraft((draft) => ({ ...draft, section: event.target.value }))} className="h-10 w-full rounded-md border px-3 text-sm">{['Vận hành & Pin', 'Kích thước & Trọng lượng', 'Nội thất & Ngoại thất', 'Hệ thống An toàn'].map((section) => <option key={section}>{section}</option>)}</select>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={saveSpecDraft} disabled={!specDraft.label.trim()}>Thêm thông số</Button></div>
+                </div>
+              </div>
+            )}
+
             {/* 1. Performance & Powertrain */}
             <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2 text-slate-800">
@@ -1011,16 +1095,20 @@ export default function NewCarPage() {
                   { label: 'Công suất sạc DC tối đa', key: 'Công suất sạc DC tối đa', placeholder: 'Ví dụ: 60 kW' },
                 ].map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
+                {renderCustomSpecs('Vận hành & Pin')}
               </div>
             </div>
 
@@ -1038,16 +1126,20 @@ export default function NewCarPage() {
                   { label: 'Số chỗ ngồi *', key: 'Số chỗ ngồi', placeholder: 'Ví dụ: 5 ghế' },
                 ].map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
+                {renderCustomSpecs('Kích thước & Trọng lượng')}
               </div>
             </div>
 
@@ -1065,16 +1157,20 @@ export default function NewCarPage() {
                   { label: 'Điều chỉnh ghế lái', key: 'Điều chỉnh ghế lái', placeholder: 'Ví dụ: Chỉnh cơ 6 hướng' },
                 ].map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
+                {renderCustomSpecs('Nội thất & Ngoại thất')}
               </div>
             </div>
 
@@ -1090,16 +1186,20 @@ export default function NewCarPage() {
                   { label: 'Hệ thống EBD (Phân phối lực phanh điện tử)', key: 'Hệ thống EBD', placeholder: 'Ví dụ: Có' },
                 ].map((spec) => (
                   <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                    {(() => { const field = form.specification_fields.find((item) => item.key === spec.key); const isRemoved = field?.visible === false; return <>
+                    <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field?.label || spec.label}</label>{isRemoved ? <button type="button" onClick={() => restoreDefaultSpecField(spec.key)} className="text-red-500 hover:text-red-700" aria-label={`Khôi phục ${spec.label}`}><Undo2 size={14} /></button> : <button type="button" onClick={() => removeSpecField(spec.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa ${spec.label}`}><Trash2 size={14} /></button>}</div>
                     <input
                       type="text"
                       placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
+                      value={String(form.specifications[spec.key as keyof FormState['specifications']] ?? '')}
                       onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                       className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                     />
+                    {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Chỉ số này sẽ không được hiển thị sau khi lưu.</p>}
+                    </> })()}
                   </div>
                 ))}
+                {renderCustomSpecs('Hệ thống An toàn')}
               </div>
             </div>
           </div>
@@ -1193,6 +1293,19 @@ export default function NewCarPage() {
                         <option value="ADVANCED">Màu nâng cao</option>
                       </select>
                     </div>
+                    {form.specification_fields.some((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false) && (
+                      <div className="mt-12 border-t border-slate-200 pt-8">
+                        <h3 className="text-xl font-bold border-b border-slate-200 pb-3 mb-5 text-slate-800">Thông số bổ sung</h3>
+                        <div className="grid gap-x-12 gap-y-4 sm:grid-cols-2">
+                          {form.specification_fields.filter((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false).map((field) => (
+                            <div key={field.key} className="flex justify-between gap-4 border-b border-slate-100 py-2 text-sm">
+                              <span className="text-slate-500">{field.label}</span>
+                              <span className="font-semibold text-right">{String(form.specifications[field.key as keyof FormState['specifications']] ?? '') || 'Chưa cập nhật'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1957,26 +2070,15 @@ export default function NewCarPage() {
                       <p className="text-xl text-muted-foreground max-w-2xl">Đường nét thiết kế sang trọng, thời thượng, tôn vinh đẳng cấp người sở hữu.</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
-                      {displayImgs[0] && (
-                        <div className="md:col-span-2 overflow-hidden rounded-[2rem]">
-                          <img src={displayImgs[0]} alt="Ngoại thất" className="w-full h-auto object-cover hover:scale-105 transition-transform duration-1000" />
-                        </div>
-                      )}
-                      {displayImgs[1] && (
-                        <div className="overflow-hidden rounded-[2rem] aspect-square">
-                          <img src={displayImgs[1]} alt="Ngoại thất" className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                        </div>
-                      )}
-                      {displayIntImg && (
-                        <div className="overflow-hidden rounded-[2rem] aspect-square relative group">
-                          <img src={displayIntImg} alt="Nội thất" className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8 text-white">
-                             <h3 className="text-2xl font-bold mb-2">Nội thất đẳng cấp</h3>
-                             <p className="text-white/80">Không gian rộng rãi, tiện nghi, sử dụng chất liệu cao cấp thân thiện môi trường.</p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 md:gap-6 mb-16">
+                      {displayImgs.slice(0, 20).map((image: string, index: number) => (
+                        <div key={`${image}-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem]">
+                          <img src={image} alt={`Chi tiết ${form.name || 'xe'} ${index + 1}`} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12 text-white">
+                            <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
                           </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </section>

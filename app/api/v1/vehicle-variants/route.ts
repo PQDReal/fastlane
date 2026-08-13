@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
+import { depositVehicleMetadataCacheKey } from '@/lib/cache-keys'
+import { readRedisJson, writeRedisJson } from '@/lib/redis'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+
+const DEPOSIT_VEHICLE_METADATA_TTL_SECONDS = 300
+const VEHICLE_VARIANT_SELECT =
+  'id,product_id,product_name,product_type,variant_name,sku,price,deposit_amount,color,color_type,color_price_adjustment,interior_color,image_car_url,image_color_url,version,specs,is_active,created_at,updated_at,product_variant_id'
+
+type VehicleVariantMetadataRow = Record<string, unknown> & {
+  product_variant_id?: unknown
+}
 
 export async function GET(request: Request) {
   const supabase = getSupabaseAdmin()
@@ -8,31 +18,41 @@ export async function GET(request: Request) {
   const productId = searchParams.get('product_id')
   const productName = searchParams.get('product_name')
 
-  let dbQuery = supabase
+  const cacheKey = depositVehicleMetadataCacheKey({ productId, productName })
+  // Inventory/variant metadata must never be served from a process-local
+  // fallback cache: an admin migration may update Supabase in another process.
+  // If Redis is unavailable, read the primary database on every request.
+  let rows = await readRedisJson<VehicleVariantMetadataRow[]>(cacheKey, { allowMemoryFallback: false })
+
+  if (!rows) {
+    let dbQuery = supabase
     .from('vehicle_variants')
-    .select('id,product_id,product_name,product_type,variant_name,sku,price,deposit_amount,color,color_type,color_price_adjustment,interior_color,image_car_url,image_color_url,version,specs,is_active,created_at,updated_at,product_variant_id')
+    .select(VEHICLE_VARIANT_SELECT)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
-  if (productId) {
-    dbQuery = dbQuery.eq('product_id', productId)
-  }
-  if (productName) {
-    // The deposit page sends the short display name (for example "VF 2"),
-    // while vehicle_variants stores the canonical name ("VinFast VF 2").
-    // Match the short name as a contained token; product_id remains the
-    // preferred exact filter whenever it is available.
-    const normalized = productName.trim().replace(/[%_]/g, '')
-    dbQuery = dbQuery.ilike('product_name', `%${normalized}%`)
+    if (productId) {
+      dbQuery = dbQuery.eq('product_id', productId)
+    }
+    if (productName) {
+      // The deposit page sends the short display name (for example "VF 2"),
+      // while vehicle_variants stores the canonical name ("VinFast VF 2").
+      // Match the short name as a contained token; product_id remains the
+      // preferred exact filter whenever it is available.
+      const normalized = productName.trim().replace(/[%_]/g, '')
+      dbQuery = dbQuery.ilike('product_name', `%${normalized}%`)
+    }
+
+    const { data, error } = await dbQuery
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    rows = (data ?? []) as VehicleVariantMetadataRow[]
+    await writeRedisJson(cacheKey, rows, DEPOSIT_VEHICLE_METADATA_TTL_SECONDS)
   }
 
-  const { data, error } = await dbQuery
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  const rows = (data ?? []) as Array<Record<string, unknown>>
   const productVariantIds = rows
     .map((row) => typeof row.product_variant_id === 'string' ? row.product_variant_id : null)
     .filter((id): id is string => Boolean(id))

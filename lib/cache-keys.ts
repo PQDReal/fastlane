@@ -13,6 +13,7 @@ export const ACCESSORY_CATALOG_SUMMARY_CACHE_KEY =
 export const ACCESSORY_PRODUCT_CACHE_PREFIX = 'fastlane:accessory-product:v2:'
 export const CAR_CATALOG_CACHE_PREFIX = 'fastlane:car-catalog:v1:'
 export const CAR_DETAIL_CACHE_PREFIX = 'fastlane:car-detail:v1:'
+export const DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX = 'fastlane:deposit-vehicle-metadata:v1:'
 
 export function normalizeSearchQuery(query: string | null | undefined) {
   return normalizeProductSearchText(query)
@@ -47,4 +48,15 @@ export function carDetailCacheKey(slug: string) {
 
 export function motorbikeDetailCacheKey(slug: string) {
   return `${MOTORBIKE_DETAIL_CACHE_PREFIX}${slug.trim().toLocaleLowerCase('vi')}`
+}
+
+export function depositVehicleMetadataCacheKey(params: {
+  productId?: string | null
+  productName?: string | null
+}) {
+  const source = params.productId?.trim()
+    ? `id:${params.productId.trim()}`
+    : `name:${(params.productName ?? '').trim().toLocaleLowerCase('vi')}`
+  const digest = createHash('sha256').update(source).digest('hex')
+  return `${DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX}${digest}`
 }
