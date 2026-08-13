@@ -73,5 +73,8 @@ describe('deployment Basic Auth', () => {
     expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts', 'POST')).toBe(true)
     expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts', 'GET')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts/extra', 'POST')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/reconcile-attempt', 'POST')).toBe(true)
+    expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/reconcile-attempt', 'GET')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/reconcile-attempt/extra', 'POST')).toBe(false)
   })
 })
