@@ -66,7 +66,8 @@ export function verifySalesAgentInteractionToken(token: string): SalesAgentInter
   }
   if (!payload || typeof payload !== 'object' || (payload as Record<string, unknown>).schemaVersion !== '1.0') throw new Error('Continuation token không hợp lệ.')
   const result = payload as SalesAgentInteractionTokenPayload
-  if (!result.interactionId || !result.conversationId || !result.messageId || !result.options || Date.parse(result.expiresAt) <= Date.now()) throw new Error('Interaction đã hết hạn hoặc không hợp lệ.')
+  const expiresAt = Date.parse(result.expiresAt)
+  if (!result.interactionId || !result.conversationId || !result.messageId || !result.options || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('Interaction đã hết hạn hoặc không hợp lệ.')
   return result
 }
 
