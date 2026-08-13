@@ -21,7 +21,7 @@ export async function scheduleVnPayReconciliation(job: VnPayReconciliationJob) {
   }
 
   const destination = `${baseUrl}/api/v1/payments/vnpay/reconcile-attempt`
-  const publishUrl = `https://qstash.upstash.io/v2/publish/${encodeURIComponent(destination)}`
+  const publishUrl = `https://qstash.upstash.io/v2/publish/${destination}`
   const response = await fetch(publishUrl, {
     method: 'POST',
     headers: {
@@ -39,7 +39,8 @@ export async function scheduleVnPayReconciliation(job: VnPayReconciliationJob) {
   })
 
   if (!response.ok) {
-    throw new Error(`Không thể lên lịch đối soát VNPay: QStash HTTP ${response.status}`)
+    const responseBody = (await response.text()).slice(0, 500)
+    throw new Error(`Không thể lên lịch đối soát VNPay: QStash HTTP ${response.status}: ${responseBody}`)
   }
 
   const result = await response.json() as { messageId?: string; deduplicated?: boolean }
@@ -51,4 +52,17 @@ export async function scheduleVnPayReconciliation(job: VnPayReconciliationJob) {
     deduplicated: result.deduplicated === true,
   })
   return result
+}
+
+export async function tryScheduleVnPayReconciliation(job: VnPayReconciliationJob) {
+  try {
+    return await scheduleVnPayReconciliation(job)
+  } catch (error) {
+    console.error('Unable to schedule delayed VNPAY reconciliation; payment will continue with IPN', {
+      attemptId: job.attemptId,
+      orderKind: job.orderKind,
+      error,
+    })
+    return null
+  }
 }

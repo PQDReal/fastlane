@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { scheduleVnPayReconciliation } from './vnpay-reconciliation-scheduler'
+import { scheduleVnPayReconciliation, tryScheduleVnPayReconciliation } from './vnpay-reconciliation-scheduler'
 
 describe('VNPay reconciliation scheduler', () => {
   beforeEach(() => {
@@ -24,7 +24,7 @@ describe('VNPay reconciliation scheduler', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(String(url)).toContain('qstash.upstash.io/v2/publish/')
+    expect(String(url)).toBe('https://qstash.upstash.io/v2/publish/https://fastlane.example/api/v1/payments/vnpay/reconcile-attempt')
     expect(options?.headers).toEqual(expect.objectContaining({
       Authorization: 'Bearer qstash-token',
       'Upstash-Delay': '15m',
@@ -40,5 +40,16 @@ describe('VNPay reconciliation scheduler', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
     expect(await scheduleVnPayReconciliation({ attemptId: 'attempt-1', orderKind: 'deposit' })).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('includes the QStash response body in publish errors', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('invalid destination', { status: 400 }))
+    await expect(scheduleVnPayReconciliation({ attemptId: 'attempt-1', orderKind: 'deposit' }))
+      .rejects.toThrow('QStash HTTP 400: invalid destination')
+  })
+
+  it('does not block payment when the backup scheduler is unavailable', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('temporary error', { status: 503 }))
+    expect(await tryScheduleVnPayReconciliation({ attemptId: 'attempt-1', orderKind: 'accessory' })).toBeNull()
   })
 })
