@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { ApiRouteError } from '@/lib/api/errors'
+import { localizeNotificationText } from '@/lib/notifications/localization'
 import type { CustomerNotification } from '@/lib/notifications/types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
@@ -8,7 +9,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 type NotificationRow = {
   id: string
-  notification_type: 'ORDER_STATUS_CHANGED' | 'CONTRACT_ISSUED' | 'CONTRACT_SIGNATURE_REMINDER' | 'CONTRACT_EXPIRED' | 'REFUND_STARTED' | 'REFUND_COMPLETED' | 'REFUND_FAILED' | 'VEHICLE_READY_FOR_DELIVERY'
+  notification_type: 'ORDER_STATUS_CHANGED' | 'CONTRACT_ISSUED' | 'CONTRACT_SIGNATURE_REMINDER' | 'CONTRACT_EXPIRED' | 'REFUND_STARTED' | 'REFUND_COMPLETED' | 'REFUND_FAILED' | 'REFUND_STATUS_CHANGED' | 'VEHICLE_READY_FOR_DELIVERY'
   title: string
   message: string
   order_type: 'ACCESSORY' | 'DEPOSIT'
@@ -23,8 +24,8 @@ function mapNotification(row: NotificationRow): CustomerNotification {
   return {
     id: row.id,
     type: row.notification_type,
-    title: row.title,
-    message: row.message,
+    title: localizeNotificationText(row.title),
+    message: localizeNotificationText(row.message),
     orderType: row.order_type,
     orderId: row.order_id,
     orderNumber: row.order_number,
@@ -104,7 +105,7 @@ type AdminNotificationRow = Omit<NotificationRow, 'notification_type' | 'order_t
 }
 
 const mapAdminNotification = (row: AdminNotificationRow): CustomerNotification => ({
-  id: row.id, type: row.notification_type, title: row.title, message: row.message,
+  id: row.id, type: row.notification_type, title: localizeNotificationText(row.title), message: localizeNotificationText(row.message),
   orderType: 'ACCESSORY', orderId: row.order_id, orderNumber: row.order_number,
   currentStatus: '', actionUrl: row.action_url, readAt: row.read_at, createdAt: row.created_at,
 })

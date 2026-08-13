@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin } from 'lucide-react'
+import { X, CheckCircle2, FileText, Truck, XCircle, User, MapPin, RotateCcw } from 'lucide-react'
+import { OrderCancellationAuditCard } from '@/components/admin/order-cancellation-audit'
+import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { AdminOrderRow } from './orders-client'
 import {
   confirmDepositRefund,
@@ -13,6 +15,10 @@ import {
   type DepositDebugAction,
 } from './actions'
 import { ToastMessage } from '@/components/ui/toast'
+import {
+  depositPaymentStatusPresentation,
+  vehicleOrderStatusPresentation,
+} from '@/lib/orders/admin-status-presentation'
 
 type OrderDetailDrawerProps = {
   order: AdminOrderRow | null
@@ -20,17 +26,57 @@ type OrderDetailDrawerProps = {
   isOpen: boolean
   onClose: () => void
   onOrderUpdated: () => void
-  onShowToast: (toast: Omit<ToastMessage, 'id'>) => void
+  onShowToast: (toast: Omit<ToastMessage, 'id'>, duration?: number) => number
+  onDismissToast: (id: number) => void
 }
 
-export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast }: OrderDetailDrawerProps) {
+export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast, onDismissToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  if (!order || !order.rawDeposit) return null
+  useEffect(() => {
+    if (!isOpen) return
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      previouslyFocused?.focus()
+    }
+  }, [isOpen, onClose])
+
+  // Keep AnimatePresence mounted so clearing the selected order can play the
+  // drawer's exit transition instead of removing it synchronously.
+  if (!order || !order.rawDeposit) return <AnimatePresence />
 
   const d = order.rawDeposit
   const isMotorbike = d.vehicle_type === 'motorbike'
   const hasIssuedDocumentProjection = Boolean(d.contract_issued_at && d.contract_signature_due_at)
+  const isRefundProcessing = order.refundStatus === 'PENDING'
+    && ['PENDING', 'PROCESSING'].includes(order.refundAttemptStatus ?? '')
+  const statusPresentation = vehicleOrderStatusPresentation({
+    status: order.status,
+    refundStatus: order.refundStatus,
+    payment: order.payment,
+    vehicleType: order.vehicleType,
+  })
+  const paymentPresentation = depositPaymentStatusPresentation({
+    status: order.status,
+    refundStatus: order.refundStatus,
+    payment: order.payment,
+  })
 
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
   const formatDate = (dStr: string) => new Date(dStr).toLocaleDateString('vi-VN', {
@@ -106,32 +152,52 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
   }
 
   const handleConfirmRefund = async () => {
+    if (isSubmittingRefund) return
+    setIsSubmittingRefund(true)
     setIsUpdating(true)
-    const res = await confirmDepositRefund(order.id)
-    setIsUpdating(false)
-    if (res.success) {
-      const refundCompleted = 'refundStatus' in res && res.refundStatus === 'COMPLETED'
+    try {
+      const res = await confirmDepositRefund(order.id)
+      if (res.success) {
+        const refundCompleted = 'refundStatus' in res && res.refundStatus === 'COMPLETED'
+        onShowToast({
+          title: refundCompleted ? 'Hoàn tiền thành công' : 'VNPay đang xử lý hoàn tiền',
+          message: refundCompleted
+            ? 'Khoản tiền đặt cọc đã được xác nhận hoàn thành.'
+            : 'Yêu cầu đã được gửi đến VNPay và đang chờ kết quả.',
+          kind: 'success',
+        })
+        onOrderUpdated()
+      } else {
+        onShowToast({ title: 'Không thể xác nhận hoàn tiền', message: res.error || 'Vui lòng thử lại.', kind: 'error' })
+      }
+    } catch (error) {
       onShowToast({
-        title: refundCompleted ? 'Hoàn tiền thành công' : 'VNPay đang xử lý hoàn tiền',
-        message: refundCompleted
-          ? 'Khoản tiền đặt cọc đã được xác nhận hoàn thành.'
-          : 'Yêu cầu đã được gửi đến VNPay và đang chờ kết quả.',
-        kind: 'success',
+        title: 'Không thể xác nhận hoàn tiền',
+        message: error instanceof Error ? error.message : 'Vui lòng thử lại.',
+        kind: 'error',
       })
-      onOrderUpdated()
-    } else {
-      onShowToast({ title: 'Không thể xác nhận hoàn tiền', message: res.error || 'Vui lòng thử lại.', kind: 'error' })
+    } finally {
+      setIsSubmittingRefund(false)
+      setIsUpdating(false)
     }
   }
 
   const requestConfirmRefund = () => {
-    onShowToast({
-      title: 'Xác nhận hoàn tiền?',
-      message: 'Hệ thống sẽ gửi yêu cầu hoàn tiền đặt cọc đến VNPay.',
+    let toastId = 0
+    toastId = onShowToast({
+      title: 'Hoàn tiền qua VNPay?',
+      message: `Hoàn toàn bộ ${formatMoney(order.amount)} cho đơn ${order.orderNumber}. Thao tác có thể không thể thu hồi.`,
       kind: 'warning',
-      secondaryAction: { label: 'Kiểm tra lại', onClick: () => undefined },
-      action: { label: 'Xác nhận hoàn tiền', onClick: () => void handleConfirmRefund() },
-    })
+      secondaryAction: { label: 'Để sau', onClick: () => onDismissToast(toastId) },
+      action: {
+        label: 'Gửi yêu cầu hoàn tiền',
+        variant: 'danger',
+        onClick: () => {
+          onDismissToast(toastId)
+          void handleConfirmRefund()
+        },
+      },
+    }, 0)
   }
 
   const handleSyncKyc = async () => {
@@ -139,16 +205,26 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
     try {
       const res = await syncKycStatus(order.id)
       if (res.success) {
-        onShowToast({ kind: 'success', title: 'Thành công', description: res.message || 'Đã đồng bộ KYC' })
+        onShowToast({ kind: 'success', title: 'Thành công', message: res.message || 'Đã đồng bộ KYC' })
         onOrderUpdated()
       } else {
-        onShowToast({ kind: 'error', title: 'Thất bại', description: res.error || 'Lỗi đồng bộ KYC' })
+        onShowToast({ kind: 'error', title: 'Thất bại', message: res.error || 'Lỗi đồng bộ KYC' })
       }
     } catch (error: any) {
-      onShowToast({ kind: 'error', title: 'Lỗi', description: error.message || 'Đã xảy ra lỗi hệ thống' })
+      onShowToast({ kind: 'error', title: 'Lỗi', message: error.message || 'Đã xảy ra lỗi hệ thống' })
     } finally {
       setIsUpdating(false)
     }
+  }
+
+  const requestCancelOrder = () => {
+    onShowToast({
+      title: 'Hủy đơn đặt xe?',
+      message: `${order.orderNumber} sẽ bị hủy; khoản cọc đã thanh toán sẽ được chuyển sang quy trình hoàn tiền.`,
+      kind: 'warning',
+      secondaryAction: { label: 'Giữ đơn', onClick: () => undefined },
+      action: { label: 'Hủy đơn hàng', variant: 'danger', onClick: () => void handleUpdateStatus('CANCELLED') },
+    })
   }
 
   return (
@@ -166,6 +242,9 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
           {/* Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-deposit-order-detail-title"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -175,12 +254,16 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
+                <h2 id="admin-deposit-order-detail-title" className="text-lg font-bold text-slate-900">Chi tiết Đơn hàng</h2>
                 <p className="text-sm text-slate-500 font-medium">{order.orderNumber}</p>
+                <AdminOrderStatusBadge presentation={statusPresentation} className="mt-2" />
               </div>
               <button
+                ref={closeButtonRef}
+                type="button"
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                aria-label="Đóng chi tiết đơn đặt xe"
+                className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
               >
                 <X size={20} />
               </button>
@@ -188,6 +271,10 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+              {order.status === 'CANCELLED' && order.cancellationAudit && (
+                <OrderCancellationAuditCard audit={order.cancellationAudit} />
+              )}
               
               {/* Customer Info */}
               <section className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
@@ -313,13 +400,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Trạng thái TT cọc:</span>
-                    <span className={`font-semibold ${order.status === 'CANCELLED' && order.payment === 'Paid' ? 'text-orange-600' : order.payment === 'Paid' ? 'text-green-600' : 'text-slate-600'}`}>
-                      {order.status === 'CANCELLED' && order.refundStatus === 'COMPLETED'
-                        ? 'Đã hủy, đã hoàn tiền'
-                        : order.status === 'CANCELLED' && order.payment === 'Paid'
-                        ? 'Đã hủy, chờ hoàn tiền'
-                        : order.payment === 'Paid' ? 'Đã đặt cọc' : 'Chờ đặt cọc'}
-                    </span>
+                    <AdminOrderStatusBadge presentation={paymentPresentation} />
                   </div>
                 </div>
               </section>
@@ -349,14 +430,20 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
             {/* Footer Actions */}
             <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               <div className="flex flex-col gap-3">
-                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus !== 'COMPLETED' && (
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && isRefundProcessing && (
+                  <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                    <RotateCcw size={16} className="animate-spin" />
+                    Đang tự động kiểm tra hoàn tiền
+                  </div>
+                )}
+                {order.status === 'CANCELLED' && order.payment === 'Paid' && order.refundStatus === 'PENDING' && !isRefundProcessing && (
                   <button
                     onClick={requestConfirmRefund}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isSubmittingRefund}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <CheckCircle2 size={16} />
-                    {isUpdating ? 'Đang gửi VNPay...' : 'Xác nhận hoàn tiền'}
+                    <RotateCcw size={16} className={isSubmittingRefund ? 'animate-spin' : undefined} />
+                    {isSubmittingRefund ? 'Đang gửi yêu cầu VNPay...' : order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Xác nhận hoàn tiền'}
                   </button>
                 )}
                 {nextAction && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
@@ -436,7 +523,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
 
                 {!['CANCELLED', 'CONTRACT_SIGNED', 'WAITING_VEHICLE', 'PREPARING_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status) && (
                   <button
-                    onClick={() => handleUpdateStatus('CANCELLED')}
+                    onClick={requestCancelOrder}
                     disabled={isUpdating}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-red-50 text-red-600 border border-red-200 font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                   >

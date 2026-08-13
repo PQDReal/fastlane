@@ -3,6 +3,7 @@ import 'server-only'
 import { ApiRouteError } from '@/lib/api/errors'
 import type { DepositSelectionInput } from '@/lib/deposit/order-input'
 import { DepositInputError } from '@/lib/deposit/order-input'
+import { matchesDepositVehicleVariant } from '@/lib/deposit/vehicle-variant'
 import { quoteProductPromotion } from '@/lib/promotions/quote'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import {
@@ -304,6 +305,28 @@ export async function buildDepositVehicleQuote(
     )
   }
 
+  const canonicalCarRows = input.vehicleType === 'car'
+    ? await supabase
+        .from('vehicle_variants')
+        .select('id,version,variant_name,color,interior_color,price,color_price_adjustment,deposit_amount')
+        .eq('product_id', product.id)
+        .eq('is_active', true)
+    : { data: [], error: null }
+  if (canonicalCarRows.error) throw canonicalCarRows.error
+  const selectedCarRow = (canonicalCarRows.data ?? []).find((row) =>
+    matchesDepositVehicleVariant(row, {
+      vehicleVariant: input.vehicleVariant,
+      exteriorColor: input.exteriorColor,
+      interiorColor: input.interiorColor ?? undefined,
+    }),
+  )
+  if (input.vehicleType === 'car' && !selectedCarRow) {
+    throw new DepositInputError(
+      'Tổ hợp phiên bản, màu ngoại thất và nội thất không tồn tại.',
+      'exterior_color',
+    )
+  }
+
   const { groups, values } = await catalogOptions(product.id)
   const valuesFor = (group: OptionGroupRow) => values
     .filter((value) => value.option_group_id === group.id)
@@ -370,11 +393,17 @@ export async function buildDepositVehicleQuote(
     return match
   })
 
-  const basePrice = money(
-    selectedVariant?.sale_price ??
-    selectedVariant?.original_price ??
-    product.displayed_price,
-  )
+  const canonicalVersionPrices = (canonicalCarRows.data ?? [])
+    .filter((row) => key(row.version) === key(selectedCarRow?.version))
+    .map((row) => money(row.price))
+    .filter((price) => price > 0)
+  const basePrice = input.vehicleType === 'car' && canonicalVersionPrices.length > 0
+    ? Math.min(...canonicalVersionPrices)
+    : money(
+        selectedVariant?.sale_price ??
+        selectedVariant?.original_price ??
+        product.displayed_price,
+      )
   if (basePrice <= 0) {
     throw new DepositInputError(
       'Mẫu xe chưa có giá bán hợp lệ để đặt cọc.',
@@ -382,8 +411,8 @@ export async function buildDepositVehicleQuote(
     )
   }
   const optionAdjustment =
-    (selectedExterior?.price ?? 0) +
-    (selectedInterior?.price ?? 0) +
+    (input.vehicleType === 'car' ? money(selectedCarRow?.color_price_adjustment) : selectedExterior?.price ?? 0) +
+    (input.vehicleType === 'car' ? 0 : selectedInterior?.price ?? 0) +
     selectedPackages.reduce((total, option) => total + option.price, 0)
   const subtotal = basePrice + optionAdjustment
   const promotion = input.promotionCode
@@ -394,7 +423,7 @@ export async function buildDepositVehicleQuote(
       )
     : null
   const totalEstimatedPrice = promotion?.grandTotal ?? subtotal
-  const configuredDeposit = money(selectedVariant?.deposit_amount)
+  const configuredDeposit = money(selectedCarRow?.deposit_amount ?? selectedVariant?.deposit_amount)
   let defaultDeposit = 15_000_000
   if (input.vehicleType === 'motorbike') {
     defaultDeposit = 2_000_000

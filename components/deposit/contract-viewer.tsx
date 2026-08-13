@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
+import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { contractStageCopy, getDepositContractMode, type DepositContractMode } from '@/lib/deposit/contract-workflow'
 
 export type ContractViewerProps = {
@@ -27,6 +28,35 @@ export function ContractViewer({ order, onSign, onSendOtp, canSign = false }: Co
   const [isSigning, setIsSigning] = useState(false)
   const [isOtpStep, setIsOtpStep] = useState(false)
   const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [otpToasts, setOtpToasts] = useState<ToastMessage[]>([])
+
+  React.useEffect(() => {
+    if (!isOtpStep) setOtpToasts([])
+  }, [isOtpStep])
+
+  const requestOtpClose = () => {
+    const id = Date.now() + Math.random()
+    const dismiss = () => setOtpToasts((current) => current.filter((toast) => toast.id !== id))
+
+    setOtpToasts([{
+      id,
+      kind: 'warning',
+      title: 'Đóng màn hình nhập OTP?',
+      message: 'Mã OTP vẫn còn hiệu lực. Bạn có chắc muốn dừng xác thực lúc này?',
+      secondaryAction: {
+        label: 'Tiếp tục nhập',
+        onClick: dismiss,
+      },
+      action: {
+        label: 'Đóng màn hình',
+        variant: 'danger',
+        onClick: () => {
+          dismiss()
+          setIsOtpStep(false)
+        },
+      },
+    }])
+  }
 
   const handleSign = async () => {
     if (!agreed || !canSign || !onSign || !onSendOtp) return
@@ -266,7 +296,7 @@ export function ContractViewer({ order, onSign, onSendOtp, canSign = false }: Co
             size="default"
             className="w-full sm:w-auto sm:px-16 bg-[#1e4d2b] hover:bg-[#1e4d2b]/90 text-white"
           >
-            {isSendingOtp ? 'Đang gửi mã...' : contractMode === 'CAR_SALES' ? 'Ký hợp đồng' : 'Xác nhận thỏa thuận'}
+            {isSendingOtp ? 'Đang gửi mã...' : 'Ký hợp đồng'}
           </Button>
         </div>
       ) : isSigned ? (
@@ -279,9 +309,14 @@ export function ContractViewer({ order, onSign, onSendOtp, canSign = false }: Co
 
       <OTPModal
         isOpen={isOtpStep}
-        onClose={() => setIsOtpStep(false)}
+        onClose={requestOtpClose}
         isVerifying={isSigning}
         onComplete={handleVerifyAndSign}
+        onResend={onSendOtp}
+      />
+      <ToastViewport
+        toasts={otpToasts}
+        onClose={(id) => setOtpToasts((current) => current.filter((toast) => toast.id !== id))}
       />
     </div>
   )
@@ -291,14 +326,19 @@ function OTPModal({
   isOpen, 
   onClose, 
   onComplete, 
-  isVerifying 
+  onResend,
+  isVerifying,
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
   onComplete: (otp: string) => Promise<void>,
-  isVerifying: boolean 
+  onResend?: () => Promise<void>,
+  isVerifying: boolean,
 }) {
   const [otp, setOtp] = React.useState(['', '', '', '', '', ''])
+  const [resendAvailableAt, setResendAvailableAt] = React.useState(0)
+  const [resendSeconds, setResendSeconds] = React.useState(60)
+  const [isResending, setIsResending] = React.useState(false)
   const inputRefs = React.useRef<(HTMLInputElement | null)[]>([])
   const submittedOtpRef = React.useRef('')
 
@@ -306,9 +346,37 @@ function OTPModal({
     if (isOpen) {
       setOtp(['', '', '', '', '', ''])
       submittedOtpRef.current = ''
+      setResendAvailableAt(Date.now() + 60_000)
+      setResendSeconds(60)
       setTimeout(() => inputRefs.current[0]?.focus(), 100)
     }
   }, [isOpen])
+
+  React.useEffect(() => {
+    if (!isOpen || resendAvailableAt === 0) return
+
+    const updateCountdown = () => {
+      setResendSeconds(Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000)))
+    }
+    updateCountdown()
+    const timer = window.setInterval(updateCountdown, 250)
+    return () => window.clearInterval(timer)
+  }, [isOpen, resendAvailableAt])
+
+  const handleResend = async () => {
+    if (!onResend || resendSeconds > 0 || isResending || isVerifying) return
+    setIsResending(true)
+    try {
+      await onResend()
+      setOtp(['', '', '', '', '', ''])
+      submittedOtpRef.current = ''
+      setResendAvailableAt(Date.now() + 60_000)
+      setResendSeconds(60)
+      window.setTimeout(() => inputRefs.current[0]?.focus(), 100)
+    } finally {
+      setIsResending(false)
+    }
+  }
 
   const submitOtp = (value: string) => {
     if (value.length !== 6 || submittedOtpRef.current === value) return
@@ -384,8 +452,20 @@ function OTPModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
+          onPointerDown={(event) => {
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isVerifying) onClose()
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            event.stopPropagation()
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
         >
@@ -448,6 +528,21 @@ function OTPModal({
                   Sẽ tự động xác nhận khi nhập đủ 6 số
                 </p>
               )}
+            </div>
+
+            <div className="mt-5 border-t border-slate-100 pt-4 text-center">
+              <button
+                type="button"
+                onClick={() => void handleResend()}
+                disabled={!onResend || resendSeconds > 0 || isResending || isVerifying}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-[#1e4d2b] transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d2b] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+              >
+                {isResending
+                  ? 'Đang gửi lại mã...'
+                  : resendSeconds > 0
+                    ? `Gửi lại mã sau ${resendSeconds} giây`
+                    : 'Gửi lại mã OTP'}
+              </button>
             </div>
           </motion.div>
         </motion.div>

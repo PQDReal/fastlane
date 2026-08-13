@@ -6,7 +6,7 @@ import {
   type DraftVariant,
 } from '@/lib/catalog/admin-accessory-draft'
 
-export const ADMIN_CAR_SESSION_KEY = 'fastlane.admin.car.prototype.v3'
+export const ADMIN_CAR_SESSION_KEY = 'fastlane.admin.products.cars.dialog.v1'
 export const ADMIN_CAR_SESSION_VERSION = 3
 
 type DraftSnapshot = {

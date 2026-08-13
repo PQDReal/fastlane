@@ -3,16 +3,43 @@ export type DepositContractMode = 'CAR_SALES' | 'BIKE_PURCHASE_TERMS'
 type ContractOrderLike = {
   vehicle_type?: string | null
   car_variant?: string | null
-  vehicle_variants?: { variant_name?: string | null; version?: string | null } | Array<{ variant_name?: string | null; version?: string | null }> | null
+  vehicle_variants?: {
+    product_type?: string | null
+    variant_name?: string | null
+    version?: string | null
+  } | Array<{
+    product_type?: string | null
+    variant_name?: string | null
+    version?: string | null
+  }> | null
 }
+
+export const DEPOSIT_ORDER_JOURNEY_STEPS = [
+  'Chờ xét duyệt',
+  'Xác thực KYC',
+  'Ký hợp đồng',
+  'Chờ xe',
+  'Nhận xe',
+] as const
+
 /** Derives the document shown at stage 3 from persisted, schema-backed order data. */
 export function getDepositContractMode(order: ContractOrderLike): DepositContractMode {
-  return order.vehicle_type === 'motorbike' ? 'BIKE_PURCHASE_TERMS' : 'CAR_SALES'
+  const vehicleType = order.vehicle_type?.trim().toLowerCase()
+  if (vehicleType === 'motorbike') return 'BIKE_PURCHASE_TERMS'
+  if (vehicleType === 'car') return 'CAR_SALES'
+
+  const variant = Array.isArray(order.vehicle_variants)
+    ? order.vehicle_variants[0]
+    : order.vehicle_variants
+  const productType = variant?.product_type?.trim().toLowerCase()
+  return productType === 'bike' || productType === 'motorbike'
+    ? 'BIKE_PURCHASE_TERMS'
+    : 'CAR_SALES'
 }
 export function contractStageCopy(mode: DepositContractMode) {
   if (mode === 'BIKE_PURCHASE_TERMS') return {
-    status: 'Xác nhận thỏa thuận đặt mua: Thông tin đơn hàng đã sẵn sàng. Vui lòng xem và xác nhận.',
-    action: 'Xem & Xác nhận đặt mua',
+    status: 'Ký hợp đồng: Thỏa thuận đặt mua đã sẵn sàng. Vui lòng xem và xác nhận.',
+    action: 'Xem & Ký hợp đồng',
     title: 'THỎA THUẬN ĐẶT MUA XE MÁY ĐIỆN VINFAST',
     consent: 'Tôi đã đọc, hiểu rõ và đồng ý với các điều khoản của Thỏa thuận đặt mua xe máy điện VinFast.',
   }

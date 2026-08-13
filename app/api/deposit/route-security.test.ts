@@ -17,12 +17,20 @@ describe('deposit route safety contract', () => {
     expect(source).toMatch(/error\.code === '23505'[\s\S]*decideDepositReplay\(replay\.request_hash, hash\)/)
   })
 
-  it('does not write canonical motorbike IDs into the legacy product variant relation', () => {
+  it('stores an exact active vehicle variant for both cars and motorbikes', () => {
     expect(source).not.toMatch(/\n\s*variant_id\s*:/)
-    expect(source).toMatch(
-      /vehicleVariantId: string \| null = input\.vehicleType === 'motorbike'[\s\S]*\? quote\.variantId/,
-    )
-    expect(source).not.toContain('vehicleVariantId = quote.variantId')
+    expect(source).toContain(".select('id,product_variant_id')")
+    expect(source).toContain(".select('id,color,version,variant_name,interior_color,product_variant_id')")
+    expect(source).toContain('matchesDepositVehicleVariant(variant')
+    expect(source).toContain('vehicleVariant: input.vehicleVariant')
+    expect(source).toContain('exteriorColor: input.exteriorColor')
+    expect(source).toContain('vehicle_variant_id: vehicleVariantId')
+  })
+
+  it('maps database inventory failures to stable API errors', () => {
+    expect(source).toContain("message.includes('DEPOSIT_VEHICLE_OUT_OF_STOCK')")
+    expect(source).toContain("code: 'DEPOSIT_VEHICLE_OUT_OF_STOCK'")
+    expect(source).toContain("code: 'DEPOSIT_INVENTORY_NOT_CONFIGURED'")
   })
 
   it('stores the authoritative promotion quote without incrementing quota in application code', () => {

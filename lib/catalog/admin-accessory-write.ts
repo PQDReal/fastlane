@@ -42,6 +42,7 @@ export type AdminAccessoryVariantInput = {
   name: string
   originalPrice: number
   salePrice: number | null
+  stockQuantity: number
   isActive: boolean
   optionValues: Record<string, string>
   imageUrls: string[]
@@ -60,6 +61,7 @@ export type AdminAccessoryWriteRequest = {
   categoryId: string
   templateCode: AccessoryTemplateCode
   templateVersion: number
+  templateVersionId?: string | null
   categoryAssignments: AdminAccessoryCategoryAssignmentInput[]
   name: string
   slug: string
@@ -327,11 +329,12 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
   const variants = value.map((item, variantIndex) => {
     const path = `variants.${variantIndex}`
     const variant = record(item, path)
-    exactKeys(variant, ['existingId', 'name', 'originalPrice', 'salePrice', 'isActive', 'optionValues', 'imageUrls'], path)
+    exactKeys(variant, ['existingId', 'name', 'originalPrice', 'salePrice', 'stockQuantity', 'isActive', 'optionValues', 'imageUrls'], path)
     const originalPrice = integer(variant.originalPrice, `${path}.originalPrice`, 0, MAX_MONEY)
     const salePrice = variant.salePrice === null
       ? null
       : integer(variant.salePrice, `${path}.salePrice`, 0, MAX_MONEY)
+    const stockQuantity = integer(variant.stockQuantity, `${path}.stockQuantity`, 0, Number.MAX_SAFE_INTEGER)
     if (salePrice !== null && salePrice >= originalPrice) {
       fail(`${path}.salePrice`, 'VARIANT_SALE_PRICE_INVALID', 'Giá khuyến mại phải thấp hơn giá niêm yết.')
     }
@@ -362,6 +365,7 @@ function parseVariants(value: unknown, groups: AdminAccessoryOptionGroupInput[])
       name: requiredString(variant.name, `${path}.name`, { max: 200 }),
       originalPrice,
       salePrice,
+      stockQuantity,
       isActive: boolean(variant.isActive, `${path}.isActive`),
       optionValues,
       imageUrls: urlArray(variant.imageUrls, `${path}.imageUrls`),
@@ -414,7 +418,7 @@ export function parseAdminAccessoryWriteRequest(
 ): AdminAccessoryWriteRequest {
   const input = record(value, 'body')
   exactKeys(input, [
-    'expectedUpdatedAt', 'categoryId', 'templateCode', 'templateVersion', 'categoryAssignments',
+    'expectedUpdatedAt', 'categoryId', 'templateCode', 'templateVersion', 'templateVersionId', 'categoryAssignments',
     // Legacy v1 taxonomy shape. It remains accepted only during rollout.
     'primaryCollectionId', 'modelCollectionIds',
     'name', 'slug', 'description', 'isActive', 'serviceLabelIds', 'content',
@@ -430,17 +434,24 @@ export function parseAdminAccessoryWriteRequest(
   const usesNewTaxonomy = input.categoryAssignments !== undefined
     || input.templateCode !== undefined
     || input.templateVersion !== undefined
+    || input.templateVersionId !== undefined
   const usesLegacyTaxonomy = input.primaryCollectionId !== undefined || input.modelCollectionIds !== undefined
   if (usesNewTaxonomy && usesLegacyTaxonomy) {
     fail('body', 'TAXONOMY_SHAPE_CONFLICT', 'Không thể gửi đồng thời cấu trúc phân loại cũ và mới.')
   }
   let templateCode: AccessoryTemplateCode
   let templateVersion: number
+  let templateVersionId: string | null | undefined
   let categoryAssignments: AdminAccessoryCategoryAssignmentInput[]
   if (usesNewTaxonomy) {
-    templateCode = typeof input.templateCode === 'string' ? input.templateCode as AccessoryTemplateCode : fail('templateCode', 'TEMPLATE_CODE_REQUIRED', 'Cần chọn mẫu nhập phụ kiện.')
-    templateVersion = integer(input.templateVersion, 'templateVersion', 1, 100)
-    if (!accessoryTemplate(templateCode, templateVersion)) {
+    templateCode = typeof input.templateCode === 'string'
+      ? input.templateCode as AccessoryTemplateCode
+      : 'custom'
+    templateVersion = input.templateVersion === undefined ? 1 : integer(input.templateVersion, 'templateVersion', 1, 100)
+    templateVersionId = input.templateVersionId === null || input.templateVersionId === undefined
+      ? input.templateVersionId
+      : uuid(input.templateVersionId, 'templateVersionId')
+    if (!templateVersionId && !accessoryTemplate(templateCode, templateVersion)) {
       fail('templateCode', 'TEMPLATE_VERSION_UNSUPPORTED', 'Mẫu nhập phụ kiện hoặc phiên bản không được hỗ trợ.')
     }
     categoryAssignments = parseCategoryAssignments(input.categoryAssignments)
@@ -452,6 +463,7 @@ export function parseAdminAccessoryWriteRequest(
     }
     templateCode = 'custom'
     templateVersion = 1
+    templateVersionId = null
     categoryAssignments = [{
       categoryId: primaryCollectionId,
       compatibilityMode: modelCollectionIds.length > 0 ? 'SELECTED_MODELS' : 'ALL_MODELS',
@@ -474,6 +486,7 @@ export function parseAdminAccessoryWriteRequest(
     categoryId: uuid(input.categoryId, 'categoryId'),
     templateCode,
     templateVersion,
+    ...(templateVersionId !== undefined ? { templateVersionId } : {}),
     categoryAssignments,
     name: requiredString(input.name, 'name', { max: 200 }),
     slug: requiredString(input.slug, 'slug', { max: 220, pattern: SLUG_PATTERN }),
@@ -587,6 +600,7 @@ export function adminAccessoryDraftToWriteRequest(
         name: variant.name.trim(),
         originalPrice: Number(variant.originalPrice),
         salePrice: variant.salePrice.trim() ? Number(variant.salePrice) : null,
+        stockQuantity: Number(variant.stockQuantity ?? '0'),
         isActive: variant.isActive,
         optionValues,
         imageUrls: nonEmptyUrls(variant.imageUrls),
@@ -598,6 +612,7 @@ export function adminAccessoryDraftToWriteRequest(
     categoryId: draft.rootCategoryId,
     templateCode: draft.templateCode,
     templateVersion: draft.templateVersion,
+    ...(draft.templateVersionId !== undefined ? { templateVersionId: draft.templateVersionId } : {}),
     categoryAssignments,
     name: draft.name,
     slug: draft.slug,
@@ -616,6 +631,7 @@ export function adminAccessoryRpcPayload(request: AdminAccessoryWriteRequest) {
   const representative = sourceVariants[0] ?? payload.variants[0]
   return {
     ...payload,
+    variants: payload.variants.map(({ stockQuantity: _stockQuantity, ...variant }) => variant),
     productImageUrls: representative?.imageUrls ?? [],
     optionGroups: payload.optionGroups.map((group) => ({
       ...group,

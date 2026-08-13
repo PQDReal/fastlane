@@ -1,10 +1,37 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 
 import { authorizeAdminInventoryRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
+import {
+  ACCESSORY_CATALOG_SUMMARY_CACHE_KEY,
+  ACCESSORY_PRODUCT_CACHE_PREFIX,
+  CAR_CATALOG_CACHE_PREFIX,
+  CAR_DETAIL_CACHE_PREFIX,
+  MOTORBIKE_CATALOG_CACHE_KEY,
+  MOTORBIKE_DETAIL_CACHE_PREFIX,
+  PRODUCT_SEARCH_CACHE_PREFIX,
+} from '@/lib/cache-keys'
+import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type Context = { params: Promise<{ variantId: string }> }
+async function invalidateInventoryCatalogCaches() {
+  revalidateTag('accessory-catalog')
+  revalidateTag('car-catalog')
+  revalidateTag('motorbike-catalog')
+  revalidateTag('vehicle-catalog')
+
+  await Promise.all([
+    deleteRedisKey(ACCESSORY_CATALOG_SUMMARY_CACHE_KEY),
+    deleteRedisKeysByPrefix(ACCESSORY_PRODUCT_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
+    deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
+    deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
+  ])
+}
 
 export async function PUT(request: Request, context: Context) {
   try {
@@ -50,6 +77,7 @@ export async function PUT(request: Request, context: Context) {
   async function responseWithStatus(data: { variant_id: string; on_hand_quantity: number; updated_at: string }) {
     const { error: statusError } = await supabase.from('product_variants').update({ is_active: isActive }).eq('id', variantId)
     if (statusError) return NextResponse.json({ error: statusError.message }, { status: 400 })
+    await invalidateInventoryCatalogCaches()
     return NextResponse.json({ variantId: data.variant_id, onHandQuantity: data.on_hand_quantity, updatedAt: data.updated_at, variantIsActive: isActive })
   }
   const { data: current, error: currentError } = await supabase

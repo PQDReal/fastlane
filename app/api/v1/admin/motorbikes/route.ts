@@ -58,15 +58,16 @@ export async function POST(request: Request) {
     name,
     slug,
     description,
-    is_active = true,
     listing_image_url,
     hero_image_url,
     detail_image_urls = [],
     specifications = {},
     colors = [],
+    advanced_color_price = 0,
     versions = [],
     landing_page_blocks = [],
   } = body
+  const isActive = body.is_active === true
 
   // Basic validation
   if (!name?.trim() || !slug?.trim()) {
@@ -80,6 +81,31 @@ export async function POST(request: Request) {
   }
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
+  }
+  if (versions.some((version: any) => Object.values(version.stock_by_color ?? {}).some((value) => !Number.isInteger(Number(value)) || Number(value) < 0))) {
+    return NextResponse.json({ error: 'Tồn kho của từng phiên bản và màu phải là số nguyên không âm.' }, { status: 400 })
+  }
+
+  const colorNames = new Set(colors.map((color: any) => String(color.color_name)))
+  const advancedColorPrice = Math.max(0, Number(advanced_color_price) || 0)
+  const priceForConfiguration = (version: any, color: any) =>
+    Number(version.price) + (color.color_type === 'ADVANCED' ? advancedColorPrice : 0)
+  const sellableConfigurations = versions.flatMap((version: any, versionIndex: number) => {
+    const selectedColors = Array.isArray(version.compatible_colors)
+      ? Array.from(new Set(version.compatible_colors.map(String)))
+      : colors.map((color: any) => String(color.color_name))
+    return selectedColors.flatMap((colorName: string) => {
+      if (!colorNames.has(colorName)) return []
+      const colorIndex = colors.findIndex((color: any) => color.color_name === colorName)
+      return [{ version, versionIndex, color: colors[colorIndex], colorIndex }]
+    })
+  })
+  const configurationSignatures = sellableConfigurations.map(({ version, color }: any) => `${version.sku}\u001f${color.color_name}`)
+  if (sellableConfigurations.length === 0 || new Set(configurationSignatures).size !== configurationSignatures.length) {
+    return NextResponse.json({ error: 'Các cặp phiên bản và màu phải hợp lệ, không trùng nhau.' }, { status: 400 })
+  }
+  if (sellableConfigurations.some(({ version, color }: any) => !Number.isFinite(priceForConfiguration(version, color)) || priceForConfiguration(version, color) <= 0)) {
+    return NextResponse.json({ error: 'Giá bán của từng phiên bản phải lớn hơn 0.' }, { status: 400 })
   }
 
   const productId = randomUUID()
@@ -118,18 +144,24 @@ export async function POST(request: Request) {
       interior_images: [],
     },
     variants: versions.map((v: any) => v.name),
+    variant_compatibility: sellableConfigurations.map(({ version, color }: any) => ({
+      version: version.name,
+      exterior_color: color.color_name,
+    })),
     product_type: 'motorbike',
     color_details: colors.map((c: any) => ({
       swatch: c.swatch,
       image_url: c.image_url,
       color_name: c.color_name,
+      color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+      price_adjustment: c.color_type === 'ADVANCED' ? advancedColorPrice : 0,
     })),
     detail_images: detail_image_urls,
     representative_image: hero_image_url,
     landing_page_blocks,
   }
 
-  const displayedPrice = Math.min(...versions.map((v: any) => Number(v.price)))
+  const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) => priceForConfiguration(version, color)))
 
   const supabase = getSupabaseAdmin()
 
@@ -143,10 +175,11 @@ export async function POST(request: Request) {
       slug,
       description,
       product_type: 'BIKE',
-      is_active,
+      is_active: isActive,
       specifications: formattedSpecs,
       image_urls,
       displayed_price: displayedPrice,
+      advanced_color_price: advancedColorPrice,
     })
 
   if (productError) {
@@ -157,20 +190,23 @@ export async function POST(request: Request) {
   // Inventory is tracked per sellable version + colour combination. Do not
   // create one shared product variant for every colour, otherwise setting one
   // colour to zero would incorrectly hide all colours of that model.
-  const productVariantRows = versions.flatMap((version: any) =>
-    colors.map((colorItem: any, colorIndex: number) => ({
+  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem, colorIndex }: any) => ({
       id: randomUUID(),
       product_id: productId,
       sku: `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
       name: `${version.name} - ${colorItem.color_name}`,
-      original_price: version.price,
+      original_price: priceForConfiguration(version, colorItem),
       sale_price: null,
-      is_active: is_active,
+      is_active: isActive,
       option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      metadata: { source: 'admin_motorbike_creation', version: version.name, color: colorItem.color_name },
+      metadata: {
+        source: 'admin_motorbike_creation',
+        base_sku: version.sku,
+        version: version.name,
+        color: colorItem.color_name,
+      },
       deposit_amount: version.deposit_amount,
-    })),
-  )
+    }))
 
   const { error: variantError } = await supabase
     .from('product_variants')
@@ -187,10 +223,7 @@ export async function POST(request: Request) {
   const generatedAt = new Date().toISOString()
 
   productVariantRows.forEach((variantRow: any, rowIndex: number) => {
-    const versionIndex = Math.floor(rowIndex / colors.length)
-    const colorIndex = rowIndex % colors.length
-    const origVersion = versions[versionIndex]
-    const colorItem = colors[colorIndex]
+    const { versionIndex, colorIndex, version: origVersion, color: colorItem } = sellableConfigurations[rowIndex]
       const variantId = randomUUID()
       const catalogSpecs = {
         ...formattedSpecs,
@@ -198,6 +231,8 @@ export async function POST(request: Request) {
           source: 'products/product_variants',
           sale_price: null,
           color_order: colorIndex + 1,
+          color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+          color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
           description,
           migrated_at: generatedAt,
           product_slug: slug,
@@ -216,14 +251,14 @@ export async function POST(request: Request) {
         product_name: name,
         deposit_amount: variantRow.deposit_amount,
         specs: catalogSpecs,
-        variant_name: `${name} ${variantRow.name} - ${colorItem.color_name}`,
-        sku: `${variantRow.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
+        variant_name: `${name} ${origVersion.name} - ${colorItem.color_name}`,
+        sku: variantRow.sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
         image_car_url: colorItem.image_url,
         image_color_url: colorItem.swatch,
-        version: variantRow.name,
-        is_active: is_active,
+        version: origVersion.name,
+        is_active: isActive,
         product_variant_id: variantRow.id,
       })
   })
@@ -241,10 +276,13 @@ export async function POST(request: Request) {
 
   const { error: inventoryError } = await supabase
     .from('inventory_items')
-    .insert(productVariantRows.map((variantRow: any) => ({
+  .insert(productVariantRows.map((variantRow: any, rowIndex: number) => {
+    const { version, color } = sellableConfigurations[rowIndex]
+    return {
       variant_id: variantRow.id,
-      on_hand_quantity: 0,
-    })))
+      on_hand_quantity: Number(version?.stock_by_color?.[color?.color_name] ?? 0),
+    }
+  }))
   if (inventoryError) {
     await supabase.from('vehicle_variants').delete().eq('product_id', productId)
     await supabase.from('product_variants').delete().eq('product_id', productId)

@@ -73,7 +73,9 @@ Return URL phục vụ điều hướng giao diện; IPN server-to-server là ng
 
 ## 3. Hủy đơn và hoàn tiền
 
-Việc hủy luôn đưa `orders.status` về `CANCELLED`. `refund_status` phụ thuộc vào việc đơn đã thanh toán hay chưa.
+Việc hủy luôn đưa `orders.status` về `CANCELLED`. `refund_status` phụ thuộc vào việc đơn đã thanh toán hay chưa. Với đơn đã thanh toán, thao tác hủy chỉ đưa hoàn tiền về `PENDING`; admin vẫn là người khởi tạo yêu cầu hoàn tiền VNPay từ màn hình chi tiết.
+
+Actor, lý do và lịch sử audit của thao tác hủy được mô tả tại [Audit luồng hủy đơn phụ kiện và đơn đặt xe](./order-cancellation-audit.md).
 
 ```mermaid
 stateDiagram-v2

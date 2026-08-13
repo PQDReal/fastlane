@@ -5,6 +5,15 @@ const sendSource = readFileSync(new URL('./send-otp/route.ts', import.meta.url),
 const signSource = readFileSync(new URL('./sign/route.ts', import.meta.url), 'utf8')
 const clientSource = readFileSync(new URL('../../profile/contract/[orderId]/contract-client.tsx', import.meta.url), 'utf8')
 const mailerSource = readFileSync(new URL('../../../lib/mailer.ts', import.meta.url), 'utf8')
+const otpMailerSource = mailerSource.slice(
+  mailerSource.indexOf('export async function sendEmailOTP'),
+  mailerSource.indexOf('export async function sendContractSignedEmail'),
+)
+const signedMailerSource = mailerSource.slice(
+  mailerSource.indexOf('export async function sendContractSignedEmail'),
+  mailerSource.indexOf('export async function sendPaymentSuccessEmail'),
+)
+const viewerSource = readFileSync(new URL('../../../components/deposit/contract-viewer.tsx', import.meta.url), 'utf8')
 
 describe('contract OTP route boundaries', () => {
   it('binds OTP issuance to the owner and active document version', () => {
@@ -39,5 +48,35 @@ describe('contract OTP route boundaries', () => {
     expect(mailerSource).toContain("process.env.NODE_ENV !== 'production'")
     expect(mailerSource).toContain("process.env.ENABLE_OTP_EMAIL_LOGGING === 'true'")
     expect(mailerSource).toContain("throw new Error('OTP_EMAIL_PROVIDER_NOT_CONFIGURED')")
+  })
+
+  it('uses the branded OTP email template for both email providers', () => {
+    expect(otpMailerSource).toContain('alt="FASTLANE"')
+    expect(otpMailerSource).toContain('Mã xác thực của bạn')
+    expect(otpMailerSource).toContain('<strong>Mã có hiệu lực trong 5 phút.</strong>')
+    expect(otpMailerSource.match(/html: htmlTemplate/g)).toHaveLength(2)
+    expect(otpMailerSource.match(/text: textTemplate/g)).toHaveLength(2)
+  })
+
+  it('uses the shared Fastlane header for the signed-contract email', () => {
+    expect(signedMailerSource).toContain("const subject = 'Fastlane | Hợp đồng đã ký thành công'")
+    expect(signedMailerSource).toContain('fastlane-logo-name.png')
+    expect(signedMailerSource).toContain('alt="FASTLANE"')
+    expect(signedMailerSource).toContain('Hợp đồng đã ký thành công')
+    expect(signedMailerSource).toContain("productName.replace(/vinfast/gi, '')")
+    expect(signedMailerSource).not.toContain('VinFast Fastlane')
+    expect(signedMailerSource).not.toContain('VINFAST FASTLANE')
+  })
+
+  it('keeps the OTP dialog open and gates resend behind the one-minute cooldown', () => {
+    expect(viewerSource).not.toContain('event.target === event.currentTarget && !isVerifying')
+    expect(viewerSource).toContain('event.preventDefault()')
+    expect(viewerSource).toContain('event.stopPropagation()')
+    expect(viewerSource).toContain("title: 'Đóng màn hình nhập OTP?'")
+    expect(viewerSource).toContain("label: 'Tiếp tục nhập'")
+    expect(viewerSource).toContain("label: 'Đóng màn hình'")
+    expect(viewerSource).toContain('setResendAvailableAt(Date.now() + 60_000)')
+    expect(viewerSource).toContain('disabled={!onResend || resendSeconds > 0 || isResending || isVerifying}')
+    expect(viewerSource).toContain('onResend={onSendOtp}')
   })
 })

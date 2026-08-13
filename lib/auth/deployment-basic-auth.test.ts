@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDeploymentBasicAuthCookie,
+  DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE,
   hasValidDeploymentBasicAuth,
+  hasValidDeploymentBasicAuthCredentials,
   hasValidDeploymentBasicAuthCookie,
   isDeploymentBasicAuthExempt,
   readDeploymentBasicAuthConfig,
@@ -29,6 +31,13 @@ describe('deployment Basic Auth', () => {
     expect(hasValidDeploymentBasicAuth('Bearer token', config)).toBe(false)
   })
 
+  it('validates credentials submitted by the application login form', () => {
+    const config = { enabled: true, username: 'preview', password: 'secret' }
+    expect(hasValidDeploymentBasicAuthCredentials('preview', 'secret', config)).toBe(true)
+    expect(hasValidDeploymentBasicAuthCredentials('preview', 'wrong', config)).toBe(false)
+    expect(hasValidDeploymentBasicAuthCredentials('preview', 'secret', { ...config, enabled: false })).toBe(false)
+  })
+
   it('supports UTF-8 credentials without repeatedly rejecting the browser', () => {
     const credentials = Buffer.from('xem-trước:mật-khẩu-an-toàn', 'utf8').toString('base64')
     expect(hasValidDeploymentBasicAuth(`Basic ${credentials}`, {
@@ -44,21 +53,25 @@ describe('deployment Basic Auth', () => {
     const cookie = await createDeploymentBasicAuthCookie(config, now)
 
     expect(cookie).toBeTruthy()
-    expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 60)).toBe(true)
-    expect(await hasValidDeploymentBasicAuthCookie(`${cookie}x`, config, now + 60)).toBe(false)
-    expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 1_801)).toBe(false)
+    expect(DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE).toBe(30 * 60)
+    expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 1_799)).toBe(true)
+    expect(await hasValidDeploymentBasicAuthCookie(`${cookie}x`, config, now + 1_799)).toBe(false)
+    expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, config, now + 1_800)).toBe(false)
     expect(await hasValidDeploymentBasicAuthCookie(cookie ?? undefined, {
       ...config,
       password: 'rotated-secret',
-    }, now + 60)).toBe(false)
+    }, now + 1_799)).toBe(false)
   })
 
-  it('exempts only the exact signed provider callback methods', () => {
+  it('exempts only the exact independently authenticated endpoint methods', () => {
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn', 'GET')).toBe(true)
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn', 'POST')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/v1/payments/vnpay/ipn/extra', 'GET')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'POST')).toBe(true)
     expect(isDeploymentBasicAuthExempt('/api/webhooks/didit', 'GET')).toBe(false)
     expect(isDeploymentBasicAuthExempt('/api/webhooks/didit/extra', 'POST')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts', 'POST')).toBe(true)
+    expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts', 'GET')).toBe(false)
+    expect(isDeploymentBasicAuthExempt('/api/v1/deposit-orders/expire-contracts/extra', 'POST')).toBe(false)
   })
 })

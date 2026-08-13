@@ -9,7 +9,7 @@ import {
 } from '@/lib/catalog/admin-accessory-draft'
 import { isAccessoryTemplateCode } from '@/lib/catalog/admin-accessory-templates'
 
-export const ADMIN_ACCESSORY_SESSION_KEY = 'fastlane.admin.accessory.prototype.v5'
+export const ADMIN_ACCESSORY_SESSION_KEY = 'fastlane.admin.products.accessories.new.v1'
 export const ADMIN_ACCESSORY_SESSION_VERSION = 6
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -70,6 +70,7 @@ function normalizeValue(value: unknown, index: number): DraftOptionValue {
     name: typeof row.name === 'string' ? row.name : '',
     colorHex: typeof row.colorHex === 'string' ? row.colorHex : '',
     swatchUrl: typeof row.swatchUrl === 'string' ? row.swatchUrl : '',
+    imageUrls: strings(row.imageUrls),
   }
 }
 
@@ -83,7 +84,8 @@ function normalizeGroup(value: unknown, index: number): DraftOptionGroup {
     name: typeof row.name === 'string' ? row.name : '',
     displayType: row.displayType === 'SWATCH' || row.displayType === 'SELECT' ? row.displayType : 'BUTTON',
     minimumSelections: Number.isInteger(row.minimumSelections) ? Number(row.minimumSelections) : legacyRequired ? 1 : 0,
-    maximumSelections: 1,
+    maximumSelections: Number.isInteger(row.maximumSelections) ? Number(row.maximumSelections) : 1,
+    mediaEnabled: typeof row.mediaEnabled === 'boolean' ? row.mediaEnabled : undefined,
     values: Array.isArray(row.values) ? row.values.map(normalizeValue) : [],
   }
 }
@@ -98,6 +100,7 @@ function normalizeVariant(value: unknown, index: number): DraftVariant {
     sku: UUID_PATTERN.test(id) && typeof row.sku === 'string' ? row.sku : '',
     originalPrice: typeof row.originalPrice === 'string' ? row.originalPrice : '',
     salePrice: typeof row.salePrice === 'string' ? row.salePrice : '',
+    stockQuantity: typeof row.stockQuantity === 'string' ? row.stockQuantity : '0',
     isActive: row.isActive !== false,
     isIncluded: row.isIncluded !== false,
     selections: Object.fromEntries(Object.entries(rawSelections).filter((entry): entry is [string, string | null] => (
@@ -120,10 +123,18 @@ export function normalizeAdminAccessoryDraft(
     templateVersion: Number.isInteger(row.templateVersion) && Number(row.templateVersion) > 0
       ? Number(row.templateVersion)
       : 1,
+    templateVersionId: typeof row.templateVersionId === 'string'
+      ? row.templateVersionId
+      : row.templateVersionId === null
+        ? null
+        : undefined,
     categoryAssignments: normalizeCategoryAssignments(row.categoryAssignments, row),
     primaryCollectionSlug: typeof row.primaryCollectionSlug === 'string' ? row.primaryCollectionSlug : '',
     modelCollectionSlugs: strings(row.modelCollectionSlugs),
     productImageUrls: strings(row.productImageUrls).length > 0 ? strings(row.productImageUrls) : [''],
+    mediaOptionGroupId: typeof row.mediaOptionGroupId === 'string'
+      ? row.mediaOptionGroupId
+      : row.mediaOptionGroupId === null ? null : undefined,
     name: typeof row.name === 'string' ? row.name : '',
     slug: typeof row.slug === 'string' ? row.slug : '',
     description: typeof row.description === 'string' ? row.description : '',

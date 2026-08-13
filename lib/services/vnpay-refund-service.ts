@@ -1,12 +1,17 @@
 import 'server-only'
 
 import { createVnPayPipeHash, verifyVnPayPipeHash, vnPayConfig, vnPayDate, type VnPayParams } from '@/lib/payments/vnpay'
+import {
+  isSyntheticDebugVnPayPayment,
+  unsignedVnPayResponseMessage,
+} from '@/lib/payments/vnpay-refund-policy'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 type RefundAttempt = {
   id: string
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
   request_id: string
+  updated_at?: string
 }
 
 const REFUND_QUERY_INTERVAL_MS = 310_000
@@ -160,7 +165,7 @@ export async function refundCancelledDepositOrder(input: { orderId: string; requ
   }
 
   const existing = await supabase.from('vnpay_deposit_refund_attempts')
-    .select('id,status,request_id').eq('deposit_order_id', input.orderId)
+    .select('id,status,request_id,updated_at').eq('deposit_order_id', input.orderId)
     .in('status', ['PENDING', 'PROCESSING', 'COMPLETED']).maybeSingle<RefundAttempt>()
   if (existing.error) throw existing.error
   if (existing.data) {
@@ -171,11 +176,14 @@ export async function refundCancelledDepositOrder(input: { orderId: string; requ
       refundStatus: existing.data.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
       attemptStatus: existing.data.status,
       requestId: existing.data.request_id,
+      nextCheckAt: existing.data.status === 'COMPLETED'
+        ? null
+        : nextQueryAt(existing.data.updated_at ? new Date(existing.data.updated_at) : new Date()),
     }
   }
 
   const paymentResult = await supabase.from('vnpay_deposit_attempts')
-    .select('id,transaction_reference,amount_vnd,vnpay_transaction_no,created_at,paid_at')
+    .select('id,transaction_reference,amount_vnd,vnpay_transaction_no,bank_code,response_payload,created_at,paid_at')
     .eq('deposit_order_id', input.orderId).eq('status', 'PAID')
     .order('paid_at', { ascending: false }).limit(1).maybeSingle()
   if (paymentResult.error) throw paymentResult.error
@@ -194,7 +202,39 @@ export async function refundCancelledDepositOrder(input: { orderId: string; requ
     amount_vnd: amountVnd,
     requested_by: input.requestedBy.slice(0, 245),
   }).select('id,status,request_id').single<RefundAttempt>()
-  if (inserted.error) throw inserted.error
+  if (inserted.error) {
+    if (inserted.error.code === '23505') throw new VnPayRefundError('Đơn đặt cọc đã có yêu cầu hoàn tiền đang xử lý.', 'REFUND_ALREADY_REQUESTED')
+    throw inserted.error
+  }
+
+  if (isSyntheticDebugVnPayPayment(payment)) {
+    const completedAt = new Date().toISOString()
+    const attemptUpdate = await supabase.from('vnpay_deposit_refund_attempts').update({
+      status: 'COMPLETED',
+      response_code: 'DEBUG_SIMULATED',
+      transaction_status: '00',
+      response_payload: {
+        source: 'ADMIN_DEBUG_ACTION',
+        paymentAttemptId: payment.id,
+        warning: 'Synthetic refund evidence; VNPay was not called',
+      },
+      completed_at: completedAt,
+      updated_at: completedAt,
+    }).eq('id', inserted.data.id)
+    if (attemptUpdate.error) throw attemptUpdate.error
+
+    const orderUpdate = await supabase.from('deposit_orders').update({
+      refund_status: 'COMPLETED', refunded_at: completedAt, updated_at: completedAt,
+    }).eq('id', input.orderId).eq('refund_status', 'PENDING')
+    if (orderUpdate.error) throw orderUpdate.error
+
+    return {
+      refundStatus: 'COMPLETED' as const,
+      attemptStatus: 'COMPLETED' as const,
+      requestId,
+      nextCheckAt: null,
+    }
+  }
 
   const config = vnPayConfig()
   const now = new Date()
@@ -232,16 +272,20 @@ export async function refundCancelledDepositOrder(input: { orderId: string; requ
     throw new VnPayRefundError('Không thể kết nối API hoàn tiền VNPay.')
   }
 
-  const validHash = verifyApiResponse(response, config.hashSecret)
   const responseCode = response.vnp_ResponseCode || 'UNKNOWN'
+  const unsignedResponse = !response.vnp_SecureHash
+  const unsignedProcessing = unsignedResponse && responseCode === '94'
+  const validHash = !unsignedResponse && verifyApiResponse(response, config.hashSecret)
   const transactionStatus = response.vnp_TransactionStatus || ''
   const completed = validHash && responseCode === '00'
     && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
-  const processing = validHash && (responseCode === '94' || (responseCode === '00' && ['05', '06'].includes(transactionStatus)))
+  const processing = unsignedProcessing
+    || (validHash && (responseCode === '94' || (responseCode === '00' && ['05', '06'].includes(transactionStatus))))
   const attemptStatus = completed ? 'COMPLETED' : processing ? 'PROCESSING' : 'FAILED'
   const updatedAt = new Date().toISOString()
   const attemptUpdate = await supabase.from('vnpay_deposit_refund_attempts').update({
-    status: attemptStatus, response_code: validHash ? responseCode : 'INVALID_SIGNATURE',
+    status: attemptStatus,
+    response_code: unsignedResponse ? responseCode : validHash ? responseCode : 'INVALID_SIGNATURE',
     transaction_status: transactionStatus || null,
     vnpay_refund_transaction_no: response.vnp_TransactionNo || null,
     response_payload: response, completed_at: completed ? updatedAt : null, updated_at: updatedAt,
@@ -254,9 +298,138 @@ export async function refundCancelledDepositOrder(input: { orderId: string; requ
     }).eq('id', input.orderId).neq('refund_status', 'COMPLETED')
     if (orderUpdate.error) throw orderUpdate.error
   }
+  if (unsignedProcessing) {
+    return { refundStatus: 'PENDING' as const, attemptStatus, requestId, nextCheckAt: nextQueryAt(now) }
+  }
+  if (unsignedResponse) {
+    throw new VnPayRefundError(
+      unsignedVnPayResponseMessage(response),
+      `VNPAY_RESPONSE_${responseCode}`,
+    )
+  }
   if (!validHash) throw new VnPayRefundError('Chữ ký phản hồi hoàn tiền VNPay không hợp lệ.', 'INVALID_VNPAY_SIGNATURE')
   if (attemptStatus === 'FAILED') throw new VnPayRefundError(`VNPay từ chối hoàn tiền (mã ${responseCode}).`)
-  return { refundStatus: completed ? 'COMPLETED' : 'PENDING', attemptStatus, requestId }
+  return { refundStatus: completed ? 'COMPLETED' : 'PENDING', attemptStatus, requestId, nextCheckAt: completed ? null : nextQueryAt(now) }
+}
+
+export async function reconcileVnPayDepositRefund(input: { orderId: string; clientIp: string }) {
+  const supabase = getSupabaseAdmin()
+  const attemptResult = await supabase.from('vnpay_deposit_refund_attempts')
+    .select('id,payment_attempt_id,request_id,status,updated_at,vnpay_refund_transaction_no')
+    .eq('deposit_order_id', input.orderId)
+    .in('status', ['PENDING', 'PROCESSING'])
+    .maybeSingle()
+  if (attemptResult.error) throw attemptResult.error
+  if (!attemptResult.data) throw new VnPayRefundError('Không có yêu cầu hoàn tiền đặt cọc đang xử lý.', 'REFUND_NOT_PROCESSING')
+
+  const lastCheckedAt = new Date(attemptResult.data.updated_at)
+  const eligibleAt = new Date(lastCheckedAt.getTime() + REFUND_QUERY_INTERVAL_MS)
+  if (Number.isFinite(lastCheckedAt.getTime()) && eligibleAt.getTime() > Date.now()) {
+    return {
+      refundStatus: 'PENDING' as const,
+      attemptStatus: attemptResult.data.status as RefundAttempt['status'],
+      requestId: attemptResult.data.request_id,
+      nextCheckAt: eligibleAt.toISOString(),
+    }
+  }
+
+  const claimedAt = new Date()
+  const claim = await supabase.from('vnpay_deposit_refund_attempts')
+    .update({ updated_at: claimedAt.toISOString() })
+    .eq('id', attemptResult.data.id)
+    .eq('updated_at', attemptResult.data.updated_at)
+    .select('id')
+    .maybeSingle()
+  if (claim.error) throw claim.error
+  if (!claim.data) {
+    return {
+      refundStatus: 'PENDING' as const,
+      attemptStatus: attemptResult.data.status as RefundAttempt['status'],
+      requestId: attemptResult.data.request_id,
+      nextCheckAt: nextQueryAt(claimedAt),
+    }
+  }
+
+  const paymentResult = await supabase.from('vnpay_deposit_attempts')
+    .select('transaction_reference,vnpay_transaction_no,created_at')
+    .eq('id', attemptResult.data.payment_attempt_id)
+    .maybeSingle()
+  if (paymentResult.error) throw paymentResult.error
+  const payment = paymentResult.data
+  if (!payment) throw new VnPayRefundError('Không tìm thấy giao dịch thanh toán gốc.', 'PAID_TRANSACTION_NOT_FOUND')
+
+  const config = vnPayConfig()
+  const now = new Date()
+  const params: VnPayParams = {
+    vnp_RequestId: crypto.randomUUID().replaceAll('-', '').slice(0, 32),
+    vnp_Version: '2.1.0', vnp_Command: 'querydr', vnp_TmnCode: config.tmnCode,
+    vnp_TxnRef: payment.transaction_reference,
+    vnp_OrderInfo: `Kiem tra hoan tien dat coc ${input.orderId}`,
+    vnp_TransactionNo: attemptResult.data.vnpay_refund_transaction_no || payment.vnpay_transaction_no || '',
+    vnp_TransactionDate: vnPayDate(new Date(payment.created_at)),
+    vnp_CreateDate: vnPayDate(now), vnp_IpAddr: normalizeIp(input.clientIp),
+  }
+  params.vnp_SecureHash = createVnPayPipeHash([
+    params.vnp_RequestId, params.vnp_Version, params.vnp_Command, params.vnp_TmnCode,
+    params.vnp_TxnRef, params.vnp_TransactionDate, params.vnp_CreateDate, params.vnp_IpAddr, params.vnp_OrderInfo,
+  ], config.hashSecret)
+
+  let response: VnPayParams
+  try {
+    const result = await fetch(config.apiUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params), cache: 'no-store',
+    })
+    response = await result.json() as VnPayParams
+    if (!result.ok) throw new Error(`HTTP ${result.status}`)
+  } catch {
+    throw new VnPayRefundError('Không thể kết nối API đối soát VNPay.')
+  }
+
+  if (response.vnp_ResponseCode === '94' && !response.vnp_SecureHash) {
+    return {
+      refundStatus: 'PENDING' as const,
+      attemptStatus: 'PROCESSING' as const,
+      requestId: attemptResult.data.request_id,
+      nextCheckAt: nextQueryAt(claimedAt),
+    }
+  }
+
+  const validHash = verifyApiResponse(response, config.hashSecret)
+  if (!validHash) {
+    await supabase.from('vnpay_deposit_refund_attempts').update({
+      response_code: 'INVALID_SIGNATURE', response_payload: response, updated_at: new Date().toISOString(),
+    }).eq('id', attemptResult.data.id)
+    throw new VnPayRefundError('Chữ ký đối soát VNPay không hợp lệ.', 'INVALID_VNPAY_SIGNATURE')
+  }
+
+  const transactionStatus = response.vnp_TransactionStatus || ''
+  const isRefund = ['02', '03'].includes(response.vnp_TransactionType || '')
+  const completed = response.vnp_ResponseCode === '00' && isRefund
+    && (transactionStatus === '00' || sandboxAutoComplete(config.apiUrl, transactionStatus))
+  const failed = response.vnp_ResponseCode !== '00' || transactionStatus === '09'
+  const attemptStatus = completed ? 'COMPLETED' : failed ? 'FAILED' : 'PROCESSING'
+  const updatedAt = new Date().toISOString()
+  const update = await supabase.from('vnpay_deposit_refund_attempts').update({
+    status: attemptStatus, response_code: response.vnp_ResponseCode || null,
+    transaction_status: transactionStatus || null, response_payload: response,
+    completed_at: completed ? updatedAt : null, updated_at: updatedAt,
+  }).eq('id', attemptResult.data.id)
+  if (update.error) throw update.error
+
+  if (completed) {
+    const orderUpdate = await supabase.from('deposit_orders').update({
+      refund_status: 'COMPLETED', refunded_at: updatedAt, updated_at: updatedAt,
+    }).eq('id', input.orderId).eq('refund_status', 'PENDING')
+    if (orderUpdate.error) throw orderUpdate.error
+  }
+
+  return {
+    refundStatus: completed ? 'COMPLETED' as const : 'PENDING' as const,
+    attemptStatus,
+    requestId: attemptResult.data.request_id,
+    nextCheckAt: completed || failed ? null : nextQueryAt(claimedAt),
+  }
 }
 
 export async function reconcileVnPayRefund(input: { orderId: string; clientIp: string }) {

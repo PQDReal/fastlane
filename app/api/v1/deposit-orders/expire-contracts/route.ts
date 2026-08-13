@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { ApiRouteError, apiErrorResponse } from '@/lib/api/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { notifyCustomerContractExpired } from '@/lib/notifications/server'
-import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 
 export async function POST(request: Request) {
   try {
@@ -40,6 +40,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Không có đơn đặt cọc nào quá hạn xác nhận tài liệu.', processedCount: 0 })
     }
 
+    await invalidateVehicleCatalogCaches().catch((error) => {
+      console.error('Unable to invalidate vehicle inventory caches after contract expiry:', error)
+    })
+
     const results = []
 
     for (const order of expiredOrders) {
@@ -51,21 +55,7 @@ export async function POST(request: Request) {
         })
       }
 
-      let refundStatus = order.refund_status
-      if (order.refund_status === 'PENDING') {
-        try {
-          const refund = await refundCancelledDepositOrder({
-            orderId: order.order_id,
-            requestedBy: 'SYSTEM:contract-expiry',
-            clientIp: '127.0.0.1',
-          })
-          refundStatus = refund.refundStatus
-        } catch (error) {
-          console.error(`Unable to start automatic refund for expired order ${order.order_id}:`, error)
-        }
-      }
-
-      results.push({ id: order.order_id, status: 'EXPIRED', orderNumber: order.order_number, refundStatus })
+      results.push({ id: order.order_id, status: 'EXPIRED', orderNumber: order.order_number, refundStatus: order.refund_status })
     }
 
     return NextResponse.json({

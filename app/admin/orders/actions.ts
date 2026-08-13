@@ -5,10 +5,11 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { getCurrentUser } from '@/lib/auth/current-user'
-import { refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
+import { reconcileVnPayDepositRefund, refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
 import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
 import { assertDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
 import { createDebugVnpayTransactionNo } from '@/lib/deposit/debug-transaction'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
 
 async function requireAdmin() {
   const user = await getCurrentUser()
@@ -35,27 +36,15 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
       }>()
       if (error || !data) throw error || new Error('Không thể hủy đơn đặt cọc.')
 
-      let refundStatus = data.refund_status
-      if (refundStatus === 'PENDING') {
-        const requestHeaders = await headers()
-        const clientIp = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
-          || requestHeaders.get('x-real-ip')
-          || '127.0.0.1'
-        try {
-          const refund = await refundCancelledDepositOrder({
-            orderId,
-            requestedBy: admin.email,
-            clientIp,
-          })
-          refundStatus = refund.refundStatus
-        } catch (refundError) {
-          console.error('Unable to start automatic admin deposit refund', { orderId, refundError })
-        }
+      if (!data.replayed) {
+        await invalidateVehicleCatalogCaches().catch((cacheError) => {
+          console.error('Unable to invalidate vehicle inventory caches after admin cancellation:', cacheError)
+        })
       }
 
       revalidatePath('/admin/orders')
       revalidatePath('/profile')
-      return { success: true, refundStatus }
+      return { success: true, refundStatus: data.refund_status }
     }
 
     if (newStatus === 'CONFIRMED') {
@@ -154,13 +143,12 @@ export async function syncKycStatus(orderId: string) {
   try {
     const admin = await requireAdmin()
     const supabase = getSupabaseAdmin()
-    
     const { data: order, error: orderError } = await supabase
       .from('deposit_orders')
       .select('id, kyc_session_id, kyc_status, full_name, id_card_number')
       .eq('id', orderId)
       .maybeSingle()
-      
+
     if (orderError) throw orderError
     if (!order) throw new Error('Không tìm thấy đơn đặt cọc.')
     if (!order.kyc_session_id) throw new Error('Đơn chưa có phiên xác minh KYC.')
@@ -227,7 +215,7 @@ export async function syncKycStatus(orderId: string) {
       }
       if (verifiedName) updatePayload.full_name = verifiedName
       if (verifiedId) updatePayload.id_card_number = verifiedId
-      
+
       await supabase.from('deposit_orders').update(updatePayload).eq('id', orderId)
       await tryAutoIssueContract(supabase, orderId)
 
@@ -269,7 +257,23 @@ export async function confirmDepositRefund(orderId: string) {
   }
 }
 
-export type DepositDebugAction = 'mock_deposit_paid' | 'mock_kyc_approved' | 'mock_confirm_order'
+export async function reconcileDepositRefund(orderId: string) {
+  try {
+    await requireAdmin()
+    const requestHeaders = await headers()
+    const clientIp = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || requestHeaders.get('x-real-ip')
+      || '127.0.0.1'
+    const result = await reconcileVnPayDepositRefund({ orderId, clientIp })
+    revalidatePath('/admin/orders')
+    revalidatePath('/profile')
+    return { success: true, ...result }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái hoàn tiền VNPay.' }
+  }
+}
+
+export type DepositDebugAction = 'mock_deposit_paid' | 'mock_confirm_order' | 'mock_kyc_approved'
 
 type SupabaseActionError = {
   message?: unknown

@@ -167,7 +167,12 @@ export type AccessoryOrder = {
     transactions: []
   }
   cancellationPolicy: ApiCartItem['purchaseTerms']['cancellationPolicy']
-  cancellation: null
+  cancellation: {
+    actor: 'customer' | 'admin' | 'system' | 'unknown'
+    reasonCode: 'changed_mind' | 'configuration_change' | 'payment_unavailable' | 'duplicate_order' | 'payment_deadline_expired' | 'inventory_unavailable' | 'admin_decision' | 'other'
+    note: string | null
+    cancelledAt: string
+  } | null
   shippingAddress: ShippingAddress
   note: string | null
   items: Array<{

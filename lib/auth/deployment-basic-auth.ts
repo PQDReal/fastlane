@@ -1,4 +1,5 @@
 const VNPAY_IPN_PATH = '/api/v1/payments/vnpay/ipn'
+const CONTRACT_EXPIRY_CRON_PATH = '/api/v1/deposit-orders/expire-contracts'
 export const DEPLOYMENT_BASIC_AUTH_COOKIE = 'fastlane_preview_access'
 export const DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE = 30 * 60
 const COOKIE_VERSION = 'v1'
@@ -23,6 +24,7 @@ export function isDeploymentBasicAuthExempt(pathname: string, method: string) {
   const normalizedMethod = method.toUpperCase()
   return (pathname === VNPAY_IPN_PATH && normalizedMethod === 'GET')
     || (pathname === '/api/webhooks/didit' && normalizedMethod === 'POST')
+    || (pathname === CONTRACT_EXPIRY_CRON_PATH && normalizedMethod === 'POST')
 }
 
 export function hasValidDeploymentBasicAuth(
@@ -47,6 +49,18 @@ export function hasValidDeploymentBasicAuth(
   } catch {
     return false
   }
+}
+
+export function hasValidDeploymentBasicAuthCredentials(
+  username: string,
+  password: string,
+  config: DeploymentBasicAuthConfig,
+) {
+  return config.enabled
+    && typeof config.username === 'string'
+    && typeof config.password === 'string'
+    && username === config.username
+    && password === config.password
 }
 
 function encodeBase64Url(bytes: Uint8Array) {

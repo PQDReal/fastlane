@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   let dbQuery = supabase
     .from('vehicle_variants')
-    .select('id,product_id,product_name,product_type,variant_name,sku,price,deposit_amount,color,image_car_url,image_color_url,version,is_active,created_at,updated_at,product_variant_id')
+    .select('id,product_id,product_name,product_type,variant_name,sku,price,deposit_amount,color,color_type,color_price_adjustment,interior_color,image_car_url,image_color_url,version,specs,is_active,created_at,updated_at,product_variant_id')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
@@ -52,6 +52,18 @@ export async function GET(request: Request) {
   }
   return NextResponse.json(rows.map((row) => ({
     ...row,
+    interior_color: (() => {
+      if (typeof row.interior_color === 'string' && row.interior_color.trim()) {
+        return row.interior_color
+      }
+      const specs = row.specs && typeof row.specs === 'object' && !Array.isArray(row.specs)
+        ? row.specs as Record<string, unknown>
+        : {}
+      const catalog = specs.catalog && typeof specs.catalog === 'object' && !Array.isArray(specs.catalog)
+        ? specs.catalog as Record<string, unknown>
+        : {}
+      return typeof catalog.interior_color === 'string' ? catalog.interior_color : null
+    })(),
     inventory: row.product_variant_id
       ? inventoryByVariant.get(String(row.product_variant_id)) ?? { on_hand_quantity: 0, updated_at: null }
       : null,

@@ -29,13 +29,15 @@ import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
+import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
 
-const STORAGE_KEY = 'FASTLANE_MOTORBIKE_DRAFT'
+const STORAGE_KEY = 'fastlane.admin.products.motorbikes.new.v1'
 
 interface ColorEntry {
   color_name: string
   image_url: string
   swatch: string
+  color_type?: 'STANDARD' | 'ADVANCED'
 }
 
 interface VersionEntry {
@@ -43,6 +45,8 @@ interface VersionEntry {
   sku: string
   price: number
   deposit_amount: number
+  stock_by_color?: Record<string, number>
+  compatible_colors?: string[]
 }
 
 interface FormState {
@@ -72,6 +76,7 @@ interface FormState {
     'Kích thước lốp Trước - Sau': string
   }
   colors: ColorEntry[]
+  advanced_color_price: number
   versions: VersionEntry[]
   landing_page_blocks: any[]
 }
@@ -141,12 +146,13 @@ const initialFormState: FormState = {
     'Kích thước lốp Trước - Sau': '',
   },
   colors: [
-    { color_name: 'Đỏ Tươi', image_url: '', swatch: '' },
-    { color_name: 'Trắng Ngọc Trai', image_url: '', swatch: '' },
+    { color_name: 'Đỏ Tươi', image_url: '', swatch: '', color_type: 'STANDARD' },
+    { color_name: 'Trắng Ngọc Trai', image_url: '', swatch: '', color_type: 'STANDARD' },
   ],
+  advanced_color_price: 0,
   versions: [
-    { name: 'Phiên bản Không kèm Pin (Thuê pin)', sku: 'VINFAST-NEWBIKE-02', price: 23000000, deposit_amount: 2000000 },
-    { name: 'Phiên bản Kèm Pin (Mua đứt pin)', sku: 'VINFAST-NEWBIKE-01', price: 29000000, deposit_amount: 2000000 },
+    { name: 'Phiên bản Không kèm Pin (Thuê pin)', sku: 'VINFAST-NEWBIKE-02', price: 23000000, deposit_amount: 2000000, stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
+    { name: 'Phiên bản Kèm Pin (Mua đứt pin)', sku: 'VINFAST-NEWBIKE-01', price: 29000000, deposit_amount: 2000000, stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
   ],
   landing_page_blocks: defaultLandingBlocks,
 }
@@ -170,9 +176,9 @@ export default function NewMotorbikePage() {
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4000)
   }, [])
 
-  // 2. Load draft from localStorage on mount
+  // 2. Load the current-tab session snapshot on mount
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
@@ -185,19 +191,19 @@ export default function NewMotorbikePage() {
     }
   }, [])
 
-  // 3. Save draft to localStorage on change
+  // 3. Save the current-tab session snapshot on change
   useEffect(() => {
     if (form !== initialFormState) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        setForm(JSON.parse(saved))
+        setForm({ ...initialFormState, ...JSON.parse(saved) })
         notify('success', 'Đã khôi phục bản nháp', 'Dữ liệu trước đó đã được tải lại thành công.')
       } catch (e) {
         notify('error', 'Khôi phục bản nháp thất bại')
@@ -208,14 +214,14 @@ export default function NewMotorbikePage() {
 
   // Reject draft / Start fresh
   const handleDiscardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp', 'Bắt đầu điền thông tin mới.')
   }
 
   // Cancel action (Ask confirmation via warning toast if draft exists)
   const handleCancel = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (!saved) {
       router.push('/admin/products')
       return
@@ -234,7 +240,7 @@ export default function NewMotorbikePage() {
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            localStorage.removeItem(STORAGE_KEY)
+            sessionStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy tạo mới', 'Bản nháp lưu tạm đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -281,7 +287,7 @@ export default function NewMotorbikePage() {
   const addColor = () => {
     setForm((current) => ({
       ...current,
-      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '' }],
+      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '', color_type: 'STANDARD' }],
     }))
   }
 
@@ -290,17 +296,42 @@ export default function NewMotorbikePage() {
       notify('warning', 'Không thể xóa', 'Sản phẩm cần tối thiểu một màu sắc.')
       return
     }
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.filter((_, idx) => idx !== index),
-    }))
+    setForm((current) => {
+      const removedName = current.colors[index]?.color_name
+      return {
+        ...current,
+        colors: current.colors.filter((_, idx) => idx !== index),
+        versions: current.versions.map((version) => {
+          const stockByColor = { ...(version.stock_by_color ?? {}) }
+          if (removedName) delete stockByColor[removedName]
+          return { ...version, stock_by_color: stockByColor, compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).filter((name) => name !== removedName) }
+        }),
+      }
+    })
   }
 
   const updateColor = (index: number, fields: Partial<ColorEntry>) => {
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
-    }))
+    setForm((current) => {
+      const previousName = current.colors[index]?.color_name
+      const nextName = fields.color_name
+      return {
+        ...current,
+        colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
+        versions: previousName && nextName && previousName !== nextName
+          ? current.versions.map((version) => {
+              const stockByColor = { ...(version.stock_by_color ?? {}) }
+              const currentStock = stockByColor[previousName] ?? 0
+              delete stockByColor[previousName]
+              stockByColor[nextName] = currentStock
+              return {
+                ...version,
+                stock_by_color: stockByColor,
+                compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).map((name) => name === previousName ? nextName : name),
+              }
+            })
+          : current.versions,
+      }
+    })
   }
 
   // Add/Remove versions
@@ -309,7 +340,7 @@ export default function NewMotorbikePage() {
       ...current,
       versions: [
         ...current.versions,
-        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000 },
+        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000, stock_by_color: {}, compatible_colors: current.colors.map((color) => color.color_name) },
       ],
     }))
   }
@@ -329,6 +360,27 @@ export default function NewMotorbikePage() {
     setForm((current) => ({
       ...current,
       versions: current.versions.map((v, idx) => (idx === index ? { ...v, ...fields } : v)),
+    }))
+  }
+
+  const updateVariantStock = (versionIndex: number, colorName: string, value: number) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, stock_by_color: { ...(version.stock_by_color ?? {}), [colorName]: Math.max(0, value || 0) } }
+        : version),
+    }))
+  }
+
+  const selectedColorsFor = (version: VersionEntry) =>
+    version.compatible_colors ?? form.colors.map((color) => color.color_name)
+
+  const updateCompatibleColors = (versionIndex: number, colors: string[]) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, compatible_colors: Array.from(new Set(colors)) }
+        : version),
     }))
   }
 
@@ -403,6 +455,9 @@ export default function NewMotorbikePage() {
     if (form.versions.some((v) => !v.name.trim() || !v.sku.trim() || v.price <= 0 || v.deposit_amount <= 0)) {
       return 'Vui lòng nhập đầy đủ thông tin tên, SKU, giá và tiền cọc cho tất cả phiên bản (Tab 4)'
     }
+    if (form.versions.some((version) => selectedColorsFor(version).length === 0)) {
+      return 'Mỗi phiên bản phải áp dụng cho ít nhất một màu xe (Tab 4)'
+    }
     return null
   }
 
@@ -428,7 +483,7 @@ export default function NewMotorbikePage() {
       }
 
       notify('success', 'Lưu sản phẩm thành công', 'Xe máy điện đã được thêm vào hệ thống.')
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)
@@ -566,7 +621,7 @@ export default function NewMotorbikePage() {
                 className="h-4 w-4 accent-slate-900 rounded focus:ring-brand-500 cursor-pointer"
               />
               <label htmlFor="is_active" className="text-sm font-semibold text-slate-700 cursor-pointer select-none">
-                Kích hoạt hiển thị sản phẩm ngay sau khi tạo
+                Hiển thị
               </label>
             </div>
           </div>
@@ -737,7 +792,7 @@ export default function NewMotorbikePage() {
                     key={idx}
                     className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
                   >
-                    <div className="sm:col-span-3">
+                    <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Tên màu</label>
                       <input
                         type="text"
@@ -792,6 +847,14 @@ export default function NewMotorbikePage() {
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Nhóm màu</label>
+                      <select value={color.color_type ?? 'STANDARD'} onChange={(e) => updateColor(idx, { color_type: e.target.value as ColorEntry['color_type'] })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500">
+                        <option value="STANDARD">Màu tiêu chuẩn</option>
+                        <option value="ADVANCED">Màu nâng cao</option>
+                      </select>
                     </div>
                   </div>
                 ))}
@@ -870,8 +933,36 @@ export default function NewMotorbikePage() {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                    <div className="sm:col-span-12 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-slate-600">Màu áp dụng</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">Chỉ các cặp được chọn mới tạo SKU.</p>
+                      </div>
+                      <CombinationMultiSelect
+                        label={`Màu áp dụng cho ${ver.name}`}
+                        options={form.colors.map((color) => color.color_name)}
+                        selected={selectedColorsFor(ver)}
+                        onChange={(colors) => updateCompatibleColors(idx, colors)}
+                      />
+                    </div>
                   </div>
                 ))}
+              </div>
+              {form.colors.some((color) => color.color_type === 'ADVANCED') && (
+                <label className="mt-4 block max-w-xs text-xs font-bold uppercase text-slate-600">
+                  Phụ thu chung cho màu nâng cao (VND)
+                  <input type="number" min="0" value={form.advanced_color_price} onChange={(event) => setForm((current) => ({ ...current, advanced_color_price: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500" />
+                </label>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-6">
+              <h3 className="text-base font-bold text-slate-900">3. Tồn kho của các tổ hợp hợp lệ</h3>
+              <p className="mt-1 text-xs text-slate-500">Chỉ những cặp phiên bản–màu đã áp dụng ở trên được tạo SKU và theo dõi tồn kho.</p>
+              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-xs font-bold uppercase text-slate-600"><tr><th className="px-4 py-3">Phiên bản</th><th className="px-4 py-3">Màu ngoại thất</th><th className="px-4 py-3">Số lượng tồn</th></tr></thead>
+                  <tbody>{form.versions.flatMap((version, versionIndex) => selectedColorsFor(version).map((colorName) => <tr key={`${version.sku}-${colorName}`} className="border-t border-slate-100"><td className="px-4 py-3 font-semibold text-slate-800">{version.name || 'Phiên bản chưa đặt tên'}</td><td className="px-4 py-3 text-slate-700">{colorName}</td><td className="px-4 py-2"><input aria-label={`Tồn kho ${version.name} - ${colorName}`} type="number" min="0" step="1" value={version.stock_by_color?.[colorName] ?? 0} onChange={(event) => updateVariantStock(versionIndex, colorName, Number(event.target.value))} className="h-9 w-28 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500" /></td></tr>))}</tbody>
+                </table>
               </div>
             </div>
           </div>

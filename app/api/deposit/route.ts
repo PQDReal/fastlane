@@ -19,6 +19,8 @@ import {
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { VnPayConfigError } from '@/lib/payments/vnpay'
 import { createOrReuseVnPayDepositPayment } from '@/lib/services/vnpay-payment-service'
+import { invalidateVehicleCatalogCaches } from '@/lib/catalog/vehicle-cache'
+import { matchesDepositVehicleVariant } from '@/lib/deposit/vehicle-variant'
 
 const RESPONSE_COLUMNS =
   'id,order_number,status,deposit_amount,subtotal,discount_amount,total_estimated_price,promotion_code,car_model,car_variant,created_at,request_hash'
@@ -126,6 +128,35 @@ function depositPromotionError(error: unknown) {
   return code ? { code, message: messages[code] } : null
 }
 
+function depositInventoryError(error: unknown) {
+  if (!error || typeof error !== 'object') return null
+  const message = String((error as { message?: unknown }).message ?? '')
+  if (message.includes('DEPOSIT_VEHICLE_OUT_OF_STOCK')) {
+    return {
+      status: 409,
+      code: 'DEPOSIT_VEHICLE_OUT_OF_STOCK',
+      message: 'Cấu hình xe đã hết hàng. Vui lòng chọn phiên bản hoặc màu khác.',
+    }
+  }
+  if (
+    message.includes('DEPOSIT_VEHICLE_VARIANT_REQUIRED') ||
+    message.includes('DEPOSIT_VEHICLE_VARIANT_NOT_SELLABLE')
+  ) {
+    return {
+      status: 409,
+      code: 'DEPOSIT_SELECTION_INVALID',
+      message: 'Cấu hình xe không còn được bán. Vui lòng chọn lại.',
+    }
+  }
+  if (message.includes('DEPOSIT_VEHICLE_INVENTORY_NOT_CONFIGURED')) {
+    return {
+      status: 503,
+      code: 'DEPOSIT_INVENTORY_NOT_CONFIGURED',
+      message: 'Tồn kho của cấu hình xe chưa được thiết lập.',
+    }
+  }
+  return null
+}
 async function requestHash(input: DepositOrderInput) {
   const bytes = new TextEncoder().encode(JSON.stringify(input))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -227,40 +258,52 @@ export async function POST(request: Request) {
     }
     const now = new Date().toISOString()
 
-    // Resolve matching vehicle_variant_id from vehicle_variants table for DB relation
-    let vehicleVariantId: string | null = input.vehicleType === 'motorbike'
-      ? quote.variantId
-      : null
-    try {
-      if (input.vehicleType === 'car') {
-        const { data: vVariants } = await getSupabaseAdmin()
-          .from('vehicle_variants')
-          .select('id, product_name, variant_name, version, color')
-      
-        const model = input.vehicleModel
-        const color = input.exteriorColor
-        const variant = input.vehicleVariant
+    if (!quote.variantId) {
+      throw new DepositInputError(
+        'Không xác định được cấu hình tồn kho của xe đã chọn.',
+        'car_variant',
+      )
+    }
 
-        const matchingVv = (vVariants || []).find((vv: any) => {
-          const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
-        
-          const colorMatch = color && vv.color ? vv.color.toLowerCase() === color.toLowerCase() : (!color && !vv.color)
-          const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
-        
-          return pNameMatch && colorMatch && versionMatch
-        }) || (vVariants || []).find((vv: any) => {
-          // Fallback: match version at least
-          const pNameMatch = vv.product_name?.toLowerCase().includes(model.toLowerCase()) || model.toLowerCase().includes(vv.product_name?.toLowerCase() || '')
-          const versionMatch = variant && vv.version ? variant.toLowerCase().includes(vv.version.toLowerCase()) : (!variant && !vv.version)
-          return pNameMatch && versionMatch
-        })
-
-        if (matchingVv) {
-          vehicleVariantId = matchingVv.id
-        }
+    let vehicleVariantId: string
+    if (input.vehicleType === 'motorbike') {
+      const result = await getSupabaseAdmin()
+        .from('vehicle_variants')
+        .select('id,product_variant_id')
+        .eq('id', quote.variantId)
+        .eq('product_id', quote.productId)
+        .eq('is_active', true)
+        .maybeSingle()
+      if (result.error) throw result.error
+      if (!result.data?.product_variant_id) {
+        throw new DepositInputError(
+          'Phiên bản xe máy không có cấu hình tồn kho hợp lệ.',
+          'car_variant',
+        )
       }
-    } catch {
-      vehicleVariantId = input.vehicleType === 'motorbike' ? quote.variantId : null
+      vehicleVariantId = result.data.id
+    } else {
+      const result = await getSupabaseAdmin()
+        .from('vehicle_variants')
+        .select('id,color,version,variant_name,interior_color,product_variant_id')
+        .eq('product_id', quote.productId)
+        .eq('is_active', true)
+      if (result.error) throw result.error
+
+      const matches = (result.data ?? []).filter((variant) =>
+        matchesDepositVehicleVariant(variant, {
+          vehicleVariant: input.vehicleVariant,
+          exteriorColor: input.exteriorColor,
+          interiorColor: input.interiorColor ?? undefined,
+        }),
+      )
+      if (matches.length !== 1 || !matches[0].product_variant_id) {
+        throw new DepositInputError(
+          'Màu xe và phiên bản đã chọn không xác định được tồn kho duy nhất.',
+          'exterior_color',
+        )
+      }
+      vehicleVariantId = matches[0].id
     }
 
     const insertResult = await getSupabaseAdmin()
@@ -331,7 +374,7 @@ export async function POST(request: Request) {
         return errorResponse(
           400,
           'DEPOSIT_CONSTRAINT_VIOLATION',
-          'Số điện thoại hoặc thông tin đặt cọc không đúng định dạng.',
+          'Giá trị đặt cọc hoặc tổng giá trị đơn hàng không hợp lệ. Vui lòng kiểm tra lại phiên bản xe và mã ưu đãi.',
         )
       }
       if (isDepositSchemaOutdated(insertResult.error)) {
@@ -344,12 +387,20 @@ export async function POST(request: Request) {
       throw insertResult.error
     }
 
+    await invalidateVehicleCatalogCaches().catch((error) => {
+      console.error('Unable to invalidate vehicle inventory caches after deposit creation:', error)
+    })
+
     const paymentUrl = await createOrReuseVnPayDepositPayment(
       { id: insertResult.data.id, orderNumber: insertResult.data.order_number },
       clientIp(request),
     )
     return NextResponse.json(responseData(insertResult.data, false, paymentUrl), { status: 201 })
   } catch (error) {
+    const inventoryError = depositInventoryError(error)
+    if (inventoryError) {
+      return errorResponse(inventoryError.status, inventoryError.code, inventoryError.message, 'car_variant')
+    }
     const promotionError = depositPromotionError(error)
     if (promotionError) {
       return errorResponse(
