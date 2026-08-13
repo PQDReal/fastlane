@@ -2070,26 +2070,15 @@ export default function NewCarPage() {
                       <p className="text-xl text-muted-foreground max-w-2xl">Đường nét thiết kế sang trọng, thời thượng, tôn vinh đẳng cấp người sở hữu.</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
-                      {displayImgs[0] && (
-                        <div className="md:col-span-2 overflow-hidden rounded-[2rem]">
-                          <img src={displayImgs[0]} alt="Ngoại thất" className="w-full h-auto object-cover hover:scale-105 transition-transform duration-1000" />
-                        </div>
-                      )}
-                      {displayImgs[1] && (
-                        <div className="overflow-hidden rounded-[2rem] aspect-square">
-                          <img src={displayImgs[1]} alt="Ngoại thất" className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                        </div>
-                      )}
-                      {displayIntImg && (
-                        <div className="overflow-hidden rounded-[2rem] aspect-square relative group">
-                          <img src={displayIntImg} alt="Nội thất" className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8 text-white">
-                             <h3 className="text-2xl font-bold mb-2">Nội thất đẳng cấp</h3>
-                             <p className="text-white/80">Không gian rộng rãi, tiện nghi, sử dụng chất liệu cao cấp thân thiện môi trường.</p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 md:gap-6 mb-16">
+                      {displayImgs.slice(0, 20).map((image: string, index: number) => (
+                        <div key={`${image}-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem]">
+                          <img src={image} alt={`Chi tiết ${form.name || 'xe'} ${index + 1}`} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12 text-white">
+                            <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
                           </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </section>

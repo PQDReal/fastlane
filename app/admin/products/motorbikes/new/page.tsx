@@ -1669,9 +1669,9 @@ export default function NewMotorbikePage() {
                     <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
                     <p className="text-xs text-white/50 mt-2">Hình ảnh thực tế chi tiết của xe.</p>
                   </div>
-                  <div className="grid gap-6 md:grid-cols-2">
-                    {form.detail_image_urls.slice(0, 3).map((url, idx) => (
-                      <div key={idx} className={`relative overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900 group ${idx === 0 ? 'md:col-span-2 aspect-[16/9]' : 'aspect-square'}`}>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {form.detail_image_urls.slice(0, 20).map((url, idx) => (
+                      <div key={idx} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900">
                         {url ? <img src={url} alt={`Chi tiết ${form.name || 'xe'} ${idx + 1}`} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12"><span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span></div>
                       </div>

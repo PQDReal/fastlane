@@ -590,11 +590,11 @@ export default async function BikeDetailPage(
             <p className="mt-2 text-xs text-white/50">Hình ảnh thực tế chi tiết của xe.</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {detailImages.slice(0, 3).map((url, index) => (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {detailImages.slice(0, 20).map((url, index) => (
               <div
                 key={`${url}-${index}`}
-                className={`group relative overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900 ${index === 0 ? 'md:col-span-2 aspect-[16/9]' : 'aspect-square'}`}
+                className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900"
               >
                 <Image
                   src={url}
