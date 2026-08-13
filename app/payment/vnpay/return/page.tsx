@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { vnPayParams } from '@/lib/payments/vnpay'
 import { processVnPayCallback } from '@/lib/services/vnpay-payment-service'
-import { AutoIpnTrigger } from './auto-ipn'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +44,6 @@ export default async function VnPayReturnPage({ searchParams }: {
           <Link href="/" className="rounded-xl border px-5 py-3">Về trang chủ</Link>
         </div>
       </section>
-      <AutoIpnTrigger />
     </main>
   )
 }
