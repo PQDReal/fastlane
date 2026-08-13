@@ -18,6 +18,20 @@ export type SalesAgentInteractionMetric = {
   resultCount?: number
 }
 
+export type SalesAgentInteractionMetricSummary = {
+  viewed: number
+  expanded: number
+  search: number
+  freeText: number
+  submitted: number
+  abandoned: number
+  completionRate: number
+  expandRate: number
+  searchUseRate: number
+  freeTextRate: number
+  abandonmentRate: number
+}
+
 const SLOTS: SalesAgentInteractionMetricSlot[] = ['vehicles', 'vehicle', 'criteria', 'budget', 'usage']
 
 function boundedCount(value: unknown) {
@@ -44,5 +58,34 @@ export function parseSalesAgentInteractionMetric(value: unknown): SalesAgentInte
     ...(input.slot ? { slot: input.slot as SalesAgentInteractionMetricSlot } : {}),
     ...(input.mode ? { mode: input.mode } : {}),
     ...(input.resultCount !== undefined ? { resultCount: boundedCount(input.resultCount) } : {}),
+  }
+}
+
+function rate(numerator: number, denominator: number) {
+  if (!denominator) return 0
+  return Number((numerator / denominator).toFixed(4))
+}
+
+/**
+ * Produces the rollout dimensions from aggregate events. Callers should feed
+ * only validated metrics; no prompt, label, product ID, PII or token is ever
+ * needed to compute these rates.
+ */
+export function summarizeSalesAgentInteractionMetrics(metrics: SalesAgentInteractionMetric[]): SalesAgentInteractionMetricSummary {
+  const counts = {
+    viewed: metrics.filter((metric) => metric.event === 'interaction_viewed').length,
+    expanded: metrics.filter((metric) => metric.event === 'interaction_expanded').length,
+    search: metrics.filter((metric) => metric.event === 'interaction_search').length,
+    freeText: metrics.filter((metric) => metric.event === 'interaction_free_text').length,
+    submitted: metrics.filter((metric) => metric.event === 'interaction_submitted').length,
+    abandoned: metrics.filter((metric) => metric.event === 'interaction_abandoned').length,
+  }
+  return {
+    ...counts,
+    completionRate: rate(counts.submitted, counts.viewed),
+    expandRate: rate(counts.expanded, counts.viewed),
+    searchUseRate: rate(counts.search, counts.viewed),
+    freeTextRate: rate(counts.freeText, counts.viewed),
+    abandonmentRate: rate(counts.abandoned, counts.viewed),
   }
 }
