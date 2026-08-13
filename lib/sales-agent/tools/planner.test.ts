@@ -23,7 +23,10 @@ describe('sales agent deterministic tool planner', () => {
       { id: 'vf8', name: 'VF 8', productType: 'CAR' },
     ])
     await expect(planSalesAgentTools('So sánh pin và tốc độ VF 7 với VF 8')).resolves.toEqual({
-      calls: [{ name: 'compare_vehicles', arguments: { productIds: ['vf7', 'vf8'] } }],
+      calls: [{ name: 'compare_vehicles', arguments: {
+        productIds: ['vf7', 'vf8'],
+        criteria: ['battery_capacity_kwh', 'top_speed_kmh'],
+      } }],
     })
   })
 
@@ -45,7 +48,10 @@ describe('sales agent deterministic tool planner', () => {
     ])
 
     await expect(planSalesAgentTools('VF7 và VF8', [{ role: 'user', content: 'So sánh pin và tốc độ' }])).resolves.toEqual({
-      calls: [{ name: 'compare_vehicles', arguments: { productIds: ['vf7', 'vf8'] } }],
+      calls: [{ name: 'compare_vehicles', arguments: {
+        productIds: ['vf7', 'vf8'],
+        criteria: ['battery_capacity_kwh', 'top_speed_kmh'],
+      } }],
     })
   })
 

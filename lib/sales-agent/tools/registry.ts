@@ -19,6 +19,7 @@ import {
   type SalesAgentToolStatus,
   type SalesAgentToolWarning,
 } from '../contracts/tool'
+import type { SalesAgentCompareCriteria } from '../contracts/criteria'
 
 function evidence(source: string, entityIds: string[], updatedAt?: string | null): SalesAgentToolEvidence {
   return {
@@ -66,13 +67,30 @@ function snapshotWarnings(snapshot: SalesAgentVehicleSnapshot) {
   return snapshot.warnings.map(({ code, message }) => ({ code, message }))
 }
 
-function compareWarnings(vehicles: SalesAgentVehicleSnapshot[], requestedIds: string[]) {
+function criterionIsAvailable(vehicle: SalesAgentVehicleSnapshot, criterion: SalesAgentCompareCriteria) {
+  if (criterion === 'price') return vehicle.pricing.from !== null
+  if (criterion === 'availability') return vehicle.availability.state !== 'UNKNOWN'
+  const fact = vehicle.specs[criterion]
+  return Boolean(fact && fact.comparable && fact.value !== null)
+}
+
+function missingCompareCriteria(vehicles: SalesAgentVehicleSnapshot[], criteria: SalesAgentCompareCriteria[]) {
+  return vehicles.flatMap((vehicle) => {
+    const missing = criteria.filter((criterion) => !criterionIsAvailable(vehicle, criterion))
+    return missing.length ? [{ productId: vehicle.productId, criteria: missing }] : []
+  })
+}
+
+function compareWarnings(vehicles: SalesAgentVehicleSnapshot[], requestedIds: string[], criteria: SalesAgentCompareCriteria[] = []) {
   const warnings: SalesAgentToolWarning[] = []
   const foundIds = new Set(vehicles.map((vehicle) => vehicle.productId))
   const missing = requestedIds.filter((id) => !foundIds.has(id))
   if (missing.length) warnings.push({ code: 'PRODUCT_NOT_FOUND', message: `Không tìm thấy ${missing.length} product ID trong catalog active.` })
   if (new Set(vehicles.map((vehicle) => vehicle.productType)).size > 1) {
     warnings.push({ code: 'INCOMPATIBLE_PRODUCT_TYPES', message: 'Chỉ so sánh các xe cùng loại.' })
+  }
+  if (criteria.length && missingCompareCriteria(vehicles, criteria).length) {
+    warnings.push({ code: 'MISSING_COMPARE_CRITERIA', message: 'Một hoặc nhiều tiêu chí người dùng yêu cầu chưa có dữ liệu so sánh đầy đủ.' })
   }
   warnings.push(...vehicles.flatMap(snapshotWarnings))
   return warnings
@@ -157,7 +175,9 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
 
     if (call.name === 'compare_vehicles') {
       const vehicles = await getSalesAgentVehicleSnapshots(call.arguments.productIds)
-      const warnings = compareWarnings(vehicles, call.arguments.productIds)
+      const criteria = call.arguments.criteria ?? []
+      const missingCriteria = missingCompareCriteria(vehicles, criteria)
+      const warnings = compareWarnings(vehicles, call.arguments.productIds, criteria)
       const hasIncompatibleTypes = warnings.some((warning) => warning.code === 'INCOMPATIBLE_PRODUCT_TYPES')
       const status: SalesAgentToolStatus = !vehicles.length
         ? 'NOT_FOUND'
@@ -169,7 +189,10 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
       return envelope(
         call.name,
         readAt,
-        vehicles.length ? { vehicles } : null,
+        vehicles.length ? {
+          vehicles,
+          ...(criteria.length ? { criteria, missingCriteria } : {}),
+        } : null,
         status,
         [evidence('products/product_variants/inventory_items/vehicle_variants', vehicles.map((vehicle) => vehicle.productId))],
         warnings,

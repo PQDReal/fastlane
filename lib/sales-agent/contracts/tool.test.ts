@@ -33,6 +33,23 @@ describe('sales agent tool contracts', () => {
     })
   })
 
+  it('preserves a bounded comparison criteria allowlist', () => {
+    expect(parseSalesAgentToolCall('compare_vehicles', {
+      productIds: [productId, productId.replace(/0$/, '1')],
+      criteria: ['top_speed_kmh', 'top_speed_kmh'],
+    })).toEqual({
+      name: 'compare_vehicles',
+      arguments: {
+        productIds: [productId, productId.replace(/0$/, '1')],
+        criteria: ['top_speed_kmh'],
+      },
+    })
+    expect(() => parseSalesAgentToolCall('compare_vehicles', {
+      productIds: [productId, productId.replace(/0$/, '1')],
+      criteria: ['pin'],
+    })).toThrow('criteria không hợp lệ')
+  })
+
   it('rejects unknown tools, fuzzy IDs and unexpected arguments', () => {
     expect(() => parseSalesAgentToolCall('delete_product', {})).toThrow('không được hỗ trợ')
     expect(() => parseSalesAgentToolCall('compare_vehicles', { productIds: [productId] })).toThrow('2 đến 3')

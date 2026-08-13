@@ -4,6 +4,7 @@ import { generateText, isStepCount, tool, type LanguageModel, type ToolSet } fro
 import { z } from 'zod'
 
 import { limitSalesAgentHistory, type SalesAgentMessage } from '../contracts/message'
+import { SALES_AGENT_COMPARE_CRITERIA } from '../contracts/criteria'
 import {
   type SalesAgentToolName,
   type SalesAgentToolResult,
@@ -296,8 +297,11 @@ function createToolSet(state: ToolRunState): ToolSet {
       execute: (input, options) => execute('get_vehicle_details', input, options.abortSignal),
     }),
     compare_vehicles: tool({
-      description: 'So sánh từ hai đến ba mẫu xe bằng product ID canonical đã được resolve.',
-      inputSchema: z.object({ productIds: z.array(idSchema).min(2).max(3) }).strict(),
+      description: 'So sánh từ hai đến ba mẫu xe bằng product ID canonical đã được resolve; giữ lại các tiêu chí người dùng yêu cầu và nêu rõ trường còn thiếu.',
+      inputSchema: z.object({
+        productIds: z.array(idSchema).min(2).max(3),
+        criteria: z.array(z.enum(SALES_AGENT_COMPARE_CRITERIA)).min(1).max(6).optional(),
+      }).strict(),
       execute: (input, options) => execute('compare_vehicles', input, options.abortSignal),
     }),
     get_current_promotions: tool({

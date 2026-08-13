@@ -1,4 +1,5 @@
 import type { SalesAgentProductType } from '../catalog/context'
+import { SALES_AGENT_COMPARE_CRITERIA, type SalesAgentCompareCriteria } from './criteria'
 
 export const SALES_AGENT_TOOL_NAMES = [
   'resolve_vehicle_references',
@@ -68,7 +69,7 @@ export type SalesAgentToolCall =
       }
     }
   | { name: 'get_vehicle_details'; arguments: { productId: string } }
-  | { name: 'compare_vehicles'; arguments: { productIds: string[] } }
+  | { name: 'compare_vehicles'; arguments: { productIds: string[]; criteria?: SalesAgentCompareCriteria[] } }
   | {
       name: 'get_current_promotions'
       arguments: { productType?: SalesAgentProductType }
@@ -155,6 +156,7 @@ export const SALES_AGENT_TOOL_DEFINITIONS = [
       required: ['productIds'],
       properties: {
         productIds: { type: 'array', minItems: 2, maxItems: 3, items: { type: 'string', format: 'uuid' } },
+        criteria: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'string', enum: SALES_AGENT_COMPARE_CRITERIA } },
       },
     },
   },
@@ -250,6 +252,18 @@ function productTypes(value: unknown) {
   return [...new Set(values)] as SalesAgentProductType[]
 }
 
+function compareCriteria(value: unknown) {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length < 1 || value.length > SALES_AGENT_COMPARE_CRITERIA.length) {
+    throw new Error('criteria không hợp lệ.')
+  }
+  const values = value.map((item) => String(item))
+  if (values.some((item) => !SALES_AGENT_COMPARE_CRITERIA.includes(item as SalesAgentCompareCriteria))) {
+    throw new Error('criteria không hợp lệ.')
+  }
+  return [...new Set(values)] as SalesAgentCompareCriteria[]
+}
+
 function stockFilter(value: unknown) {
   if (value === undefined) return 'ALL' as const
   if (value !== 'ALL' && value !== 'IN_STOCK') throw new Error('stockFilter không hợp lệ.')
@@ -327,13 +341,14 @@ export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgen
   }
 
   if (name === 'compare_vehicles') {
-    exactKeys(input, ['productIds'])
+    exactKeys(input, ['productIds', 'criteria'])
     if (!Array.isArray(input.productIds) || input.productIds.length < 2 || input.productIds.length > 3) {
       throw new Error('productIds cần từ 2 đến 3 xe.')
     }
     const productIds = input.productIds.map((item) => uuid(item, 'productIds'))
     if (new Set(productIds).size !== productIds.length) throw new Error('productIds không được trùng.')
-    return { name, arguments: { productIds } }
+    const criteria = compareCriteria(input.criteria)
+    return { name, arguments: { productIds, ...(criteria ? { criteria } : {}) } }
   }
 
   if (name === 'get_current_promotions') {

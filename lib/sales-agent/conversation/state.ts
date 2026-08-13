@@ -1,5 +1,6 @@
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import type { SalesAgentMessage } from '../contracts/message'
+import { SALES_AGENT_COMPARE_CRITERIA, type SalesAgentCompareCriteria } from '../contracts/criteria'
 
 export const SALES_AGENT_INTENTS = [
   'CATALOG_RECOMMENDATION',
@@ -12,16 +13,9 @@ export const SALES_AGENT_INTENTS = [
 
 export type SalesAgentIntent = (typeof SALES_AGENT_INTENTS)[number]
 
-export const SALES_AGENT_CRITERIA = [
-  'battery_capacity_kwh',
-  'top_speed_kmh',
-  'range_km',
-  'max_power_kw',
-  'price',
-  'availability',
-] as const
+export const SALES_AGENT_CRITERIA = SALES_AGENT_COMPARE_CRITERIA
 
-export type SalesAgentCriteria = (typeof SALES_AGENT_CRITERIA)[number]
+export type SalesAgentCriteria = SalesAgentCompareCriteria
 export type SalesAgentProductType = 'CAR' | 'BIKE' | 'ACCESSORY'
 
 export type SalesAgentConversationSlots = {

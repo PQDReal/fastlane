@@ -75,4 +75,42 @@ describe('sales agent tool registry', () => {
     expect(result.status).toBe('AMBIGUOUS')
     expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'INCOMPATIBLE_PRODUCT_TYPES' }))
   })
+
+  it('returns requested comparison criteria and explicitly reports missing fields', async () => {
+    mocks.snapshots.mockResolvedValue([
+      {
+        productId: id,
+        productType: 'CAR',
+        warnings: [],
+        name: 'VF 8',
+        pricing: { from: 1, currency: 'VND' },
+        availability: { state: 'IN_STOCK', availableQuantity: 2 },
+        specs: {},
+      },
+      {
+        productId: `${id.slice(0, -1)}2`,
+        productType: 'CAR',
+        warnings: [],
+        name: 'VF 7',
+        pricing: { from: 2, currency: 'VND' },
+        availability: { state: 'IN_STOCK', availableQuantity: 1 },
+        specs: {},
+      },
+    ])
+
+    const result = await executeSalesAgentTool('compare_vehicles', {
+      productIds: [id, `${id.slice(0, -1)}2`],
+      criteria: ['price', 'battery_capacity_kwh'],
+    })
+
+    expect(result.status).toBe('PARTIAL')
+    expect(result.data).toMatchObject({
+      criteria: ['price', 'battery_capacity_kwh'],
+      missingCriteria: [
+        { productId: id, criteria: ['battery_capacity_kwh'] },
+        { productId: `${id.slice(0, -1)}2`, criteria: ['battery_capacity_kwh'] },
+      ],
+    })
+    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'MISSING_COMPARE_CRITERIA' }))
+  })
 })

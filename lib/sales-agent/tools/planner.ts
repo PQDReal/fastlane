@@ -66,8 +66,9 @@ export async function planSalesAgentTools(message: string, history: SalesAgentMe
   } else if (wantsAccessory) {
     calls = [{ name: 'discover_accessories', arguments: { query: message, vehicleProductId: resolvedVehicles.length === 1 ? resolvedVehicles[0].id : undefined, limit: 6 } }]
   } else if (effectiveWantsCompare) {
+    const criteria = conversationState.slots.criteria ?? []
     calls = references.length >= 2
-      ? [{ name: 'compare_vehicles', arguments: { productIds: references } }]
+      ? [{ name: 'compare_vehicles', arguments: { productIds: references, ...(criteria.length ? { criteria } : {}) } }]
       : []
   } else if (wantsDetails && references.length === 1) {
     calls = [{ name: 'get_vehicle_details', arguments: { productId: references[0] } }]
