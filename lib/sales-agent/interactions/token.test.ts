@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-import { consumeSalesAgentInteractionResponse, signSalesAgentInteractionToken } from './token'
+import { consumeSalesAgentInteractionResponse, signSalesAgentInteractionToken, validateSalesAgentInteractionResponse } from './token'
 
 const payload = {
   schemaVersion: '1.0' as const,
@@ -39,5 +39,13 @@ describe('sales agent signed interaction continuation', () => {
     const validResponse = { interactionId: 'interaction-2', selectedOptionIds: ['a', 'b'], continuationToken: token }
     expect(consumeSalesAgentInteractionResponse(validResponse, 'conversation-1').selectedOptions).toHaveLength(2)
     expect(() => consumeSalesAgentInteractionResponse(validResponse, 'conversation-1')).toThrow('gửi trước đó')
+  })
+
+  it('does not consume a response during validation-only checks', () => {
+    const token = signSalesAgentInteractionToken({ ...payload, interactionId: 'interaction-validation-only' })
+    const response = { interactionId: 'interaction-validation-only', selectedOptionIds: ['a', 'b'], continuationToken: token }
+    expect(validateSalesAgentInteractionResponse(response, 'conversation-1').selectedOptions).toHaveLength(2)
+    expect(validateSalesAgentInteractionResponse(response, 'conversation-1').selectedOptions).toHaveLength(2)
+    expect(consumeSalesAgentInteractionResponse(response, 'conversation-1').selectedOptions).toHaveLength(2)
   })
 })

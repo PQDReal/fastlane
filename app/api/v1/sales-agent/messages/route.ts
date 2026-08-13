@@ -4,7 +4,7 @@ import { isSalesAgentEnabled, isSalesAgentHarnessEnabled, isSalesAgentInteractio
 import { buildSalesAgentProviderInput, redactSalesAgentInput } from '@/lib/sales-agent/core/policy'
 import { limitSalesAgentHistory, SalesAgentRequestError, parseSalesAgentMessageRequest, type SalesAgentSseEvent } from '@/lib/sales-agent/contracts/message'
 import { runSalesAgentHarness } from '@/lib/sales-agent/orchestrator/harness'
-import { consumeSalesAgentInteractionResponse } from '@/lib/sales-agent/interactions/token'
+import { consumeSalesAgentInteractionResponse, validateSalesAgentInteractionResponse } from '@/lib/sales-agent/interactions/token'
 import { validateSalesAgentInteractionProducts, SalesAgentInteractionValidationError } from '@/lib/sales-agent/interactions/validation'
 import { completeWithSalesAgentProvider } from '@/lib/sales-agent/providers/registry'
 import { executeSalesAgentTools, serializeSalesAgentToolResults } from '@/lib/sales-agent/tools/registry'
@@ -97,18 +97,24 @@ export async function POST(request: Request) {
     const messageId = crypto.randomUUID()
     let interactionSelection: Awaited<ReturnType<typeof consumeSalesAgentInteractionResponse>> | undefined
     if (payload.interactionResponse) {
+      let validatedSelection: ReturnType<typeof validateSalesAgentInteractionResponse>
       try {
-        interactionSelection = consumeSalesAgentInteractionResponse(payload.interactionResponse, conversationId)
+        validatedSelection = validateSalesAgentInteractionResponse(payload.interactionResponse, conversationId)
       } catch (error) {
         return NextResponse.json({ error: { code: 'INVALID_INTERACTION', message: error instanceof Error ? error.message : 'Lựa chọn tương tác không hợp lệ.' } }, { status: 400 })
       }
       try {
-        await validateSalesAgentInteractionProducts(interactionSelection.payload, interactionSelection.selectedOptions)
+        await validateSalesAgentInteractionProducts(validatedSelection.payload, validatedSelection.selectedOptions)
       } catch (error) {
         if (error instanceof SalesAgentInteractionValidationError) {
           return NextResponse.json({ error: { code: 'INVALID_INTERACTION', message: error.message } }, { status: 400 })
         }
         throw error
+      }
+      try {
+        interactionSelection = consumeSalesAgentInteractionResponse(payload.interactionResponse, conversationId)
+      } catch (error) {
+        return NextResponse.json({ error: { code: 'INVALID_INTERACTION', message: error instanceof Error ? error.message : 'Lựa chọn tương tác không hợp lệ.' } }, { status: 400 })
       }
     }
     return streamResponse({ conversationId, messageId, signal: request.signal, run: async (send) => {

@@ -73,7 +73,7 @@ export function verifySalesAgentInteractionToken(token: string): SalesAgentInter
 
 const consumedTokens = new Set<string>()
 
-export function consumeSalesAgentInteractionResponse(response: SalesAgentInteractionResponse, conversationId: string) {
+export function validateSalesAgentInteractionResponse(response: SalesAgentInteractionResponse, conversationId: string) {
   const payload = verifySalesAgentInteractionToken(response.continuationToken)
   if (payload.conversationId !== conversationId || payload.interactionId !== response.interactionId) throw new Error('Interaction không thuộc cuộc hội thoại này.')
   if (consumedTokens.has(response.continuationToken)) throw new Error('Interaction đã được gửi trước đó.')
@@ -85,9 +85,14 @@ export function consumeSalesAgentInteractionResponse(response: SalesAgentInterac
     if (!option) throw new Error('Lựa chọn không thuộc interaction này.')
     return { optionId, ...option }
   })
+  return { payload, selectedOptions, freeText: response.freeText }
+}
+
+export function consumeSalesAgentInteractionResponse(response: SalesAgentInteractionResponse, conversationId: string) {
+  const result = validateSalesAgentInteractionResponse(response, conversationId)
   consumedTokens.add(response.continuationToken)
   if (consumedTokens.size > 10_000) consumedTokens.delete(consumedTokens.values().next().value as string)
-  return { payload, selectedOptions, freeText: response.freeText }
+  return result
 }
 
 export function interactionTokenPayloadFromInteraction(interaction: SalesAgentInteraction, conversationId: string, messageId: string, options: Record<string, InteractionTokenOption>): SalesAgentInteractionTokenPayload {
