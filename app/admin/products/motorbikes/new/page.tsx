@@ -743,6 +743,7 @@ export default function NewMotorbikePage() {
               <Button type="button" onClick={() => setIsSpecDialogOpen(true)} className="bg-amber-50 text-amber-700 hover:bg-amber-100"><Plus size={14} /> Thêm thông số</Button>
             </div>
 
+            <h4 className="text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Động cơ & Vận hành</h4>
             {/* Core Specs Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 bg-slate-50 rounded-xl p-5 border border-slate-100">
               <div>
@@ -799,6 +800,7 @@ export default function NewMotorbikePage() {
               {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin hiển thị <strong>màu đỏ</strong> sẽ không được hiển thị sau khi lưu</p>}
             </div>
 
+            <h4 className="mt-8 text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Kích thước & Tiện ích</h4>
             {/* General Specs Grid */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
               {[
@@ -830,7 +832,7 @@ export default function NewMotorbikePage() {
                 </div>
               ))}
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 pt-2">
               {form.specification_fields.filter((field) => !DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false).map((field) => (
                 <div key={field.key}>
                   <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{field.label}</label><button type="button" onClick={() => removeMotorbikeSpec(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa thông tin ${field.label}`}><Trash2 size={14} /></button></div>
