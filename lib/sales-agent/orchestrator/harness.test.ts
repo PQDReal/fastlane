@@ -29,6 +29,7 @@ function toolResult(tool: string, status: 'OK' | 'AMBIGUOUS' = 'OK') {
 describe('sales agent model-native harness', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.SALES_AGENT_INTERACTION_SECRET = 'test-secret'
     mocks.getModel.mockResolvedValue({ model: { modelId: 'fake-model' }, provider: 'openai', modelId: 'fake-model' })
     mocks.executeTool.mockImplementation(async (name: string) => toolResult(name))
   })
@@ -119,7 +120,7 @@ describe('sales agent model-native harness', () => {
     mocks.generateText.mockImplementation(async (input: any) => {
       input.prepareStep?.({ stepNumber: 0 })
       const interactionResult = await input.tools.request_user_choice.execute({
-        slot: 'vehicles',
+        slot: 'criteria',
         mode: 'multiple',
         minSelections: 2,
         maxSelections: 3,
@@ -132,5 +133,23 @@ describe('sales agent model-native harness', () => {
     expect(result.interaction).toBeUndefined()
     expect(result.toolCalls).toBe(0)
     expect(result.text).toContain('hai mẫu xe nào')
+  })
+
+  it('uses slot-specific copy when structured interaction is emitted', async () => {
+    mocks.generateText.mockImplementation(async (input: any) => {
+      input.prepareStep?.({ stepNumber: 0 })
+      const interactionResult = await input.tools.request_user_choice.execute({
+        slot: 'criteria',
+        mode: 'multiple',
+        minSelections: 2,
+        maxSelections: 3,
+      })
+      return { text: 'Mình chưa có đủ dữ liệu xác thực.', finishReason: 'stop', steps: [{}], usage: {}, toolCalls: [], toolResults: [interactionResult] }
+    })
+
+    const result = await runSalesAgentHarness({ message: 'So sánh xe', interactionsEnabled: true })
+
+    expect(result.text).toBe('Hãy chọn tiêu chí bạn ưu tiên.')
+    expect(result.interaction?.slot).toBe('criteria')
   })
 })

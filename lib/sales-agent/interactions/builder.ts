@@ -101,6 +101,7 @@ export async function buildSalesAgentInteraction(request: ChoiceRequest, context
     kind: 'choice' as const,
     slot: request.slot,
     mode: request.mode,
+    ...(request.productType ? { productType: request.productType } : {}),
     title: titleFor(request.slot, request.mode),
     description: allowFreeText ? 'Bạn có thể chọn nhanh hoặc nhập câu trả lời riêng.' : undefined,
     minSelections: request.minSelections,

@@ -2,7 +2,7 @@ import 'server-only'
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import type { SalesAgentInteraction, SalesAgentInteractionResponse, SalesAgentInteractionSlot, SalesAgentInteractionMode } from '../contracts/interaction'
+import type { SalesAgentInteraction, SalesAgentInteractionResponse, SalesAgentInteractionSlot, SalesAgentInteractionMode, SalesAgentInteractionProductType } from '../contracts/interaction'
 
 type InteractionTokenOption = {
   label: string
@@ -17,6 +17,7 @@ export type SalesAgentInteractionTokenPayload = {
   messageId: string
   slot: SalesAgentInteractionSlot
   mode: SalesAgentInteractionMode
+  productType?: SalesAgentInteractionProductType
   minSelections: number
   maxSelections: number
   allowFreeText: boolean
@@ -96,6 +97,7 @@ export function interactionTokenPayloadFromInteraction(interaction: SalesAgentIn
     messageId,
     slot: interaction.slot,
     mode: interaction.mode,
+    ...(interaction.productType ? { productType: interaction.productType } : {}),
     minSelections: interaction.minSelections,
     maxSelections: interaction.maxSelections,
     allowFreeText: interaction.allowFreeText,

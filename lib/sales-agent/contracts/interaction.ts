@@ -1,8 +1,8 @@
 export const SALES_AGENT_INTERACTION_MAX_OPTIONS = 8
 export const SALES_AGENT_INTERACTION_MAX_FREE_TEXT = 500
-
 export type SalesAgentInteractionSlot = 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage'
 export type SalesAgentInteractionMode = 'single' | 'multiple'
+export type SalesAgentInteractionProductType = 'CAR' | 'BIKE' | 'ACCESSORY'
 
 export type SalesAgentInteractionOption = {
   optionId: string
@@ -17,6 +17,7 @@ export type SalesAgentInteraction = {
   kind: 'choice'
   slot: SalesAgentInteractionSlot
   mode: SalesAgentInteractionMode
+  productType?: SalesAgentInteractionProductType
   title: string
   description?: string
   minSelections: number
@@ -40,8 +41,9 @@ export function validateSalesAgentInteraction(value: unknown): SalesAgentInterac
   const input = value as Record<string, unknown>
   const mode = input.mode === 'single' || input.mode === 'multiple' ? input.mode : null
   const slot = ['vehicles', 'vehicle', 'criteria', 'budget', 'usage'].includes(String(input.slot)) ? input.slot as SalesAgentInteractionSlot : null
+  const productType = input.productType === undefined ? undefined : ['CAR', 'BIKE', 'ACCESSORY'].includes(String(input.productType)) ? input.productType as SalesAgentInteractionProductType : null
   const options = Array.isArray(input.options) ? input.options : null
-  if (input.schemaVersion !== '1.0' || input.kind !== 'choice' || !mode || !slot || !options) throw new Error('Interaction schema không được hỗ trợ.')
+  if (input.schemaVersion !== '1.0' || input.kind !== 'choice' || !mode || !slot || !options || productType === null) throw new Error('Interaction schema không được hỗ trợ.')
   if (options.length > SALES_AGENT_INTERACTION_MAX_OPTIONS) throw new Error('Interaction vượt quá số lựa chọn cho phép.')
   if (mode === 'multiple' && Number(input.maxSelections) < 2) throw new Error('So sánh nhiều lựa chọn cần ít nhất hai option.')
 
@@ -83,6 +85,7 @@ export function validateSalesAgentInteraction(value: unknown): SalesAgentInterac
     kind: 'choice',
     slot,
     mode,
+    ...(productType ? { productType } : {}),
     title: title.slice(0, 160),
     ...(typeof input.description === 'string' && input.description.trim() ? { description: input.description.trim().slice(0, 400) } : {}),
     minSelections,

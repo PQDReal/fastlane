@@ -27,6 +27,14 @@ export const SALES_AGENT_HARNESS_LIMITS = {
 
 const NO_DATA_RESPONSE = 'Mình chưa có đủ dữ liệu xác thực để trả lời chính xác. Bạn có thể cho mình biết rõ mẫu xe hoặc tiêu chí cần kiểm tra không?'
 
+function interactionPrompt(slot: 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage') {
+  if (slot === 'vehicles') return 'Hãy chọn các mẫu xe bạn muốn so sánh.'
+  if (slot === 'vehicle') return 'Hãy chọn mẫu xe bạn quan tâm.'
+  if (slot === 'criteria') return 'Hãy chọn tiêu chí bạn ưu tiên.'
+  if (slot === 'budget') return 'Hãy chọn khoảng ngân sách phù hợp.'
+  return 'Hãy chọn nhu cầu sử dụng xe chính của bạn.'
+}
+
 const productTypeSchema = z.enum(['CAR', 'BIKE', 'ACCESSORY'])
 const stockFilterSchema = z.enum(['ALL', 'IN_STOCK'])
 const textSchema = z.string().trim().min(1).max(300)
@@ -403,7 +411,9 @@ export async function runSalesAgentHarness(options: SalesAgentHarnessOptions): P
     })
 
     return {
-      text: result.text.trim() || NO_DATA_RESPONSE,
+      text: state.interactionRequest
+        ? interactionPrompt(state.interactionRequest.slot)
+        : result.text.trim() || NO_DATA_RESPONSE,
       provider: provider.provider,
       model: provider.modelId,
       finishReason: result.finishReason,
