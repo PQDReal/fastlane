@@ -19,7 +19,10 @@ export async function GET(request: Request) {
   const productName = searchParams.get('product_name')
 
   const cacheKey = depositVehicleMetadataCacheKey({ productId, productName })
-  let rows = await readRedisJson<VehicleVariantMetadataRow[]>(cacheKey)
+  // Inventory/variant metadata must never be served from a process-local
+  // fallback cache: an admin migration may update Supabase in another process.
+  // If Redis is unavailable, read the primary database on every request.
+  let rows = await readRedisJson<VehicleVariantMetadataRow[]>(cacheKey, { allowMemoryFallback: false })
 
   if (!rows) {
     let dbQuery = supabase

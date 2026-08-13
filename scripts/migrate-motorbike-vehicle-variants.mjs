@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import Redis from 'ioredis'
 import { createClient } from '@supabase/supabase-js'
+import {
+  normalizeVersionName,
+  selectCanonicalSourceVersions,
+} from './motorbike-version-normalization.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -105,12 +110,14 @@ const oldBikeIds = new Set(oldBikeRows.map((row) => row.id))
 const referencedOldRows = deposits.filter((order) =>
   oldBikeIds.has(order.vehicle_variant_id),
 )
+const oldProductsById = new Map(products.map((product) => [product.id, product]))
 
 assert(products.length > 0, 'Expected at least one active motorbike')
 
 const generatedAt = new Date().toISOString()
 const rows = []
 const report = []
+const productSpecificationUpdates = []
 
 for (const product of products) {
   const specifications = product.specifications
@@ -124,11 +131,11 @@ for (const product of products) {
 
   const colors = specifications.color_details
   const images = product.image_urls
-  const versions = sourceVariants
-    .filter((variant) => variant.product_id === product.id)
-    .sort((left, right) =>
-      String(left.sku).localeCompare(String(right.sku), 'en'),
-    )
+  const versions = selectCanonicalSourceVersions({
+    product,
+    sourceVariants,
+    overrides: VERSION_OVERRIDES,
+  })
 
   assert(Array.isArray(colors) && colors.length > 0, `${product.name}: missing colors`)
   assert(Array.isArray(images), `${product.name}: image_urls must be an array`)
@@ -139,8 +146,24 @@ for (const product of products) {
   assert(versions.length > 0, `${product.name}: missing active versions`)
 
   const detailImages = images.slice(-3)
-  const catalogSpecs = {
+  const canonicalVersionNames = versions.map((sourceVersion) =>
+    VERSION_OVERRIDES[sourceVersion.baseSku]?.name ?? sourceVersion.canonicalName,
+  )
+  const canonicalSpecifications = {
     ...specifications,
+    variants: canonicalVersionNames,
+    variant_compatibility: Array.isArray(specifications.variant_compatibility)
+      ? specifications.variant_compatibility.map((entry) => ({
+          ...entry,
+          version: canonicalVersionNames.find((name) =>
+            String(entry?.version ?? '').toLocaleLowerCase('vi').startsWith(name.toLocaleLowerCase('vi')),
+          ) ?? entry.version,
+        }))
+      : specifications.variant_compatibility,
+  }
+  productSpecificationUpdates.push({ id: product.id, specifications: canonicalSpecifications })
+  const catalogSpecs = {
+    ...canonicalSpecifications,
     catalog: {
       product_slug: product.slug,
       description: product.description ?? '',
@@ -153,11 +176,11 @@ for (const product of products) {
   }
 
   versions.forEach((sourceVersion, versionIndex) => {
-    assert(nonEmpty(sourceVersion.sku), `${product.name}: version missing SKU`)
+    assert(nonEmpty(sourceVersion.baseSku), `${product.name}: version missing SKU`)
     assert(nonEmpty(sourceVersion.name), `${product.name}: version missing name`)
 
-    const override = VERSION_OVERRIDES[sourceVersion.sku] ?? {}
-    const versionName = override.name ?? sourceVersion.name
+    const override = VERSION_OVERRIDES[sourceVersion.baseSku] ?? {}
+    const versionName = override.name ?? sourceVersion.canonicalName
     const originalPrice =
       override.original_price ?? Number(sourceVersion.original_price)
     const salePrice =
@@ -200,7 +223,7 @@ for (const product of products) {
           },
         },
         variant_name: `${product.name} ${versionName} - ${colorName}`,
-        sku: `${sourceVersion.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
+        sku: `${sourceVersion.baseSku}-C${String(colorIndex + 1).padStart(2, '0')}`,
         price,
         color: colorName,
         image_car_url: vehicleImage,
@@ -229,11 +252,59 @@ for (const row of rows) {
   }
 }
 
+async function invalidateDepositMetadataCache() {
+  const redisUrl = process.env.REDIS_URL?.trim()
+  if (!redisUrl) return 0
+
+  const redis = new Redis(redisUrl, { maxRetriesPerRequest: 1 })
+  redis.on('error', () => undefined)
+  try {
+    let cursor = '0'
+    let deleted = 0
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        'MATCH',
+        'fastlane:deposit-vehicle-metadata:v1:*',
+        'COUNT',
+        100,
+      )
+      cursor = nextCursor
+      if (keys.length > 0) deleted += await redis.del(...keys)
+    } while (cursor !== '0')
+    return deleted
+  } catch (error) {
+    console.warn(`Unable to invalidate Redis metadata cache: ${error instanceof Error ? error.message : String(error)}`)
+    return 0
+  } finally {
+    await redis.quit().catch(() => redis.disconnect())
+  }
+}
+
 // Preserve IDs that are referenced by deposit orders even when their legacy
 // SKU is not part of the regenerated matrix.
 for (const oldRow of oldBikeRows.filter((row) => referencedOldRows.some((order) => order.vehicle_variant_id === row.id))) {
   if (usedOldIds.has(oldRow.id)) continue
-  const replacement = rows.find((row) => row.product_id === oldRow.product_id && !usedOldIds.has(row.id))
+  const product = oldProductsById.get(oldRow.product_id)
+  const specifications = product?.specifications && typeof product.specifications === 'object'
+    ? product.specifications
+    : {}
+  const oldVersion = normalizeVersionName({
+    productName: product?.name,
+    rawName: oldRow.version,
+    declaredVersions: specifications.variants,
+    colors: specifications.color_details,
+  })
+  const replacement = rows.find((row) =>
+    row.product_id === oldRow.product_id
+      && row.color === oldRow.color
+      && row.version.toLocaleLowerCase('vi') === oldVersion.toLocaleLowerCase('vi')
+      && !usedOldIds.has(row.id),
+  ) ?? rows.find((row) =>
+    row.product_id === oldRow.product_id
+      && row.color === oldRow.color
+      && !usedOldIds.has(row.id),
+  )
   assert(replacement, `No replacement generated for referenced row ${oldRow.id}`)
   replacement.id = oldRow.id
   usedOldIds.add(oldRow.id)
@@ -332,6 +403,14 @@ try {
     const { error } = await supabase.from('vehicle_variants').delete().in('id', ids)
     if (error) throw new Error(`Unable to remove obsolete BIKE rows: ${error.message}`)
   }
+
+  for (const update of productSpecificationUpdates) {
+    const { error } = await supabase
+      .from('products')
+      .update({ specifications: update.specifications, updated_at: new Date().toISOString() })
+      .eq('id', update.id)
+    if (error) throw new Error(`Unable to normalize ${update.id} specifications: ${error.message}`)
+  }
 } catch (error) {
   if (insertedIds.length > 0) {
     for (const ids of chunk(insertedIds, 50)) {
@@ -341,6 +420,9 @@ try {
   for (const oldRow of oldBikeRows) {
     const { id, ...changes } = oldRow
     await supabase.from('vehicle_variants').update(changes).eq('id', id)
+  }
+  for (const [id, product] of oldProductsById) {
+    await supabase.from('products').update({ specifications: product.specifications }).eq('id', id)
   }
   throw error
 }
@@ -353,4 +435,7 @@ const { data: finalRows, error: finalError } = await supabase
 if (finalError) throw new Error(`Final verification failed: ${finalError.message}`)
 assert(finalRows?.length === rows.length, `Final BIKE row count is ${finalRows?.length ?? 0}, expected ${rows.length}`)
 
+const invalidatedMetadataKeys = await invalidateDepositMetadataCache()
+
 console.log(`Migration complete: ${rows.length}/${rows.length} BIKE vehicle_variants rows verified.`)
+console.log(`Invalidated ${invalidatedMetadataKeys} deposit metadata cache keys.`)

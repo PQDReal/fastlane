@@ -95,6 +95,7 @@ export async function GET(request: Request, context: Context) {
     inventoryByVariantId,
     declaredVersions: specsObj.variants,
     colors: specsObj.color_details || [],
+    productName: product.name,
   })
 
   const formState = {

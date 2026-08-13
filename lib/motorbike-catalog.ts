@@ -3,6 +3,7 @@ import 'server-only'
 import { cache } from 'react'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields, type VehicleSpecField } from '@/lib/vehicle-specifications'
+import { normalizeMotorbikeVersionName } from '@/lib/motorbike-version'
 
 type JsonRecord = Record<string, unknown>
 
@@ -83,15 +84,6 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function normalizedVersion(row: VehicleVariantRow): string {
-  const version = text(row.version) || text(row.variant_name)
-  const color = text(row.color)
-  const suffix = color ? ` - ${color}` : ''
-  return suffix && version.toLocaleLowerCase().endsWith(suffix.toLocaleLowerCase())
-    ? version.slice(0, -suffix.length).trim()
-    : version
-}
-
 function number(value: unknown): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -119,6 +111,13 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
       : Object.fromEntries(
           Object.entries(rootSpecs).filter(([key]) => key !== 'catalog'),
         )
+    const declaredVersions = Array.isArray(rootSpecs.variants) ? rootSpecs.variants : []
+    const versionName = (row: VehicleVariantRow) => normalizeMotorbikeVersionName(
+      text(row.version) || text(row.variant_name),
+      declaredVersions,
+      productRows.map((candidate) => candidate.color),
+      first.product_name,
+    )
 
     const colors = [...new Map(
       productRows.map((row) => [row.color, {
@@ -132,9 +131,9 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
     ).values()].sort((left, right) => left.order - right.order)
 
     const versions = [...new Map(
-      productRows.map((row) => [normalizedVersion(row), {
+      productRows.map((row) => [versionName(row), {
         id: row.id,
-        name: normalizedVersion(row),
+        name: versionName(row),
         sku: row.sku.replace(/-C\d{2}$/i, ''),
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
@@ -169,7 +168,7 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
       versions,
       variantRows: productRows.map((row) => ({
         id: row.id,
-        version: normalizedVersion(row),
+        version: versionName(row),
         color: row.color,
         sku: row.sku,
         price: number(row.price),

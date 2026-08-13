@@ -1,4 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
+import { selectCanonicalSourceVersions } from './motorbike-version-normalization.mjs'
+
+const VERSION_OVERRIDES = {
+  'VINFAST-VIPER-01': { name: 'Kèm Pin' },
+  'VINFAST-VIPER-02': { name: 'Không kèm Pin' },
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -78,10 +84,11 @@ for (const product of products) {
   const images = Array.isArray(product.image_urls)
     ? product.image_urls
     : []
-  const versions = sourceVariants.filter(
-    (variant) =>
-      variant.product_id === product.id,
-  )
+  const versions = selectCanonicalSourceVersions({
+    product,
+    sourceVariants,
+    overrides: VERSION_OVERRIDES,
+  })
   const expectedImageCount =
     5 + colors.length * 2
 
