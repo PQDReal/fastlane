@@ -1338,6 +1338,19 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                         <option value="ADVANCED">Màu nâng cao</option>
                       </select>
                     </div>
+                    {form.specification_fields.some((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false) && (
+                      <div className="mt-12 border-t border-slate-200 pt-8">
+                        <h3 className="text-xl font-bold border-b border-slate-200 pb-3 mb-5 text-slate-800">Thông số bổ sung</h3>
+                        <div className="grid gap-x-12 gap-y-4 sm:grid-cols-2">
+                          {form.specification_fields.filter((field) => !DEFAULT_VEHICLE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false).map((field) => (
+                            <div key={field.key} className="flex justify-between gap-4 border-b border-slate-100 py-2 text-sm">
+                              <span className="text-slate-500">{field.label}</span>
+                              <span className="font-semibold text-right">{String(form.specifications[field.key as keyof FormState['specifications']] ?? '') || 'Chưa cập nhật'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

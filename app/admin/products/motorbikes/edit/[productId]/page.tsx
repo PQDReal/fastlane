@@ -1708,10 +1708,10 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 <div className="mx-auto max-w-3xl px-6">
                   <h3 className="text-xl font-bold text-center mb-8 border-b border-white/10 pb-4">Bảng thông số kỹ thuật chi tiết</h3>
                   <div className="divide-y divide-white/5 text-sm">
-                    {Object.entries(form.specifications).map(([key, val]) => (
-                      <div key={key} className="flex py-3 justify-between items-center gap-4">
-                        <span className="text-white/60 font-semibold">{key}</span>
-                        <span className="text-white font-bold text-right">{val || 'Chưa cập nhật'}</span>
+                    {form.specification_fields.filter((field) => field.visible !== false).map((field) => (
+                      <div key={field.key} className="flex py-3 justify-between items-center gap-4">
+                        <span className="text-white/60 font-semibold">{field.label}</span>
+                        <span className="text-white font-bold text-right">{String(form.specifications[field.key as keyof FormState['specifications']] ?? '') || 'Chưa cập nhật'}</span>
                       </div>
                     ))}
                   </div>
