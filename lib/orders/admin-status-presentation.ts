@@ -66,7 +66,7 @@ export function accessoryOrderStatusPresentation(
   if (status === 'CANCELLED') return cancelledOrderStatusPresentation(refundStatus)
 
   const statuses: Record<Exclude<AccessoryAdminOrderStatus, 'CANCELLED'>, [string, AdminOrderStatusTone]> = {
-    PENDING: ['Chưa thanh toán', 'pending'],
+    PENDING: ['Đang chờ thanh toán', 'pending'],
     PAID: ['Đã thanh toán', 'success'],
     CONFIRMED: ['Đã xác nhận', 'info'],
     READY: ['Đang giao hàng', 'delivery'],
@@ -91,7 +91,7 @@ export function depositPaymentStatusPresentation(
   }
   return input.payment === 'Paid'
     ? presentation('Đã đặt cọc', 'success')
-    : presentation('Chờ đặt cọc', 'pending')
+    : presentation('Chờ thanh toán cọc', 'pending')
 }
 
 export function vehicleOrderStatusPresentation(

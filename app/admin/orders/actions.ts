@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import { reconcileVnPayDepositRefund, refundCancelledDepositOrder } from '@/lib/services/vnpay-refund-service'
+import { reconcileVnPayPayment } from '@/lib/services/vnpay-payment-reconciliation-service'
 import { tryAutoIssueContract } from '@/lib/deposit/contract-service'
 import { assertDepositDebugActionsEnabled } from '@/lib/deposit/debug-mode'
 import { createDebugVnpayTransactionNo } from '@/lib/deposit/debug-transaction'
@@ -270,6 +271,25 @@ export async function reconcileDepositRefund(orderId: string) {
     return { success: true, ...result }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái hoàn tiền VNPay.' }
+  }
+}
+
+export async function reconcileDepositPayment(orderId: string) {
+  try {
+    await requireAdmin()
+    const requestHeaders = await headers()
+    const clientIp = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || requestHeaders.get('x-real-ip')
+      || '127.0.0.1'
+    const result = await reconcileVnPayPayment({ orderId, orderKind: 'deposit', clientIp })
+    revalidatePath('/admin/orders')
+    revalidatePath('/profile')
+    return { success: true as const, ...result }
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Không thể kiểm tra thanh toán VNPay.',
+    }
   }
 }
 
