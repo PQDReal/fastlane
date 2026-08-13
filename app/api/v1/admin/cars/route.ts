@@ -62,7 +62,9 @@ export async function POST(request: Request) {
     listing_image_url,
     hero_image_url,
     logo_image_url = '',
+    brochure_url = '',
     detail_image_urls = [],
+    advanced_color_price,
     specifications = {},
     colors = [],
     interiors = [],
@@ -153,7 +155,7 @@ export async function POST(request: Request) {
     specs: specsByVersion,
     deposit: `${new Intl.NumberFormat('vi-VN').format(versions[0]?.deposit_amount || 15000000)} VNĐ`,
     options: [],
-    range_km: Number(specifications['Quãng đường đi được']?.replace(/[^0-9]/g, '')) || 300,
+    range_km: Number(String(specifications['Quãng đường đi được'] || '').replace(/[^0-9]/g, '')) || 300,
     marketing: {
       design: {
         title: 'Dấu ấn thời đại. Phong thái dẫn đầu.',
@@ -181,6 +183,7 @@ export async function POST(request: Request) {
     },
     logo_image: logo_image_url || '',
     logo_image_url: logo_image_url || '',
+    brochure_url,
     range_text: specifications['Quãng đường đi được'] || '',
     seat_count: Number(specifications['Số chỗ ngồi']) || 5,
     banner_image: hero_image_url,
@@ -190,13 +193,16 @@ export async function POST(request: Request) {
     fallback_colors: colors.map((c: any) => ({
       name: c.color_name,
       image: c.image_url,
-      swatch: c.swatch
+      swatch: c.swatch,
+      is_advanced: !!c.is_advanced
     })),
     fallback_color_images: colors.map((c: any) => c.image_url),
     interiors: interiors.map((i: any) => ({
       name: i.interior_name,
       image: i.image_url,
-      swatch: i.swatch
+      images: i.image_urls || (i.image_url ? [i.image_url] : []),
+      swatch: i.swatch,
+      allowed_combinations: i.allowed_combinations
     })),
     gallery: {
       all_images: image_urls,
@@ -222,6 +228,7 @@ export async function POST(request: Request) {
       description,
       product_type: 'CAR',
       is_active,
+      advanced_color_price: Number(advanced_color_price) || null,
       specifications: formattedSpecs,
       image_urls,
       displayed_price: displayedPrice,
@@ -288,7 +295,7 @@ export async function POST(request: Request) {
           product_slug: slug,
           version_order: versionIndex + 1,
           hero_image_url,
-          original_price: Number(variantRow.original_price),
+          original_price: colorItem.is_advanced ? (Number(variantRow.original_price) + (Number(advanced_color_price) || 0)) : Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
           listing_image_url,
         },
@@ -303,9 +310,9 @@ export async function POST(request: Request) {
         specs: catalogSpecs,
         variant_name: `${name} ${variantRow.name} - ${colorItem.color_name}`,
         sku: `${variantRow.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
-        price: variantRow.original_price,
+        price: colorItem.is_advanced ? (Number(variantRow.original_price) + (Number(advanced_color_price) || 0)) : variantRow.original_price,
         color: colorItem.color_name,
-        image_car_url: colorItem.image_url,
+        image_car_url: colorItem.images_by_version?.[variantRow.name] || colorItem.image_url,
         image_color_url: colorItem.swatch,
         version: variantRow.name,
         is_active: is_active,

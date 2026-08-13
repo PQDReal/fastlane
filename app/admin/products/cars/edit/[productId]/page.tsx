@@ -75,12 +75,16 @@ interface ColorEntry {
   color_name: string
   image_url: string
   swatch: string
+  images_by_version?: Record<string, string>
+  is_advanced?: boolean
 }
 
 interface InteriorEntry {
   interior_name: string
   image_url: string
+  image_urls?: string[]
   swatch: string
+  allowed_combinations?: string[]
 }
 
 interface VersionEntry {
@@ -98,6 +102,7 @@ interface FormState {
   listing_image_url: string
   hero_image_url: string
   logo_image_url: string
+  brochure_url: string
   detail_image_urls: string[]
   specifications: {
     'Quãng đường đi được': string
@@ -126,6 +131,7 @@ interface FormState {
   interiors: InteriorEntry[]
   versions: VersionEntry[]
   landing_page_blocks: any[]
+  advanced_color_price?: number
 }
 
 const defaultLandingBlocks = [
@@ -174,6 +180,7 @@ const initialFormState: FormState = {
   listing_image_url: '',
   hero_image_url: '',
   logo_image_url: '',
+  brochure_url: '',
   detail_image_urls: [],
   specifications: {
     'Quãng đường đi được': '',
@@ -211,6 +218,7 @@ const initialFormState: FormState = {
     { name: 'Phiên bản Plus (Thuê pin)', sku: 'VINFAST-CAR-PLUS-01', price: 530000000, deposit_amount: 15000000 },
   ],
   landing_page_blocks: defaultLandingBlocks,
+  advanced_color_price: 0,
 }
 
 export default function EditCarPage({ params }: { params: Promise<{ productId: string }> }) {
@@ -1023,13 +1031,27 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   <h3 className="text-base font-bold text-slate-900">1. Màu ngoại thất xe</h3>
                   <p className="text-xs text-slate-500 mt-1">Thêm các tùy chọn màu kèm ảnh xe tương ứng và swatch màu sắc.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={addColor}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-md transition"
-                >
-                  <Plus size={14} /> Thêm màu ngoại thất
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
+                    <label className="text-[11px] font-bold text-slate-600">Giá màu nâng cao:</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.advanced_color_price || ''}
+                      onChange={(e) => setForm(prev => ({ ...prev, advanced_color_price: Number(e.target.value) }))}
+                      className="h-7 w-28 rounded border border-slate-200 px-2 text-xs text-slate-900 outline-none focus:border-brand-500"
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-slate-500">VNĐ</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addColor}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-md transition"
+                  >
+                    <Plus size={14} /> Thêm màu
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -1046,12 +1068,21 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                         onChange={(e) => updateColor(idx, { color_name: e.target.value })}
                         className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
                       />
+                      <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!color.is_advanced}
+                          onChange={(e) => updateColor(idx, { is_advanced: e.target.checked })}
+                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4"
+                        />
+                        <span className="text-[11px] font-semibold text-slate-700">Đây là màu nâng cao (tính phí)</span>
+                      </label>
                     </div>
 
                     <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh xe (Color Image)</label>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh xe (Chung)</label>
                       {color.image_url ? (
-                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
+                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1 mb-2">
                           <img src={color.image_url} alt="Car color" className="w-10 h-7 object-contain" />
                           <button
                             type="button"
@@ -1062,7 +1093,50 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                           </button>
                         </div>
                       ) : (
-                        <ImageUploadDropzone compact label="Tải hình xe" onUploadSuccess={(urls) => updateColor(idx, { image_url: urls[0] })} />
+                        <div className="mb-2">
+                          <ImageUploadDropzone compact label="Tải hình xe chung" onUploadSuccess={(urls) => updateColor(idx, { image_url: urls[0] })} />
+                        </div>
+                      )}
+
+                      {form.versions.length > 1 && (
+                        <details className="mt-3 group border border-slate-200 rounded-md bg-white">
+                          <summary className="text-[11px] font-bold text-slate-600 cursor-pointer p-2 hover:bg-slate-50 transition list-none flex items-center justify-between">
+                            <span>Tùy chỉnh ảnh theo phiên bản ({form.versions.length})</span>
+                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                          </summary>
+                          <div className="p-2 border-t border-slate-100 space-y-2 bg-slate-50/50">
+                            {form.versions.map((version, vIdx) => {
+                              const versionImg = color.images_by_version?.[version.name]
+                              return (
+                                <div key={vIdx} className="text-xs">
+                                  <label className="block text-[10px] font-bold text-slate-500 mb-1">{version.name}</label>
+                                  {versionImg ? (
+                                    <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
+                                      <img src={versionImg} alt={`Car color ${version.name}`} className="w-10 h-7 object-contain" />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextImages = { ...(color.images_by_version || {}) }
+                                          delete nextImages[version.name]
+                                          updateColor(idx, { images_by_version: nextImages })
+                                        }}
+                                        className="text-red-500 hover:bg-red-50 rounded p-1"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <ImageUploadDropzone compact label={`Tải ảnh cho ${version.name}`} onUploadSuccess={(urls) => {
+                                      const nextImages = { ...(color.images_by_version || {}) }
+                                      nextImages[version.name] = urls[0]
+                                      updateColor(idx, { images_by_version: nextImages })
+                                    }} />
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </details>
                       )}
                     </div>
 
@@ -1132,21 +1206,75 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                     </div>
 
                     <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh nội thất (Interior Image)</label>
-                      {interior.image_url ? (
-                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
-                          <img src={interior.image_url} alt="Interior view" className="w-10 h-7 object-contain" />
-                          <button
-                            type="button"
-                            onClick={() => updateInterior(idx, { image_url: '' })}
-                            className="text-red-500 hover:bg-red-50 rounded p-1"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <ImageUploadDropzone compact label="Tải hình nội thất" onUploadSuccess={(urls) => updateInterior(idx, { image_url: urls[0] })} />
-                      )}
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh nội thất (Interior Images)</label>
+                      <div className="space-y-2">
+                        {interior.image_urls && interior.image_urls.length > 0 ? (
+                          <div className="space-y-2">
+                            {interior.image_urls.map((imgUrl, imgIdx) => (
+                              <div key={imgIdx} className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
+                                <img src={imgUrl} alt="Interior view" className="w-10 h-7 object-contain" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextImages = interior.image_urls!.filter((_, i) => i !== imgIdx)
+                                    updateInterior(idx, { 
+                                      image_urls: nextImages,
+                                      image_url: nextImages[0] || '' 
+                                    })
+                                  }}
+                                  className="text-red-500 hover:bg-red-50 rounded p-1"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            ))}
+                            <ImageUploadDropzone 
+                              compact 
+                              label="Tải thêm hình nội thất" 
+                              onUploadSuccess={(urls) => {
+                                const nextImages = [...(interior.image_urls || []), ...urls]
+                                updateInterior(idx, { 
+                                  image_urls: nextImages,
+                                  image_url: nextImages[0] || ''
+                                })
+                              }} 
+                            />
+                          </div>
+                        ) : interior.image_url ? (
+                          <div className="space-y-2">
+                            <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
+                              <img src={interior.image_url} alt="Interior view" className="w-10 h-7 object-contain" />
+                              <button
+                                type="button"
+                                onClick={() => updateInterior(idx, { image_url: '', image_urls: [] })}
+                                className="text-red-500 hover:bg-red-50 rounded p-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <ImageUploadDropzone 
+                              compact 
+                              label="Tải thêm hình nội thất" 
+                              onUploadSuccess={(urls) => {
+                                const nextImages = [interior.image_url, ...urls]
+                                updateInterior(idx, { 
+                                  image_urls: nextImages,
+                                  image_url: nextImages[0] || ''
+                                })
+                              }} 
+                            />
+                          </div>
+                        ) : (
+                          <ImageUploadDropzone 
+                            compact 
+                            label="Tải hình nội thất" 
+                            onUploadSuccess={(urls) => updateInterior(idx, { 
+                              image_url: urls[0],
+                              image_urls: urls
+                            })} 
+                          />
+                        )}
+                      </div>
                     </div>
 
                     <div className="sm:col-span-4">
@@ -1176,6 +1304,54 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+
+                    <div className="sm:col-span-12 mt-2">
+                      <details className="group border border-slate-200 rounded-md bg-white">
+                        <summary className="text-[11px] font-bold text-slate-600 cursor-pointer p-2 hover:bg-slate-50 transition list-none flex items-center justify-between">
+                          <span>Giới hạn tương thích (Phiên bản & Màu ngoại thất)</span>
+                          <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+                          <p className="text-[10px] text-slate-500 mb-3">
+                            Chọn các kết hợp Phiên bản - Màu sắc cho phép. Nếu không chọn gì, nội thất này sẽ hiển thị cho mọi cấu hình.
+                          </p>
+                          <div className="space-y-4">
+                            {form.versions.map(version => (
+                              <div key={version.name} className="border border-slate-200 rounded-md bg-white overflow-hidden">
+                                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200">
+                                  <span className="text-xs font-semibold text-slate-700">{version.name}</span>
+                                </div>
+                                <div className="p-2 flex flex-wrap gap-2">
+                                  {form.colors.map(color => {
+                                    const comboKey = `${version.name}::${color.color_name}`
+                                    const isSelected = interior.allowed_combinations?.includes(comboKey) || false
+                                    return (
+                                      <label key={comboKey} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-2 py-1 cursor-pointer hover:bg-slate-50">
+                                        <input 
+                                          type="checkbox" 
+                                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3 h-3"
+                                          checked={isSelected}
+                                          onChange={(e) => {
+                                            const currentAllowed = interior.allowed_combinations || []
+                                            if (e.target.checked) {
+                                              updateInterior(idx, { allowed_combinations: [...currentAllowed, comboKey] })
+                                            } else {
+                                              const newAllowed = currentAllowed.filter(c => c !== comboKey)
+                                              updateInterior(idx, { allowed_combinations: newAllowed.length > 0 ? newAllowed : undefined })
+                                            }
+                                          }}
+                                        />
+                                        <span className="text-[11px] text-slate-700">{color.color_name}</span>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 ))}

@@ -80,16 +80,38 @@ export async function GET(request: Request, context: Context) {
   const specsObj = product.specifications || {}
   const image_urls = product.image_urls || []
 
-  const colors = (specsObj.fallback_colors || []).map((c: any) => ({
-    color_name: c.name,
-    image_url: c.image,
-    swatch: c.swatch
-  }))
+  // Load vehicle variants to populate images_by_version
+  const { data: vehicleVariants } = await supabase
+    .from('vehicle_variants')
+    .select('color, version, image_car_url')
+    .eq('product_id', productId)
+    .eq('is_active', true)
+
+  const colors = (specsObj.fallback_colors || []).map((c: any) => {
+    const images_by_version: Record<string, string> = {}
+    if (vehicleVariants) {
+      vehicleVariants.forEach((vv: any) => {
+        if (vv.color === c.name && vv.version && vv.image_car_url) {
+          images_by_version[vv.version] = vv.image_car_url
+        }
+      })
+    }
+    return {
+      color_name: c.name,
+      image_url: c.image,
+      swatch: c.swatch,
+      images_by_version: Object.keys(images_by_version).length > 0 ? images_by_version : undefined,
+      is_advanced: !!c.is_advanced
+    }
+  })
 
   const interiors = (specsObj.interiors || []).map((i: any) => ({
     interior_name: i.name,
-    image_url: i.image,
-    swatch: i.swatch
+    image_url: i.image || (i.images?.[0]) || '',
+    image_urls: i.images || (i.image ? [i.image] : []),
+    swatch: i.swatch,
+    allowed_combinations: i.allowed_combinations || i.allowed_colors
+
   }))
 
   // Load cars.json to resolve fallbacks
@@ -226,7 +248,9 @@ export async function GET(request: Request, context: Context) {
     listing_image_url,
     hero_image_url,
     logo_image_url: specsObj.logo_image_url || specsObj.logo_image || '',
+    brochure_url: specsObj.brochure_url || '',
     detail_image_urls,
+    advanced_color_price: Number(product.advanced_color_price) || 0,
     specifications: reconstructedSpecifications,
     colors,
     interiors,
@@ -278,7 +302,9 @@ export async function PATCH(request: Request, context: Context) {
     listing_image_url,
     hero_image_url,
     logo_image_url = '',
+    brochure_url = '',
     detail_image_urls = [],
+    advanced_color_price,
     specifications = {},
     colors = [],
     interiors = [],
@@ -365,7 +391,7 @@ export async function PATCH(request: Request, context: Context) {
     specs: specsByVersion,
     deposit: `${new Intl.NumberFormat('vi-VN').format(versions[0]?.deposit_amount || 15000000)} VNĐ`,
     options: [],
-    range_km: Number(specifications['Quãng đường đi được']?.replace(/[^0-9]/g, '')) || 300,
+    range_km: Number(String(specifications['Quãng đường đi được'] || '').replace(/[^0-9]/g, '')) || 300,
     marketing: {
       design: {
         title: 'Dấu ấn thời đại. Phong thái dẫn đầu.',
@@ -393,6 +419,7 @@ export async function PATCH(request: Request, context: Context) {
     },
     logo_image: logo_image_url || '',
     logo_image_url: logo_image_url || '',
+    brochure_url,
     range_text: specifications['Quãng đường đi được'] || '',
     seat_count: Number(specifications['Số chỗ ngồi']) || 5,
     banner_image: hero_image_url,
@@ -402,13 +429,16 @@ export async function PATCH(request: Request, context: Context) {
     fallback_colors: colors.map((c: any) => ({
       name: c.color_name,
       image: c.image_url,
-      swatch: c.swatch
+      swatch: c.swatch,
+      is_advanced: !!c.is_advanced
     })),
     fallback_color_images: colors.map((c: any) => c.image_url),
     interiors: interiors.map((i: any) => ({
       name: i.interior_name,
       image: i.image_url,
-      swatch: i.swatch
+      images: i.image_urls || (i.image_url ? [i.image_url] : []),
+      swatch: i.swatch,
+      allowed_combinations: i.allowed_combinations
     })),
     gallery: {
       all_images: image_urls,
@@ -431,6 +461,7 @@ export async function PATCH(request: Request, context: Context) {
       slug,
       description,
       is_active,
+      advanced_color_price: Number(advanced_color_price) || null,
       specifications: formattedSpecs,
       image_urls,
       displayed_price: displayedPrice,
@@ -480,7 +511,7 @@ export async function PATCH(request: Request, context: Context) {
           product_slug: slug,
           version_order: versionIndex + 1,
           hero_image_url,
-          original_price: Number(variantRow.original_price),
+          original_price: colorItem.is_advanced ? (Number(variantRow.original_price) + (Number(advanced_color_price) || 0)) : Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
           listing_image_url,
         },
@@ -495,9 +526,9 @@ export async function PATCH(request: Request, context: Context) {
         specs: catalogSpecs,
         variant_name: `${name} ${variantRow.name} - ${colorItem.color_name}`,
         sku,
-        price: variantRow.original_price,
+        price: colorItem.is_advanced ? (Number(variantRow.original_price) + (Number(advanced_color_price) || 0)) : variantRow.original_price,
         color: colorItem.color_name,
-        image_car_url: colorItem.image_url,
+        image_car_url: colorItem.images_by_version?.[variantRow.name] || colorItem.image_url,
         image_color_url: colorItem.swatch,
         version: variantRow.name,
         is_active: is_active,
@@ -507,6 +538,25 @@ export async function PATCH(request: Request, context: Context) {
   })
 
   // 4. Perform deletions
+  const newVvSkus = vehicleVariantRows.map((r) => r.sku)
+  const existingVvSkus = existingVV?.map((r) => r.sku) || []
+  const vvSkusToDelete = existingVvSkus.filter((s) => !newVvSkus.includes(s))
+
+  if (vvSkusToDelete.length > 0) {
+    const { error: vvDelError } = await supabase
+      .from('vehicle_variants')
+      .delete()
+      .in('sku', vvSkusToDelete)
+      .eq('product_id', productId)
+    if (vvDelError) {
+      if (vvDelError.message.includes('DEPOSIT_RESERVED_VEHICLE_IMMUTABLE') || vvDelError.message.includes('foreign key constraint')) {
+        await supabase.from('vehicle_variants').update({ is_active: false }).in('sku', vvSkusToDelete).eq('product_id', productId)
+      } else {
+        return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
+      }
+    }
+  }
+
   const newPvSkus = productVariantRows.map((r: any) => r.sku)
   const existingPvSkus = existingPV?.map((r) => r.sku) || []
   const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s))
@@ -524,7 +574,12 @@ export async function PATCH(request: Request, context: Context) {
       await supabase.from('inventory_items').delete().in('variant_id', pvIdsToDelete)
       await supabase.from('cart_items').delete().in('variant_id', pvIdsToDelete)
       await supabase.from('product_media').delete().in('variant_id', pvIdsToDelete)
-      await supabase.from('vehicle_variants').delete().in('product_variant_id', pvIdsToDelete)
+      // vehicle_variants should already be deleted by the block above if their SKUs were removed, 
+      // but as a fallback we delete any remaining references
+      const { error: fbError } = await supabase.from('vehicle_variants').delete().in('product_variant_id', pvIdsToDelete)
+      if (fbError && (fbError.message.includes('DEPOSIT_RESERVED_VEHICLE_IMMUTABLE') || fbError.message.includes('foreign key constraint'))) {
+        await supabase.from('vehicle_variants').update({ is_active: false }).in('product_variant_id', pvIdsToDelete)
+      }
     }
 
     const { error: pvDelError } = await supabase
@@ -533,22 +588,11 @@ export async function PATCH(request: Request, context: Context) {
       .in('sku', pvSkusToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
-      return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })
-    }
-  }
-
-  const newVvSkus = vehicleVariantRows.map((r) => r.sku)
-  const existingVvSkus = existingVV?.map((r) => r.sku) || []
-  const vvSkusToDelete = existingVvSkus.filter((s) => !newVvSkus.includes(s))
-
-  if (vvSkusToDelete.length > 0) {
-    const { error: vvDelError } = await supabase
-      .from('vehicle_variants')
-      .delete()
-      .in('sku', vvSkusToDelete)
-      .eq('product_id', productId)
-    if (vvDelError) {
-      return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
+      if (pvDelError.message.includes('foreign key constraint') || pvDelError.code === '23503') {
+        await supabase.from('product_variants').update({ is_active: false }).in('sku', pvSkusToDelete).eq('product_id', productId)
+      } else {
+        return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })
+      }
     }
   }
 

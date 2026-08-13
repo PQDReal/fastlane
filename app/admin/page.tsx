@@ -44,7 +44,7 @@ export default async function AdminDashboard() {
   ]
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-7" suppressHydrationWarning>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tổng quan hệ thống</h1>

@@ -669,6 +669,9 @@ export function DepositClient({
     setSelectedColor(newColor)
     if (viewMode !== 'exterior') setViewMode('exterior')
     
+    const hasCustomInteriors = !isMotorbike && currentCar.interiors && currentCar.interiors.length > 0
+    if (hasCustomInteriors) return
+
     if (selectedCarId.includes('VF 8')) {
       const allowsSaddleBrown = [
         'Infinity Blanc', 
@@ -1064,23 +1067,30 @@ export function DepositClient({
   let baseColors = isMotorbike ? colors : colors.slice(0, 4)
   let advancedColors = isMotorbike ? [] : colors.slice(4)
 
-  if (!isMotorbike && currentCar.name === 'VF 2') {
-    const vf2Base = ['Infinity Blanc', 'Solar Ruby', 'Desat Silver']
-    baseColors = colors.filter((c: any) => vf2Base.includes(c.name))
-    advancedColors = colors.filter((c: any) => !vf2Base.includes(c.name))
-  } else if (currentCar.name === 'VF 5') {
-    baseColors = colors.slice(0, 3)
-    advancedColors = colors.slice(3)
-  } else if (currentCar.name === 'VF 6') {
-    baseColors = colors.filter((c: any) => c.name !== 'Urban Mint')
-    advancedColors = colors.filter((c: any) => c.name === 'Urban Mint')
-  } else if (currentCar.name === 'VF 7') {
-    baseColors = colors.filter((c: any) => c.name !== 'Urban Mint')
-    advancedColors = colors.filter((c: any) => c.name === 'Urban Mint')
-  } else if (currentCar.name === 'VF 9') {
-    const vf9Advanced = ['Ivy Green', 'Desat Silver']
-    baseColors = colors.filter((c: any) => !vf9Advanced.includes(c.name))
-    advancedColors = colors.filter((c: any) => vf9Advanced.includes(c.name))
+  const hasConfiguredAdvancedColors = colors.some((c: any) => c.is_advanced)
+  
+  if (hasConfiguredAdvancedColors) {
+    baseColors = colors.filter((c: any) => !c.is_advanced)
+    advancedColors = colors.filter((c: any) => c.is_advanced)
+  } else {
+    if (!isMotorbike && currentCar.name === 'VF 2') {
+      const vf2Base = ['Infinity Blanc', 'Solar Ruby', 'Desat Silver']
+      baseColors = colors.filter((c: any) => vf2Base.includes(c.name))
+      advancedColors = colors.filter((c: any) => !vf2Base.includes(c.name))
+    } else if (currentCar.name === 'VF 5') {
+      baseColors = colors.slice(0, 3)
+      advancedColors = colors.slice(3)
+    } else if (currentCar.name === 'VF 6') {
+      baseColors = colors.filter((c: any) => c.name !== 'Urban Mint')
+      advancedColors = colors.filter((c: any) => c.name === 'Urban Mint')
+    } else if (currentCar.name === 'VF 7') {
+      baseColors = colors.filter((c: any) => c.name !== 'Urban Mint')
+      advancedColors = colors.filter((c: any) => c.name === 'Urban Mint')
+    } else if (currentCar.name === 'VF 9') {
+      const vf9Advanced = ['Ivy Green', 'Desat Silver']
+      baseColors = colors.filter((c: any) => !vf9Advanced.includes(c.name))
+      advancedColors = colors.filter((c: any) => vf9Advanced.includes(c.name))
+    }
   }
 
   const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
@@ -1274,7 +1284,9 @@ export function DepositClient({
     }
   } else {
     const matchedInterior = currentCar.interiors?.find((i: any) => i.name === selectedInteriorColor)
-    if (matchedInterior && matchedInterior.image) {
+    if (matchedInterior && matchedInterior.images && matchedInterior.images.length > 0) {
+      interiorImages = matchedInterior.images
+    } else if (matchedInterior && matchedInterior.image) {
       interiorImages = [matchedInterior.image]
     } else {
       interiorImages = Array.from(new Set(stringArray(currentCar.gallery?.interior_images)))
@@ -1297,13 +1309,15 @@ export function DepositClient({
     'Nâu (Saddle Brown)': '#633517'
   }
 
+  const hasCustomInteriors = !isMotorbike && currentCar.interiors && currentCar.interiors.length > 0
   let availableInteriorColors = isMotorbike
     ? []
-    : currentCar.interiors && currentCar.interiors.length > 0
+    : hasCustomInteriors
       ? currentCar.interiors.map((i: any) => ({
           name: i.name,
           hex: interiorColorMap[i.name] || '#CCCCCC',
-          swatch: i.swatch
+          swatch: i.swatch,
+          allowed_combinations: i.allowed_combinations || i.allowed_colors
         }))
       : [
           { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' },
@@ -1312,69 +1326,75 @@ export function DepositClient({
           { name: 'Navy Blue', hex: '#1c2841' }
         ]
 
-  if (!isMotorbike && currentCar.name === 'VF 2') {
-    availableInteriorColors = [
-      { name: 'Grey', hex: '#808080', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw33eb76b4/images/deposit/interior/CI1M.webp' }
-    ]
-  } else if (currentCar.name === 'VF 3') {
-    availableInteriorColors = [
-      { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-    ]
-  } else if (currentCar.name === 'VF 9') {
-    const graniteBlack = { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-    const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
-    const saddleBrown = { name: 'Saddle Brown', hex: '#633517', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw65203801/images/deposit/interior/CI12.webp' }
-    
-    const isEco = selectedVariant.toLowerCase().includes('eco')
-    const hasCottonBeige = ['Jet Black', 'Crimson Red', 'Ivy Green'].includes(selectedColor)
-    const hasSaddleBrown = !isEco && selectedColor !== 'Crimson Red'
+  if (hasCustomInteriors) {
+    availableInteriorColors = availableInteriorColors.filter((i: any) => 
+      !i.allowed_combinations || i.allowed_combinations.length === 0 || i.allowed_combinations.includes(`${selectedVariantName}::${selectedColor}`)
+    )
+  } else {
+    if (!isMotorbike && currentCar.name === 'VF 2') {
+      availableInteriorColors = [
+        { name: 'Grey', hex: '#808080', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw33eb76b4/images/deposit/interior/CI1M.webp' }
+      ]
+    } else if (currentCar.name === 'VF 3') {
+      availableInteriorColors = [
+        { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+      ]
+    } else if (currentCar.name === 'VF 9') {
+      const graniteBlack = { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+      const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
+      const saddleBrown = { name: 'Saddle Brown', hex: '#633517', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw65203801/images/deposit/interior/CI12.webp' }
+      
+      const isEco = selectedVariant.toLowerCase().includes('eco')
+      const hasCottonBeige = ['Jet Black', 'Crimson Red', 'Ivy Green'].includes(selectedColor)
+      const hasSaddleBrown = !isEco && selectedColor !== 'Crimson Red'
 
-    availableInteriorColors = [graniteBlack]
-    if (hasSaddleBrown) availableInteriorColors.push(saddleBrown)
-    if (hasCottonBeige) availableInteriorColors.push(cottonBeige)
-  } else if (currentCar.name === 'VF 5') {
-    availableInteriorColors = [
-      { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-    ]
-  } else if (currentCar.name === 'VF 6' || currentCar.name === 'VF 7') {
-    const isEco = selectedVariant.toLowerCase().includes('eco')
-    const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-    const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
-    const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' } // Fallback CI18 URL, relying on hex
-    
-    if (isEco) {
-      const allowsBeige = selectedColor === 'Jet Black' || selectedColor === 'Solar Ruby'
-      availableInteriorColors = allowsBeige ? [black, cottonBeige] : [black]
-    } else {
-      if (selectedColor === 'Solar Ruby') {
-        availableInteriorColors = [cottonBeige]
-      } else if (selectedColor === 'Jet Black') {
-        availableInteriorColors = [moccaBrown, cottonBeige]
+      availableInteriorColors = [graniteBlack]
+      if (hasSaddleBrown) availableInteriorColors.push(saddleBrown)
+      if (hasCottonBeige) availableInteriorColors.push(cottonBeige)
+    } else if (currentCar.name === 'VF 5') {
+      availableInteriorColors = [
+        { name: 'Granite Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+      ]
+    } else if (currentCar.name === 'VF 6' || currentCar.name === 'VF 7') {
+      const isEco = selectedVariant.toLowerCase().includes('eco')
+      const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+      const cottonBeige = { name: 'Cotton Beige', hex: '#d6cdb4', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6b5810a9/images/deposit/interior/CI13.webp' }
+      const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' } // Fallback CI18 URL, relying on hex
+      
+      if (isEco) {
+        const allowsBeige = selectedColor === 'Jet Black' || selectedColor === 'Solar Ruby'
+        availableInteriorColors = allowsBeige ? [black, cottonBeige] : [black]
       } else {
-        availableInteriorColors = [moccaBrown]
+        if (selectedColor === 'Solar Ruby') {
+          availableInteriorColors = [cottonBeige]
+        } else if (selectedColor === 'Jet Black') {
+          availableInteriorColors = [moccaBrown, cottonBeige]
+        } else {
+          availableInteriorColors = [moccaBrown]
+        }
       }
-    }
-  } else if (currentCar.name.includes('VF 8')) {
-    availableInteriorColors = availableInteriorColors.slice(0, 2)
-    const allowsSaddleBrown = [
-      'Infinity Blanc', 
-      'Starburst Blue', 
-      'Jet Black', 
-      'Starburst Blue Body - Infinity Blanc Roof', 
-      'Jet Black Body - Stealth Gray Roof'
-    ].includes(selectedColor)
+    } else if (currentCar.name.includes('VF 8')) {
+      availableInteriorColors = availableInteriorColors.slice(0, 2)
+      const allowsSaddleBrown = [
+        'Infinity Blanc', 
+        'Starburst Blue', 
+        'Jet Black', 
+        'Starburst Blue Body - Infinity Blanc Roof', 
+        'Jet Black Body - Stealth Gray Roof'
+      ].includes(selectedColor)
 
-    if (!allowsSaddleBrown) {
-      availableInteriorColors = [availableInteriorColors[0]] // Only Granite Black
-    }
-  } else if (currentCar.name.includes('MPV')) {
-    const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
-    const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' }
-    
-    if (selectedColor === 'Solar Ruby' || selectedColor === 'Introspective Brown') {
-      availableInteriorColors = [black]
-    } else {
-      availableInteriorColors = [black, moccaBrown]
+      if (!allowsSaddleBrown) {
+        availableInteriorColors = [availableInteriorColors[0]] // Only Granite Black
+      }
+    } else if (currentCar.name.includes('MPV')) {
+      const black = { name: 'Black', hex: '#111111', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9a153245/images/deposit/interior/CI11.webp' }
+      const moccaBrown = { name: 'Mocca Brown', hex: '#6b4e31', swatch: 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7e53f19e/images/deposit/interior/CI18.webp' }
+      
+      if (selectedColor === 'Solar Ruby' || selectedColor === 'Introspective Brown') {
+        availableInteriorColors = [black]
+      } else {
+        availableInteriorColors = [black, moccaBrown]
+      }
     }
   }
 

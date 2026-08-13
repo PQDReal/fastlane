@@ -47,7 +47,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   try {
     const { data } = await supabase
       .from('products')
-      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active)')
+      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, version, is_active)')
       .eq('product_type', 'CAR')
     if (data) dbProducts = data
   } catch (e) {
@@ -99,6 +99,10 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
         const uniqueColorsMap = new Map()
         dbColors.forEach((colorObj: any) => {
           if (!uniqueColorsMap.has(colorObj.name)) {
+            const fallbackColor = dbP.specifications?.fallback_colors?.find((c: any) => c.name === colorObj.name)
+            if (fallbackColor && fallbackColor.is_advanced) {
+              colorObj.is_advanced = true
+            }
             uniqueColorsMap.set(colorObj.name, colorObj)
           }
         })
@@ -120,11 +124,15 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     if (p.vehicle_variants && p.vehicle_variants.length > 0) {
       colors = p.vehicle_variants
         .filter((v: any) => v.is_active !== false && v.color && v.image_car_url)
-        .map((v: any) => ({
-          name: v.color,
-          image: v.image_car_url,
-          swatch: v.image_color_url
-        }))
+        .map((v: any) => {
+          const fallbackColor = specsObj.fallback_colors?.find((c: any) => c.name === v.color)
+          return {
+            name: v.color,
+            image: v.image_car_url,
+            swatch: v.image_color_url,
+            is_advanced: fallbackColor?.is_advanced || false
+          }
+        })
     } else if (specsObj.fallback_colors) {
       colors = specsObj.fallback_colors
     }
