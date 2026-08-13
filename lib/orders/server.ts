@@ -358,16 +358,25 @@ export async function listCustomerOrders(
     if (depositError) throw new Error(`Unable to list deposit orders: ${depositError.message}`)
 
     const paidDepositOrderIds = new Set<string>()
+    const latestDepositAttemptByOrder = new Map<string, 'PENDING' | 'PAID' | 'FAILED'>()
     const depositOrderIds = (depositData ?? []).map((deposit: any) => deposit.id)
     if (depositOrderIds.length > 0) {
       const { data: depositAttempts, error: depositAttemptsError } = await supabase
         .from('vnpay_deposit_attempts')
-        .select('deposit_order_id,status')
+        .select('deposit_order_id,status,created_at')
         .in('deposit_order_id', depositOrderIds)
-        .eq('status', 'PAID')
+        .order('created_at', { ascending: false })
 
       if (depositAttemptsError) throw new Error(`Unable to list deposit payment attempts: ${depositAttemptsError.message}`)
-      for (const attempt of depositAttempts ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
+      for (const attempt of depositAttempts ?? []) {
+        if (!latestDepositAttemptByOrder.has(attempt.deposit_order_id)) {
+          latestDepositAttemptByOrder.set(
+            attempt.deposit_order_id,
+            attempt.status as 'PENDING' | 'PAID' | 'FAILED',
+          )
+        }
+        if (attempt.status === 'PAID') paidDepositOrderIds.add(attempt.deposit_order_id)
+      }
 
     }
   
@@ -403,6 +412,7 @@ export async function listCustomerOrders(
           ? 'Completed'
           : deposit.refund_status === 'PENDING' ? 'Pending' : 'None',
         paymentStatus: paymentStatus as 'Pending' | 'Paid',
+        latestPaymentAttemptStatus: latestDepositAttemptByOrder.get(deposit.id) ?? null,
         kycStatus: deposit.kyc_status ?? null,
         contractIssuedAt: deposit.contract_issued_at ?? null,
         contractSignatureDueAt: deposit.contract_signature_due_at ?? null,

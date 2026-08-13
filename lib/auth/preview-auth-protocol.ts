@@ -15,6 +15,15 @@ export function isPreviewAuthRequiredResponse(response: Response) {
     && response.headers.get(PREVIEW_AUTH_REQUIRED_HEADER) === PREVIEW_AUTH_REQUIRED_CODE
 }
 
+export function isAuthenticationRequiredApiResponse(response: Response) {
+  return response.status === 401 && !isPreviewAuthRequiredResponse(response)
+}
+
+export function createAuthLoginHref(currentLocation: Pick<Location, 'pathname' | 'search' | 'hash'>) {
+  const returnTo = `${currentLocation.pathname}${currentLocation.search}${currentLocation.hash}`
+  return `/auth/login?returnTo=${encodeURIComponent(returnTo)}`
+}
+
 export function createPreviewAuthRetryHref(currentLocation: Pick<Location, 'pathname' | 'search' | 'hash'>) {
   const returnTo = `${currentLocation.pathname}${currentLocation.search}${currentLocation.hash}`
   return `${PREVIEW_AUTH_RETRY_PATH}?returnTo=${encodeURIComponent(returnTo)}`

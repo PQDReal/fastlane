@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2, ChevronLeft, ChevronRight, ChevronDown, Truck } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, MapPin, Package, User, XCircle, CarFront, X, Check, FileText, ArrowRight, CreditCard, Trash2, ChevronLeft, ChevronRight, ChevronDown, Truck, RotateCcw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Footer } from '@/components/footer'
@@ -166,6 +166,30 @@ function ProfileContent() {
       active = false
     }
   }, [activeTab, isAdmin, ordersPage, user])
+
+  const hasPendingPaymentVerification = userOrders.some((order) =>
+    order.paymentStatus === 'Pending' && order.latestPaymentAttemptStatus === 'PENDING',
+  )
+
+  useEffect(() => {
+    if (!user || isAdmin || !hasPendingPaymentVerification || (activeTab !== 'orders' && activeTab !== 'car-orders')) return
+
+    const timer = window.setInterval(async () => {
+      try {
+        const typeQuery = activeTab === 'orders' ? 'accessory' : 'car'
+        const response = await fetch(`/api/v1/orders?page=${ordersPage}&limit=5&type=${typeQuery}&_t=${Date.now()}`, { cache: 'no-store' })
+        const payload = await response.json()
+        if (response.ok && Array.isArray(payload.data)) {
+          setUserOrders(payload.data || [])
+          setOrdersMeta(payload.meta || { page: ordersPage, limit: 5, total: 0, totalPages: 0 })
+        }
+      } catch {
+        // Silent retry; the explicit order fetch already surfaced errors.
+      }
+    }, 15_000)
+
+    return () => window.clearInterval(timer)
+  }, [activeTab, hasPendingPaymentVerification, isAdmin, ordersPage, user])
 
   async function openAccessoryOrder(orderId: string) {
     setAccessoryOrderLoadingId(orderId)
@@ -863,17 +887,24 @@ function ProfileContent() {
                     // Original Accessory Order UI
                     const accessoryStatus = String(order.status)
                     const canPay = ['Created', 'Pending', 'PENDING'].includes(accessoryStatus) && order.paymentStatus === 'Pending'
+                    const paymentVerifying = canPay && order.latestPaymentAttemptStatus === 'PENDING'
                     const canCancel = canPay || ['Paid', 'PAID', 'Confirmed', 'CONFIRMED'].includes(accessoryStatus)
                     const paymentFailed = canPay && order.latestPaymentAttemptStatus === 'FAILED'
                     const actionBusy = orderAction?.id === order.id
                     const paymentBusy = actionBusy && orderAction?.type === 'payment'
                     const cancellationBusy = actionBusy && orderAction?.type === 'cancel'
-                    const displayStatus = paymentFailed ? 'Thanh toán thất bại' : translateStatus(order.status, false, order.refundStatus)
+                    const displayStatus = paymentVerifying
+                      ? 'Đang xác minh thanh toán'
+                      : paymentFailed
+                        ? 'Thanh toán thất bại'
+                        : translateStatus(order.status, false, order.refundStatus)
                     const isCancelled = ['Cancelled', 'CANCELLED'].includes(accessoryStatus)
                     const statusBadgeClass = isCancelled && order.refundStatus === 'Pending'
                       ? 'border-orange-200 bg-orange-50 text-orange-700'
                       : isCancelled
                         ? 'border-red-200 bg-red-50 text-red-700'
+                        : paymentVerifying
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
                         : paymentFailed
                           ? 'border-amber-200 bg-amber-50 text-amber-700'
                           : order.paymentStatus === 'Paid'
@@ -916,11 +947,17 @@ function ProfileContent() {
                         </div>
 
                         <footer className="flex flex-wrap justify-end gap-2 border-t border-gray-200 bg-gray-50/70 px-5 py-3.5">
-                          {canPay && (
+                          {canPay && !paymentVerifying && (
                             <button type="button" onClick={() => void payAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#836100] px-4 text-sm font-bold text-white transition hover:bg-[#6a4e00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]/40 disabled:cursor-wait disabled:opacity-60">
                               {paymentBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                               {paymentFailed ? 'Thanh toán lại' : 'Thanh toán'}
                             </button>
+                          )}
+                          {paymentVerifying && (
+                            <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-bold text-amber-700">
+                              <RotateCcw className="h-4 w-4 animate-spin" />
+                              Đang xác minh thanh toán
+                            </span>
                           )}
                           {canCancel && (
                             <button type="button" onClick={() => requestCancelAccessoryOrder(order)} disabled={actionBusy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-red-300 px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-wait disabled:opacity-60">
@@ -1065,7 +1102,13 @@ function ProfileContent() {
                   <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-gray-500">Trạng thái</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-800">{['Created', 'Pending', 'PENDING'].includes(String(selectedAccessoryOrder.status)) && selectedAccessoryOrder.payment.status === 'Pending' && selectedAccessoryOrder.latestPaymentAttemptStatus === 'FAILED' ? 'Thanh toán thất bại' : translateStatus(selectedAccessoryOrder.status, false, selectedAccessoryOrder.refundStatus)}</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-800">
+                        {['Created', 'Pending', 'PENDING'].includes(String(selectedAccessoryOrder.status)) && selectedAccessoryOrder.payment.status === 'Pending' && selectedAccessoryOrder.latestPaymentAttemptStatus === 'PENDING'
+                          ? 'Đang xác minh thanh toán'
+                          : ['Created', 'Pending', 'PENDING'].includes(String(selectedAccessoryOrder.status)) && selectedAccessoryOrder.payment.status === 'Pending' && selectedAccessoryOrder.latestPaymentAttemptStatus === 'FAILED'
+                            ? 'Thanh toán thất bại'
+                            : translateStatus(selectedAccessoryOrder.status, false, selectedAccessoryOrder.refundStatus)}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs uppercase tracking-wide text-gray-500">Tổng thanh toán</p>

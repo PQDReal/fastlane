@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PreviewAuthDialog } from './preview-auth-dialog'
 import {
   canReplayAfterPreviewAuth,
+  createAuthLoginHref,
   isPreviewAuthRequiredResponse,
+  isAuthenticationRequiredApiResponse,
   PREVIEW_AUTH_EXPIRY_STORAGE_KEY,
   PREVIEW_AUTH_RENEWED_EVENT,
   PREVIEW_AUTH_RETRY_PATH,
@@ -21,6 +23,7 @@ export function PreviewAuthExpiryGuard() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [manualRetryRequired, setManualRetryRequired] = useState(false)
   const gateRef = useRef<AuthenticationGate | null>(null)
+  const auth0LoginRedirectStartedRef = useRef(false)
 
   const requestAuthentication = useCallback((requiresManualRetry = false) => {
     try {
@@ -80,7 +83,17 @@ export function PreviewAuthExpiryGuard() {
       const canReplay = canReplayAfterPreviewAuth(method)
       const retryInput = canReplay && input instanceof Request ? input.clone() : input
       const response = await originalFetch(input, init)
-      if (!isPreviewAuthRequiredResponse(response)) return response
+      if (!isPreviewAuthRequiredResponse(response)) {
+        if (
+          isAuthenticationRequiredApiResponse(response)
+          && !auth0LoginRedirectStartedRef.current
+          && window.location.pathname !== '/auth/login'
+        ) {
+          auth0LoginRedirectStartedRef.current = true
+          window.location.assign(createAuthLoginHref(window.location))
+        }
+        return response
+      }
 
       await requestAuthentication(!canReplay)
       if (canReplay) return originalFetch(retryInput, init)

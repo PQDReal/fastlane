@@ -8,6 +8,7 @@ import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { AdminOrderRow } from './orders-client'
 import {
   confirmDepositRefund,
+  reconcileDepositPayment,
   notifyVehicleReadyForDelivery,
   runDepositDebugAction,
   updateOrderStatus,
@@ -33,6 +34,7 @@ type OrderDetailDrawerProps = {
 export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onClose, onOrderUpdated, onShowToast, onDismissToast }: OrderDetailDrawerProps) {
   const [isUpdating, setIsUpdating] = useState(false)
   const [isSubmittingRefund, setIsSubmittingRefund] = useState(false)
+  const [isReconcilingPayment, setIsReconcilingPayment] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -178,6 +180,42 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
       })
     } finally {
       setIsSubmittingRefund(false)
+      setIsUpdating(false)
+    }
+  }
+
+  const handleReconcilePayment = async () => {
+    if (isReconcilingPayment) return
+    setIsReconcilingPayment(true)
+    setIsUpdating(true)
+    try {
+      const res = await reconcileDepositPayment(order.id)
+      if (res.success) {
+        onShowToast({
+          title: res.reason === 'QUERY_TOO_SOON'
+            ? 'Vui lòng chờ trước khi kiểm tra lại'
+            : res.status === 'PAID'
+              ? 'Đã xác nhận thanh toán'
+              : 'Đang xác minh thanh toán',
+          message: res.message || 'Hệ thống đã kiểm tra lại giao dịch VNPay.',
+          kind: res.status === 'PAID' ? 'success' : 'warning',
+        })
+        onOrderUpdated()
+      } else {
+        onShowToast({
+          title: 'Không thể kiểm tra thanh toán VNPay',
+          message: res.error || 'Vui lòng thử lại.',
+          kind: 'error',
+        })
+      }
+    } catch (error) {
+      onShowToast({
+        title: 'Không thể kiểm tra thanh toán VNPay',
+        message: error instanceof Error ? error.message : 'Vui lòng thử lại.',
+        kind: 'error',
+      })
+    } finally {
+      setIsReconcilingPayment(false)
       setIsUpdating(false)
     }
   }
@@ -446,6 +484,17 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                     {isSubmittingRefund ? 'Đang gửi yêu cầu VNPay...' : order.refundAttemptStatus === 'FAILED' ? 'Thử hoàn tiền lại' : 'Xác nhận hoàn tiền'}
                   </button>
                 )}
+                {['PENDING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && order.payment === 'Pending' && order.paymentAttemptStatus === 'PENDING' && (
+                  <button
+                    type="button"
+                    onClick={handleReconcilePayment}
+                    disabled={isUpdating || isReconcilingPayment}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <RotateCcw size={16} className={isReconcilingPayment ? 'animate-spin' : undefined} />
+                    {isReconcilingPayment ? 'Đang kiểm tra...' : 'Kiểm tra thanh toán VNPay'}
+                  </button>
+                )}
                 {nextAction && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
                   <button
                     onClick={() => handleUpdateStatus(nextAction.nextStatus)}
@@ -497,7 +546,7 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
                   </button>
                 )}
 
-                {!nextAction && ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && order.payment !== 'Paid' && (
+                {!nextAction && ['PENDING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && order.payment !== 'Paid' && order.paymentAttemptStatus !== 'PENDING' && (
                   <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700">
                     <span>Đang chờ khách hàng thanh toán qua VNPAY</span>
                     {debugActionsEnabled && (
