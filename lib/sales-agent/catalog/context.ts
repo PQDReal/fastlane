@@ -9,6 +9,7 @@ import {
 } from '@/lib/catalog/vehicle-specifications'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { classifySalesAgentProductType } from './product-type'
+import type { VehicleCatalogParityItem } from '@/lib/catalog/vehicle-read-contract'
 
 export type SalesAgentProductType = VehicleProductType | 'ACCESSORY'
 export type SalesAgentAvailabilityState = 'IN_STOCK' | 'OUT_OF_STOCK' | 'UNKNOWN'
@@ -24,6 +25,16 @@ export type SalesAgentCatalogFact = {
   facts: Record<string, string>
   dataAsOf: string
   sourceUpdatedAt: string | null
+}
+
+export function toSalesAgentCatalogParityItem(item: Pick<SalesAgentCatalogFact, 'id' | 'name' | 'productType' | 'price'>): VehicleCatalogParityItem | null {
+  if (item.productType !== 'BIKE') return null
+  return {
+    productId: item.id,
+    name: item.name,
+    productType: 'BIKE',
+    price: item.price,
+  }
 }
 
 export type SalesAgentVehicleConfiguration = {

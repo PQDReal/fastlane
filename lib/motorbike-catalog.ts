@@ -5,6 +5,7 @@ import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { MOTORBIKE_CATALOG_CACHE_KEY, motorbikeDetailCacheKey } from '@/lib/cache-keys'
 import { readRedisJson, writeRedisJson } from '@/lib/redis'
+import type { VehicleCatalogParityItem } from '@/lib/catalog/vehicle-read-contract'
 
 type JsonRecord = Record<string, unknown>
 
@@ -72,6 +73,18 @@ type MotorbikeCatalogReadRow = {
   variants: Array<Omit<VehicleVariantRow, 'product_id' | 'product_name' | 'specs'>> | null
 }
 
+type ActiveProductRow = {
+  id: string
+  product_variants?: ActiveProductVariant[] | null
+}
+
+type ActiveProductVariant = {
+  sku: string
+  original_price: number | string
+  sale_price: number | string | null
+  is_active: boolean
+}
+
 export const MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES = ['BIKE', 'MOTORBIKE'] as const
 
 function record(value: unknown): JsonRecord {
@@ -102,7 +115,37 @@ function orderOf(row: VehicleVariantRow, key: 'version_order' | 'color_order') {
   return number(record(record(row.specs).catalog)[key])
 }
 
-function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
+function effectiveProductVariantPrice(variant: ActiveProductVariant) {
+  const salePrice = number(variant.sale_price)
+  const originalPrice = number(variant.original_price)
+  return salePrice > 0 ? salePrice : originalPrice > 0 ? originalPrice : null
+}
+
+function normalizedSku(value: string) {
+  return value.trim().replace(/-C\d{2}$/i, '').toUpperCase()
+}
+
+function buildAuthorityPriceMap(rows: ActiveProductRow[]) {
+  const prices = new Map<string, number>()
+  for (const product of rows) {
+    const productPrices = (product.product_variants ?? [])
+      .filter((variant) => variant.is_active !== false)
+      .flatMap((variant) => {
+        const price = effectiveProductVariantPrice(variant)
+        return price === null ? [] : [{ sku: normalizedSku(variant.sku), price }]
+      })
+    for (const variant of productPrices) {
+      const key = `${product.id}:${variant.sku}`
+      const current = prices.get(key)
+      if (current === undefined || variant.price < current) prices.set(key, variant.price)
+    }
+    const minimum = productPrices.reduce<number | null>((current, variant) => current === null ? variant.price : Math.min(current, variant.price), null)
+    if (minimum !== null) prices.set(`${product.id}:*`, minimum)
+  }
+  return prices
+}
+
+function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, number>()): MotorbikeCatalogItem[] {
   const grouped = new Map<string, VehicleVariantRow[]>()
   for (const row of rows) {
     const group = grouped.get(row.product_id) ?? []
@@ -111,7 +154,12 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
   }
 
   return [...grouped.values()].map((productRows) => {
-    const first = productRows[0]
+    const sourceRows = productRows.map((row) => ({
+      ...row,
+      price: authorityPrices.get(`${row.product_id}:${normalizedSku(row.sku)}`)
+        ?? number(row.price),
+    }))
+    const first = sourceRows[0]
     const rootSpecs = record(first.specs)
     const catalog = record(rootSpecs.catalog)
     const technicalSpecifications = record(rootSpecs.specs)
@@ -122,7 +170,7 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
         )
 
     const colors = [...new Map(
-      productRows.map((row) => [row.color, {
+      sourceRows.map((row) => [row.color, {
         name: row.color,
         imageUrl: row.image_car_url,
         swatchUrl: row.image_color_url,
@@ -131,7 +179,7 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
     ).values()].sort((left, right) => left.order - right.order)
 
     const versions = [...new Map(
-      productRows.map((row) => [normalizedVersion(row), {
+      sourceRows.map((row) => [normalizedVersion(row), {
         id: row.id,
         name: normalizedVersion(row),
         sku: row.sku.replace(/-C\d{2}$/i, ''),
@@ -157,10 +205,11 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
         rootSpecs.brochure,
       ),
       specifications,
-      displayedPrice: Math.min(...versions.map((version) => version.price)),
+      displayedPrice: authorityPrices.get(`${first.product_id}:*`)
+        ?? Math.min(...versions.map((version) => version.price)),
       colors,
       versions,
-      variantRows: productRows.map((row) => ({
+      variantRows: sourceRows.map((row) => ({
         id: row.id,
         version: normalizedVersion(row),
         color: row.color,
@@ -182,7 +231,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
     supabase.rpc('list_active_motorbike_catalog'),
     supabase
       .from('products')
-      .select('id')
+      .select('id,product_variants(sku,original_price,sale_price,is_active)')
       .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
       .eq('is_active', true),
   ])
@@ -190,7 +239,9 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   if (activeProducts.error) {
     throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
   }
-  const activeProductIds = new Set((activeProducts.data ?? []).map((product) => product.id))
+  const activeProductRows = (activeProducts.data ?? []) as ActiveProductRow[]
+  const activeProductIds = new Set(activeProductRows.map((product) => product.id))
+  const authorityPrices = buildAuthorityPriceMap(activeProductRows)
 
   if (!aggregate.error) {
     const rows = ((aggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
@@ -201,7 +252,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
         specs: product.shared_specs,
       })) : [],
     )
-    return mapRows(rows)
+    return mapRows(rows, authorityPrices)
   }
 
   const { data, error } = await supabase
@@ -217,7 +268,16 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
     )
   }
 
-  return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)))
+  return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)), authorityPrices)
+}
+
+export function toMotorbikeCatalogParityItem(item: Pick<MotorbikeCatalogItem, 'productId' | 'name' | 'displayedPrice'>): VehicleCatalogParityItem {
+  return {
+    productId: item.productId,
+    name: item.name,
+    productType: 'BIKE',
+    price: item.displayedPrice,
+  }
 }
 
 const loadCachedMotorbikeCatalog = unstable_cache(
