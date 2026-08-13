@@ -1,4 +1,5 @@
 import { createVnPayPaymentUrl, type VnPayParams, verifyVnPayHash, vnPayConfig } from '@/lib/payments/vnpay'
+import { scheduleVnPayReconciliation } from '@/lib/services/vnpay-reconciliation-scheduler'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { sendPaymentSuccessEmail } from '@/lib/mailer'
 
@@ -99,6 +100,7 @@ export async function createOrReuseVnPayPayment(
       if (!attempt) throw result.error
     } else attempt = result.data
   }
+  await scheduleVnPayReconciliation({ attemptId: attempt.id, orderKind: 'accessory' })
   return createVnPayPaymentUrl({
     transactionReference: attempt.transaction_reference,
     orderNumber: attempt.order_number,
@@ -170,6 +172,7 @@ export async function createOrReuseVnPayDepositPayment(
     }
   }
 
+  await scheduleVnPayReconciliation({ attemptId: attempt.id, orderKind: 'deposit' })
   return createVnPayPaymentUrl({
     transactionReference: attempt.transaction_reference,
     orderNumber: attempt.order_number,
