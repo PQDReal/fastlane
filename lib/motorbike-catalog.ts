@@ -165,6 +165,7 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
         ? authorityPrices.get(`${row.product_id}:variant:${row.product_variant_id}`)
         : undefined)
         ?? authorityPrices.get(`${row.product_id}:sku:${normalizedSku(row.sku)}`)
+        ?? authorityPrices.get(`${row.product_id}:*`)
         ?? number(row.price),
     }))
     const first = sourceRows[0]
