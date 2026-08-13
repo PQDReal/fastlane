@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
-import type { SalesAgentMessage } from '@/lib/sales-agent/contracts/message'
+import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agent/contracts/message'
 
 type DisplayMessage = SalesAgentMessage & { id: string; pending?: boolean; error?: boolean }
 
@@ -95,7 +95,7 @@ export function SalesAgentShell() {
     const assistantId = crypto.randomUUID()
     const userMessage: DisplayMessage = { id: crypto.randomUUID(), role: 'user', content: message }
     const assistantMessage: DisplayMessage = { id: assistantId, role: 'assistant', content: '', pending: true }
-    const history = messages.filter((item) => !item.pending).slice(-20).map(({ role, content }) => ({ role, content }))
+    const history = limitSalesAgentHistory(messages.filter((item) => !item.pending).map(({ role, content }) => ({ role, content })))
     setMessages((items) => [...items, userMessage, assistantMessage])
     setSending(true)
     try {

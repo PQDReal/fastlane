@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { isSalesAgentEnabled } from '@/lib/sales-agent/core/flags'
 import { buildSalesAgentProviderInput, redactSalesAgentInput } from '@/lib/sales-agent/core/policy'
-import { SalesAgentRequestError, parseSalesAgentMessageRequest, type SalesAgentSseEvent } from '@/lib/sales-agent/contracts/message'
+import { limitSalesAgentHistory, SalesAgentRequestError, parseSalesAgentMessageRequest, type SalesAgentSseEvent } from '@/lib/sales-agent/contracts/message'
 import { completeWithSalesAgentProvider } from '@/lib/sales-agent/providers/registry'
 import { executeSalesAgentTools, serializeSalesAgentToolResults } from '@/lib/sales-agent/tools/registry'
 import { planSalesAgentTools } from '@/lib/sales-agent/tools/planner'
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const conversationId = payload.conversationId || crypto.randomUUID()
     const messageId = crypto.randomUUID()
     return streamResponse({ conversationId, messageId, run: async (send) => {
-      const history = (payload.guestHistory ?? []).map((item) => ({ ...item, content: redactSalesAgentInput(item.content) }))
+      const history = limitSalesAgentHistory((payload.guestHistory ?? []).map((item) => ({ ...item, content: redactSalesAgentInput(item.content) })))
       // Read-only tools are planned and executed by Fastlane. A slow lookup
       // must not hold the transcript open; the provider then answers without
       // dynamic facts instead of guessing them.

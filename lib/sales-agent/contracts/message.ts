@@ -3,6 +3,58 @@ export type SalesAgentMessage = {
   content: string
 }
 
+export const SALES_AGENT_MAX_HISTORY_TURNS = 20
+export const SALES_AGENT_MAX_HISTORY_TOKENS = 10_000
+export const SALES_AGENT_MAX_HISTORY_MESSAGES = SALES_AGENT_MAX_HISTORY_TURNS * 2
+export const SALES_AGENT_MESSAGE_MAX_CHARS = 2_000
+const SALES_AGENT_TOKEN_CHAR_RATIO = 3
+const SALES_AGENT_MESSAGE_OVERHEAD_TOKENS = 3
+
+export function estimateSalesAgentTextTokens(value: string) {
+  return Math.ceil(value.length / SALES_AGENT_TOKEN_CHAR_RATIO)
+}
+
+export function estimateSalesAgentMessageTokens(message: SalesAgentMessage) {
+  return SALES_AGENT_MESSAGE_OVERHEAD_TOKENS + estimateSalesAgentTextTokens(message.content)
+}
+
+export function estimateSalesAgentHistoryTokens(history: SalesAgentMessage[]) {
+  return SALES_AGENT_MESSAGE_OVERHEAD_TOKENS + history.reduce((total, message) => total + estimateSalesAgentMessageTokens(message), 0)
+}
+
+function toUserLedTurns(history: SalesAgentMessage[]) {
+  const turns: SalesAgentMessage[][] = []
+  for (const message of history) {
+    if (message.role === 'user') {
+      turns.push([message])
+      continue
+    }
+    const currentTurn = turns.at(-1)
+    // A normal client turn contains one user and one assistant message. Ignore
+    // duplicate assistant entries so the bounded context cannot be inflated by
+    // orphaned or replayed provider events.
+    if (currentTurn && currentTurn.length === 1) currentTurn.push(message)
+  }
+  return turns
+}
+
+/** Keeps the newest complete user-led turns within both context limits. */
+export function limitSalesAgentHistory(history: SalesAgentMessage[]) {
+  const turns = toUserLedTurns(history)
+  const keptTurns: SalesAgentMessage[][] = []
+  let estimatedTokens = SALES_AGENT_MESSAGE_OVERHEAD_TOKENS
+
+  for (let index = turns.length - 1; index >= 0 && keptTurns.length < SALES_AGENT_MAX_HISTORY_TURNS; index -= 1) {
+    const turn = turns[index]
+    const turnTokens = turn.reduce((total, message) => total + estimateSalesAgentMessageTokens(message), 0)
+    if (keptTurns.length > 0 && estimatedTokens + turnTokens > SALES_AGENT_MAX_HISTORY_TOKENS) break
+    keptTurns.unshift(turn)
+    estimatedTokens += turnTokens
+  }
+
+  return keptTurns.flat()
+}
+
 export type SalesAgentMessageRequest = {
   conversationId?: string
   message: string
@@ -23,16 +75,16 @@ export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessage
   const input = value as Record<string, unknown>
   const message = typeof input.message === 'string' ? input.message.trim() : ''
   if (!message) throw new SalesAgentRequestError('Vui lòng nhập câu hỏi cho agent.')
-  if (message.length > 2_000) throw new SalesAgentRequestError('Câu hỏi tối đa 2.000 ký tự.')
+  if (message.length > SALES_AGENT_MESSAGE_MAX_CHARS) throw new SalesAgentRequestError('Câu hỏi tối đa 2.000 ký tự.')
 
   const history = Array.isArray(input.guestHistory) ? input.guestHistory : []
-  const guestHistory = history.slice(-20).flatMap((item) => {
+  const guestHistory = limitSalesAgentHistory(history.slice(-SALES_AGENT_MAX_HISTORY_MESSAGES).flatMap((item) => {
     if (!item || typeof item !== 'object') return []
     const row = item as Record<string, unknown>
     if ((row.role !== 'user' && row.role !== 'assistant') || typeof row.content !== 'string') return []
-    const content = row.content.trim().slice(0, 2_000)
+    const content = row.content.trim().slice(0, SALES_AGENT_MESSAGE_MAX_CHARS)
     return content ? [{ role: row.role, content } as SalesAgentMessage] : []
-  })
+  }))
 
   const pageContext = input.pageContext && typeof input.pageContext === 'object'
     ? {
