@@ -44,6 +44,10 @@ function isNearBottom(element: HTMLElement) {
   return element.scrollHeight - element.clientHeight - element.scrollTop <= BOTTOM_THRESHOLD
 }
 
+function selectionFingerprint(optionIds: string[]) {
+  return [...new Set(optionIds)].sort().join('|')
+}
+
 function parseSseChunk(buffer: string, onEvent: (payload: Record<string, unknown>) => void) {
   const chunks = buffer.split('\n\n')
   const remainder = chunks.pop() ?? ''
@@ -89,16 +93,20 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
     searchSequenceRef.current = sequence
     const controller = new AbortController()
     const timer = setTimeout(() => {
+      const requestSelectedOptionIds = selectedOptionIdsRef.current
+      const requestSelectionFingerprint = selectionFingerprint(requestSelectedOptionIds)
       setSearching(true)
       void fetch('/api/v1/sales-agent/interactions/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, continuationToken: interactionTokenRef.current, query, selectedOptionIds: selectedOptionIdsRef.current }),
+        body: JSON.stringify({ conversationId, continuationToken: interactionTokenRef.current, query, selectedOptionIds: requestSelectedOptionIds }),
         signal: controller.signal,
       }).then(async (response) => {
         if (!response.ok) return
         const result = await response.json() as InteractionSearchResult
-        if (searchSequenceRef.current === sequence) onSearchResultRef.current(result, selectedOptionIdsRef.current)
+        if (searchSequenceRef.current === sequence && selectionFingerprint(selectedOptionIdsRef.current) === requestSelectionFingerprint) {
+          onSearchResultRef.current(result, requestSelectedOptionIds)
+        }
       }).catch(() => undefined).finally(() => {
         if (searchSequenceRef.current === sequence) setSearching(false)
       })
