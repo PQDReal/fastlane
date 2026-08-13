@@ -7,6 +7,7 @@ const DELAY = '15m'
 
 export async function scheduleVnPayReconciliation(job: VnPayReconciliationJob) {
   const token = process.env.QSTASH_TOKEN?.trim()
+  const qstashUrl = process.env.QSTASH_URL?.trim().replace(/\/$/, '') || 'https://qstash.upstash.io'
   const callbackSecret = process.env.QSTASH_CALLBACK_SECRET?.trim()
   const baseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '')
 
@@ -21,7 +22,7 @@ export async function scheduleVnPayReconciliation(job: VnPayReconciliationJob) {
   }
 
   const destination = `${baseUrl}/api/v1/payments/vnpay/reconcile-attempt`
-  const publishUrl = `https://qstash.upstash.io/v2/publish/${destination}`
+  const publishUrl = `${qstashUrl}/v2/publish/${destination}`
   const response = await fetch(publishUrl, {
     method: 'POST',
     headers: {

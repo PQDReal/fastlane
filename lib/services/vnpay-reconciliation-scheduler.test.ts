@@ -5,6 +5,7 @@ import { scheduleVnPayReconciliation, tryScheduleVnPayReconciliation } from './v
 describe('VNPay reconciliation scheduler', () => {
   beforeEach(() => {
     vi.stubEnv('QSTASH_TOKEN', 'qstash-token')
+    vi.stubEnv('QSTASH_URL', 'https://qstash-eu.example/')
     vi.stubEnv('QSTASH_CALLBACK_SECRET', 'callback-secret')
     vi.stubEnv('APP_BASE_URL', 'https://fastlane.example/')
   })
@@ -24,7 +25,7 @@ describe('VNPay reconciliation scheduler', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(String(url)).toBe('https://qstash.upstash.io/v2/publish/https://fastlane.example/api/v1/payments/vnpay/reconcile-attempt')
+    expect(String(url)).toBe('https://qstash-eu.example/v2/publish/https://fastlane.example/api/v1/payments/vnpay/reconcile-attempt')
     expect(options?.headers).toEqual(expect.objectContaining({
       Authorization: 'Bearer qstash-token',
       'Upstash-Delay': '15m',
