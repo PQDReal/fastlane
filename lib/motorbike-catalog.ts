@@ -1,10 +1,8 @@
 import 'server-only'
 
 import { cache } from 'react'
-import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { MOTORBIKE_CATALOG_CACHE_KEY, motorbikeDetailCacheKey } from '@/lib/cache-keys'
-import { readRedisJson, writeRedisJson } from '@/lib/redis'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields, type VehicleSpecField } from '@/lib/vehicle-specifications'
 
 type JsonRecord = Record<string, unknown>
 
@@ -45,6 +43,7 @@ export type MotorbikeCatalogItem = {
   detailImageUrls: string[]
   brochureUrl: string
   specifications: JsonRecord
+  specificationFields: VehicleSpecField[]
   displayedPrice: number
   colors: MotorbikeCatalogColor[]
   versions: MotorbikeCatalogVersion[]
@@ -159,6 +158,12 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
         rootSpecs.brochure,
       ),
       specifications,
+      specificationFields: mergeVehicleSpecFields(
+        normalizeMotorbikeSpecFields(rootSpecs.specification_fields),
+        specifications,
+        'Kích thước & Tiện ích',
+        DEFAULT_MOTORBIKE_SPEC_FIELDS,
+      ),
       displayedPrice: Math.min(...versions.map((version) => version.price)),
       colors,
       versions,
@@ -222,41 +227,13 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)))
 }
 
-const loadCachedMotorbikeCatalog = unstable_cache(
-  loadMotorbikeCatalog,
-  ['motorbike-catalog-v2'],
-  {
-    revalidate: 300,
-    tags: ['motorbike-catalog'],
-  },
-)
-
-async function loadDistributedMotorbikeCatalog() {
-  const cached = await readRedisJson<MotorbikeCatalogItem[]>(
-    MOTORBIKE_CATALOG_CACHE_KEY,
-  )
-  if (cached) {
-    return cached
-  }
-
-  const items = await loadCachedMotorbikeCatalog()
-  await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, items, 300)
-  return items
-}
-
-// React cache deduplicates calls within one render. The Next data cache keeps the
-// public catalog warm across requests while still refreshing external DB changes.
-export const listMotorbikeCatalog = cache(loadDistributedMotorbikeCatalog)
+// React cache only deduplicates calls within the current request. Do not persist
+// the catalog here: admin/backend edits must be visible after the next reload.
+export const listMotorbikeCatalog = cache(loadMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
-  const detailKey = motorbikeDetailCacheKey(slug)
-  const cached = await readRedisJson<MotorbikeCatalogItem>(detailKey)
-  if (cached) return cached
-
   const items = await listMotorbikeCatalog()
-  const item = items.find((entry) => entry.slug === slug) ?? null
-  if (item) await writeRedisJson(detailKey, item, 300)
-  return item
+  return items.find((entry) => entry.slug === slug) ?? null
 }
 
 export async function getMotorbikeCatalogByName(name: string) {

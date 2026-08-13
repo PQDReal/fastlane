@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
+import { mergeVehicleSpecFields, normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
 import { revalidateTag } from 'next/cache'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
@@ -257,7 +257,7 @@ export async function POST(request: Request) {
       detail_images: detail_image_urls,
     },
     landing_page_blocks
-    , specification_fields: normalizeVehicleSpecFields(specification_fields)
+    , specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
     , specifications_flat: specifications
   }
 

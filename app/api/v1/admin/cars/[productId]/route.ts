@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
+import { mergeVehicleSpecFields, normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
 import { revalidateTag } from 'next/cache'
 import path from 'path'
 import fs from 'fs'
@@ -316,7 +316,7 @@ export async function GET(request: Request, context: Context) {
     logo_image_url: specsObj.logo_image_url || specsObj.logo_image || '',
     detail_image_urls,
     specifications: reconstructedSpecifications,
-    specification_fields: normalizeVehicleSpecFields(specsObj.specification_fields),
+    specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specsObj.specification_fields), specsObj.specifications_flat || {}),
     colors,
     interiors,
     versions: reconstructedVersions,
@@ -433,7 +433,7 @@ export async function PATCH(request: Request, context: Context) {
   const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) =>
     priceForConfiguration(version, color)))
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
-  const configuredSpecFields = normalizeVehicleSpecFields(specification_fields)
+  const configuredSpecFields = mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
   const specValue = (key: string) => configuredSpecFields.find((field) => field.key === key)?.visible !== false
     ? specifications[key]
     : ''
@@ -561,7 +561,7 @@ export async function PATCH(request: Request, context: Context) {
       detail_images: detail_image_urls,
     },
     landing_page_blocks
-    , specification_fields: normalizeVehicleSpecFields(specification_fields)
+    , specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
     , specifications_flat: specifications
   }
 

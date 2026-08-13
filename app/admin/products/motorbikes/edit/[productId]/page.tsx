@@ -33,6 +33,13 @@ import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
 
+const MOTORBIKE_FORM_RENDERED_SPEC_KEYS = new Set([
+  'Quãng đường đi được mỗi lần sạc', 'Công suất tối đa', 'Tốc độ tối đa', 'Thời gian sạc tiêu chuẩn',
+  'Dài x Rộng x Cao', 'Chiều cao yên', 'Khoảng sáng gầm', 'Thể tích cốp', 'Trọng lượng', 'Khóa xe',
+  'Loại pin/ắc quy', 'Đèn pha trước', 'Phanh trước và sau', 'Giảm xóc', 'Tiêu chuẩn chống nước động cơ',
+  'Kích thước lốp Trước - Sau',
+])
+
 interface ColorEntry {
   color_name: string
   image_url: string
@@ -750,6 +757,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               <Button type="button" onClick={() => setIsSpecDialogOpen(true)} className="bg-amber-50 text-amber-700 hover:bg-amber-100"><Plus size={14} /> Thêm thông số</Button>
             </div>
 
+            <h4 className="text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Động cơ & Vận hành</h4>
             {/* Core Specs Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 bg-slate-50 rounded-xl p-5 border border-slate-100">
               <div>
@@ -806,6 +814,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin hiển thị <strong>màu đỏ</strong> sẽ không được hiển thị sau khi lưu</p>}
             </div>
 
+            <h4 className="mt-8 text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Kích thước & Tiện ích</h4>
             {/* General Specs Grid */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
               {[
@@ -838,10 +847,13 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               ))}
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
-              {form.specification_fields.filter((field) => !DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) && field.visible !== false).map((field) => (
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
                 <div key={field.key}>
-                  <div className="flex items-center justify-between"><label className="block text-xs font-semibold text-slate-600">{field.label}</label><button type="button" onClick={() => removeMotorbikeSpec(field.key)} className="text-slate-400 hover:text-red-600" aria-label={`Xóa thông tin ${field.label}`}><Trash2 size={14} /></button></div>
+                  {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
                   <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
+                  {isRemoved && isDefault && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông số này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
                 </div>
               ))}
             </div>
@@ -1685,20 +1697,14 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
                   <p className="text-xs text-white/50 mt-2">Được thiết kế tinh xảo, đáp ứng đầy đủ mọi nhu cầu di chuyển.</p>
                 </div>
-                <div className="grid gap-6 sm:grid-cols-3">
-                  {form.detail_image_urls.map((url, idx) => (
-                    <div key={idx} className="h-64 rounded-xl border border-white/5 bg-slate-900 overflow-hidden relative group">
-                      {url ? (
-                        <img src={url} alt={`Detail view ${idx}`} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
-                        <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {form.detail_image_urls.slice(0, 3).map((url, idx) => (
+                      <div key={idx} className={`relative overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900 group ${idx === 0 ? 'md:col-span-2 aspect-[16/9]' : 'aspect-square'}`}>
+                        {url ? <img src={url} alt={`Chi tiết ${form.name || 'xe'} ${idx + 1}`} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12"><span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span></div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               </section>
                 </>
               )}

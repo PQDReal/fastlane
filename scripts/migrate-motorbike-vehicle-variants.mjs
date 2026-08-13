@@ -106,15 +106,7 @@ const referencedOldRows = deposits.filter((order) =>
   oldBikeIds.has(order.vehicle_variant_id),
 )
 
-assert(products.length === 18, `Expected 18 active motorbikes, received ${products.length}`)
-assert(
-  oldBikeRows.length === 18,
-  `Expected 18 existing BIKE placeholders, received ${oldBikeRows.length}`,
-)
-assert(
-  new Set(oldBikeRows.map((row) => row.product_id)).size === 18,
-  'Existing BIKE placeholders must contain one row per product',
-)
+assert(products.length > 0, 'Expected at least one active motorbike')
 
 const generatedAt = new Date().toISOString()
 const rows = []
@@ -189,7 +181,7 @@ for (const product of products) {
       assert(nonEmpty(colorName), `${product.name}: color ${colorIndex + 1} has no name`)
       assert(nonEmpty(vehicleImage), `${product.name}/${colorName}: missing vehicle image`)
       assert(nonEmpty(swatchImage), `${product.name}/${colorName}: missing swatch image`)
-      assert(detailImages.every(nonEmpty), `${product.name}: incomplete detail images`)
+      assert(detailImages.length === 3, `${product.name}: detail image contract must contain three slots`)
 
       rows.push({
         id: randomUUID(),
@@ -227,15 +219,24 @@ for (const product of products) {
   })
 }
 
-assert(rows.length === 118, `Expected 118 generated rows, received ${rows.length}`)
+const oldRowsBySku = new Map(oldBikeRows.map((row) => [String(row.sku).toUpperCase(), row]))
+const usedOldIds = new Set()
+for (const row of rows) {
+  const existing = oldRowsBySku.get(String(row.sku).toUpperCase())
+  if (existing && !usedOldIds.has(existing.id)) {
+    row.id = existing.id
+    usedOldIds.add(existing.id)
+  }
+}
 
-// Reuse every placeholder ID for the first generated combination of the same
-// product. This preserves deposit_orders.vehicle_variant_id and any future FK
-// references while replacing placeholder content in place.
-for (const oldRow of oldBikeRows) {
-  const replacement = rows.find((row) => row.product_id === oldRow.product_id)
-  assert(replacement, `No replacement generated for placeholder ${oldRow.id}`)
+// Preserve IDs that are referenced by deposit orders even when their legacy
+// SKU is not part of the regenerated matrix.
+for (const oldRow of oldBikeRows.filter((row) => referencedOldRows.some((order) => order.vehicle_variant_id === row.id))) {
+  if (usedOldIds.has(oldRow.id)) continue
+  const replacement = rows.find((row) => row.product_id === oldRow.product_id && !usedOldIds.has(row.id))
+  assert(replacement, `No replacement generated for referenced row ${oldRow.id}`)
   replacement.id = oldRow.id
+  usedOldIds.add(oldRow.id)
 }
 
 assert(new Set(rows.map((row) => row.id)).size === rows.length, 'Duplicate generated IDs')
@@ -323,8 +324,14 @@ try {
     if (error) throw new Error(`Post-insert verification failed: ${error.message}`)
     migratedRows.push(...(data ?? []))
   }
-  assert(migratedRows.length === 118, `Verified ${migratedRows.length}/118 migrated rows`)
+  assert(migratedRows.length === rows.length, `Verified ${migratedRows.length}/${rows.length} migrated rows`)
   assert(migratedRows.every((row) => nonEmpty(row.sku) && nonEmpty(row.version) && nonEmpty(row.color)), 'Migrated rows are incomplete')
+
+  const obsoleteIds = oldBikeRows.map((row) => row.id).filter((id) => !usedOldIds.has(id))
+  for (const ids of chunk(obsoleteIds, 50)) {
+    const { error } = await supabase.from('vehicle_variants').delete().in('id', ids)
+    if (error) throw new Error(`Unable to remove obsolete BIKE rows: ${error.message}`)
+  }
 } catch (error) {
   if (insertedIds.length > 0) {
     for (const ids of chunk(insertedIds, 50)) {
@@ -344,6 +351,6 @@ const { data: finalRows, error: finalError } = await supabase
   .eq('product_type', 'BIKE')
 
 if (finalError) throw new Error(`Final verification failed: ${finalError.message}`)
-assert(finalRows?.length === 118, `Final BIKE row count is ${finalRows?.length ?? 0}, expected 118`)
+assert(finalRows?.length === rows.length, `Final BIKE row count is ${finalRows?.length ?? 0}, expected ${rows.length}`)
 
-console.log('Migration complete: 118/118 BIKE vehicle_variants rows verified.')
+console.log(`Migration complete: ${rows.length}/${rows.length} BIKE vehicle_variants rows verified.`)

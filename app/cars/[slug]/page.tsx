@@ -8,8 +8,6 @@ import path from 'path'
 import { Button } from '../../../components/ui/button'
 import { Check, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { carDetailCacheKey } from '../../../lib/cache-keys'
-import { readRedisJson, writeRedisJson } from '../../../lib/redis'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,31 +117,22 @@ const formatSpecValue = (key: string, value: any): string => {
 
 export default async function CarDetailPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
-  const cacheKey = carDetailCacheKey(params.slug)
-  type CarDetailCache = { product: any | null; variantsData: any[] }
-  const cached = await readRedisJson<CarDetailCache>(cacheKey)
-  let product: any | null = cached?.product ?? null
-  let variantsData: any[] = cached?.variantsData ?? []
-
-  if (!cached) {
-    const supabase = getSupabaseAdmin()
-    const { data: loadedProduct } = await supabase
-      .from('products')
-      .select('id,category_id,name,slug,description,specifications,image_urls,is_active,displayed_price,product_type,category:categories!inner(name)')
-      .eq('slug', params.slug)
+  const supabase = getSupabaseAdmin()
+  const { data: product } = await supabase
+    .from('products')
+    .select('id,category_id,name,slug,description,specifications,image_urls,is_active,displayed_price,product_type,category:categories!inner(name)')
+    .eq('slug', params.slug)
+    .eq('is_active', true)
+    .eq('categories.name', 'Ô tô điện')
+    .maybeSingle()
+  let variantsData: any[] = []
+  if (product) {
+    const { data: loadedVariants } = await supabase
+      .from('vehicle_variants')
+      .select('id,product_id,color,image_car_url,image_color_url,is_active')
+      .eq('product_id', product.id)
       .eq('is_active', true)
-      .eq('categories.name', 'Ô tô điện')
-      .maybeSingle()
-    product = loadedProduct
-    if (product) {
-      const { data: loadedVariants } = await supabase
-        .from('vehicle_variants')
-        .select('id,product_id,color,image_car_url,image_color_url,is_active')
-        .eq('product_id', product.id)
-        .eq('is_active', true)
-      variantsData = loadedVariants ?? []
-    }
-    await writeRedisJson(cacheKey, { product, variantsData }, 300)
+    variantsData = loadedVariants ?? []
   }
 
   if (!product) {

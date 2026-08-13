@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructMotorbikeAdminConfiguration } from '@/lib/motorbike-admin-variants'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields } from '@/lib/vehicle-specifications'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -105,6 +106,12 @@ export async function GET(request: Request, context: Context) {
     hero_image_url,
     detail_image_urls,
     specifications: specsObj.specs || {},
+    specification_fields: mergeVehicleSpecFields(
+      normalizeMotorbikeSpecFields(specsObj.specification_fields),
+      specsObj.specs,
+      'Kích thước & Tiện ích',
+      DEFAULT_MOTORBIKE_SPEC_FIELDS,
+    ),
     colors: specsObj.color_details || [],
     versions: reconstructedVersions,
     advanced_color_price: Number(product.advanced_color_price || 0),
@@ -213,7 +220,12 @@ export async function PATCH(request: Request, context: Context) {
     name,
     price: priceStr,
     specs: specifications,
-    specification_fields,
+    specification_fields: mergeVehicleSpecFields(
+      normalizeMotorbikeSpecFields(specification_fields),
+      specifications,
+      'Kích thước & Tiện ích',
+      DEFAULT_MOTORBIKE_SPEC_FIELDS,
+    ),
     colors: colors.map((c: any) => c.color_name),
     images: image_urls,
     status: 'Đang kinh doanh',

@@ -151,7 +151,13 @@ export default async function BikeDetailPage(
     displayed_price: motorbike.displayedPrice,
   }
   const rawSpecifications = motorbike.specifications
-  const specifications = motorbike.specifications
+  const visibleSpecificationFields = motorbike.specificationFields.filter((field) => field.visible !== false)
+  const specificationLabels = new Map(visibleSpecificationFields.map((field) => [field.key, field.label]))
+  const specifications = Object.fromEntries(
+    visibleSpecificationFields
+      .map((field) => [field.key, motorbike.specifications[field.key] ?? ''])
+      .filter(([, value]) => asString(value) !== ''),
+  )
   const listingImage = motorbike.listingImageUrl
   const heroImage = {
     src: motorbike.heroImageUrl,
@@ -195,38 +201,14 @@ export default async function BikeDetailPage(
     ],
   )
 
-  const dimensionAliases = [
-    'dai x rong x cao',
-    'chieu cao yen',
-    'khoang sang gam',
-    'trong luong',
-    'tai trong',
-    'the tich cop',
-    'kich thuoc lop',
-    'khoang cach truc banh',
-  ]
-
-  const dimensionEntries =
-    specEntries.filter(([key]) => {
-      const normalizedKey =
-        normalizeText(key)
-
-      return dimensionAliases.some(
-        (alias) =>
-          normalizedKey.includes(alias),
-      )
-    })
-
-  const performanceEntries =
-    specEntries.filter(([key]) => {
-      const normalizedKey =
-        normalizeText(key)
-
-      return !dimensionAliases.some(
-        (alias) =>
-          normalizedKey.includes(alias),
-      )
-    })
+  const specificationSections = new Map(
+    visibleSpecificationFields.map((field) => [field.key, normalizeText(field.section)]),
+  )
+  const dimensionEntries = specEntries.filter(([key]) => {
+    const section = specificationSections.get(key) ?? ''
+    return section.includes('kich thuoc') || section.includes('tien ich')
+  })
+  const performanceEntries = specEntries.filter(([key]) => !dimensionEntries.some(([entryKey]) => entryKey === key))
 
   const technologyFeatures = [
     {
@@ -779,22 +761,20 @@ export default async function BikeDetailPage(
               </h3>
 
               <ul className="space-y-4">
-                {performanceEntries
-                  .slice(0, 14)
-                  .map(([key, value]) => (
-                    <li
-                      key={key}
-                      className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {key}
-                      </span>
+                {performanceEntries.map(([key, value]) => (
+                  <li
+                    key={key}
+                    className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      {specificationLabels.get(key) || key}
+                    </span>
 
-                      <span className="max-w-[55%] text-right font-semibold">
-                        {value}
-                      </span>
-                    </li>
-                  ))}
+                    <span className="max-w-[55%] text-right font-semibold">
+                      {value}
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -811,7 +791,7 @@ export default async function BikeDetailPage(
                       className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
                     >
                       <span className="text-muted-foreground">
-                        {key}
+                        {specificationLabels.get(key) || key}
                       </span>
 
                       <span className="max-w-[55%] text-right font-semibold">

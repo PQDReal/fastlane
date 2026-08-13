@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields } from '@/lib/vehicle-specifications'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -133,7 +134,12 @@ export async function POST(request: Request) {
     name,
     price: priceStr,
     specs: specifications,
-    specification_fields,
+    specification_fields: mergeVehicleSpecFields(
+      normalizeMotorbikeSpecFields(specification_fields),
+      specifications,
+      'Kích thước & Tiện ích',
+      DEFAULT_MOTORBIKE_SPEC_FIELDS,
+    ),
     colors: colors.map((c: any) => c.color_name),
     images: image_urls,
     status: 'Đang kinh doanh',
