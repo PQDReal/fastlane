@@ -16,5 +16,6 @@ describe('Sales Agent Markdown policy', () => {
   it('places the Markdown contract in the system message sent to providers', () => {
     const input = buildSalesAgentProviderInput('So sánh VF 7 và VF 8')
     expect(input.messages[0]).toEqual({ role: 'system', content: SALES_AGENT_SYSTEM_PROMPT })
+    expect(SALES_AGENT_SYSTEM_PROMPT).toContain('Không tự hỏi phiên bản hoặc năm sản xuất')
   })
 })

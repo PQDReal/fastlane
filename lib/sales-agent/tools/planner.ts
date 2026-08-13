@@ -4,42 +4,17 @@ import { normalizeProductSearchText } from '@/lib/catalog/search'
 import { resolveSalesAgentVehicleReferences } from '../catalog/context'
 import type { SalesAgentMessage } from '../contracts/message'
 import type { SalesAgentToolCall } from '../contracts/tool'
-import { requestsNavigation, type SalesAgentNavigationIntent } from '../navigation/resolver'
+import {
+  inferSalesAgentIntent,
+  isSalesAgentStaticKnowledgeIntent,
+  resolveSalesAgentConversationState,
+  salesAgentRequestsNavigation,
+} from '../conversation/state'
+import type { SalesAgentNavigationIntent } from '../navigation/resolver'
 
 export type SalesAgentToolPlan = {
   calls: SalesAgentToolCall[]
   navigationIntent?: SalesAgentNavigationIntent
-}
-
-function compareIntent(message: string) {
-  const normalized = normalizeProductSearchText(message)
-  return ['so sanh', 'khac nhau', 'doi chieu'].some((phrase) => normalized.includes(phrase))
-}
-
-function accessoryIntent(message: string) {
-  return normalizeProductSearchText(message).includes('phu kien')
-}
-
-function promotionIntent(message: string) {
-  const normalized = normalizeProductSearchText(message)
-  return ['khuyen mai', 'uu dai', 'giam gia', 'promotion', 'ma giam'].some((phrase) => normalized.includes(phrase))
-}
-
-function staticKnowledgeIntent(message: string) {
-  const normalized = normalizeProductSearchText(message)
-  return ['thu tuc', 'huong dan', 'chinh sach', 'quy trinh', 'bao hanh', 'bao duong', 'giay to', 'tin tuc']
-    .some((phrase) => normalized.includes(phrase))
-}
-
-function vehicleDetailsIntent(message: string) {
-  const normalized = normalizeProductSearchText(message)
-  return ['thong so', 'pin', 'dong co', 'toc do', 'quang duong', 'pham vi', 'cong suat', 'sac', 'gia', 'ton kho']
-    .some((phrase) => normalized.includes(phrase))
-}
-
-function genericCatalogIntent(message: string) {
-  const normalized = normalizeProductSearchText(message)
-  return ['tu van', 'goi y', 'tim', 'mau xe', 'ngan sach'].some((phrase) => normalized.includes(phrase))
 }
 
 function requestedCatalogEntityType(message: string): 'CAR' | 'BIKE' | 'ACCESSORY' {
@@ -58,29 +33,26 @@ export async function planSalesAgentTools(message: string, history: SalesAgentMe
   // Procedures, policies and guides require citation-backed knowledge. Until
   // the RAG tool is available, do not route keyword overlaps such as “pin” or
   // “phụ kiện” into catalog tools and accidentally present them as evidence.
-  if (staticKnowledgeIntent(message) && !promotionIntent(message)) return { calls: [] }
+  if (isSalesAgentStaticKnowledgeIntent(message) && inferSalesAgentIntent(message) !== 'PROMOTIONS') return { calls: [] }
 
-  const wantsCompare = compareIntent(message)
-  const wantsAccessory = accessoryIntent(message)
-  const wantsPromotion = promotionIntent(message)
-  const wantsDetails = vehicleDetailsIntent(message)
-  const wantsCatalog = genericCatalogIntent(message)
-  const wantsNavigation = requestsNavigation(message)
+  const explicitIntent = inferSalesAgentIntent(message)
+  const conversationState = resolveSalesAgentConversationState(message, history)
+  const wantsCompare = conversationState.activeIntent === 'COMPARE_VEHICLES'
+  const wantsAccessory = conversationState.activeIntent === 'ACCESSORIES'
+  const wantsPromotion = conversationState.activeIntent === 'PROMOTIONS'
+  const wantsDetails = conversationState.activeIntent === 'VEHICLE_DETAILS'
+  const wantsCatalog = conversationState.activeIntent === 'CATALOG_RECOMMENDATION'
+  const wantsNavigation = salesAgentRequestsNavigation(message) || conversationState.activeIntent === 'NAVIGATION'
   const userHistory = history.filter((item) => item.role === 'user')
   const historyVehicleContext = userHistory.slice(-6).map((item) => item.content).join('\n')
-  const latestHistoryMessage = userHistory.at(-1)?.content ?? ''
-  const inheritedCompare = !wantsCompare
-    && compareIntent(latestHistoryMessage)
-    && !wantsAccessory
-    && !wantsPromotion
-    && !wantsDetails
-    && !wantsCatalog
-    && !wantsNavigation
-  const effectiveWantsCompare = wantsCompare || inheritedCompare
+  const effectiveWantsCompare = wantsCompare
   if (!effectiveWantsCompare && !wantsAccessory && !wantsPromotion && !wantsDetails && !wantsCatalog && !wantsNavigation) return { calls: [] }
 
   const directVehicles = await resolveSalesAgentVehicleReferences(message, 3)
-  const shouldResolveHistory = (effectiveWantsCompare && directVehicles.length < 2)
+  // A typed/current compare request may complete its second slot from history.
+  // An entity-only message after compare must not silently resurrect old models;
+  // that case is waiting for the structured choice flow from the next task.
+  const shouldResolveHistory = (effectiveWantsCompare && explicitIntent === 'COMPARE_VEHICLES' && directVehicles.length < 2)
     || ((wantsAccessory || wantsDetails || wantsNavigation) && directVehicles.length === 0)
   const resolvedVehicles = shouldResolveHistory
     ? await resolveSalesAgentVehicleReferences(`${historyVehicleContext}\n${message}`, 3)

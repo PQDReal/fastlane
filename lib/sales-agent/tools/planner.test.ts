@@ -49,6 +49,21 @@ describe('sales agent deterministic tool planner', () => {
     })
   })
 
+  it('does not reuse stale comparison vehicles for a one-vehicle entity-only follow-up', async () => {
+    mocks.resolveVehicles.mockImplementation(async (query: string) => query.includes('VF5')
+      ? [{ id: 'vf5', name: 'VF 5', productType: 'CAR' }]
+      : [{ id: 'vf7', name: 'VF 7', productType: 'CAR' }, { id: 'vf8', name: 'VF 8', productType: 'CAR' }])
+
+    await expect(planSalesAgentTools('VF5', [{ role: 'user', content: 'So sánh VF7 và VF8' }])).resolves.toEqual({ calls: [] })
+    expect(mocks.resolveVehicles).toHaveBeenCalledTimes(1)
+  })
+
+  it('resets comparison continuity when the user changes to promotions', async () => {
+    await expect(planSalesAgentTools('Thôi, xem khuyến mãi', [{ role: 'user', content: 'So sánh pin và tốc độ' }])).resolves.toEqual({
+      calls: [{ name: 'get_current_promotions', arguments: { productType: undefined } }],
+    })
+  })
+
   it('limits generic vehicle recommendations to vehicle product types', async () => {
     await expect(planSalesAgentTools('Tư vấn mẫu xe phù hợp')).resolves.toEqual({
       calls: [{ name: 'search_catalog', arguments: { query: 'Tư vấn mẫu xe phù hợp', productTypes: ['CAR', 'BIKE'], limit: 8 } }],
