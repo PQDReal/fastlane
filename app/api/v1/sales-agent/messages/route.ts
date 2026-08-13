@@ -4,7 +4,9 @@ import { isSalesAgentEnabled } from '@/lib/sales-agent/core/flags'
 import { buildSalesAgentProviderInput, redactSalesAgentInput } from '@/lib/sales-agent/core/policy'
 import { SalesAgentRequestError, parseSalesAgentMessageRequest, type SalesAgentSseEvent } from '@/lib/sales-agent/contracts/message'
 import { completeWithSalesAgentProvider } from '@/lib/sales-agent/providers/registry'
-import { searchSalesAgentCatalog, serializeCatalogContext } from '@/lib/sales-agent/catalog/context'
+import { executeSalesAgentTools, serializeSalesAgentToolResults } from '@/lib/sales-agent/tools/registry'
+import { planSalesAgentTools } from '@/lib/sales-agent/tools/planner'
+import { navigationActionMarkdown, resolveSalesAgentNavigation, stripUntrustedNavigation } from '@/lib/sales-agent/navigation/resolver'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +14,7 @@ function event(value: SalesAgentSseEvent) {
   return `data: ${JSON.stringify(value)}\n\n`
 }
 
-const CATALOG_TIMEOUT_MS = 8_000
+const TOOL_TIMEOUT_MS = 8_000
 const PROVIDER_TIMEOUT_MS = 30_000
 
 function responseHeaders() {
@@ -90,12 +92,21 @@ export async function POST(request: Request) {
     const messageId = crypto.randomUUID()
     return streamResponse({ conversationId, messageId, run: async (send) => {
       const history = (payload.guestHistory ?? []).map((item) => ({ ...item, content: redactSalesAgentInput(item.content) }))
-      // A slow catalog lookup must not hold the chat in a pending state. The
-      // provider can still answer safely using its policy and page context.
-      const catalog = await withFallback(searchSalesAgentCatalog(payload.message), CATALOG_TIMEOUT_MS, [])
-      const input = buildSalesAgentProviderInput(redactSalesAgentInput(payload.message), history, payload.pageContext, serializeCatalogContext(catalog))
+      // Read-only tools are planned and executed by Fastlane. A slow lookup
+      // must not hold the transcript open; the provider then answers without
+      // dynamic facts instead of guessing them.
+      const plan = await withFallback(planSalesAgentTools(payload.message), TOOL_TIMEOUT_MS, { calls: [] })
+      plan.calls.forEach((call) => send({ type: 'tool_status', tool: call.name, status: 'running' }))
+      const toolResults = await withFallback(executeSalesAgentTools(plan.calls), TOOL_TIMEOUT_MS, [])
+      toolResults.forEach((toolResult) => send({ type: 'tool_status', tool: toolResult.tool, status: toolResult.status }))
+      const input = buildSalesAgentProviderInput(redactSalesAgentInput(payload.message), history, payload.pageContext, serializeSalesAgentToolResults(toolResults))
       const result = await completeWithTimeout(input)
-      send({ type: 'text_delta', delta: result.text })
+      const navigation = plan.navigationIntent
+        ? await withFallback(resolveSalesAgentNavigation(plan.navigationIntent), TOOL_TIMEOUT_MS, null)
+        : null
+      const safeText = stripUntrustedNavigation(result.text)
+      const text = navigation ? `${safeText}\n\n${navigationActionMarkdown(navigation)}` : safeText
+      send({ type: 'text_delta', delta: text })
       send({ type: 'done', provider: result.provider, model: result.model, finishReason: 'stop' })
     } })
   } catch (error) {

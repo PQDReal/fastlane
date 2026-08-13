@@ -13,6 +13,7 @@ export type SalesAgentMessageRequest = {
 
 export type SalesAgentSseEvent =
   | { type: 'meta'; conversationId: string; messageId: string }
+  | { type: 'tool_status'; tool: string; status: 'running' | 'OK' | 'PARTIAL' | 'NOT_FOUND' | 'AMBIGUOUS' | 'UNAVAILABLE' }
   | { type: 'text_delta'; delta: string }
   | { type: 'done'; provider: string; model: string; finishReason: 'stop' }
   | { type: 'error'; code: string; message: string; retryable: boolean }

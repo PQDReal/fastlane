@@ -1,0 +1,276 @@
+import type { SalesAgentProductType } from '../catalog/context'
+
+export const SALES_AGENT_TOOL_NAMES = [
+  'search_catalog',
+  'get_vehicle_details',
+  'compare_vehicles',
+  'get_current_promotions',
+  'discover_accessories',
+] as const
+
+export type SalesAgentToolName = (typeof SALES_AGENT_TOOL_NAMES)[number]
+
+export type SalesAgentToolStatus =
+  | 'OK'
+  | 'PARTIAL'
+  | 'NOT_FOUND'
+  | 'AMBIGUOUS'
+  | 'UNAVAILABLE'
+
+export type SalesAgentToolWarning = {
+  code: string
+  message: string
+}
+
+export type SalesAgentToolEvidence = {
+  source: string
+  entityIds: string[]
+  updatedAt?: string
+}
+
+export type SalesAgentToolEnvelope<T> = {
+  schemaVersion: '1.0'
+  status: SalesAgentToolStatus
+  data: T | null
+  readAt: string
+  dataAsOf: string | null
+  evidence: SalesAgentToolEvidence[]
+  warnings: SalesAgentToolWarning[]
+}
+
+export type SalesAgentToolCall =
+  | {
+      name: 'search_catalog'
+      arguments: {
+        query?: string
+        productTypes?: SalesAgentProductType[]
+        minPrice?: number
+        maxPrice?: number
+        stockFilter?: 'ALL' | 'IN_STOCK'
+        limit?: number
+      }
+    }
+  | { name: 'get_vehicle_details'; arguments: { productId: string } }
+  | { name: 'compare_vehicles'; arguments: { productIds: string[] } }
+  | {
+      name: 'get_current_promotions'
+      arguments: { productType?: SalesAgentProductType }
+    }
+  | {
+      name: 'discover_accessories'
+      arguments: {
+        query?: string
+        vehicleProductId?: string
+        minPrice?: number
+        maxPrice?: number
+        stockFilter?: 'ALL' | 'IN_STOCK'
+        limit?: number
+      }
+    }
+
+export type SalesAgentToolResult<T = unknown> = SalesAgentToolEnvelope<T> & {
+  tool: SalesAgentToolName
+}
+
+export const SALES_AGENT_TOOL_DEFINITIONS = [
+  {
+    name: 'search_catalog',
+    description: 'Tìm xe hoặc phụ kiện đang hoạt động trong catalog Fastlane theo nhu cầu, tên và ngân sách.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        query: { type: 'string', maxLength: 300 },
+        productTypes: { type: 'array', maxItems: 3, items: { type: 'string', enum: ['CAR', 'BIKE', 'ACCESSORY'] } },
+        minPrice: { type: 'number', minimum: 0 },
+        maxPrice: { type: 'number', minimum: 0 },
+        stockFilter: { type: 'string', enum: ['ALL', 'IN_STOCK'] },
+        limit: { type: 'integer', minimum: 1, maximum: 20 },
+      },
+    },
+  },
+  {
+    name: 'get_vehicle_details',
+    description: 'Lấy giá, tồn kho, phiên bản và thông số chuẩn hóa của một mẫu xe bằng product UUID.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['productId'],
+      properties: { productId: { type: 'string', format: 'uuid' } },
+    },
+  },
+  {
+    name: 'compare_vehicles',
+    description: 'Đối chiếu dữ liệu của từ hai đến ba mẫu xe bằng product UUID.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['productIds'],
+      properties: {
+        productIds: { type: 'array', minItems: 2, maxItems: 3, items: { type: 'string', format: 'uuid' } },
+      },
+    },
+  },
+  {
+    name: 'get_current_promotions',
+    description: 'Liệt kê khuyến mãi công khai đang hiệu lực theo loại sản phẩm; chỉ là phạm vi cấp loại sản phẩm.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { productType: { type: 'string', enum: ['CAR', 'BIKE', 'ACCESSORY'] } },
+    },
+  },
+  {
+    name: 'discover_accessories',
+    description: 'Khám phá phụ kiện active theo catalog association; không đảm bảo tương thích kỹ thuật.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        query: { type: 'string', maxLength: 300 },
+        vehicleProductId: { type: 'string', format: 'uuid' },
+        minPrice: { type: 'number', minimum: 0 },
+        maxPrice: { type: 'number', minimum: 0 },
+        stockFilter: { type: 'string', enum: ['ALL', 'IN_STOCK'] },
+        limit: { type: 'integer', minimum: 1, maximum: 20 },
+      },
+    },
+  },
+] as const
+
+const PRODUCT_TYPES: SalesAgentProductType[] = ['CAR', 'BIKE', 'ACCESSORY']
+// PostgreSQL UUID accepts any hexadecimal UUID layout; it does not require
+// RFC 4122 version/variant bits. Keep the shape strict without rejecting
+// canonical IDs imported from existing catalog data.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function record(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Tool arguments phải là JSON object.')
+  }
+  return value as Record<string, unknown>
+}
+
+function exactKeys(input: Record<string, unknown>, allowed: string[]) {
+  const unexpected = Object.keys(input).find((key) => !allowed.includes(key))
+  if (unexpected) throw new Error(`Tool argument ${unexpected} không được hỗ trợ.`)
+}
+
+function optionalText(value: unknown, field: string, maxLength: number) {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') throw new Error(`${field} không hợp lệ.`)
+  const trimmed = value.trim()
+  if (trimmed.length > maxLength) throw new Error(`${field} quá dài.`)
+  return trimmed || undefined
+}
+
+function uuid(value: unknown, field: string) {
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value.trim())) {
+    throw new Error(`${field} phải là UUID canonical.`)
+  }
+  return value.trim()
+}
+
+function boundedLimit(value: unknown, fallback: number) {
+  if (value === undefined) return fallback
+  if (!Number.isInteger(value) || Number(value) < 1) throw new Error('limit không hợp lệ.')
+  return Math.min(20, Number(value))
+}
+
+function boundedPrice(value: unknown, field: string) {
+  if (value === undefined) return undefined
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error(`${field} không hợp lệ.`)
+  }
+  return value
+}
+
+function productTypes(value: unknown) {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length < 1 || value.length > PRODUCT_TYPES.length) {
+    throw new Error('productTypes không hợp lệ.')
+  }
+  const values = value.map((item) => String(item))
+  if (values.some((item) => !PRODUCT_TYPES.includes(item as SalesAgentProductType))) {
+    throw new Error('productTypes không hợp lệ.')
+  }
+  return [...new Set(values)] as SalesAgentProductType[]
+}
+
+function stockFilter(value: unknown) {
+  if (value === undefined) return 'ALL' as const
+  if (value !== 'ALL' && value !== 'IN_STOCK') throw new Error('stockFilter không hợp lệ.')
+  return value
+}
+
+function assertPriceRange(minPrice: number | undefined, maxPrice: number | undefined) {
+  if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
+    throw new Error('Khoảng giá không hợp lệ.')
+  }
+}
+
+export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgentToolCall {
+  const input = record(value)
+
+  if (name === 'search_catalog') {
+    exactKeys(input, ['query', 'productTypes', 'minPrice', 'maxPrice', 'stockFilter', 'limit'])
+    const minPrice = boundedPrice(input.minPrice, 'minPrice')
+    const maxPrice = boundedPrice(input.maxPrice, 'maxPrice')
+    assertPriceRange(minPrice, maxPrice)
+    return {
+      name,
+      arguments: {
+        query: optionalText(input.query, 'query', 300),
+        productTypes: productTypes(input.productTypes),
+        minPrice,
+        maxPrice,
+        stockFilter: stockFilter(input.stockFilter),
+        limit: boundedLimit(input.limit, 8),
+      },
+    }
+  }
+
+  if (name === 'get_vehicle_details') {
+    exactKeys(input, ['productId'])
+    return { name, arguments: { productId: uuid(input.productId, 'productId') } }
+  }
+
+  if (name === 'compare_vehicles') {
+    exactKeys(input, ['productIds'])
+    if (!Array.isArray(input.productIds) || input.productIds.length < 2 || input.productIds.length > 3) {
+      throw new Error('productIds cần từ 2 đến 3 xe.')
+    }
+    const productIds = input.productIds.map((item) => uuid(item, 'productIds'))
+    if (new Set(productIds).size !== productIds.length) throw new Error('productIds không được trùng.')
+    return { name, arguments: { productIds } }
+  }
+
+  if (name === 'get_current_promotions') {
+    exactKeys(input, ['productType'])
+    const productType = input.productType === undefined ? undefined : String(input.productType)
+    if (productType !== undefined && !PRODUCT_TYPES.includes(productType as SalesAgentProductType)) {
+      throw new Error('productType không hợp lệ.')
+    }
+    return { name, arguments: { productType: productType as SalesAgentProductType | undefined } }
+  }
+
+  if (name === 'discover_accessories') {
+    exactKeys(input, ['query', 'vehicleProductId', 'minPrice', 'maxPrice', 'stockFilter', 'limit'])
+    const minPrice = boundedPrice(input.minPrice, 'minPrice')
+    const maxPrice = boundedPrice(input.maxPrice, 'maxPrice')
+    assertPriceRange(minPrice, maxPrice)
+    return {
+      name,
+      arguments: {
+        query: optionalText(input.query, 'query', 300),
+        vehicleProductId: input.vehicleProductId === undefined ? undefined : uuid(input.vehicleProductId, 'vehicleProductId'),
+        minPrice,
+        maxPrice,
+        stockFilter: stockFilter(input.stockFilter),
+        limit: boundedLimit(input.limit, 8),
+      },
+    }
+  }
+
+  throw new Error('Tool không được hỗ trợ.')
+}
