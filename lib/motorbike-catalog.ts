@@ -72,6 +72,8 @@ type MotorbikeCatalogReadRow = {
   variants: Array<Omit<VehicleVariantRow, 'product_id' | 'product_name' | 'specs'>> | null
 }
 
+export const MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES = ['BIKE', 'MOTORBIKE'] as const
+
 function record(value: unknown): JsonRecord {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as JsonRecord
@@ -181,7 +183,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
     supabase
       .from('products')
       .select('id')
-      .in('product_type', ['BIKE', 'MOTORBIKE'])
+      .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
       .eq('is_active', true),
   ])
 
@@ -205,7 +207,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   const { data, error } = await supabase
     .from('vehicle_variants')
     .select('id,product_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
-    .in('product_type', ['BIKE', 'MOTORBIKE'])
+    .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
     .eq('is_active', true)
 
   if (error) {

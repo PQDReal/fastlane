@@ -54,4 +54,15 @@ describe('sales agent accessory discovery', () => {
     expect(result.items[0]?.availability).toBe('UNKNOWN')
     expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'VEHICLE_MODEL_MAPPING_MISSING' }))
   })
+
+  it('keeps the accessory read select explicit so price, inventory and association facts stay auditable', async () => {
+    const builder = query([])
+    mocks.getSupabaseAdmin.mockReturnValue({ from: vi.fn().mockReturnValue(builder) })
+
+    await discoverSalesAgentAccessories({ query: 'sạc' })
+
+    expect(builder.select.mock.calls[0]?.[0]).toContain('product_variants')
+    expect(builder.select.mock.calls[0]?.[0]).toContain('product_collection_memberships')
+    expect(builder.eq).toHaveBeenCalledWith('product_type', 'ACCESSORY')
+  })
 })

@@ -70,6 +70,14 @@ export type DiscoverAccessoriesResult = {
 
 const QUERY_STOP_WORDS = new Set(['phu', 'kien', 'cho', 'xe', 'goi', 'y', 'nen', 'mua', 'tim', 'san', 'pham', 'giup', 'toi', 'minh', 'vinfast'])
 
+export const SALES_AGENT_ACCESSORY_READ_SELECT = `
+      id,name,slug,description,displayed_price,updated_at,
+      product_variants(original_price,sale_price,is_active,updated_at,inventory_items(on_hand_quantity,updated_at)),
+      collection_memberships:product_collection_memberships(
+        source_system,is_active,last_seen_at,
+        collection:catalog_collections(kind,vehicle_filter_mode)
+      )`
+
 function one<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null
 }
@@ -159,14 +167,7 @@ export async function discoverSalesAgentAccessories(input: DiscoverAccessoriesIn
   const dataAsOf = new Date().toISOString()
   const { data, error } = await getSupabaseAdmin()
     .from('products')
-    .select(`
-      id,name,slug,description,displayed_price,updated_at,
-      product_variants(original_price,sale_price,is_active,updated_at,inventory_items(on_hand_quantity,updated_at)),
-      collection_memberships:product_collection_memberships(
-        source_system,is_active,last_seen_at,
-        collection:catalog_collections(kind,vehicle_filter_mode)
-      )
-    `)
+    .select(SALES_AGENT_ACCESSORY_READ_SELECT)
     .eq('is_active', true)
     .eq('product_type', 'ACCESSORY')
     .limit(200)

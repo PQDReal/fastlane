@@ -117,7 +117,9 @@ type ProductRow = {
 
 type ProductIdentityRow = Pick<ProductRow, 'id' | 'name' | 'slug' | 'product_type'>
 
-const PRODUCT_SELECT = 'id,name,slug,description,product_type,displayed_price,specifications,updated_at,product_variants(id,name,sku,original_price,sale_price,deposit_amount,updated_at,is_active,inventory_items(variant_id,on_hand_quantity,updated_at)),vehicle_variants(id,product_variant_id,version,color,image_car_url,image_color_url,interior_color,updated_at,is_active)'
+export const SALES_AGENT_VEHICLE_READ_SELECT = 'id,name,slug,description,product_type,displayed_price,specifications,updated_at,product_variants(id,name,sku,original_price,sale_price,deposit_amount,updated_at,is_active,inventory_items(variant_id,on_hand_quantity,updated_at)),vehicle_variants(id,product_variant_id,version,color,image_car_url,image_color_url,interior_color,updated_at,is_active)'
+export const SALES_AGENT_VEHICLE_DATABASE_TYPES = ['CAR', 'VEHICLE', 'BIKE', 'MOTORBIKE'] as const
+const PRODUCT_SELECT = SALES_AGENT_VEHICLE_READ_SELECT
 const IDENTITY_SELECT = 'id,name,slug,product_type'
 
 const SEARCH_STOP_WORDS = new Set([
@@ -411,7 +413,7 @@ export async function getSalesAgentVehicleSnapshots(productIds: string[]): Promi
     .select(PRODUCT_SELECT)
     .eq('is_active', true)
     .in('id', ids)
-    .in('product_type', ['CAR', 'BIKE', 'MOTORBIKE', 'VEHICLE'])
+    .in('product_type', SALES_AGENT_VEHICLE_DATABASE_TYPES)
   if (error) throw new Error(`Không thể đọc chi tiết xe: ${error.message}`)
   const byId = new Map(((data ?? []) as unknown as ProductRow[]).map((row) => [String(row.id), row]))
   return ids.flatMap((id) => {
@@ -430,7 +432,7 @@ export async function resolveSalesAgentVehicleReferences(query: string, limit = 
     .from('products')
     .select(IDENTITY_SELECT)
     .eq('is_active', true)
-    .in('product_type', ['CAR', 'BIKE', 'MOTORBIKE', 'VEHICLE'])
+    .in('product_type', SALES_AGENT_VEHICLE_DATABASE_TYPES)
     .limit(50)
   if (error) throw new Error(`Không thể xác định mẫu xe: ${error.message}`)
   return ((data ?? []) as ProductIdentityRow[])

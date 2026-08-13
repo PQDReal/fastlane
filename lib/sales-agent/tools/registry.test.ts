@@ -54,4 +54,25 @@ describe('sales agent tool registry', () => {
     expect(result.status).toBe('AMBIGUOUS')
     expect(mocks.snapshot).not.toHaveBeenCalled()
   })
+
+  it('marks an empty category search as a grounded not-found result', async () => {
+    mocks.search.mockResolvedValue([])
+
+    const result = await executeSalesAgentTool('search_catalog', { query: 'xe máy điện', productTypes: ['BIKE'] })
+
+    expect(result).toMatchObject({ tool: 'search_catalog', status: 'NOT_FOUND', data: { items: [] } })
+    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'PRODUCT_NOT_FOUND' }))
+  })
+
+  it('keeps mixed vehicle comparison ambiguous and does not overclaim compatibility', async () => {
+    mocks.snapshots.mockResolvedValue([
+      { productId: id, productType: 'CAR', warnings: [], name: 'VF 8' },
+      { productId: `${id.slice(0, -1)}2`, productType: 'BIKE', warnings: [], name: 'Evo Grand' },
+    ])
+
+    const result = await executeSalesAgentTool('compare_vehicles', { productIds: [id, `${id.slice(0, -1)}2`] })
+
+    expect(result.status).toBe('AMBIGUOUS')
+    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'INCOMPATIBLE_PRODUCT_TYPES' }))
+  })
 })

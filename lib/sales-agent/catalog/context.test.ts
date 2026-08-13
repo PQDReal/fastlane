@@ -58,4 +58,17 @@ describe('sales agent catalog context', () => {
     expect(result[0]?.productType).toBe('BIKE')
     expect(query.textSearch).not.toHaveBeenCalled()
   })
+
+  it('uses the shared vehicle read contract and accepts legacy database types', async () => {
+    const { getSupabaseAdmin } = await import('@/lib/supabase-admin')
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), gte: vi.fn(), lte: vi.fn(), textSearch: vi.fn(), ilike: vi.fn(), order: vi.fn(), limit: vi.fn() }
+    query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.in.mockReturnValue(query); query.gte.mockReturnValue(query); query.lte.mockReturnValue(query); query.textSearch.mockReturnValue(query); query.ilike.mockReturnValue(query); query.order.mockReturnValue(query); query.limit.mockResolvedValue({ data: [], error: null })
+    vi.mocked(getSupabaseAdmin).mockReturnValue({ from: vi.fn().mockReturnValue(query) } as any)
+
+    await searchSalesAgentCatalog({ query: 'xe máy điện', productTypes: ['BIKE'] })
+
+    expect(query.in).toHaveBeenCalledWith('product_type', ['BIKE', 'MOTORBIKE'])
+    expect(query.select.mock.calls[0]?.[0]).toContain('product_variants')
+    expect(query.select.mock.calls[0]?.[0]).toContain('vehicle_variants')
+  })
 })

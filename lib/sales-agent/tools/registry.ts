@@ -122,12 +122,15 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
 
     if (call.name === 'search_catalog') {
       const items = await searchSalesAgentCatalog(call.arguments)
-      const warnings = inventoryWarnings(items)
+      const warnings = [
+        ...inventoryWarnings(items),
+        ...(items.length ? [] : [{ code: 'PRODUCT_NOT_FOUND', message: 'Không tìm thấy sản phẩm active phù hợp với bộ lọc đã yêu cầu.' }]),
+      ]
       return envelope(
         call.name,
         readAt,
         { items: items.map(({ slug: _slug, ...item }) => item) },
-        items.length ? warnings.length ? 'PARTIAL' : 'OK' : 'NOT_FOUND',
+        items.length ? warnings.some((warning) => warning.code === 'INVENTORY_UNKNOWN') ? 'PARTIAL' : 'OK' : 'NOT_FOUND',
         [evidence('products/product_variants/inventory_items', items.map((item) => item.id))],
         warnings,
       )
