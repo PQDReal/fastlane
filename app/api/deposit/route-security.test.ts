@@ -20,7 +20,7 @@ describe('deposit route safety contract', () => {
   it('stores an exact active vehicle variant for both cars and motorbikes', () => {
     expect(source).not.toMatch(/\n\s*variant_id\s*:/)
     expect(source).toContain(".select('id,product_variant_id')")
-    expect(source).toContain(".select('id,color,version,variant_name,product_variant_id')")
+    expect(source).toContain(".select('id,color,version,variant_name,interior_color,product_variant_id')")
     expect(source).toContain('matchesDepositVehicleVariant(variant')
     expect(source).toContain('vehicleVariant: input.vehicleVariant')
     expect(source).toContain('exteriorColor: input.exteriorColor')

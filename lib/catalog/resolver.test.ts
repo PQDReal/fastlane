@@ -185,6 +185,8 @@ describe('catalog media resolver', () => {
     const placeholder = { ...legacy, legacyImageUrls: [] }
     expect(resolveCatalogMedia(placeholder, { placeholderUrl: '/fallback.svg' })[0])
       .toMatchObject({ url: '/fallback.svg', source: 'PLACEHOLDER' })
+    expect(resolveCatalogMedia(placeholder, { allowPlaceholder: false })).toEqual([])
+    expect(resolveCatalogMedia({ ...placeholder, productType: 'ACCESSORY' as const }, { allowPlaceholder: false })).toEqual([])
     expect(resolveCatalogImageUrl(placeholder)).toBe('/images/vf8.png')
   })
 

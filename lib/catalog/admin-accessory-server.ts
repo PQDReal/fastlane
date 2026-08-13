@@ -28,6 +28,7 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
   product_type,
   accessory_template_code,
   accessory_template_version,
+  accessory_template_version_id,
   updated_at,
   service_label_assignments:product_service_label_assignments(
     service_label_id,
@@ -77,6 +78,7 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
     sale_price,
     is_active,
     created_at,
+    inventory:inventory_items(on_hand_quantity),
     option_mappings:product_variant_option_values(option_group_id,option_value_id)
   ),
   media:product_media(
@@ -88,6 +90,9 @@ export const ADMIN_ACCESSORY_PRODUCT_SELECT = `
     is_active
   )
 `
+
+const LEGACY_ADMIN_ACCESSORY_PRODUCT_SELECT = ADMIN_ACCESSORY_PRODUCT_SELECT
+  .replace('  accessory_template_version_id,\n', '')
 
 export class AdminAccessoryPersistenceError extends Error {
   constructor(
@@ -101,7 +106,8 @@ export class AdminAccessoryPersistenceError extends Error {
 }
 
 function rpcError(error: { code?: string; message?: string }) {
-  if (error.code === 'PGRST202' || error.message?.includes('save_admin_accessory_product_v3')) {
+  if (error.code === 'PGRST202'
+    || error.message?.includes('save_admin_accessory_product')) {
     return new AdminAccessoryPersistenceError(
       503,
       'CATALOG_WRITE_MIGRATION_REQUIRED',
@@ -119,7 +125,11 @@ function rpcError(error: { code?: string; message?: string }) {
     )
   }
   if (error.code === '23505') {
-    return new AdminAccessoryPersistenceError(409, 'CATALOG_IDENTITY_CONFLICT', 'Slug hoặc SKU đã được sử dụng.')
+    return new AdminAccessoryPersistenceError(
+      409,
+      'CATALOG_IDENTITY_CONFLICT',
+      'Đường dẫn hoặc SKU đã được sử dụng. Hãy đổi tên phụ kiện để hệ thống sinh đường dẫn khác; nếu lỗi vẫn còn, hãy kiểm tra SKU.',
+    )
   }
   if (error.code === '22P02' || error.code === '22003' || error.code === '22023' || error.code === '23514' || error.code === '23503') {
     return new AdminAccessoryPersistenceError(
@@ -155,13 +165,52 @@ export async function saveAdminAccessoryProduct(
   request: AdminAccessoryWriteRequest,
   productId: string | null,
 ): Promise<AdminAccessorySaveResult> {
-  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product_v3', {
+  const payload = adminAccessoryRpcPayload(request)
+  const { data, error } = await getSupabaseAdmin().rpc('save_admin_accessory_product', {
     target_product_id: productId,
     expected_updated_at: request.expectedUpdatedAt ?? null,
-    target_payload: adminAccessoryRpcPayload(request),
+    target_payload: payload,
   })
   if (error) throw rpcError(error)
   const result = saveResult(data)
+
+  const supabase = getSupabaseAdmin()
+  const { data: persistedVariants, error: variantReadError } = await supabase
+    .from('product_variants')
+    .select('id,name,created_at')
+    .eq('product_id', result.id)
+    .order('created_at', { ascending: true })
+  if (variantReadError) {
+    throw new AdminAccessoryPersistenceError(500, 'INVENTORY_VARIANTS_READ_FAILED', 'Đã lưu phụ kiện nhưng không thể xác định các SKU để tạo tồn kho.')
+  }
+  if ((persistedVariants ?? []).length < request.variants.length) {
+    if (!productId) await supabase.from('products').delete().eq('id', result.id)
+    throw new AdminAccessoryPersistenceError(500, 'INVENTORY_VARIANT_MAPPING_FAILED', 'Số SKU đã lưu không khớp dữ liệu tồn kho ban đầu.')
+  }
+
+  const unused = [...(persistedVariants ?? [])]
+  const inventoryRows = request.variants.map((variant) => {
+    let index = variant.existingId
+      ? unused.findIndex((row) => row.id === variant.existingId)
+      : unused.findIndex((row) => row.name === variant.name)
+    if (index < 0) index = 0
+    const [persisted] = index >= 0 ? unused.splice(index, 1) : []
+    if (!persisted) {
+      throw new AdminAccessoryPersistenceError(500, 'INVENTORY_VARIANT_MAPPING_FAILED', `Không thể ánh xạ tồn kho cho biến thể ${variant.name}.`)
+    }
+    return {
+      variant_id: persisted.id,
+      on_hand_quantity: variant.stockQuantity,
+      updated_at: new Date().toISOString(),
+    }
+  })
+  const { error: inventoryError } = await supabase
+    .from('inventory_items')
+    .upsert(inventoryRows, { onConflict: 'variant_id' })
+  if (inventoryError) {
+    if (!productId) await supabase.from('products').delete().eq('id', result.id)
+    throw new AdminAccessoryPersistenceError(500, 'INVENTORY_WRITE_FAILED', `Không thể lưu tồn kho ban đầu: ${inventoryError.message}`)
+  }
   revalidateTag('accessory-catalog')
   await Promise.all([
     deleteRedisKey(ACCESSORY_CATALOG_SUMMARY_CACHE_KEY),
@@ -172,13 +221,21 @@ export async function saveAdminAccessoryProduct(
 }
 
 export async function loadAdminAccessoryProduct(productId: string): Promise<AdminAccessoryEditorData> {
-  const { data, error } = await getSupabaseAdmin()
+  let { data, error } = await getSupabaseAdmin()
     .from('products')
     .select(ADMIN_ACCESSORY_PRODUCT_SELECT)
     .eq('id', productId)
     .eq('product_type', 'ACCESSORY')
     .maybeSingle()
 
+  if (error && error.message?.includes('accessory_template_version_id')) {
+    ({ data, error } = await getSupabaseAdmin()
+      .from('products')
+      .select(LEGACY_ADMIN_ACCESSORY_PRODUCT_SELECT)
+      .eq('id', productId)
+      .eq('product_type', 'ACCESSORY')
+      .maybeSingle())
+  }
   if (error) {
     throw new AdminAccessoryPersistenceError(500, 'CATALOG_READ_FAILED', 'Không thể tải dữ liệu phụ kiện.')
   }

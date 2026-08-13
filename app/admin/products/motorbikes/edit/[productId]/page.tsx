@@ -29,12 +29,13 @@ import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
-import { reconstructMotorbikeAdminVersions } from '@/lib/motorbike-admin-variants'
+import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
 
 interface ColorEntry {
   color_name: string
   image_url: string
   swatch: string
+  color_type?: 'STANDARD' | 'ADVANCED'
 }
 
 interface VersionEntry {
@@ -43,6 +44,8 @@ interface VersionEntry {
   sku: string
   price: number
   deposit_amount: number
+  stock_by_color?: Record<string, number>
+  compatible_colors?: string[]
 }
 
 interface FormState {
@@ -72,6 +75,7 @@ interface FormState {
     'Kích thước lốp Trước - Sau': string
   }
   colors: ColorEntry[]
+  advanced_color_price: number
   versions: VersionEntry[]
   landing_page_blocks: any[]
 }
@@ -103,6 +107,7 @@ const initialFormState: FormState = {
     'Kích thước lốp Trước - Sau': '',
   },
   colors: [],
+  advanced_color_price: 0,
   versions: [],
   landing_page_blocks: [],
 }
@@ -120,7 +125,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const [isSaving, setIsSaving] = useState(false)
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
 
-  const STORAGE_KEY = `FASTLANE_MOTORBIKE_EDIT_DRAFT_${productId}`
+  const STORAGE_KEY = `fastlane.admin.products.motorbikes.edit.${productId}.v1`
 
   // Toast notify helper
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -141,8 +146,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
         const payload = await res.json()
         const dbState = payload.data as FormState
 
-        // Check if there is an autosaved edit draft in localStorage
-        const saved = localStorage.getItem(STORAGE_KEY)
+        // Check if there is an autosaved edit snapshot in this tab
+        const saved = sessionStorage.getItem(STORAGE_KEY)
         if (saved) {
           try {
             const parsed = JSON.parse(saved)
@@ -165,33 +170,20 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     void fetchProduct()
   }, [productId, notify, STORAGE_KEY])
 
-  // Save edit draft to localStorage on form changes (only after loading is complete)
+  // Save edit snapshot to this tab on form changes (only after loading is complete)
   useEffect(() => {
     if (!isLoading && form !== initialFormState) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form, isLoading, STORAGE_KEY])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as FormState
-        setForm({
-          ...parsed,
-          versions: reconstructMotorbikeAdminVersions(
-            (parsed.versions || []).map((version) => ({
-              id: version.id,
-              name: version.name,
-              sku: version.sku,
-              original_price: version.price,
-              deposit_amount: version.deposit_amount,
-            })),
-            [],
-            parsed.colors || [],
-          ),
-        })
+        setForm(parsed)
         notify('success', 'Đã khôi phục bản nháp chỉnh sửa')
       } catch (e) {
         notify('error', 'Khôi phục bản nháp thất bại')
@@ -202,7 +194,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
 
   // Discard draft
   const handleDiscardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp chỉnh sửa', 'Tiếp tục dùng dữ liệu từ cơ sở dữ liệu.')
   }
@@ -211,7 +203,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const handleCancel = () => {
     const isFormDirty = originalForm ? JSON.stringify(form) !== JSON.stringify(originalForm) : false
     if (!isFormDirty) {
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       router.push('/admin/products')
       return
     }
@@ -229,7 +221,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            localStorage.removeItem(STORAGE_KEY)
+            sessionStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy chỉnh sửa', 'Bản nháp chỉnh sửa tạm thời đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -276,7 +268,11 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const addColor = () => {
     setForm((current) => ({
       ...current,
-      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '' }],
+      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '', color_type: 'STANDARD' }],
+      versions: current.versions.map((version) => ({
+        ...version,
+        compatible_colors: [...(version.compatible_colors ?? current.colors.map((color) => color.color_name)), 'Màu mới'],
+      })),
     }))
   }
 
@@ -285,17 +281,46 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
       notify('warning', 'Không thể xóa', 'Sản phẩm cần tối thiểu một màu sắc.')
       return
     }
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.filter((_, idx) => idx !== index),
-    }))
+    setForm((current) => {
+      const removedName = current.colors[index].color_name
+      return {
+        ...current,
+        colors: current.colors.filter((_, idx) => idx !== index),
+        versions: current.versions.map((version) => {
+          const stockByColor = { ...(version.stock_by_color ?? {}) }
+          delete stockByColor[removedName]
+          return {
+            ...version,
+            compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).filter((name) => name !== removedName),
+            stock_by_color: stockByColor,
+          }
+        }),
+      }
+    })
   }
 
   const updateColor = (index: number, fields: Partial<ColorEntry>) => {
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
-    }))
+    setForm((current) => {
+      const previousName = current.colors[index].color_name
+      const nextName = fields.color_name ?? previousName
+      return {
+        ...current,
+        colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
+        versions: previousName !== nextName ? current.versions.map((version) => {
+          const stockByColor = { ...(version.stock_by_color ?? {}) }
+          if (Object.prototype.hasOwnProperty.call(stockByColor, previousName)) {
+            stockByColor[nextName] = stockByColor[previousName]
+            delete stockByColor[previousName]
+          }
+          return {
+            ...version,
+            compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name))
+              .map((name) => name === previousName ? nextName : name),
+            stock_by_color: stockByColor,
+          }
+        }) : current.versions,
+      }
+    })
   }
 
   // Add/Remove versions
@@ -304,7 +329,14 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
       ...current,
       versions: [
         ...current.versions,
-        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000 },
+        {
+          name: 'Phiên bản mới',
+          sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`,
+          price: 20000000,
+          deposit_amount: 2000000,
+          compatible_colors: current.colors.map((color) => color.color_name),
+          stock_by_color: {},
+        },
       ],
     }))
   }
@@ -324,6 +356,27 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     setForm((current) => ({
       ...current,
       versions: current.versions.map((v, idx) => (idx === index ? { ...v, ...fields } : v)),
+    }))
+  }
+
+  const selectedColorsFor = (version: VersionEntry) =>
+    version.compatible_colors ?? form.colors.map((color) => color.color_name)
+
+  const updateCompatibleColors = (versionIndex: number, colors: string[]) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, compatible_colors: Array.from(new Set(colors)) }
+        : version),
+    }))
+  }
+
+  const updateVariantStock = (versionIndex: number, colorName: string, value: number) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, stock_by_color: { ...(version.stock_by_color ?? {}), [colorName]: Math.max(0, value || 0) } }
+        : version),
     }))
   }
 
@@ -398,6 +451,9 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     if (form.versions.some((v) => !v.name.trim() || !v.sku.trim() || v.price <= 0 || v.deposit_amount <= 0)) {
       return 'Vui lòng nhập đầy đủ thông tin tên, SKU, giá và tiền cọc cho tất cả phiên bản (Tab 4)'
     }
+    if (form.versions.some((version) => selectedColorsFor(version).length === 0)) {
+      return 'Mỗi phiên bản phải áp dụng cho ít nhất một màu xe (Tab 4)'
+    }
     return null
   }
 
@@ -423,7 +479,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
       }
 
       notify('success', 'Cập nhật sản phẩm thành công', 'Thông tin xe máy điện đã được lưu lại.')
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)
@@ -743,7 +799,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     key={idx}
                     className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
                   >
-                    <div className="sm:col-span-3">
+                    <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Tên màu</label>
                       <input
                         type="text"
@@ -798,6 +854,13 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Nhóm màu</label>
+                      <select value={color.color_type ?? 'STANDARD'} onChange={(e) => updateColor(idx, { color_type: e.target.value as ColorEntry['color_type'] })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500">
+                        <option value="STANDARD">Màu tiêu chuẩn</option>
+                        <option value="ADVANCED">Màu nâng cao</option>
+                      </select>
                     </div>
                   </div>
                 ))}
@@ -876,8 +939,58 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                         <Trash2 size={16} />
                       </button>
                     </div>
+
+                    <div className="sm:col-span-12 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-slate-600">Màu áp dụng</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">Chỉ các cặp được chọn mới được lưu và theo dõi tồn kho.</p>
+                      </div>
+                      <CombinationMultiSelect
+                        label={`Màu áp dụng cho ${ver.name}`}
+                        options={form.colors.map((color) => color.color_name)}
+                        selected={selectedColorsFor(ver)}
+                        onChange={(colors) => updateCompatibleColors(idx, colors)}
+                      />
+                    </div>
                   </div>
                 ))}
+              </div>
+              {form.colors.some((color) => color.color_type === 'ADVANCED') && (
+                <label className="mt-4 block max-w-xs text-xs font-bold uppercase text-slate-600">
+                  Phụ thu chung cho màu nâng cao (VND)
+                  <input type="number" min="0" value={form.advanced_color_price} onChange={(event) => setForm((current) => ({ ...current, advanced_color_price: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500" />
+                </label>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-6">
+              <h3 className="text-base font-bold text-slate-900">3. Tồn kho của các tổ hợp hợp lệ</h3>
+              <p className="mt-1 text-xs text-slate-500">Chỉ những cặp phiên bản–màu đã áp dụng ở trên được lưu thành biến thể bán hàng.</p>
+              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-bold uppercase text-slate-600">
+                    <tr><th className="px-4 py-3">Phiên bản</th><th className="px-4 py-3">Màu ngoại thất</th><th className="px-4 py-3">Số lượng tồn</th></tr>
+                  </thead>
+                  <tbody>
+                    {form.versions.flatMap((version, versionIndex) => selectedColorsFor(version).map((colorName) => (
+                      <tr key={`${versionIndex}-${version.sku}-${colorName}`} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{version.name || 'Phiên bản chưa đặt tên'}</td>
+                        <td className="px-4 py-3 text-slate-700">{colorName}</td>
+                        <td className="px-4 py-2">
+                          <input
+                            aria-label={`Tồn kho ${version.name} - ${colorName}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={version.stock_by_color?.[colorName] ?? 0}
+                            onChange={(event) => updateVariantStock(versionIndex, colorName, Number(event.target.value))}
+                            className="h-9 w-28 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500"
+                          />
+                        </td>
+                      </tr>
+                    )))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

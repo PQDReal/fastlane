@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 
 import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
+import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
@@ -75,6 +76,7 @@ interface ColorEntry {
   color_name: string
   image_url: string
   swatch: string
+  color_type?: 'STANDARD' | 'ADVANCED'
 }
 
 interface InteriorEntry {
@@ -88,7 +90,13 @@ interface VersionEntry {
   sku: string
   price: number
   deposit_amount: number
+  compatible_colors?: string[]
+  interiors_by_color?: Record<string, string[]>
+  // Legacy input retained while editing saved drafts; API ignores it.
+  stock_by_configuration?: Record<string, number>
 }
+
+const configurationKey = (exterior: string, interior: string) => JSON.stringify([exterior, interior])
 
 interface FormState {
   name: string
@@ -123,6 +131,7 @@ interface FormState {
     'Hệ thống EBD': string
   }
   colors: ColorEntry[]
+  advanced_color_price: number
   interiors: InteriorEntry[]
   versions: VersionEntry[]
   landing_page_blocks: any[]
@@ -199,16 +208,17 @@ const initialFormState: FormState = {
     'Hệ thống EBD': '',
   },
   colors: [
-    { color_name: 'Trắng (Brahminy White)', image_url: '', swatch: '' },
-    { color_name: 'Xám (Neptune Grey)', image_url: '', swatch: '' },
+    { color_name: 'Trắng (Brahminy White)', image_url: '', swatch: '', color_type: 'STANDARD' },
+    { color_name: 'Xám (Neptune Grey)', image_url: '', swatch: '', color_type: 'STANDARD' },
   ],
+  advanced_color_price: 0,
   interiors: [
     { interior_name: 'Đen (Granite Black)', image_url: '', swatch: '' },
     { interior_name: 'Nâu (Saddle Brown)', image_url: '', swatch: '' },
   ],
   versions: [
-    { name: 'Phiên bản Eco (Thuê pin)', sku: 'VINFAST-CAR-ECO-01', price: 460000000, deposit_amount: 15000000 },
-    { name: 'Phiên bản Plus (Thuê pin)', sku: 'VINFAST-CAR-PLUS-01', price: 530000000, deposit_amount: 15000000 },
+    { name: 'Phiên bản Eco (Thuê pin)', sku: 'VINFAST-CAR-ECO-01', price: 460000000, deposit_amount: 15000000, compatible_colors: ['Trắng (Brahminy White)', 'Xám (Neptune Grey)'], interiors_by_color: { 'Trắng (Brahminy White)': ['Đen (Granite Black)', 'Nâu (Saddle Brown)'], 'Xám (Neptune Grey)': ['Đen (Granite Black)', 'Nâu (Saddle Brown)'] }, stock_by_configuration: {} },
+    { name: 'Phiên bản Plus (Thuê pin)', sku: 'VINFAST-CAR-PLUS-01', price: 530000000, deposit_amount: 15000000, compatible_colors: ['Trắng (Brahminy White)', 'Xám (Neptune Grey)'], interiors_by_color: { 'Trắng (Brahminy White)': ['Đen (Granite Black)', 'Nâu (Saddle Brown)'], 'Xám (Neptune Grey)': ['Đen (Granite Black)', 'Nâu (Saddle Brown)'] }, stock_by_configuration: {} },
   ],
   landing_page_blocks: defaultLandingBlocks,
 }
@@ -228,7 +238,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
 
-  const STORAGE_KEY = `FASTLANE_CAR_EDIT_DRAFT_${productId}`
+  const STORAGE_KEY = `fastlane.admin.products.cars.edit.${productId}.v1`
 
   // 1. Toast notify helper
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -249,8 +259,8 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
         const payload = await res.json()
         const dbState = payload.data as FormState
 
-        // Check if there is an autosaved edit draft in localStorage
-        const saved = localStorage.getItem(STORAGE_KEY)
+        // Check if there is an autosaved edit snapshot in this tab
+        const saved = sessionStorage.getItem(STORAGE_KEY)
         if (saved) {
           try {
             const parsed = JSON.parse(saved)
@@ -273,16 +283,16 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
     void fetchProduct()
   }, [productId, notify, STORAGE_KEY])
 
-  // 3. Save draft to localStorage on change (only after loading is complete)
+  // 3. Save edit snapshot to this tab on change (only after loading is complete)
   useEffect(() => {
     if (!isLoading && form !== initialFormState) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form, isLoading, STORAGE_KEY])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         setForm(JSON.parse(saved))
@@ -296,14 +306,14 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
 
   // Reject draft / Start fresh
   const handleDiscardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp', 'Bắt đầu điền thông tin mới.')
   }
 
   // Cancel action
   const handleCancel = () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = sessionStorage.getItem(STORAGE_KEY)
     if (!saved) {
       router.push('/admin/products')
       return
@@ -322,7 +332,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            localStorage.removeItem(STORAGE_KEY)
+            sessionStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy chỉnh sửa', 'Bản nháp lưu tạm đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -404,7 +414,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
   const addColor = () => {
     setForm((current) => ({
       ...current,
-      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '' }],
+      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '', color_type: 'STANDARD' }],
     }))
   }
 
@@ -413,17 +423,59 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
       notify('warning', 'Không thể xóa', 'Sản phẩm cần tối thiểu một màu sắc.')
       return
     }
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.filter((_, idx) => idx !== index),
-    }))
+    setForm((current) => {
+      const removedName = current.colors[index]?.color_name
+      return {
+        ...current,
+        colors: current.colors.filter((_, idx) => idx !== index),
+        versions: current.versions.map((version) => {
+          const interiorsByColor = { ...(version.interiors_by_color ?? {}) }
+          if (removedName) delete interiorsByColor[removedName]
+          const stockByConfiguration = Object.fromEntries(Object.entries(version.stock_by_configuration ?? {}).filter(([key]) => {
+            try { return JSON.parse(key)[0] !== removedName } catch { return true }
+          }))
+          return {
+            ...version,
+            compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).filter((name) => name !== removedName),
+            interiors_by_color: interiorsByColor,
+            stock_by_configuration: stockByConfiguration,
+          }
+        }),
+      }
+    })
   }
 
   const updateColor = (index: number, fields: Partial<ColorEntry>) => {
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
-    }))
+    setForm((current) => {
+      const previousName = current.colors[index]?.color_name
+      const nextName = fields.color_name
+      return {
+        ...current,
+        colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
+        versions: previousName && nextName && previousName !== nextName
+          ? current.versions.map((version) => {
+              const interiorsByColor = { ...(version.interiors_by_color ?? {}) }
+              if (interiorsByColor[previousName]) {
+                interiorsByColor[nextName] = interiorsByColor[previousName]
+                delete interiorsByColor[previousName]
+              }
+              const stockByConfiguration: Record<string, number> = {}
+              Object.entries(version.stock_by_configuration ?? {}).forEach(([key, value]) => {
+                try {
+                  const [exterior, interior] = JSON.parse(key)
+                  stockByConfiguration[configurationKey(exterior === previousName ? nextName : exterior, interior)] = value
+                } catch { stockByConfiguration[key] = value }
+              })
+              return {
+                ...version,
+                compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).map((name) => name === previousName ? nextName : name),
+                interiors_by_color: interiorsByColor,
+                stock_by_configuration: stockByConfiguration,
+              }
+            })
+          : current.versions,
+      }
+    })
   }
 
   // Add/Remove versions
@@ -432,7 +484,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
       ...current,
       versions: [
         ...current.versions,
-        { name: 'Phiên bản mới', sku: `VINFAST-CAR-${Date.now().toString().slice(-4)}`, price: 500000000, deposit_amount: 15000000 },
+        { name: 'Phiên bản mới', sku: `VINFAST-CAR-${Date.now().toString().slice(-4)}`, price: 500000000, deposit_amount: 15000000, compatible_colors: current.colors.map((color) => color.color_name), interiors_by_color: Object.fromEntries(current.colors.map((color) => [color.color_name, current.interiors.map((interior) => interior.interior_name)])), stock_by_configuration: {} },
       ],
     }))
   }
@@ -455,6 +507,43 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
     }))
   }
 
+  const selectedColorsFor = (version: VersionEntry) =>
+    version.compatible_colors ?? form.colors.map((color) => color.color_name)
+
+  const selectedInteriorsFor = (version: VersionEntry, colorName: string) =>
+    version.interiors_by_color?.[colorName] ?? form.interiors.map((interior) => interior.interior_name)
+
+  const updateCompatibleColors = (versionIndex: number, colors: string[]) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? {
+            ...version,
+            compatible_colors: Array.from(new Set(colors)),
+            interiors_by_color: Object.fromEntries(colors.map((color) => [color, version.interiors_by_color?.[color] ?? current.interiors.map((interior) => interior.interior_name)])),
+          }
+        : version),
+    }))
+  }
+
+  const updateCompatibleInteriors = (versionIndex: number, colorName: string, interiors: string[]) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, interiors_by_color: { ...(version.interiors_by_color ?? {}), [colorName]: Array.from(new Set(interiors)) } }
+        : version),
+    }))
+  }
+
+  const updateConfigurationStock = (versionIndex: number, exterior: string, interior: string, value: number) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, stock_by_configuration: { ...(version.stock_by_configuration ?? {}), [configurationKey(exterior, interior)]: Math.max(0, value || 0) } }
+        : version),
+    }))
+  }
+
   // Add/Remove interiors
   const addInterior = () => {
     setForm((current) => ({
@@ -468,17 +557,47 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
       notify('warning', 'Không thể xóa', 'Sản phẩm cần tối thiểu một màu nội thất.')
       return
     }
-    setForm((current) => ({
-      ...current,
-      interiors: (current.interiors || []).filter((_, idx) => idx !== index),
-    }))
+    setForm((current) => {
+      const removedName = current.interiors[index]?.interior_name
+      return {
+        ...current,
+        interiors: current.interiors.filter((_, idx) => idx !== index),
+        versions: current.versions.map((version) => ({
+          ...version,
+          interiors_by_color: Object.fromEntries(Object.entries(version.interiors_by_color ?? {}).map(([color, names]) => [color, names.filter((name) => name !== removedName)])),
+          stock_by_configuration: Object.fromEntries(Object.entries(version.stock_by_configuration ?? {}).filter(([key]) => {
+            try { return JSON.parse(key)[1] !== removedName } catch { return true }
+          })),
+        })),
+      }
+    })
   }
 
   const updateInterior = (index: number, fields: Partial<InteriorEntry>) => {
-    setForm((current) => ({
-      ...current,
-      interiors: (current.interiors || []).map((i, idx) => (idx === index ? { ...i, ...fields } : i)),
-    }))
+    setForm((current) => {
+      const previousName = current.interiors[index]?.interior_name
+      const nextName = fields.interior_name
+      return {
+        ...current,
+        interiors: current.interiors.map((interior, idx) => idx === index ? { ...interior, ...fields } : interior),
+        versions: previousName && nextName && previousName !== nextName
+          ? current.versions.map((version) => {
+              const stockByConfiguration: Record<string, number> = {}
+              Object.entries(version.stock_by_configuration ?? {}).forEach(([key, value]) => {
+                try {
+                  const [exterior, interior] = JSON.parse(key)
+                  stockByConfiguration[configurationKey(exterior, interior === previousName ? nextName : interior)] = value
+                } catch { stockByConfiguration[key] = value }
+              })
+              return {
+                ...version,
+                interiors_by_color: Object.fromEntries(Object.entries(version.interiors_by_color ?? {}).map(([color, names]) => [color, names.map((name) => name === previousName ? nextName : name)])),
+                stock_by_configuration: stockByConfiguration,
+              }
+            })
+          : current.versions,
+      }
+    })
   }
 
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
@@ -555,6 +674,12 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
     if (form.versions.some((v) => !v.name.trim() || !v.sku.trim() || v.price <= 0 || v.deposit_amount <= 0)) {
       return 'Vui lòng nhập đầy đủ thông tin tên, SKU, giá và tiền cọc cho tất cả phiên bản (Tab 4)'
     }
+    if (form.versions.some((version) => selectedColorsFor(version).length === 0)) {
+      return 'Mỗi phiên bản phải áp dụng cho ít nhất một màu ngoại thất (Tab 4)'
+    }
+    if (form.versions.some((version) => selectedColorsFor(version).some((color) => selectedInteriorsFor(version, color).length === 0))) {
+      return 'Mỗi cặp phiên bản–ngoại thất phải có ít nhất một màu nội thất hợp lệ (Tab 4)'
+    }
     return null
   }
 
@@ -580,7 +705,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
       }
 
       notify('success', 'Lưu sản phẩm thành công', 'Thông tin xe ô tô điện đã được cập nhật thành công.')
-      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)
@@ -1038,7 +1163,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                     key={idx}
                     className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
                   >
-                    <div className="sm:col-span-3">
+                    <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Tên màu</label>
                       <input
                         type="text"
@@ -1093,6 +1218,13 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Nhóm màu</label>
+                      <select value={color.color_type ?? 'STANDARD'} onChange={(e) => updateColor(idx, { color_type: e.target.value as ColorEntry['color_type'] })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500">
+                        <option value="STANDARD">Màu tiêu chuẩn</option>
+                        <option value="ADVANCED">Màu nâng cao</option>
+                      </select>
                     </div>
                   </div>
                 ))}
@@ -1254,8 +1386,74 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                         <Trash2 size={16} />
                       </button>
                     </div>
+
+                    <div className="sm:col-span-12 grid gap-3 border-t border-slate-200 pt-3 lg:grid-cols-[190px_minmax(0,1fr)] lg:items-start">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-slate-600">Tổ hợp áp dụng</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">Chọn ngoại thất, sau đó chọn nội thất có thể ghép cho từng màu.</p>
+                      </div>
+                      <div className="space-y-3">
+                        <CombinationMultiSelect
+                          label={`Ngoại thất áp dụng cho ${ver.name}`}
+                          options={form.colors.map((color) => color.color_name)}
+                          selected={selectedColorsFor(ver)}
+                          onChange={(colors) => updateCompatibleColors(idx, colors)}
+                        />
+                        {selectedColorsFor(ver).map((colorName) => (
+                          <div key={colorName} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[minmax(150px,0.4fr)_minmax(0,1fr)] md:items-center">
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-slate-700" title={colorName}>{colorName}</p>
+                            </div>
+                            <CombinationMultiSelect
+                              label={`Nội thất của ${ver.name} - ${colorName}`}
+                              options={form.interiors.map((interior) => interior.interior_name)}
+                              selected={selectedInteriorsFor(ver, colorName)}
+                              onChange={(interiors) => updateCompatibleInteriors(idx, colorName, interiors)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ))}
+              </div>
+              {form.colors.some((color) => color.color_type === 'ADVANCED') && (
+                <label className="mt-4 block max-w-xs text-xs font-bold uppercase text-slate-600">
+                  Phụ thu chung cho màu nâng cao (VND)
+                  <input type="number" min="0" value={form.advanced_color_price} onChange={(event) => setForm((current) => ({ ...current, advanced_color_price: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500" />
+                </label>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-6">
+              <h3 className="text-base font-bold text-slate-900">4. Tồn kho của các tổ hợp hợp lệ</h3>
+              <p className="mt-1 text-xs text-slate-500">Mỗi dòng là một SKU phiên bản–ngoại thất–nội thất đã được áp dụng ở trên.</p>
+              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-bold uppercase text-slate-600">
+                    <tr><th className="px-4 py-3">Phiên bản</th><th className="px-4 py-3">Ngoại thất</th><th className="px-4 py-3">Nội thất</th><th className="px-4 py-3">Số lượng tồn</th></tr>
+                  </thead>
+                  <tbody>
+                    {form.versions.flatMap((version, versionIndex) => selectedColorsFor(version).flatMap((exterior) => selectedInteriorsFor(version, exterior).map((interior) => (
+                      <tr key={`${version.sku}-${configurationKey(exterior, interior)}`} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{version.name || 'Phiên bản chưa đặt tên'}</td>
+                        <td className="px-4 py-3 text-slate-700">{exterior}</td>
+                        <td className="px-4 py-3 text-slate-700">{interior}</td>
+                        <td className="px-4 py-2">
+                          <input
+                            aria-label={`Tồn kho ${version.name} - ${exterior} - ${interior}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={version.stock_by_configuration?.[configurationKey(exterior, interior)] ?? 0}
+                            onChange={(event) => updateConfigurationStock(versionIndex, exterior, interior, Number(event.target.value))}
+                            className="h-9 w-28 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500"
+                          />
+                        </td>
+                      </tr>
+                    ))))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

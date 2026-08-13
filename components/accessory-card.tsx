@@ -8,7 +8,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ImageOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { startNavigationLoading } from '@/components/navigation-loading-indicator'
@@ -80,10 +80,12 @@ function galleryImages(
   product: CatalogProduct,
   variant: CatalogVariant | null,
   selectedOptions: CatalogSelection,
+  allowPlaceholder = true,
 ): CatalogResolvedMedia[] {
   const resolved = resolveCatalogMedia(product, {
     variantId: variant?.id,
     selectedOptions,
+    allowPlaceholder,
   }).filter((media) => media.mediaType === 'IMAGE')
   const seen = new Set<string>()
   const images = resolved.filter((media) => {
@@ -92,7 +94,7 @@ function galleryImages(
     return true
   })
 
-  if (images.length > 0) return images
+  if (images.length > 0 || !allowPlaceholder) return images
   return [{
     url: resolveCatalogImageUrl(product, {
       variantId: variant?.id,
@@ -222,6 +224,7 @@ function AccessoryImageCarousel({
   product,
   images,
   productName,
+  previewMode,
   visualOptionGroup,
   selectedVisualValueCode,
   onSelectVisualValue,
@@ -229,6 +232,7 @@ function AccessoryImageCarousel({
   product: CatalogProduct
   images: CatalogResolvedMedia[]
   productName: string
+  previewMode: boolean
   visualOptionGroup: CatalogOptionGroup | null
   selectedVisualValueCode: string | null
   onSelectVisualValue: (valueCode: string) => void
@@ -442,7 +446,12 @@ function AccessoryImageCarousel({
             : 'none',
         }}
       >
-        {displayImages.map((image, index) => (
+        {images.length === 0 ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-5 text-sm font-medium text-slate-400">
+            <ImageOff size={34} strokeWidth={1.5} aria-hidden="true" />
+            <span>Chưa gắn ảnh</span>
+          </div>
+        ) : displayImages.map((image, index) => (
           <figure
             key={`${index}-${image.url}`}
             className={`flex h-full w-full shrink-0 items-center justify-center p-5 sm:p-7 ${
@@ -459,6 +468,10 @@ function AccessoryImageCarousel({
               decoding="async"
               draggable={false}
               onError={(event) => {
+                if (previewMode) {
+                  event.currentTarget.style.display = 'none'
+                  return
+                }
                 event.currentTarget.src = '/images/vf8.png'
               }}
               className="h-full w-full select-none object-contain"
@@ -533,8 +546,8 @@ export function AccessoryCard({
     ? { ...variant.selectedOptions, ...visualSelection }
     : visualSelection
   const images = useMemo(
-    () => galleryImages(product, variant, selectedOptions),
-    [product, variant, selectedVisualValueCode],
+    () => galleryImages(product, variant, selectedOptions, !previewMode),
+    [product, selectedVisualValueCode, previewMode, variant],
   )
   const detailParams = new URLSearchParams()
   if (variant) detailParams.set('variant', variant.sku)
@@ -583,6 +596,7 @@ export function AccessoryCard({
         product={product}
         images={images}
         productName={product.name}
+        previewMode={previewMode}
         visualOptionGroup={visualOptionGroup}
         selectedVisualValueCode={selectedVisualValueCode}
         onSelectVisualValue={setSelectedVisualValueCode}

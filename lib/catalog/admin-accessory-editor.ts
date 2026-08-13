@@ -155,6 +155,7 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
       salePrice: variant.sale_price === null || variant.sale_price === undefined
         ? ''
         : String(integer(variant.sale_price)),
+      stockQuantity: String(Math.max(0, integer(firstRecord(variant.inventory ?? variant.inventory_items)?.on_hand_quantity))),
       isActive: variant.is_active === true,
       isIncluded: true,
       selections,
@@ -205,6 +206,7 @@ export function mapAdminAccessoryEditorRow(value: unknown): AdminAccessoryEditor
     rootCategoryId: text(row.category_id),
     templateCode,
     templateVersion,
+    templateVersionId: text(row.accessory_template_version_id) || null,
     categoryAssignments,
     primaryCollectionSlug: '',
     modelCollectionSlugs: [],

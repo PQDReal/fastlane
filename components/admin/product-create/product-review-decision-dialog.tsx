@@ -69,7 +69,7 @@ export function ProductReviewDecisionDialog({
             </div>
             <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={close} disabled={saving}>Quay lại kiểm tra</Button>
-              {onSaveDraft && <Button type="button" variant="outline" onClick={onSaveDraft} disabled={saving}>Lưu nháp cục bộ</Button>}
+              {onSaveDraft && <Button type="button" variant="outline" onClick={onSaveDraft} disabled={saving}>Lưu phiên làm việc</Button>}
               <Button type="button" disabled={blockers.length > 0 || saving} onClick={onPublish} className="bg-brand-600 hover:bg-brand-700">{saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Check size={16} className="mr-2" />}{mode === 'edit' ? 'Lưu thay đổi' : 'Đăng sản phẩm'}</Button>
             </div>
           </motion.div>
