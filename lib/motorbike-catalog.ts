@@ -159,15 +159,16 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
   }
 
   return [...grouped.values()].map((productRows) => {
-    const sourceRows = productRows.map((row) => ({
-      ...row,
-      price: (row.product_variant_id
+    const sourceRows = productRows.map((row) => {
+      const authorityPrice = (row.product_variant_id
         ? authorityPrices.get(`${row.product_id}:variant:${row.product_variant_id}`)
         : undefined)
         ?? authorityPrices.get(`${row.product_id}:sku:${normalizedSku(row.sku)}`)
-        ?? authorityPrices.get(`${row.product_id}:*`)
-        ?? number(row.price),
-    }))
+      if (authorityPrice === undefined) {
+        throw new Error(`Không thể dựng giá xe máy điện ${row.product_id}: thiếu product_variants authority cho SKU ${row.sku}.`)
+      }
+      return { ...row, price: authorityPrice }
+    })
     const first = sourceRows[0]
     const rootSpecs = record(first.specs)
     const catalog = record(rootSpecs.catalog)
@@ -215,7 +216,7 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
       ),
       specifications,
       displayedPrice: authorityPrices.get(`${first.product_id}:*`)
-        ?? Math.min(...versions.map((version) => version.price)),
+        ?? (() => { throw new Error(`Không thể dựng giá xe máy điện ${first.product_id}: thiếu giá active product_variants.`) })(),
       colors,
       versions,
       variantRows: sourceRows.map((row) => ({
