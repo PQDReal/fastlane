@@ -5,6 +5,7 @@ import {
   verifyVnPayPipeHash,
   vnPayConfig,
   vnPayDate,
+  vnPayTransactionOutcome,
   type VnPayParams,
 } from '@/lib/payments/vnpay'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
@@ -220,20 +221,23 @@ async function reconcileAttempt(
   }
 
   const transactionStatus = response.vnp_TransactionStatus || ''
-  if (transactionStatus === '01') {
+  const outcome = vnPayTransactionOutcome(transactionStatus)
+  if (outcome === 'PENDING') {
     if (isExpired) {
-      await applyPaymentResult(attempt, kind, response, false)
-      return { status: 'FAILED', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('FAILED') }
+      // Status 01 means an unfinished payment and becomes a failure after the
+      // checkout window. Other pending codes belong to refund processing and
+      // must not overwrite the original payment result.
+      if (transactionStatus === '01') {
+        await applyPaymentResult(attempt, kind, response, false)
+        return { status: 'FAILED', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('FAILED') }
+      }
     }
     return { status: 'PENDING', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('PENDING') }
   }
-  if (transactionStatus === '00' || ['02', '04', '07'].includes(transactionStatus)) {
-    const success = transactionStatus === '00'
-    await applyPaymentResult(attempt, kind, response, success)
-    const status: PaymentAttemptStatus = success ? 'PAID' : 'FAILED'
-    return { status, orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage(status) }
-  }
-  return { status: 'PENDING', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('PENDING') }
+  const success = outcome === 'PAID'
+  await applyPaymentResult(attempt, kind, response, success)
+  const status: PaymentAttemptStatus = success ? 'PAID' : 'FAILED'
+  return { status, orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage(status) }
 }
 
 async function findPendingAttempt(orderId: string, kind: PaymentAttemptKind) {

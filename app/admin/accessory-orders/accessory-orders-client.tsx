@@ -294,7 +294,7 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
             <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Trạng thái</span>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <AdminOrderStatusBadge presentation={accessoryOrderStatusPresentation(order.status, order.refundStatus)} />
+                <AdminOrderStatusBadge presentation={accessoryOrderStatusPresentation(order.status, order.refundStatus, order.paymentAttemptStatus)} />
                 {statusHint[order.status] && <p className="mt-1 text-xs text-slate-500">{statusHint[order.status]}</p>}
               </div>
               <ChevronRight aria-hidden="true" size={18} className="mt-0.5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
