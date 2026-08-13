@@ -2,6 +2,7 @@ import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { DEFAULT_SALES_AGENT_PROVIDER, normalizeProviderConfig, PROVIDER_DEFAULTS } from './config'
+import { createSalesAgentLanguageModel, type SalesAgentLanguageModel } from './ai-sdk'
 import { providerImplementations } from './http'
 import type { SalesAgentProviderConfig, SalesAgentProviderId, SalesAgentProviderInput, SalesAgentProviderResult } from './types'
 
@@ -38,6 +39,15 @@ export async function completeWithSalesAgentProvider(input: SalesAgentProviderIn
   if (!config) throw new Error('Provider agent không tồn tại.')
   if (!config.enabled) throw new Error('Provider agent đang được tắt.')
   return providerImplementations[config.provider].complete(input, config)
+}
+
+export async function getSalesAgentLanguageModel(selectedProvider?: SalesAgentProviderId): Promise<SalesAgentLanguageModel> {
+  const config = selectedProvider
+    ? (await listSalesAgentProviderConfigs()).find((item) => item.provider === selectedProvider)
+    : await getDefaultSalesAgentProviderConfig()
+  if (!config) throw new Error('Provider agent không tồn tại.')
+  if (!config.enabled) throw new Error('Provider agent đang được tắt.')
+  return createSalesAgentLanguageModel(config)
 }
 
 function mapRow(row: any): SalesAgentProviderConfig {

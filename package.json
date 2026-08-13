@@ -48,6 +48,11 @@
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.38",
+    "@ai-sdk/deepseek": "3.0.28",
+    "@ai-sdk/google": "4.0.43",
+    "@ai-sdk/openai": "4.0.41",
+    "@ai-sdk/openai-compatible": "3.0.30",
     "@auth0/nextjs-auth0": "4.25.0",
     "@didit-protocol/sdk-web": "^0.2.1",
     "@radix-ui/react-slot": "latest",
@@ -55,6 +60,7 @@
     "@supabase/server": "^1.4.0",
     "@supabase/supabase-js": "^2.110.8",
     "@types/nodemailer": "^8.0.1",
+    "ai": "7.0.64",
     "class-variance-authority": "latest",
     "cloudinary": "^2.10.0",
     "clsx": "latest",
@@ -76,6 +82,7 @@
     "resend": "^6.18.1",
     "swr": "^2.4.2",
     "tailwind-merge": "latest",
+    "zod": "4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

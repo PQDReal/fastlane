@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowDown, ArrowUp, Bot, Loader2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bot, Check, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,23 @@ import { MarkdownMessage } from './markdown-message'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
 import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agent/contracts/message'
 
-type DisplayMessage = SalesAgentMessage & { id: string; pending?: boolean; error?: boolean }
+type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean }
+type DisplayInteraction = {
+  interactionId: string
+  mode: 'single' | 'multiple'
+  title: string
+  description?: string
+  minSelections: number
+  maxSelections: number
+  allowFreeText: boolean
+  submitLabel: string
+  options: InteractionOption[]
+  continuationToken: string
+  expiresAt: string
+  submitted?: boolean
+}
+type DisplayMessage = SalesAgentMessage & { id: string; pending?: boolean; error?: boolean; interaction?: DisplayInteraction }
+type InteractionSubmission = { selectedOptionIds: string[]; freeText?: string }
 
 const SUGGESTIONS = [
   'Tư vấn mẫu xe phù hợp',
@@ -44,6 +60,55 @@ function parseSseChunk(buffer: string, onEvent: (payload: Record<string, unknown
   return remainder
 }
 
+function ChoiceInteraction({ interaction, disabled, onSubmit }: { interaction: DisplayInteraction; disabled: boolean; onSubmit: (selection: InteractionSubmission) => void }) {
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
+  const [freeText, setFreeText] = useState('')
+  const [showValidation, setShowValidation] = useState(false)
+  const selectionCount = selectedOptionIds.length
+  const canSubmit = selectionCount >= interaction.minSelections && selectionCount <= interaction.maxSelections
+
+  function toggle(optionId: string) {
+    if (disabled || interaction.submitted) return
+    if (interaction.mode === 'single') {
+      setSelectedOptionIds([optionId])
+      setShowValidation(false)
+      return
+    }
+    setSelectedOptionIds((current) => current.includes(optionId)
+      ? current.filter((id) => id !== optionId)
+      : current.length >= interaction.maxSelections ? current : [...current, optionId])
+    setShowValidation(false)
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!canSubmit && !interaction.allowFreeText) {
+      setShowValidation(true)
+      return
+    }
+    onSubmit({ selectedOptionIds, ...(freeText.trim() ? { freeText: freeText.trim() } : {}) })
+  }
+
+  return <form onSubmit={submit} aria-label={interaction.title} className={`mt-3 rounded-xl border p-3 ${interaction.submitted ? 'border-emerald-200 bg-emerald-50/60' : 'border-brand-200 bg-white'}`}>
+    <div className="flex items-start justify-between gap-2">
+      <div><p className="text-sm font-semibold text-slate-800">{interaction.title}</p>{interaction.description && <p className="mt-1 text-xs leading-4 text-slate-500">{interaction.description}</p>}</div>
+      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">{selectionCount}/{interaction.maxSelections}</span>
+    </div>
+    <div className="mt-2 space-y-1.5" role={interaction.mode === 'multiple' ? 'group' : 'radiogroup'} aria-label={interaction.title}>
+      {interaction.options.map((option) => {
+        const selected = selectedOptionIds.includes(option.optionId)
+        return <button key={option.optionId} type="button" role={interaction.mode === 'multiple' ? 'checkbox' : 'radio'} aria-checked={selected} disabled={disabled || interaction.submitted} onClick={() => toggle(option.optionId)} className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/50'}`}>
+          <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${interaction.mode === 'multiple' ? 'rounded-sm' : 'rounded-full'} ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-transparent'}`} aria-hidden="true">{selected && <Check size={11} strokeWidth={3} />}</span>
+          <span className="min-w-0"><span className="block text-xs font-medium text-slate-800">{option.label}{option.recommended && <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Gợi ý</span>}</span>{option.description && <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">{option.description}</span>}</span>
+        </button>
+      })}
+    </div>
+    {interaction.allowFreeText && <input value={freeText} onChange={(event) => setFreeText(event.target.value.slice(0, 500))} disabled={disabled || interaction.submitted} placeholder="Hoặc nhập câu trả lời…" className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:opacity-60" aria-label="Câu trả lời nhập thêm" />}
+    {showValidation && <p className="mt-2 text-[11px] text-red-600" role="alert">Vui lòng chọn từ {interaction.minSelections} đến {interaction.maxSelections} lựa chọn.</p>}
+    <button type="submit" disabled={disabled || interaction.submitted || (!canSubmit && !interaction.allowFreeText)} className="mt-2 min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition hover:bg-brand-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50">{interaction.submitted ? 'Đã chọn' : interaction.submitLabel}</button>
+  </form>
+}
+
 export function SalesAgentShell() {
   const open = useSalesAgentStore((state) => state.open)
   const setOpen = useSalesAgentStore((state) => state.setOpen)
@@ -58,6 +123,7 @@ export function SalesAgentShell() {
   const autoScrollUntilRef = useRef(0)
   const pathname = usePathname()
   const reduceMotion = useReducedMotion()
+  const conversationIdRef = useRef<string | undefined>(undefined)
 
   const scrollToLatest = useCallback(() => {
     const list = listRef.current
@@ -86,7 +152,7 @@ export function SalesAgentShell() {
 
   if (!salesAgentUiEnabled) return null
 
-  async function send(messageOverride?: string) {
+  async function send(messageOverride?: string, interactionResponse?: { interactionId: string; selectedOptionIds: string[]; freeText?: string; continuationToken: string }) {
     const message = (messageOverride ?? draft).trim()
     if (!message || sending) return
     followBottomRef.current = true
@@ -101,7 +167,7 @@ export function SalesAgentShell() {
     try {
       const response = await fetch('/api/v1/sales-agent/messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, guestHistory: history, pageContext: { routeKey: pathname }, locale: 'vi-VN' }),
+      body: JSON.stringify({ message, conversationId: conversationIdRef.current, guestHistory: history, interactionResponse, pageContext: { routeKey: pathname }, locale: 'vi-VN' }),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: { message?: string } } | null
@@ -122,6 +188,10 @@ export function SalesAgentShell() {
             receivedText = receivedText || payload.delta.length > 0
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
           }
+          if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
+          if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
+            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
+          }
           if (payload.type === 'done') receivedDone = true
           if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
         })
@@ -134,6 +204,10 @@ export function SalesAgentShell() {
           if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
             receivedText = receivedText || payload.delta.length > 0
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
+          }
+          if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
+          if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
+            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
           }
           if (payload.type === 'done') receivedDone = true
           if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
@@ -148,6 +222,14 @@ export function SalesAgentShell() {
     } finally {
       setSending(false)
     }
+  }
+
+  function submitInteraction(messageId: string, interaction: DisplayInteraction, selection: InteractionSubmission) {
+    const labels = selection.selectedOptionIds.map((optionId) => interaction.options.find((option) => option.optionId === optionId)?.label).filter(Boolean)
+    const message = selection.freeText || labels.join(', ')
+    if (!message) return
+    setMessages((items) => items.map((item) => item.id === messageId && item.interaction ? { ...item, interaction: { ...item.interaction, submitted: true } } : item))
+    void send(message, { interactionId: interaction.interactionId, selectedOptionIds: selection.selectedOptionIds, ...(selection.freeText ? { freeText: selection.freeText } : {}), continuationToken: interaction.continuationToken })
   }
 
   return <AnimatePresence>
@@ -197,7 +279,7 @@ export function SalesAgentShell() {
         >
           <div ref={contentRef} className="min-w-0 space-y-2">
           {!messages.length && <div className="min-w-0 space-y-2.5"><div className="py-2 text-sm leading-5 text-slate-700">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div><div className="flex flex-wrap gap-1.5">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
-          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
+          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.interaction && <ChoiceInteraction interaction={item.interaction} disabled={sending} onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)} />}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
           </div>
         </div>
         <div className="relative">

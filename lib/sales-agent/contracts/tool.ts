@@ -1,6 +1,8 @@
 import type { SalesAgentProductType } from '../catalog/context'
 
 export const SALES_AGENT_TOOL_NAMES = [
+  'resolve_vehicle_references',
+  'request_user_choice',
   'search_catalog',
   'get_vehicle_details',
   'compare_vehicles',
@@ -40,6 +42,21 @@ export type SalesAgentToolEnvelope<T> = {
 
 export type SalesAgentToolCall =
   | {
+      name: 'resolve_vehicle_references'
+      arguments: { query: string; limit?: number }
+    }
+  | {
+      name: 'request_user_choice'
+      arguments: {
+        slot: 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage'
+        mode: 'single' | 'multiple'
+        minSelections: number
+        maxSelections: number
+        allowFreeText?: boolean
+        productType?: SalesAgentProductType
+      }
+    }
+  | {
       name: 'search_catalog'
       arguments: {
         query?: string
@@ -73,6 +90,36 @@ export type SalesAgentToolResult<T = unknown> = SalesAgentToolEnvelope<T> & {
 }
 
 export const SALES_AGENT_TOOL_DEFINITIONS = [
+  {
+    name: 'resolve_vehicle_references',
+    description: 'Xác định tên các mẫu xe trong câu hỏi thành product UUID thật từ catalog active. Luôn dùng tool này trước khi gọi get_vehicle_details hoặc compare_vehicles nếu chưa có UUID tin cậy.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['query'],
+      properties: {
+        query: { type: 'string', minLength: 1, maxLength: 300 },
+        limit: { type: 'integer', minimum: 1, maximum: 3 },
+      },
+    },
+  },
+  {
+    name: 'request_user_choice',
+    description: 'Yêu cầu UI hiển thị lựa chọn có cấu trúc khi còn thiếu slot; server sẽ tự dựng option từ catalog hoặc allowlist. Không dùng để tạo product ID hay dữ liệu tùy ý.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['slot', 'mode', 'minSelections', 'maxSelections'],
+      properties: {
+        slot: { type: 'string', enum: ['vehicles', 'vehicle', 'criteria', 'budget', 'usage'] },
+        mode: { type: 'string', enum: ['single', 'multiple'] },
+        minSelections: { type: 'integer', minimum: 0, maximum: 8 },
+        maxSelections: { type: 'integer', minimum: 1, maximum: 8 },
+        allowFreeText: { type: 'boolean' },
+        productType: { type: 'string', enum: ['CAR', 'BIKE', 'ACCESSORY'] },
+      },
+    },
+  },
   {
     name: 'search_catalog',
     description: 'Tìm xe hoặc phụ kiện đang hoạt động trong catalog Fastlane theo nhu cầu, tên và ngân sách.',
@@ -164,6 +211,12 @@ function optionalText(value: unknown, field: string, maxLength: number) {
   return trimmed || undefined
 }
 
+function requiredText(value: unknown, field: string, maxLength: number) {
+  const text = optionalText(value, field, maxLength)
+  if (!text) throw new Error(`${field} không được để trống.`)
+  return text
+}
+
 function uuid(value: unknown, field: string) {
   if (typeof value !== 'string' || !UUID_PATTERN.test(value.trim())) {
     throw new Error(`${field} phải là UUID canonical.`)
@@ -211,6 +264,44 @@ function assertPriceRange(minPrice: number | undefined, maxPrice: number | undef
 
 export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgentToolCall {
   const input = record(value)
+
+  if (name === 'resolve_vehicle_references') {
+    exactKeys(input, ['query', 'limit'])
+    return {
+      name,
+      arguments: {
+        query: requiredText(input.query, 'query', 300),
+        limit: Math.min(3, boundedLimit(input.limit, 3)),
+      },
+    }
+  }
+
+  if (name === 'request_user_choice') {
+    exactKeys(input, ['slot', 'mode', 'minSelections', 'maxSelections', 'allowFreeText', 'productType'])
+    const slot = String(input.slot)
+    const mode = String(input.mode)
+    const minSelections = input.minSelections
+    const maxSelections = input.maxSelections
+    if (!['vehicles', 'vehicle', 'criteria', 'budget', 'usage'].includes(slot)) throw new Error('slot không hợp lệ.')
+    if (mode !== 'single' && mode !== 'multiple') throw new Error('mode không hợp lệ.')
+    if (!Number.isInteger(minSelections) || !Number.isInteger(maxSelections) || Number(minSelections) < 0 || Number(maxSelections) < 1 || Number(maxSelections) > 8 || Number(maxSelections) < Number(minSelections)) {
+      throw new Error('Giới hạn lựa chọn không hợp lệ.')
+    }
+    if (mode === 'single' && (Number(minSelections) !== 1 || Number(maxSelections) !== 1)) throw new Error('single phải có đúng một lựa chọn.')
+    const productType = input.productType === undefined ? undefined : String(input.productType)
+    if (productType !== undefined && !PRODUCT_TYPES.includes(productType as SalesAgentProductType)) throw new Error('productType không hợp lệ.')
+    return {
+      name,
+      arguments: {
+        slot: slot as 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage',
+        mode: mode as 'single' | 'multiple',
+        minSelections: Number(minSelections),
+        maxSelections: Number(maxSelections),
+        allowFreeText: input.allowFreeText === true,
+        productType: productType as SalesAgentProductType | undefined,
+      },
+    }
+  }
 
   if (name === 'search_catalog') {
     exactKeys(input, ['query', 'productTypes', 'minPrice', 'maxPrice', 'stockFilter', 'limit'])

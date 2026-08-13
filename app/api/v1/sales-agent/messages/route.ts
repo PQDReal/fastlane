@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 
-import { isSalesAgentEnabled } from '@/lib/sales-agent/core/flags'
+import { isSalesAgentEnabled, isSalesAgentHarnessEnabled, isSalesAgentInteractionsEnabled } from '@/lib/sales-agent/core/flags'
 import { buildSalesAgentProviderInput, redactSalesAgentInput } from '@/lib/sales-agent/core/policy'
 import { limitSalesAgentHistory, SalesAgentRequestError, parseSalesAgentMessageRequest, type SalesAgentSseEvent } from '@/lib/sales-agent/contracts/message'
+import { runSalesAgentHarness } from '@/lib/sales-agent/orchestrator/harness'
+import { consumeSalesAgentInteractionResponse } from '@/lib/sales-agent/interactions/token'
 import { completeWithSalesAgentProvider } from '@/lib/sales-agent/providers/registry'
 import { executeSalesAgentTools, serializeSalesAgentToolResults } from '@/lib/sales-agent/tools/registry'
 import { planSalesAgentTools } from '@/lib/sales-agent/tools/planner'
@@ -62,6 +64,7 @@ async function completeWithTimeout(input: Parameters<typeof completeWithSalesAge
 function streamResponse(payload: {
   conversationId: string
   messageId: string
+  signal?: AbortSignal
   run: (send: (value: SalesAgentSseEvent) => void) => Promise<void>
 }) {
   const encoder = new TextEncoder()
@@ -70,6 +73,7 @@ function streamResponse(payload: {
       const send = (value: SalesAgentSseEvent) => controller.enqueue(encoder.encode(event(value)))
       send({ type: 'meta', conversationId: payload.conversationId, messageId: payload.messageId })
       try {
+        if (payload.signal?.aborted) return
         await payload.run(send)
       } catch (error) {
         console.error('Sales Agent provider request failed', { reason: error instanceof Error ? error.name : 'UNKNOWN_ERROR' })
@@ -90,8 +94,38 @@ export async function POST(request: Request) {
     const payload = parseSalesAgentMessageRequest(await request.json())
     const conversationId = payload.conversationId || crypto.randomUUID()
     const messageId = crypto.randomUUID()
-    return streamResponse({ conversationId, messageId, run: async (send) => {
+    let interactionSelection: Awaited<ReturnType<typeof consumeSalesAgentInteractionResponse>> | undefined
+    if (payload.interactionResponse) {
+      try {
+        interactionSelection = consumeSalesAgentInteractionResponse(payload.interactionResponse, conversationId)
+      } catch (error) {
+        return NextResponse.json({ error: { code: 'INVALID_INTERACTION', message: error instanceof Error ? error.message : 'Lựa chọn tương tác không hợp lệ.' } }, { status: 400 })
+      }
+    }
+    return streamResponse({ conversationId, messageId, signal: request.signal, run: async (send) => {
       const history = limitSalesAgentHistory((payload.guestHistory ?? []).map((item) => ({ ...item, content: redactSalesAgentInput(item.content) })))
+      if (isSalesAgentHarnessEnabled()) {
+        const result = await runSalesAgentHarness({
+          message: payload.message,
+          history,
+          pageContext: payload.pageContext,
+          conversationId,
+          messageId,
+          signal: request.signal,
+          interactionsEnabled: isSalesAgentInteractionsEnabled(),
+          interactionSelection: interactionSelection ? {
+            slot: interactionSelection.payload.slot,
+            options: interactionSelection.selectedOptions,
+            freeText: interactionSelection.freeText,
+          } : undefined,
+          onToolStatus: ({ tool, status }) => send({ type: 'tool_status', tool, status }),
+        })
+        send({ type: 'text_delta', delta: stripUntrustedNavigation(result.text) })
+        if (result.interaction) send({ type: 'interaction', interaction: result.interaction })
+        send({ type: 'done', provider: result.provider, model: result.model, finishReason: result.interaction ? 'requires_input' : 'stop' })
+        return
+      }
+
       // Read-only tools are planned and executed by Fastlane. A slow lookup
       // must not hold the transcript open; the provider then answers without
       // dynamic facts instead of guessing them.

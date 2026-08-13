@@ -61,4 +61,18 @@ describe('sales agent history contract', () => {
     expect(parsed.guestHistory).toHaveLength(SALES_AGENT_MAX_HISTORY_TURNS * 2)
     expect(parsed.guestHistory?.[0]?.content).toBe('u-5')
   })
+
+  it('parses a structured interaction response without accepting arbitrary fields', () => {
+    const parsed = parseSalesAgentMessageRequest({
+      message: 'Tiếp tục',
+      conversationId: 'conversation-1',
+      interactionResponse: {
+        interactionId: 'interaction-1',
+        selectedOptionIds: ['option-a', 'option-b'],
+        continuationToken: 'signed-token',
+      },
+    })
+    expect(parsed.interactionResponse).toEqual({ interactionId: 'interaction-1', selectedOptionIds: ['option-a', 'option-b'], continuationToken: 'signed-token' })
+    expect(() => parseSalesAgentMessageRequest({ message: 'Tiếp tục', interactionResponse: { interactionId: 'i', selectedOptionIds: [], continuationToken: 't' } })).toThrow('không hợp lệ')
+  })
 })

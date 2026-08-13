@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   search: vi.fn(),
+  resolveVehicles: vi.fn(),
   snapshot: vi.fn(),
   snapshots: vi.fn(),
   promotions: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}))
 vi.mock('../catalog/context', () => ({
   searchSalesAgentCatalog: mocks.search,
+  resolveSalesAgentVehicleReferences: mocks.resolveVehicles,
   getSalesAgentVehicleSnapshot: mocks.snapshot,
   getSalesAgentVehicleSnapshots: mocks.snapshots,
 }))
@@ -31,6 +33,19 @@ describe('sales agent tool registry', () => {
     expect(result).toMatchObject({ tool: 'search_catalog', schemaVersion: '1.0', status: 'PARTIAL', data: { items: [{ id }] }, evidence: [{ source: 'products/product_variants/inventory_items', entityIds: [id] }] })
     expect(result.readAt).toEqual(expect.any(String))
     expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'INVENTORY_UNKNOWN' }))
+  })
+
+  it('returns canonical vehicle IDs for the model-native resolver tool', async () => {
+    mocks.resolveVehicles.mockResolvedValue([{ id, name: 'VinFast VF 8', slug: 'vinfast-vf-8', productType: 'CAR' }])
+
+    const result = await executeSalesAgentTool('resolve_vehicle_references', { query: 'VF8' })
+
+    expect(result).toMatchObject({
+      tool: 'resolve_vehicle_references',
+      status: 'OK',
+      data: { vehicles: [{ id, name: 'VinFast VF 8', productType: 'CAR' }] },
+      evidence: [{ source: 'products', entityIds: [id] }],
+    })
   })
 
   it('does not expose fuzzy detail resolution', async () => {

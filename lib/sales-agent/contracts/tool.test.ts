@@ -5,6 +5,13 @@ import { parseSalesAgentToolCall } from './tool'
 const productId = '00000000-0000-4000-8000-000000000000'
 
 describe('sales agent tool contracts', () => {
+  it('resolves a bounded natural-language vehicle reference query', () => {
+    expect(parseSalesAgentToolCall('resolve_vehicle_references', { query: 'VF7 và VF8', limit: 99 })).toEqual({
+      name: 'resolve_vehicle_references',
+      arguments: { query: 'VF7 và VF8', limit: 3 },
+    })
+  })
+
   it('bounds catalog inputs and supplies safe defaults', () => {
     expect(parseSalesAgentToolCall('search_catalog', { query: 'VF 8', limit: 99 })).toEqual({
       name: 'search_catalog',

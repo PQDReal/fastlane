@@ -4,6 +4,7 @@ import {
   getSalesAgentVehicleSnapshot,
   getSalesAgentVehicleSnapshots,
   searchSalesAgentCatalog,
+  resolveSalesAgentVehicleReferences,
   type SalesAgentCatalogFact,
   type SalesAgentVehicleSnapshot,
 } from '../catalog/context'
@@ -12,6 +13,7 @@ import { getCurrentSalesAgentPromotions } from '../catalog/promotions'
 import {
   parseSalesAgentToolCall,
   type SalesAgentToolCall,
+  type SalesAgentToolName,
   type SalesAgentToolEvidence,
   type SalesAgentToolResult,
   type SalesAgentToolStatus,
@@ -94,6 +96,30 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
   }
 
   try {
+    if (call.name === 'resolve_vehicle_references') {
+      const vehicles = await resolveSalesAgentVehicleReferences(call.arguments.query, call.arguments.limit)
+      return envelope(
+        call.name,
+        readAt,
+        { vehicles },
+        vehicles.length ? 'OK' : 'NOT_FOUND',
+        [evidence('products', vehicles.map((vehicle) => vehicle.id))],
+        vehicles.length ? [] : [{ code: 'PRODUCT_NOT_FOUND', message: 'Không xác định được mẫu xe active từ câu hỏi.' }],
+      )
+    }
+
+    if (call.name === 'request_user_choice') {
+      return envelope(
+        call.name,
+        readAt,
+        null,
+        'AMBIGUOUS',
+        [],
+        [{ code: 'CONTROL_TOOL_REQUIRES_HARNESS', message: 'Control tool phải được thực thi bởi Sales Agent harness.' }],
+        null,
+      )
+    }
+
     if (call.name === 'search_catalog') {
       const items = await searchSalesAgentCatalog(call.arguments)
       const warnings = inventoryWarnings(items)
@@ -159,15 +185,19 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
       )
     }
 
-    const result = await discoverSalesAgentAccessories(call.arguments)
-    return envelope(
-      call.name,
-      readAt,
-      { items: result.items },
-      result.items.length ? result.warnings.length ? 'PARTIAL' : 'OK' : result.warnings.length ? 'PARTIAL' : 'NOT_FOUND',
-      [evidence('products/product_variants/inventory_items/product_collection_memberships', result.items.map((item) => item.productId))],
-      result.warnings,
-    )
+    if (call.name === 'discover_accessories') {
+      const result = await discoverSalesAgentAccessories(call.arguments)
+      return envelope(
+        call.name,
+        readAt,
+        { items: result.items },
+        result.items.length ? result.warnings.length ? 'PARTIAL' : 'OK' : result.warnings.length ? 'PARTIAL' : 'NOT_FOUND',
+        [evidence('products/product_variants/inventory_items/product_collection_memberships', result.items.map((item) => item.productId))],
+        result.warnings,
+      )
+    }
+
+    return unavailable(name as SalesAgentToolName, readAt, new Error('Tool không được hỗ trợ.'))
   } catch (error) {
     return unavailable(call.name, readAt, error)
   }

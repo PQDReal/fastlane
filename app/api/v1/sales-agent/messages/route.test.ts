@@ -6,8 +6,10 @@ const mocks = vi.hoisted(() => ({
   executeTools: vi.fn(),
   serializeTools: vi.fn(),
   resolveNavigation: vi.fn(),
+  runHarness: vi.fn(),
 }))
 vi.mock('@/lib/sales-agent/providers/registry', () => ({ completeWithSalesAgentProvider: mocks.complete }))
+vi.mock('@/lib/sales-agent/orchestrator/harness', () => ({ runSalesAgentHarness: mocks.runHarness }))
 vi.mock('@/lib/sales-agent/tools/planner', () => ({ planSalesAgentTools: mocks.plan }))
 vi.mock('@/lib/sales-agent/tools/registry', () => ({ executeSalesAgentTools: mocks.executeTools, serializeSalesAgentToolResults: mocks.serializeTools }))
 vi.mock('@/lib/sales-agent/navigation/resolver', () => ({ resolveSalesAgentNavigation: mocks.resolveNavigation, navigationActionMarkdown: vi.fn().mockReturnValue('[Xem xe](/cars/vf-8)'), stripUntrustedNavigation: vi.fn((value: string) => value) }))
@@ -19,6 +21,8 @@ describe('Sales Agent message API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.SALES_AGENT_ENABLED = 'true'
+    delete process.env.SALES_AGENT_HARNESS_ENABLED
+    delete process.env.SALES_AGENT_INTERACTIONS_ENABLED
     mocks.complete.mockResolvedValue({ text: 'VF 8 có thể phù hợp với nhu cầu của bạn.', provider: 'openai', model: 'gpt-5.6-luna' })
     mocks.plan.mockResolvedValue({ calls: [] })
     mocks.executeTools.mockResolvedValue([])
@@ -71,6 +75,34 @@ describe('Sales Agent message API', () => {
     const body = await response.text()
 
     expect(body).toContain('[Xem xe](/cars/vf-8)')
+  })
+
+  it('uses the model-native harness when explicitly enabled and emits interaction before requires_input', async () => {
+    process.env.SALES_AGENT_HARNESS_ENABLED = 'true'
+    process.env.SALES_AGENT_INTERACTIONS_ENABLED = 'true'
+    mocks.runHarness.mockResolvedValue({
+      text: 'Bạn chọn các mẫu xe cần so sánh nhé.',
+      provider: 'openai',
+      model: 'gpt-5.6-luna',
+      finishReason: 'stop',
+      steps: 1,
+      toolCalls: 1,
+      toolNames: ['request_user_choice'],
+      usage: {},
+      interaction: {
+        schemaVersion: '1.0', interactionId: 'interaction-1', kind: 'choice', slot: 'vehicles', mode: 'multiple',
+        title: 'Chọn mẫu xe cần so sánh', minSelections: 2, maxSelections: 3, allowFreeText: false, submitLabel: 'Tiếp tục',
+        options: [{ optionId: 'a', label: 'VF 7' }, { optionId: 'b', label: 'VF 8' }], continuationToken: 'token', expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      },
+    })
+
+    const response = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ message: 'So sánh pin và tốc độ' }) }))
+    const body = await response.text()
+
+    expect(mocks.runHarness).toHaveBeenCalled()
+    expect(mocks.runHarness).toHaveBeenCalledWith(expect.objectContaining({ interactionsEnabled: true }))
+    expect(mocks.plan).not.toHaveBeenCalled()
+    expect(body.indexOf('"type":"interaction"')).toBeLessThan(body.indexOf('"finishReason":"requires_input"'))
   })
 
   it('fails closed when the feature flag is off', async () => {
