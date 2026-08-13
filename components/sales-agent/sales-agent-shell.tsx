@@ -9,11 +9,13 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
 import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agent/contracts/message'
+import { getVisibleSalesAgentInteractionOptions, SALES_AGENT_INTERACTION_VISIBLE_OPTIONS } from '@/lib/sales-agent/contracts/interaction-view'
 
 type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean }
 type DisplayInteraction = {
   interactionId: string
   mode: 'single' | 'multiple'
+  slot: 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage'
   title: string
   description?: string
   minSelections: number
@@ -27,6 +29,7 @@ type DisplayInteraction = {
 }
 type DisplayMessage = SalesAgentMessage & { id: string; pending?: boolean; error?: boolean; interaction?: DisplayInteraction }
 type InteractionSubmission = { selectedOptionIds: string[]; freeText?: string }
+type InteractionSearchResult = DisplayInteraction
 
 const SUGGESTIONS = [
   'Tư vấn mẫu xe phù hợp',
@@ -36,7 +39,6 @@ const SUGGESTIONS = [
 ]
 
 const BOTTOM_THRESHOLD = 48
-
 function isNearBottom(element: HTMLElement) {
   return element.scrollHeight - element.clientHeight - element.scrollTop <= BOTTOM_THRESHOLD
 }
@@ -60,12 +62,51 @@ function parseSseChunk(buffer: string, onEvent: (payload: Record<string, unknown
   return remainder
 }
 
-function ChoiceInteraction({ interaction, disabled, onSubmit }: { interaction: DisplayInteraction; disabled: boolean; onSubmit: (selection: InteractionSubmission) => void }) {
+function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, onSearchResult }: { interaction: DisplayInteraction; conversationId?: string; disabled: boolean; onSubmit: (selection: InteractionSubmission) => void; onSearchResult: (result: InteractionSearchResult) => void }) {
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const [freeText, setFreeText] = useState('')
   const [showValidation, setShowValidation] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+  const searchSequenceRef = useRef(0)
+  const interactionTokenRef = useRef(interaction.continuationToken)
+  const selectedOptionIdsRef = useRef(selectedOptionIds)
+  const onSearchResultRef = useRef(onSearchResult)
+  interactionTokenRef.current = interaction.continuationToken
+  selectedOptionIdsRef.current = selectedOptionIds
+  onSearchResultRef.current = onSearchResult
   const selectionCount = selectedOptionIds.length
   const canSubmit = selectionCount >= interaction.minSelections && selectionCount <= interaction.maxSelections
+  const displayOptions = getVisibleSalesAgentInteractionOptions(interaction.options, selectedOptionIds, expanded)
+
+  useEffect(() => {
+    if (interaction.slot !== 'vehicles' && interaction.slot !== 'vehicle') return
+    const query = searchQuery.trim()
+    if (query.length < 2 || !conversationId || interaction.submitted) return
+    const sequence = searchSequenceRef.current + 1
+    searchSequenceRef.current = sequence
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      setSearching(true)
+      void fetch('/api/v1/sales-agent/interactions/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, continuationToken: interactionTokenRef.current, query, selectedOptionIds: selectedOptionIdsRef.current }),
+        signal: controller.signal,
+      }).then(async (response) => {
+        if (!response.ok) return
+        const result = await response.json() as InteractionSearchResult
+        if (searchSequenceRef.current === sequence) onSearchResultRef.current(result)
+      }).catch(() => undefined).finally(() => {
+        if (searchSequenceRef.current === sequence) setSearching(false)
+      })
+    }, 300)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [conversationId, interaction.slot, interaction.submitted, searchQuery])
 
   function toggle(optionId: string) {
     if (disabled || interaction.submitted) return
@@ -89,13 +130,18 @@ function ChoiceInteraction({ interaction, disabled, onSubmit }: { interaction: D
     onSubmit({ selectedOptionIds, ...(freeText.trim() ? { freeText: freeText.trim() } : {}) })
   }
 
-  return <form onSubmit={submit} aria-label={interaction.title} className={`mt-3 rounded-xl border p-3 ${interaction.submitted ? 'border-emerald-200 bg-emerald-50/60' : 'border-brand-200 bg-white'}`}>
+  if (interaction.submitted) {
+    const selectedLabels = selectedOptionIds.map((optionId) => interaction.options.find((option) => option.optionId === optionId)?.label).filter(Boolean)
+    return <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5" aria-label={`${interaction.title}, đã chọn`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-emerald-900">Đã chọn: {selectedLabels.join(', ') || freeText || 'Câu trả lời riêng'}</p><Check size={15} className="shrink-0 text-emerald-600" aria-hidden="true" /></div></div>
+  }
+
+  return <form onSubmit={submit} aria-label={interaction.title} className="mt-3 rounded-xl border border-brand-200 bg-white p-3">
     <div className="flex items-start justify-between gap-2">
       <div><p className="text-sm font-semibold text-slate-800">{interaction.title}</p>{interaction.description && <p className="mt-1 text-xs leading-4 text-slate-500">{interaction.description}</p>}</div>
-      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">{selectionCount}/{interaction.maxSelections}</span>
+      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500" aria-label={`${selectionCount} trên ${interaction.maxSelections} lựa chọn`}>{interaction.mode === 'single' ? `${selectionCount ? '1' : '0'} mẫu` : `${selectionCount}/${interaction.maxSelections}`}</span>
     </div>
     <div className="mt-2 space-y-1.5" role={interaction.mode === 'multiple' ? 'group' : 'radiogroup'} aria-label={interaction.title}>
-      {interaction.options.map((option) => {
+      {displayOptions.map((option) => {
         const selected = selectedOptionIds.includes(option.optionId)
         return <button key={option.optionId} type="button" role={interaction.mode === 'multiple' ? 'checkbox' : 'radio'} aria-checked={selected} disabled={disabled || interaction.submitted} onClick={() => toggle(option.optionId)} className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/50'}`}>
           <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${interaction.mode === 'multiple' ? 'rounded-sm' : 'rounded-full'} ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-transparent'}`} aria-hidden="true">{selected && <Check size={11} strokeWidth={3} />}</span>
@@ -103,9 +149,11 @@ function ChoiceInteraction({ interaction, disabled, onSubmit }: { interaction: D
         </button>
       })}
     </div>
+    {(interaction.slot === 'vehicles' || interaction.slot === 'vehicle') && <div className="mt-2"><label htmlFor={`sales-agent-interaction-search-${interaction.interactionId}`} className="sr-only">Tìm thêm mẫu xe</label><input id={`sales-agent-interaction-search-${interaction.interactionId}`} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value.slice(0, 120))} disabled={disabled} placeholder="Tìm thêm mẫu xe…" className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:opacity-60" />{searching && <p className="mt-1 text-[10px] text-slate-500" aria-live="polite">Đang tìm mẫu xe…</p>}</div>}
+    {interaction.options.length > SALES_AGENT_INTERACTION_VISIBLE_OPTIONS && <button type="button" onClick={() => setExpanded((value) => !value)} className="mt-2 min-h-8 rounded-md px-1 text-xs font-semibold text-brand-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{expanded ? 'Thu gọn' : `Xem thêm ${interaction.options.length - SALES_AGENT_INTERACTION_VISIBLE_OPTIONS} lựa chọn`}</button>}
     {interaction.allowFreeText && <input value={freeText} onChange={(event) => setFreeText(event.target.value.slice(0, 500))} disabled={disabled || interaction.submitted} placeholder="Hoặc nhập câu trả lời…" className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:opacity-60" aria-label="Câu trả lời nhập thêm" />}
     {showValidation && <p className="mt-2 text-[11px] text-red-600" role="alert">Vui lòng chọn từ {interaction.minSelections} đến {interaction.maxSelections} lựa chọn.</p>}
-    <button type="submit" disabled={disabled || interaction.submitted || (!canSubmit && !interaction.allowFreeText)} className="mt-2 min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition hover:bg-brand-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50">{interaction.submitted ? 'Đã chọn' : interaction.submitLabel}</button>
+    <button type="submit" disabled={disabled || interaction.submitted || (!canSubmit && !interaction.allowFreeText)} className="mt-2 min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition hover:bg-brand-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50">{interaction.submitLabel}</button>
   </form>
 }
 
@@ -224,6 +272,14 @@ export function SalesAgentShell() {
     }
   }
 
+  function updateInteractionSearch(messageId: string, current: DisplayInteraction, result: InteractionSearchResult) {
+    setMessages((items) => items.map((item) => {
+      if (item.id !== messageId || !item.interaction) return item
+      const selectedOptions = current.options.filter((option) => result.options.every((next) => next.optionId !== option.optionId))
+      return { ...item, interaction: { ...result, options: [...result.options, ...selectedOptions] } }
+    }))
+  }
+
   function submitInteraction(messageId: string, interaction: DisplayInteraction, selection: InteractionSubmission) {
     const labels = selection.selectedOptionIds.map((optionId) => interaction.options.find((option) => option.optionId === optionId)?.label).filter(Boolean)
     const message = selection.freeText || labels.join(', ')
@@ -279,7 +335,7 @@ export function SalesAgentShell() {
         >
           <div ref={contentRef} className="min-w-0 space-y-2">
           {!messages.length && <div className="min-w-0 space-y-2.5"><div className="py-2 text-sm leading-5 text-slate-700">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div><div className="flex flex-wrap gap-1.5">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
-          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.interaction && <ChoiceInteraction interaction={item.interaction} disabled={sending} onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)} />}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
+          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.interaction && <ChoiceInteraction interaction={item.interaction} conversationId={conversationIdRef.current} disabled={sending} onSearchResult={(result) => updateInteractionSearch(item.id, item.interaction!, result)} onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)} />}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
           </div>
         </div>
         <div className="relative">
