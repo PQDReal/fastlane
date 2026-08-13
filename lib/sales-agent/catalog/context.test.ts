@@ -59,6 +59,38 @@ describe('sales agent catalog context', () => {
     expect(query.textSearch).not.toHaveBeenCalled()
   })
 
+  it('filters a CAR category browse before the bounded result limit', async () => {
+    const { getSupabaseAdmin } = await import('@/lib/supabase-admin')
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), gte: vi.fn(), lte: vi.fn(), textSearch: vi.fn(), ilike: vi.fn(), order: vi.fn(), limit: vi.fn() }
+    query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.in.mockReturnValue(query); query.gte.mockReturnValue(query); query.lte.mockReturnValue(query); query.textSearch.mockReturnValue(query); query.ilike.mockReturnValue(query); query.order.mockReturnValue(query)
+    query.limit.mockResolvedValue({ data: [
+      { id: 'car-1', name: 'VinFast VF 7', slug: 'vf-7', product_type: 'CAR', displayed_price: 799_000_000, specifications: {}, product_variants: [{ id: 'v1', name: 'Eco', sku: 'VF7-ECO', original_price: 799_000_000, sale_price: null, is_active: true, inventory_items: null }] },
+      { id: 'bike-1', name: 'VinFast Evo', slug: 'evo', product_type: 'BIKE', displayed_price: 20_000_000, specifications: {}, product_variants: [] },
+    ], error: null })
+    vi.mocked(getSupabaseAdmin).mockReturnValue({ from: vi.fn().mockReturnValue(query) } as any)
+
+    const result = await searchSalesAgentCatalog('Có những ô tô nào?', 8)
+
+    expect(result.map((item) => item.productType)).toEqual(['CAR'])
+    expect(query.in).toHaveBeenCalledWith('product_type', ['CAR', 'VEHICLE'])
+  })
+
+  it('keeps an ACCESSORY category browse separate from vehicle candidates', async () => {
+    const { getSupabaseAdmin } = await import('@/lib/supabase-admin')
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), gte: vi.fn(), lte: vi.fn(), textSearch: vi.fn(), ilike: vi.fn(), order: vi.fn(), limit: vi.fn() }
+    query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.in.mockReturnValue(query); query.gte.mockReturnValue(query); query.lte.mockReturnValue(query); query.textSearch.mockReturnValue(query); query.ilike.mockReturnValue(query); query.order.mockReturnValue(query)
+    query.limit.mockResolvedValue({ data: [
+      { id: 'accessory-1', name: 'Sạc treo tường', slug: 'sac-treo-tuong', product_type: 'ACCESSORY', displayed_price: 10_000_000, specifications: {}, product_variants: [{ id: 'v1', name: 'Chuẩn', sku: 'ACC-1', original_price: 10_000_000, sale_price: null, is_active: true, inventory_items: null }] },
+      { id: 'car-1', name: 'VinFast VF 7', slug: 'vf-7', product_type: 'CAR', displayed_price: 799_000_000, specifications: {}, product_variants: [] },
+    ], error: null })
+    vi.mocked(getSupabaseAdmin).mockReturnValue({ from: vi.fn().mockReturnValue(query) } as any)
+
+    const result = await searchSalesAgentCatalog('Có những phụ kiện nào?', 8)
+
+    expect(result.map((item) => item.productType)).toEqual(['ACCESSORY'])
+    expect(query.in).toHaveBeenCalledWith('product_type', ['ACCESSORY'])
+  })
+
   it('uses the shared vehicle read contract and accepts legacy database types', async () => {
     const { getSupabaseAdmin } = await import('@/lib/supabase-admin')
     const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), gte: vi.fn(), lte: vi.fn(), textSearch: vi.fn(), ilike: vi.fn(), order: vi.fn(), limit: vi.fn() }

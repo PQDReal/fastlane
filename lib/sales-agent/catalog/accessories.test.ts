@@ -65,4 +65,23 @@ describe('sales agent accessory discovery', () => {
     expect(builder.select.mock.calls[0]?.[0]).toContain('product_collection_memberships')
     expect(builder.eq).toHaveBeenCalledWith('product_type', 'ACCESSORY')
   })
+
+  it('keeps a category-only accessory browse bounded and grounded when no vehicle is supplied', async () => {
+    const builder = query([
+      {
+        id: 'a1', name: 'Sạc treo tường', slug: 'sac-treo-tuong', description: null,
+        displayed_price: 10_000_000, updated_at: null,
+        product_variants: [{ original_price: 10_000_000, sale_price: null, is_active: true, inventory_items: null }],
+        collection_memberships: [],
+      },
+    ])
+    mocks.getSupabaseAdmin.mockReturnValue({ from: vi.fn().mockReturnValue(builder) })
+
+    const result = await discoverSalesAgentAccessories({ query: 'phụ kiện', limit: 1 })
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]?.associationStatus).toBe('UNKNOWN')
+    expect(result.items[0]?.availability).toBe('UNKNOWN')
+    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'INVENTORY_UNKNOWN' }))
+  })
 })
