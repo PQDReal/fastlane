@@ -2,6 +2,7 @@ import 'server-only'
 
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import { resolveSalesAgentVehicleReferences } from '../catalog/context'
+import type { SalesAgentMessage } from '../contracts/message'
 import type { SalesAgentToolCall } from '../contracts/tool'
 import { requestsNavigation, type SalesAgentNavigationIntent } from '../navigation/resolver'
 
@@ -48,7 +49,12 @@ function requestedCatalogEntityType(message: string): 'CAR' | 'BIKE' | 'ACCESSOR
   return 'CAR'
 }
 
-export async function planSalesAgentTools(message: string): Promise<SalesAgentToolPlan> {
+function hasExplicitCatalogEntityType(message: string) {
+  const normalized = normalizeProductSearchText(message)
+  return ['o to', 'xe may', 'phu kien'].some((term) => normalized.includes(term))
+}
+
+export async function planSalesAgentTools(message: string, history: SalesAgentMessage[] = []): Promise<SalesAgentToolPlan> {
   // Procedures, policies and guides require citation-backed knowledge. Until
   // the RAG tool is available, do not route keyword overlaps such as “pin” or
   // “phụ kiện” into catalog tools and accidentally present them as evidence.
@@ -60,31 +66,54 @@ export async function planSalesAgentTools(message: string): Promise<SalesAgentTo
   const wantsDetails = vehicleDetailsIntent(message)
   const wantsCatalog = genericCatalogIntent(message)
   const wantsNavigation = requestsNavigation(message)
-  if (!wantsCompare && !wantsAccessory && !wantsPromotion && !wantsDetails && !wantsCatalog && !wantsNavigation) return { calls: [] }
+  const userHistory = history.filter((item) => item.role === 'user')
+  const historyVehicleContext = userHistory.slice(-6).map((item) => item.content).join('\n')
+  const latestHistoryMessage = userHistory.at(-1)?.content ?? ''
+  const inheritedCompare = !wantsCompare
+    && compareIntent(latestHistoryMessage)
+    && !wantsAccessory
+    && !wantsPromotion
+    && !wantsDetails
+    && !wantsCatalog
+    && !wantsNavigation
+  const effectiveWantsCompare = wantsCompare || inheritedCompare
+  if (!effectiveWantsCompare && !wantsAccessory && !wantsPromotion && !wantsDetails && !wantsCatalog && !wantsNavigation) return { calls: [] }
 
-  const vehicles = await resolveSalesAgentVehicleReferences(message, 3)
-  const references = vehicles.map((vehicle) => vehicle.id)
+  const directVehicles = await resolveSalesAgentVehicleReferences(message, 3)
+  const shouldResolveHistory = (effectiveWantsCompare && directVehicles.length < 2)
+    || ((wantsAccessory || wantsDetails || wantsNavigation) && directVehicles.length === 0)
+  const resolvedVehicles = shouldResolveHistory
+    ? await resolveSalesAgentVehicleReferences(`${historyVehicleContext}\n${message}`, 3)
+    : directVehicles
+  const references = resolvedVehicles.map((vehicle) => vehicle.id)
   let calls: SalesAgentToolCall[] = []
 
   if (wantsPromotion) {
-    calls = [{ name: 'get_current_promotions', arguments: { productType: vehicles.length === 1 ? vehicles[0].productType : undefined } }]
+    calls = [{ name: 'get_current_promotions', arguments: { productType: resolvedVehicles.length === 1 ? resolvedVehicles[0].productType : undefined } }]
   } else if (wantsAccessory) {
-    calls = [{ name: 'discover_accessories', arguments: { query: message, vehicleProductId: vehicles.length === 1 ? vehicles[0].id : undefined, limit: 6 } }]
-  } else if (wantsCompare) {
+    calls = [{ name: 'discover_accessories', arguments: { query: message, vehicleProductId: resolvedVehicles.length === 1 ? resolvedVehicles[0].id : undefined, limit: 6 } }]
+  } else if (effectiveWantsCompare) {
     calls = references.length >= 2
       ? [{ name: 'compare_vehicles', arguments: { productIds: references } }]
       : []
   } else if (wantsDetails && references.length === 1) {
     calls = [{ name: 'get_vehicle_details', arguments: { productId: references[0] } }]
-  } else if (wantsCatalog || wantsDetails || wantsCompare) {
-    calls = [{ name: 'search_catalog', arguments: { query: message, limit: 8 } }]
+  } else if (wantsCatalog || wantsDetails || effectiveWantsCompare) {
+    calls = [{
+      name: 'search_catalog',
+      arguments: {
+        query: message,
+        ...(wantsCatalog && !hasExplicitCatalogEntityType(message) ? { productTypes: ['CAR', 'BIKE'] } : {}),
+        limit: 8,
+      },
+    }]
   }
 
   if (!wantsNavigation) return { calls }
-  const entity = vehicles[0]
+  const entity = resolvedVehicles[0]
   if (entity) {
     return { calls, navigationIntent: { actionKey: 'VIEW_PRODUCT', entityId: entity.id, entityType: entity.productType } }
   }
-  if (wantsCompare) return { calls, navigationIntent: { actionKey: 'OPEN_COMPARE' } }
+  if (effectiveWantsCompare) return { calls, navigationIntent: { actionKey: 'OPEN_COMPARE' } }
   return { calls, navigationIntent: { actionKey: 'BROWSE_CATALOG', entityType: requestedCatalogEntityType(message) } }
 }

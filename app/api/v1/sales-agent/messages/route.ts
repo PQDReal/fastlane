@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       // Read-only tools are planned and executed by Fastlane. A slow lookup
       // must not hold the transcript open; the provider then answers without
       // dynamic facts instead of guessing them.
-      const plan = await withFallback(planSalesAgentTools(payload.message), TOOL_TIMEOUT_MS, { calls: [] })
+      const plan = await withFallback(planSalesAgentTools(payload.message, history), TOOL_TIMEOUT_MS, { calls: [] })
       plan.calls.forEach((call) => send({ type: 'tool_status', tool: call.name, status: 'running' }))
       const toolResults = await withFallback(executeSalesAgentTools(plan.calls), TOOL_TIMEOUT_MS, [])
       toolResults.forEach((toolResult) => send({ type: 'tool_status', tool: toolResult.tool, status: toolResult.status }))

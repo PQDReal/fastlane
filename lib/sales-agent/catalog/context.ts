@@ -124,6 +124,7 @@ const SEARCH_STOP_WORDS = new Set([
   'tu', 'van', 'giup', 'minh', 'toi', 'can', 'muon', 'tim', 'cho', 'hoi', 've',
   'thong', 'so', 'ky', 'thuat', 'gia', 'hien', 'tai', 'bao', 'nhieu', 'sanh',
   'hay', 'goi', 'y', 'phu', 'kien', 'duoi', 'tren', 'trieu', 'nghin', 'vnd',
+  'hop', 'ngan', 'sach',
   'di', 'duoc', 'xa', 'toc', 'do', 'cong', 'suat', 'pin', 'dung', 'luong',
   'quang', 'duong', 'pham', 'vi', 'khuyen', 'mai', 'uu', 'dai',
 ])
