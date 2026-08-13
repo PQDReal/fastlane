@@ -140,7 +140,7 @@ function buildAuthorityPriceMap(rows: ActiveProductRow[]) {
       const key = `${product.id}:variant:${variant.id}`
       const current = prices.get(key)
       if (current === undefined || variant.price < current) prices.set(key, variant.price)
-      const skuKey = `${product.id}:sku:${variant.sku}`
+      const skuKey = `${product.id}:sku:${normalizedSku(variant.sku)}`
       const currentSkuPrice = prices.get(skuKey)
       if (currentSkuPrice === undefined || variant.price < currentSkuPrice) prices.set(skuKey, variant.price)
     }
