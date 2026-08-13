@@ -65,8 +65,9 @@ function normalizedMessage(message: string) {
 /** Returns only an explicit intent from the current message. */
 export function inferSalesAgentIntent(message: string): SalesAgentIntent | undefined {
   const normalized = normalizedMessage(message)
-  if (!normalized || includesAny(normalized, STATIC_KNOWLEDGE_PHRASES)) return undefined
+  if (!normalized) return undefined
   if (includesAny(normalized, PROMOTION_PHRASES)) return 'PROMOTIONS'
+  if (includesAny(normalized, STATIC_KNOWLEDGE_PHRASES)) return undefined
   if (normalized.includes('phu kien')) return 'ACCESSORIES'
   if (includesAny(normalized, COMPARE_PHRASES)) return 'COMPARE_VEHICLES'
   if (includesAny(normalized, DETAIL_PHRASES)) return 'VEHICLE_DETAILS'

@@ -66,6 +66,7 @@ describe('sales agent conversation intent and slot continuity', () => {
   it('classifies explicit intents without inventing one for an entity-only message', () => {
     expect(inferSalesAgentIntent('So sánh pin và tốc độ')).toBe('COMPARE_VEHICLES')
     expect(inferSalesAgentIntent('Thông số VF8')).toBe('VEHICLE_DETAILS')
+    expect(inferSalesAgentIntent('Chính sách khuyến mãi')).toBe('PROMOTIONS')
     expect(inferSalesAgentIntent('VF7 và VF8')).toBeUndefined()
   })
 })
