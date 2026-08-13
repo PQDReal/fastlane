@@ -170,9 +170,6 @@ export default async function BikeDetailPage(
   const colorImages = motorbike.colors.map((color) => color.imageUrl)
   const detailImages = motorbike.detailImageUrls
 
-  const displayImgs = detailImages.slice(0, 2)
-  const displayIntImgs = detailImages.slice(2, 3)
-
   const specEntries =
     getSpecEntries(specifications)
 
@@ -204,11 +201,21 @@ export default async function BikeDetailPage(
   const specificationSections = new Map(
     visibleSpecificationFields.map((field) => [field.key, normalizeText(field.section)]),
   )
+  const headlineSpecificationKeys = new Set([
+    'Quãng đường đi được mỗi lần sạc',
+    'Công suất tối đa',
+    'Tốc độ tối đa',
+    'Thời gian sạc tiêu chuẩn',
+  ])
   const dimensionEntries = specEntries.filter(([key]) => {
+    if (headlineSpecificationKeys.has(key)) return false
     const section = specificationSections.get(key) ?? ''
     return section.includes('kich thuoc') || section.includes('tien ich')
   })
-  const performanceEntries = specEntries.filter(([key]) => !dimensionEntries.some(([entryKey]) => entryKey === key))
+  const performanceEntries = specEntries.filter(([key]) => (
+    !headlineSpecificationKeys.has(key) &&
+    !dimensionEntries.some(([entryKey]) => entryKey === key)
+  ))
 
   const technologyFeatures = [
     {
@@ -571,64 +578,36 @@ export default async function BikeDetailPage(
         <BikeColorSelector
           colors={bikeColors}
           images={colorImages}
+          description={description}
         />
       )}
 
       {/* DESIGN SECTION */}
-      <section
-        id="design"
-        className="bg-background py-32"
-      >
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="mb-16">
-            <h2 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
-              Thiết kế dành cho nhịp sống hiện đại
-            </h2>
-
-            <p className="max-w-2xl text-xl text-muted-foreground">
-              {description}
-            </p>
+      <section id="design" className="bg-slate-950 py-20 text-white">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h2>
+            <p className="mt-2 text-xs text-white/50">Hình ảnh thực tế chi tiết của xe.</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            {displayImgs[0] && (
-              <div className="overflow-hidden rounded-[2rem] md:col-span-2">
+          <div className="grid gap-6 md:grid-cols-2">
+            {detailImages.slice(0, 3).map((url, index) => (
+              <div
+                key={`${url}-${index}`}
+                className={`group relative overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900 ${index === 0 ? 'md:col-span-2 aspect-[16/9]' : 'aspect-square'}`}
+              >
                 <Image
-                  src={displayImgs[0]}
-                  alt={`Thiết kế ${product.name}`}
-                  width={1440}
-                  height={810}
-                  sizes="(max-width: 1024px) 100vw, 1440px"
-                  className="h-auto w-full object-cover"
+                  src={url}
+                  alt={`Chi tiết ${product.name} ${index + 1}`}
+                  fill
+                  sizes={index === 0 ? '(max-width: 768px) 100vw, 960px' : '(max-width: 768px) 100vw, 480px'}
+                  className="object-cover transition duration-700 group-hover:scale-105"
                 />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12">
+                  <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
+                </div>
               </div>
-            )}
-
-            {displayImgs[1] && (
-              <div className="aspect-square overflow-hidden rounded-[2rem]">
-                <Image
-                  src={displayImgs[1]}
-                  alt={`Ngoại hình ${product.name}`}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            )}
-
-            {displayIntImgs[0] && (
-              <div className="relative aspect-square overflow-hidden rounded-[2rem]">
-                <Image
-                  src={displayIntImgs[0]}
-                  alt={`Chi tiết ${product.name}`}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            )}
+            ))}
           </div>
         </div>
       </section>
