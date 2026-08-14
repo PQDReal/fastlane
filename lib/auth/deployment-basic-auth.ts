@@ -1,7 +1,6 @@
 const VNPAY_IPN_PATH = '/api/v1/payments/vnpay/ipn'
 const CONTRACT_EXPIRY_CRON_PATH = '/api/v1/deposit-orders/expire-contracts'
 const VNPAY_PAYMENT_RECONCILIATION_CRON_PATH = '/api/v1/payments/vnpay/reconcile'
-const VNPAY_ATTEMPT_RECONCILIATION_PATH = '/api/v1/payments/vnpay/reconcile-attempt'
 export const DEPLOYMENT_BASIC_AUTH_COOKIE = 'fastlane_preview_access'
 export const DEPLOYMENT_BASIC_AUTH_COOKIE_MAX_AGE = 30 * 60
 const COOKIE_VERSION = 'v1'
@@ -28,7 +27,6 @@ export function isDeploymentBasicAuthExempt(pathname: string, method: string) {
     || (pathname === '/api/webhooks/didit' && normalizedMethod === 'POST')
     || (pathname === CONTRACT_EXPIRY_CRON_PATH && normalizedMethod === 'POST')
     || (pathname === VNPAY_PAYMENT_RECONCILIATION_CRON_PATH && normalizedMethod === 'POST')
-    || (pathname === VNPAY_ATTEMPT_RECONCILIATION_PATH && normalizedMethod === 'POST')
 }
 
 export function hasValidDeploymentBasicAuth(

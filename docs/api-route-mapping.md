@@ -71,7 +71,6 @@
 | `/api/v1/orders/{orderId}/payment` | POST | `/orders/{orderId}/payment` | MISSING_IN_OPENAPI |
 | `/api/v1/payments/vnpay/ipn` | GET | `/payments/vnpay/ipn` | MISSING_IN_OPENAPI |
 | `/api/v1/payments/vnpay/reconcile` | POST | `/payments/vnpay/reconcile` | MISSING_IN_OPENAPI |
-| `/api/v1/payments/vnpay/reconcile-attempt` | POST | `/payments/vnpay/reconcile-attempt` | MISSING_IN_OPENAPI |
 | `/api/v1/products` | GET | `/products` | MAPPED |
 | `/api/v1/search/assistant` | POST | `/search/assistant` | MISSING_IN_OPENAPI |
 | `/api/v1/test-drive/requests` | POST | `/test-drive/requests` | MAPPED |
