@@ -523,8 +523,6 @@ export function AccessoryDetailClient({
             <section aria-labelledby="product-heading" className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-brand-700">
                 {categoryLabels.length > 0 ? categoryLabels.map((category) => <span key={category} className="rounded bg-brand-50 px-2 py-1 text-brand-700">{category}</span>) : <span>Phụ kiện chính hãng</span>}
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>{product.variants.length} cấu hình</span>
               </div>
               <h1 id="product-heading" className="mt-3 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
                 {product.name}

@@ -4,6 +4,7 @@ import {
   createVnPayPaymentUrl,
   verifyVnPayHash,
   vnPaySigningData,
+  vnPayTransactionOutcome,
 } from './vnpay'
 
 describe('VNPAY', () => {
@@ -34,5 +35,12 @@ describe('VNPAY', () => {
     expect(params.vnp_Amount).toBe('500000000')
     expect(params.vnp_BankCode).toBeUndefined()
     expect(verifyVnPayHash(params, 'sandbox-secret')).toBe(true)
+  })
+  it.each([
+    ['00', 'PAID'], ['10', 'PAID'], ['20', 'PAID'],
+    ['02', 'FAILED'], ['04', 'FAILED'], ['07', 'FAILED'], ['08', 'FAILED'], ['11', 'FAILED'],
+    ['01', 'PENDING'], ['05', 'PENDING'], ['06', 'PENDING'], ['09', 'PENDING'], ['', 'PENDING'],
+  ] as const)('classifies transaction status %s as %s', (status, outcome) => {
+    expect(vnPayTransactionOutcome(status)).toBe(outcome)
   })
 })

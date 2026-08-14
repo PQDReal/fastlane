@@ -42,6 +42,10 @@ type DetailRow = {
     quantity: number
     line_subtotal: number | string
   }>
+  payment_attempts: Array<{
+    status: AdminAccessoryOrder['paymentAttemptStatus']
+    created_at: string
+  }>
   refund_attempts: Array<{
     status: AdminAccessoryOrder['refundAttemptStatus']
     requested_at: string
@@ -49,7 +53,7 @@ type DetailRow = {
   }>
 }
 
-const baseSelection = 'id,order_number,status,refund_status,subtotal,discount_amount,total_amount,shipping_address,cancellation_reason,created_at,updated_at,customer:users!orders_customer_id_fkey!inner(id,email),order_items(id,sku_snapshot,product_name_snapshot,variant_name_snapshot,selected_options_snapshot,unit_price,quantity,line_subtotal),refund_attempts:vnpay_refund_attempts(status,requested_at,updated_at)'
+const baseSelection = 'id,order_number,status,refund_status,subtotal,discount_amount,total_amount,shipping_address,cancellation_reason,created_at,updated_at,customer:users!orders_customer_id_fkey!inner(id,email),order_items(id,sku_snapshot,product_name_snapshot,variant_name_snapshot,selected_options_snapshot,unit_price,quantity,line_subtotal),payment_attempts:vnpay_checkout_attempts(status,created_at),refund_attempts:vnpay_refund_attempts(status,requested_at,updated_at)'
 const auditedSelection = `${baseSelection},cancelled_at,cancelled_by_type,cancelled_by_user_id,cancellation_reason_code,cancellation_note,cancellation_audit_version,cancelled_by:users!orders_cancelled_by_user_id_fkey(id,email)`
 
 function selectedOptions(value: unknown): SelectedProductOption[] {
@@ -101,6 +105,8 @@ function cancellationAudit(row: DetailRow): OrderCancellationAudit | null {
 }
 
 function toAdminOrder(row: DetailRow): AdminAccessoryOrder {
+  const latestPaymentAttempt = [...(row.payment_attempts ?? [])]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
   const latestRefundAttempt = [...(row.refund_attempts ?? [])]
     .sort((a, b) => b.requested_at.localeCompare(a.requested_at))[0]
   const rawAddress = row.shipping_address
@@ -136,6 +142,7 @@ function toAdminOrder(row: DetailRow): AdminAccessoryOrder {
     cancellation: cancellationAudit(row),
     status: row.status,
     refundStatus: row.refund_status,
+    paymentAttemptStatus: latestPaymentAttempt?.status ?? null,
     refundAttemptStatus: latestRefundAttempt?.status ?? null,
     refundNextCheckAt: latestRefundAttempt?.updated_at
       ? new Date(new Date(latestRefundAttempt.updated_at).getTime() + 310_000).toISOString()

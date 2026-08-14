@@ -22,6 +22,7 @@ export type AdminOrderRow = {
   amount: number
   status: string
   payment: string
+  paymentAttemptStatus: 'PENDING' | 'PAID' | 'FAILED' | null
   refundStatus: AdminOrderRefundStatus
   refundAttemptStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null
   refundNextCheckAt: string | null
@@ -193,7 +194,7 @@ export function AdminOrdersClient({
               >
                 <option value="All">Tất cả trạng thái</option>
                 <optgroup label="Đơn Xe Ô tô">
-                  <option value="PENDING_DEPOSIT">Chờ cọc</option>
+                  <option value="PENDING_DEPOSIT">Chờ thanh toán cọc</option>
                   <option value="PENDING_CONFIRMATION">Chờ xét duyệt cọc</option>
                   <option value="CONFIRMED">Đã xác nhận</option>
                   <option value="PENDING_CONTRACT">Chờ ký hợp đồng</option>
@@ -222,6 +223,7 @@ export function AdminOrdersClient({
               status: order.status,
               refundStatus: order.refundStatus,
               payment: order.payment,
+              paymentAttemptStatus: order.paymentAttemptStatus,
               vehicleType: order.vehicleType,
             })
             return (

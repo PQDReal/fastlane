@@ -23,10 +23,16 @@ export const auth0 = new Auth0Client({
   appBaseUrl,
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
+    // Request a refresh token so an expired API access token can be renewed
+    // without leaving the user on an authenticated-looking page that fails
+    // every protected API request.
     scope: 'openid profile email offline_access',
     ui_locales: 'vi',
   },
   enableAccessTokenEndpoint: true,
+  // Renew tokens slightly before their expiry. Route handlers can persist the
+  // rotated token set, avoiding a burst of 401 responses across the UI.
+  tokenRefreshBuffer: 60,
   session: {
     // Cart quantity changes are high-frequency requests. Keep the encrypted
     // session valid, but avoid re-encrypting/rolling the cookie on every click.

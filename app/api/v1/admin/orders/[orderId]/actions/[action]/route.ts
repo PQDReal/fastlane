@@ -5,6 +5,7 @@ import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { requireAdminMutationIdentity } from '@/lib/auth/admin-mutation-identity'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { parseItemId } from '@/lib/cart/validation'
+import { reconcileVnPayPayment, VnPayPaymentReconciliationError } from '@/lib/services/vnpay-payment-reconciliation-service'
 import { reconcileVnPayRefund, refundCancelledOrder, VnPayRefundError } from '@/lib/services/vnpay-refund-service'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
@@ -111,8 +112,31 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ data: { status: 'CANCELLED', ...result } })
     }
 
+    if (action === 'reconcile-payment') {
+      const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      const result = await reconcileVnPayPayment({
+        orderId,
+        orderKind: 'accessory',
+        clientIp: forwarded || request.headers.get('x-real-ip') || '127.0.0.1',
+      })
+      return NextResponse.json({
+        data: {
+          paymentAttemptStatus: result.status,
+          reason: result.reason,
+          message: result.message,
+        },
+      })
+    }
+
     throw new ApiRouteError(404, 'ACTION_NOT_FOUND', 'Thao tác đơn hàng không hợp lệ.')
   } catch (error) {
+    if (error instanceof VnPayPaymentReconciliationError) {
+      return apiErrorResponse(new ApiRouteError(
+        error.code === 'ORDER_NOT_FOUND' ? 404 : 502,
+        error.code,
+        error.message,
+      ))
+    }
     if (error instanceof VnPayRefundError) {
       const conflictCodes = ['REFUND_NOT_PENDING', 'REFUND_ALREADY_REQUESTED', 'REFUND_NOT_PROCESSING']
       return apiErrorResponse(new ApiRouteError(

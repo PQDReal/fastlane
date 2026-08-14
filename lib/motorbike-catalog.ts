@@ -1,10 +1,9 @@
 import 'server-only'
 
 import { cache } from 'react'
-import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { MOTORBIKE_CATALOG_CACHE_KEY, motorbikeDetailCacheKey } from '@/lib/cache-keys'
-import { readRedisJson, writeRedisJson } from '@/lib/redis'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields, type VehicleSpecField } from '@/lib/vehicle-specifications'
+import { normalizeMotorbikeVersionName } from '@/lib/motorbike-version'
 
 type JsonRecord = Record<string, unknown>
 
@@ -45,6 +44,7 @@ export type MotorbikeCatalogItem = {
   detailImageUrls: string[]
   brochureUrl: string
   specifications: JsonRecord
+  specificationFields: VehicleSpecField[]
   displayedPrice: number
   colors: MotorbikeCatalogColor[]
   versions: MotorbikeCatalogVersion[]
@@ -84,15 +84,6 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function normalizedVersion(row: VehicleVariantRow): string {
-  const version = text(row.version) || text(row.variant_name)
-  const color = text(row.color)
-  const suffix = color ? ` - ${color}` : ''
-  return suffix && version.toLocaleLowerCase().endsWith(suffix.toLocaleLowerCase())
-    ? version.slice(0, -suffix.length).trim()
-    : version
-}
-
 function number(value: unknown): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -120,6 +111,13 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
       : Object.fromEntries(
           Object.entries(rootSpecs).filter(([key]) => key !== 'catalog'),
         )
+    const declaredVersions = Array.isArray(rootSpecs.variants) ? rootSpecs.variants : []
+    const versionName = (row: VehicleVariantRow) => normalizeMotorbikeVersionName(
+      text(row.version) || text(row.variant_name),
+      declaredVersions,
+      productRows.map((candidate) => candidate.color),
+      first.product_name,
+    )
 
     const colors = [...new Map(
       productRows.map((row) => [row.color, {
@@ -133,9 +131,9 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
     ).values()].sort((left, right) => left.order - right.order)
 
     const versions = [...new Map(
-      productRows.map((row) => [normalizedVersion(row), {
+      productRows.map((row) => [versionName(row), {
         id: row.id,
-        name: normalizedVersion(row),
+        name: versionName(row),
         sku: row.sku.replace(/-C\d{2}$/i, ''),
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
@@ -159,12 +157,18 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
         rootSpecs.brochure,
       ),
       specifications,
+      specificationFields: mergeVehicleSpecFields(
+        normalizeMotorbikeSpecFields(rootSpecs.specification_fields),
+        specifications,
+        'Kích thước & Tiện ích',
+        DEFAULT_MOTORBIKE_SPEC_FIELDS,
+      ),
       displayedPrice: Math.min(...versions.map((version) => version.price)),
       colors,
       versions,
       variantRows: productRows.map((row) => ({
         id: row.id,
-        version: normalizedVersion(row),
+        version: versionName(row),
         color: row.color,
         sku: row.sku,
         price: number(row.price),
@@ -222,41 +226,13 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)))
 }
 
-const loadCachedMotorbikeCatalog = unstable_cache(
-  loadMotorbikeCatalog,
-  ['motorbike-catalog-v2'],
-  {
-    revalidate: 300,
-    tags: ['motorbike-catalog'],
-  },
-)
-
-async function loadDistributedMotorbikeCatalog() {
-  const cached = await readRedisJson<MotorbikeCatalogItem[]>(
-    MOTORBIKE_CATALOG_CACHE_KEY,
-  )
-  if (cached) {
-    return cached
-  }
-
-  const items = await loadCachedMotorbikeCatalog()
-  await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, items, 300)
-  return items
-}
-
-// React cache deduplicates calls within one render. The Next data cache keeps the
-// public catalog warm across requests while still refreshing external DB changes.
-export const listMotorbikeCatalog = cache(loadDistributedMotorbikeCatalog)
+// React cache only deduplicates calls within the current request. Do not persist
+// the catalog here: admin/backend edits must be visible after the next reload.
+export const listMotorbikeCatalog = cache(loadMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
-  const detailKey = motorbikeDetailCacheKey(slug)
-  const cached = await readRedisJson<MotorbikeCatalogItem>(detailKey)
-  if (cached) return cached
-
   const items = await listMotorbikeCatalog()
-  const item = items.find((entry) => entry.slug === slug) ?? null
-  if (item) await writeRedisJson(detailKey, item, 300)
-  return item
+  return items.find((entry) => entry.slug === slug) ?? null
 }
 
 export async function getMotorbikeCatalogByName(name: string) {

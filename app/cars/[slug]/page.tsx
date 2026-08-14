@@ -8,8 +8,6 @@ import path from 'path'
 import { Button } from '../../../components/ui/button'
 import { Check, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { carDetailCacheKey } from '../../../lib/cache-keys'
-import { readRedisJson, writeRedisJson } from '../../../lib/redis'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,31 +117,22 @@ const formatSpecValue = (key: string, value: any): string => {
 
 export default async function CarDetailPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
-  const cacheKey = carDetailCacheKey(params.slug)
-  type CarDetailCache = { product: any | null; variantsData: any[] }
-  const cached = await readRedisJson<CarDetailCache>(cacheKey)
-  let product: any | null = cached?.product ?? null
-  let variantsData: any[] = cached?.variantsData ?? []
-
-  if (!cached) {
-    const supabase = getSupabaseAdmin()
-    const { data: loadedProduct } = await supabase
-      .from('products')
-      .select('id,category_id,name,slug,description,specifications,image_urls,is_active,displayed_price,product_type,category:categories!inner(name)')
-      .eq('slug', params.slug)
+  const supabase = getSupabaseAdmin()
+  const { data: product } = await supabase
+    .from('products')
+    .select('id,category_id,name,slug,description,specifications,image_urls,is_active,displayed_price,product_type,category:categories!inner(name)')
+    .eq('slug', params.slug)
+    .eq('is_active', true)
+    .eq('categories.name', 'Ô tô điện')
+    .maybeSingle()
+  let variantsData: any[] = []
+  if (product) {
+    const { data: loadedVariants } = await supabase
+      .from('vehicle_variants')
+      .select('id,product_id,color,image_car_url,image_color_url,is_active')
+      .eq('product_id', product.id)
       .eq('is_active', true)
-      .eq('categories.name', 'Ô tô điện')
-      .maybeSingle()
-    product = loadedProduct
-    if (product) {
-      const { data: loadedVariants } = await supabase
-        .from('vehicle_variants')
-        .select('id,product_id,color,image_car_url,image_color_url,version,is_active')
-        .eq('product_id', product.id)
-        .eq('is_active', true)
-      variantsData = loadedVariants ?? []
-    }
-    await writeRedisJson(cacheKey, { product, variantsData }, 300)
+    variantsData = loadedVariants ?? []
   }
 
   if (!product) {
@@ -235,6 +224,12 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
     displayImgs[2] = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_03.webp'
     displayIntImgs[0] = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_05.webp'
   }
+
+  const detailGalleryImages = (
+    Array.isArray(specsObj.gallery?.detail_images) && specsObj.gallery.detail_images.length > 0
+      ? specsObj.gallery.detail_images
+      : displayImgs
+  ).filter((image: unknown): image is string => typeof image === 'string' && image.trim() !== '').slice(0, 20)
 
   const dbSpecsVariants = specsObj.specs || {}
   const dbVariantKeys = Object.keys(dbSpecsVariants)
@@ -479,26 +474,15 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
               <p className="text-xl text-muted-foreground max-w-2xl">{carMarketing.design?.description}</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
-              {displayImgs[0] && (
-                <div className="md:col-span-2 overflow-hidden rounded-[2rem]">
-                  <img src={displayImgs[0]} alt="Ngoại thất" className="w-full h-auto object-cover hover:scale-105 transition-transform duration-1000" />
-                </div>
-              )}
-              {displayImgs[1] && (
-                <div className="overflow-hidden rounded-[2rem] aspect-square">
-                  <img src={displayImgs[1]} alt="Ngoại thất" className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                </div>
-              )}
-              {displayIntImgs[0] && (
-                <div className="overflow-hidden rounded-[2rem] aspect-square relative group">
-                  <img src={displayIntImgs[0]} alt="Nội thất" className="w-full h-full object-cover hover:scale-105 transition-transform duration-1000" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8 text-white">
-                     <h3 className="text-2xl font-bold mb-2">{carMarketing.design?.interior_title || 'Nội thất đẳng cấp'}</h3>
-                     <p className="text-white/80">{carMarketing.design?.interior_description}</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 md:gap-6 mb-16">
+              {detailGalleryImages.map((image: string, index: number) => (
+                <div key={`${image}-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem]">
+                  <img src={image} alt={`Chi tiết ${product.name} ${index + 1}`} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12 text-white">
+                    <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         </section>

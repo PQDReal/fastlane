@@ -68,6 +68,7 @@ export default async function AdminOrdersPage() {
   }
 
   const paidDepositOrderIds = new Set<string>()
+  const latestPaymentAttemptByOrder = new Map<string, AdminOrderRow['paymentAttemptStatus']>()
   const cancellationEventByOrder = new Map<string, DepositCancellationEvent>()
   const actorEmailById = new Map<string, string>()
   const latestRefundAttemptByOrder = new Map<string, {
@@ -92,9 +93,9 @@ export default async function AdminOrdersPage() {
     const [paymentAttemptsResult, cancellationEventsResult, refundAttemptsResult] = await Promise.all([
       supabase
         .from('vnpay_deposit_attempts')
-        .select('deposit_order_id,status')
+        .select('deposit_order_id,status,created_at')
         .in('deposit_order_id', depositOrderIds)
-        .eq('status', 'PAID'),
+        .order('created_at', { ascending: false }),
       cancellationEventsPromise,
       supabase.from('vnpay_deposit_refund_attempts')
         .select('deposit_order_id,status,created_at,updated_at')
@@ -104,7 +105,15 @@ export default async function AdminOrdersPage() {
     if (paymentAttemptsResult.error) {
       console.error('Failed to fetch deposit payment attempts:', paymentAttemptsResult.error)
     } else {
-      for (const attempt of paymentAttemptsResult.data ?? []) paidDepositOrderIds.add(attempt.deposit_order_id)
+      for (const attempt of paymentAttemptsResult.data ?? []) {
+        if (!latestPaymentAttemptByOrder.has(attempt.deposit_order_id)) {
+          latestPaymentAttemptByOrder.set(
+            attempt.deposit_order_id,
+            attempt.status as AdminOrderRow['paymentAttemptStatus'],
+          )
+        }
+        if (attempt.status === 'PAID') paidDepositOrderIds.add(attempt.deposit_order_id)
+      }
     }
     if (cancellationEventsResult.error) {
       console.error('Failed to fetch deposit cancellation events:', cancellationEventsResult.error)
@@ -197,6 +206,7 @@ export default async function AdminOrdersPage() {
       amount,
       status: deposit.status,
       payment: paymentStatus,
+      paymentAttemptStatus: latestPaymentAttemptByOrder.get(deposit.id) ?? null,
       refundStatus: deposit.refund_status || 'NONE',
       refundAttemptStatus: refundAttempt?.status ?? null,
       refundNextCheckAt: refundAttempt?.updated_at

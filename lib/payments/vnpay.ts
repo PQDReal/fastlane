@@ -1,7 +1,18 @@
 import crypto from 'node:crypto'
 
 export type VnPayParams = Record<string, string>
+export type VnPayTransactionOutcome = 'PAID' | 'FAILED' | 'PENDING'
 const SANDBOX_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
+export const VNPAY_PAYMENT_EXPIRY_MS = 15 * 60_000
+
+/** Classifies the payment result returned by VNPAY QueryDR. */
+export function vnPayTransactionOutcome(status: string): VnPayTransactionOutcome {
+  // 10 (delivered) and 20 (settled to merchant) can only follow a successful payment.
+  if (['00', '10', '20'].includes(status)) return 'PAID'
+  // Error, reversed, suspected fraud, timed out, or cancelled are terminal failures.
+  if (['02', '04', '07', '08', '11'].includes(status)) return 'FAILED'
+  return 'PENDING'
+}
 
 export class VnPayConfigError extends Error {
   constructor() {
@@ -70,7 +81,7 @@ export function createVnPayPaymentUrl(input: {
     vnp_OrderInfo: input.orderInfo || `Thanh toan dat coc ${input.orderNumber}`,
     vnp_OrderType: 'other', vnp_Locale: 'vn', vnp_ReturnUrl: config.returnUrl,
     vnp_IpAddr: input.clientIp === '::1' ? '127.0.0.1' : input.clientIp,
-    vnp_CreateDate: vnPayDate(now), vnp_ExpireDate: vnPayDate(new Date(now.getTime() + 15 * 60_000)),
+    vnp_CreateDate: vnPayDate(now), vnp_ExpireDate: vnPayDate(new Date(now.getTime() + VNPAY_PAYMENT_EXPIRY_MS)),
   }
   const signingData = vnPaySigningData(params)
   return `${config.paymentUrl}?${signingData}&vnp_SecureHash=${createVnPayHash(params, config.hashSecret)}`

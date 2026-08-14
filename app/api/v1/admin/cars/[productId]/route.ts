@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { mergeVehicleSpecFields, normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
 import { revalidateTag } from 'next/cache'
 import path from 'path'
 import fs from 'fs'
@@ -7,7 +8,7 @@ import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
-import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructCarAdminConfiguration } from '@/lib/car-admin-variants'
 
 type Context = { params: Promise<{ productId: string }> }
@@ -289,6 +290,7 @@ export async function GET(request: Request, context: Context) {
     'Hệ thống túi khí': versionSpecs?.safety?.airbagSystem || '',
     'Hệ thống ABS': versionSpecs?.safety?.abs || '',
     'Hệ thống EBD': versionSpecs?.safety?.ebd || '',
+    ...(specsObj.specifications_flat && typeof specsObj.specifications_flat === 'object' ? specsObj.specifications_flat : {}),
   }
 
   const reconstructed = reconstructCarAdminConfiguration({
@@ -336,6 +338,7 @@ export async function GET(request: Request, context: Context) {
     specifications: reconstructedSpecifications,
     hidden_specifications: specsObj.hidden_specifications || [],
     custom_specifications: specsObj.custom_specifications || [],
+    specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specsObj.specification_fields), specsObj.specifications_flat || {}),
     colors,
     interiors,
     versions: reconstructedVersions,
@@ -393,6 +396,7 @@ export async function PATCH(request: Request, context: Context) {
     interiors = [],
     versions = [],
     landing_page_blocks = [],
+    specification_fields,
   } = body
 
   // Validation
@@ -471,6 +475,10 @@ export async function PATCH(request: Request, context: Context) {
   const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) =>
     priceForConfiguration(version, color)))
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
+  const configuredSpecFields = mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
+  const specValue = (key: string) => configuredSpecFields.find((field) => field.key === key)?.visible !== false
+    ? specifications[key]
+    : ''
 
   // Form structured image_urls array
   const image_urls: string[] = [listing_image_url, hero_image_url]
@@ -493,27 +501,27 @@ export async function PATCH(request: Request, context: Context) {
       price: version.price,
       specs: {
         powertrain: {
-          distance: specifications['Quãng đường đi được'] || '',
-          maxPower: specifications['Công suất tối đa'] || '',
-          maxTorque: specifications['Mô-men xoắn cực đại'] || '',
-          topSpeed: specifications['Tốc độ tối đa'] || '',
-          drivetrain: specifications['Hệ dẫn động'] || '',
-          batteryCapacity: specifications['Dung lượng pin'] || '',
-          fastChargingTime: specifications['Thời gian sạc nhanh'] || '',
-          maxDCCharging: specifications['Công suất sạc DC tối đa'] || '',
+          distance: specValue('Quãng đường đi được') || '',
+          maxPower: specValue('Công suất tối đa') || '',
+          maxTorque: specValue('Mô-men xoắn cực đại') || '',
+          topSpeed: specValue('Tốc độ tối đa') || '',
+          drivetrain: specValue('Hệ dẫn động') || '',
+          batteryCapacity: specValue('Dung lượng pin') || '',
+          fastChargingTime: specValue('Thời gian sạc nhanh') || '',
+          maxDCCharging: specValue('Công suất sạc DC tối đa') || '',
         },
         dimension: {
-          length: specifications['Dài x Rộng x Cao'] || '',
-          wheelbase: specifications['Chiều dài cơ sở'] || '',
-          croundClearance: specifications['Khoảng sáng gầm xe'] || '',
-          kurbWeightPayload: specifications['Khối lượng / Tải trọng'] || '',
+          length: specValue('Dài x Rộng x Cao') || '',
+          wheelbase: specValue('Chiều dài cơ sở') || '',
+          croundClearance: specValue('Khoảng sáng gầm xe') || '',
+          kurbWeightPayload: specValue('Khối lượng / Tải trọng') || '',
         },
         exterior: {
           auto: specifications['Đèn chiếu sáng phía trước'] || '',
           lazang: specifications['Kích thước la-zăng'] || '',
         },
         interior: {
-          numberOfSeats: Number(specifications['Số chỗ ngồi']) || specifications['Số chỗ ngồi'] || 5,
+          numberOfSeats: Number(specValue('Số chỗ ngồi')) || specValue('Số chỗ ngồi') || 5,
           informationCenter: specifications['Hệ thống giải trí'] || '',
           airConditioner: specifications['Hệ thống điều hòa'] || '',
           driverSeatAdjustment: specifications['Điều chỉnh ghế lái'] || '',
@@ -599,6 +607,8 @@ export async function PATCH(request: Request, context: Context) {
       detail_images: detail_image_urls,
     },
     landing_page_blocks
+    , specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
+    , specifications_flat: specifications
   }
 
   const supabase = getSupabaseAdmin()
@@ -807,6 +817,7 @@ export async function PATCH(request: Request, context: Context) {
   await Promise.all([
     deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
     deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 
@@ -877,6 +888,7 @@ export async function DELETE(request: Request, context: Context) {
   await Promise.all([
     deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
     deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 
