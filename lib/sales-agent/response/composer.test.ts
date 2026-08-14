@@ -112,7 +112,7 @@ describe('Canonical Response Composer', () => {
         { text: 'Tìm hiểu thông số pin VF 8' },
       ],
       actionIntents: [
-        { actionKey: 'VIEW_PRODUCT', entityId: 'vf8-id' },
+        { actionKey: 'OPEN_COMPARE' },
       ],
     }
 
@@ -131,7 +131,7 @@ describe('Canonical Response Composer', () => {
     expect(response.blocks.length).toBe(1)
     expect(response.blocks[0].kind).toBe('PRODUCT_LIST')
     expect(response.actions.length).toBe(1)
-    expect(response.actions[0].actionKey).toBe('VIEW_PRODUCT')
+    expect(response.actions[0].actionKey).toBe('OPEN_COMPARE')
     expect(response.suggestions.length).toBe(1)
     expect(response.suggestions[0].label).toBe('Tìm hiểu thông số pin VF 8')
   })

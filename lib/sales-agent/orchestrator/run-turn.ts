@@ -157,6 +157,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     stopWhen: [isStepCount(budget.maxModelSteps)],
     abortSignal: options.signal,
     maxOutputTokens: budget.maxOutputTokens,
+    providerOptions: {
+      openai: {
+        reasoningEffort: (process.env.SALES_AGENT_OPENAI_REASONING_EFFORT as any) || 'low',
+        reasoningSummary: null,
+      },
+    },
   })
 
   // Extract fact pointers from current turn evidence ledger

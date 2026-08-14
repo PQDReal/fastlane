@@ -24,9 +24,8 @@ export function ComparisonCardBlock({
   if (!products || products.length < 2) return null
 
   return (
-    <div className="my-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-      <div className="overflow-x-auto p-2 scrollbar-thin scrollbar-thumb-slate-200" data-scrollable>
-        <div className="grid grid-flow-col auto-cols-[155px] gap-2">
+    <div className="my-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-200" data-scrollable>
+      <div className="grid grid-flow-col auto-cols-[160px] gap-2.5">
           {products.map((product) => (
             <div
               key={product.productId}
@@ -90,6 +89,5 @@ export function ComparisonCardBlock({
           ))}
         </div>
       </div>
-    </div>
   )
 }

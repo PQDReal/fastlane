@@ -150,19 +150,14 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  // 3. Compose Actions
-  const actions: SalesAgentAction[] = plan.actionIntents.map((intent) =>
-    resolveNavigationAction(intent),
-  )
-
-  if (!isClarificationTurn && actions.length === 0 && knownProducts.length === 1) {
-    actions.push(
-      resolveNavigationAction({
-        actionKey: 'VIEW_PRODUCT',
-        entityId: knownProducts[0].id,
-      }),
-    )
-  }
+  // 3. Compose Actions (only include global actions or navigation if blocks are not already showing cards)
+  const actions: SalesAgentAction[] = plan.actionIntents
+    .filter((intent) => intent.actionKey !== 'VIEW_PRODUCT' || blocks.length === 0)
+    .map((intent) => {
+      const entity = intent.entityId ? options.knownEntities.getEntity('PRODUCT', intent.entityId) : undefined
+      const slug = entity?.slug || (entity ? options.evidence.getFact(`fact-slug-${entity.id}`)?.valueHash : undefined)
+      return resolveNavigationAction(intent, slug)
+    })
 
   // 4. Compose Suggestions (Context-Aware)
   const suggestions: SalesAgentSuggestion[] = plan.suggestionIntents.map((sug, idx) => ({
