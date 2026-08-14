@@ -13,7 +13,7 @@ import {
   listAccessoryVehicleContext,
 } from '@/lib/catalog/server'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
 export default async function AccessoryDetailPage({
   params,
