@@ -130,6 +130,8 @@ export async function POST(request: Request) {
               text: redactedUserText,
             }
 
+        send({ type: 'tool_status', tool: 'thinking', status: 'running' })
+
         const turnResult = await runTurn({
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
@@ -140,6 +142,8 @@ export async function POST(request: Request) {
             send({ type: 'tool_status', tool: toolName, status: status as any })
           },
         })
+
+        send({ type: 'tool_status', tool: 'composing', status: 'running' })
 
         const viewModel = composeTurnResponse({
           rawPlan: turnResult.responsePlan,

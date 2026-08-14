@@ -54,69 +54,18 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const blocks: AssistantBlock[] = []
   const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
 
+  // Detect if this turn is a direct comparison between 2-3 specific products
+  const isComparisonTurn =
+    !isClarificationTurn &&
+    knownProducts.length >= 2 &&
+    knownProducts.length <= 3 &&
+    (lowerMarkdown.includes('so sánh') ||
+      plan.narrative.some((n) => n.kind === 'ADVICE' && n.markdown.toLowerCase().includes('so sánh')))
+
   // Only render product blocks if NOT a clarification turn and products exist
   if (!isClarificationTurn && knownProducts.length > 0) {
-    const cars = knownProducts.filter((p) => p.productType === 'CAR')
-    const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
-    const accessories = knownProducts.filter((p) => p.productType === 'ACCESSORY')
-
-    let selectedProducts: typeof knownProducts = []
-    let blockTitle = 'Danh sách sản phẩm liên quan'
-
-    // Scope check based on context
-    const mentionsCar = lowerMarkdown.includes('ô tô') || lowerMarkdown.includes('vf ') || lowerMarkdown.includes('suv')
-    const mentionsBike = lowerMarkdown.includes('xe máy') || lowerMarkdown.includes('evo') || lowerMarkdown.includes('feliz') || lowerMarkdown.includes('amio')
-
-    if (mentionsCar && !mentionsBike && cars.length > 0) {
-      selectedProducts = cars.slice(0, 8)
-      blockTitle = 'Các dòng ô tô điện VinFast'
-    } else if (mentionsBike && !mentionsCar && bikes.length > 0) {
-      selectedProducts = bikes.slice(0, 8)
-      blockTitle = 'Các dòng xe máy điện VinFast'
-    } else if (cars.length > 0 && bikes.length > 0) {
-      selectedProducts = [...cars.slice(0, 4), ...bikes.slice(0, 4)]
-      blockTitle = 'Mẫu xe nổi bật (Ô tô & Xe máy điện)'
-    } else if (accessories.length > 0) {
-      selectedProducts = accessories.slice(0, 8)
-      blockTitle = 'Phụ kiện chính hãng'
-    } else {
-      selectedProducts = knownProducts.slice(0, 8)
-      blockTitle = 'Sản phẩm liên quan'
-    }
-
-    if (selectedProducts.length > 0) {
-      const productItems = selectedProducts.map((entity) => {
-        const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
-        const factSlug = options.evidence.getFact(`fact-slug-${entity.id}`)
-        const priceNum = entity.price ?? (factPrice ? Number(factPrice.valueHash) : null)
-        const slug = entity.slug || (factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-'))
-        const pType = entity.productType || 'CAR'
-
-        return {
-          id: entity.id,
-          name: entity.name,
-          slug,
-          productType: pType,
-          thumbnailUrl: entity.thumbnailUrl || null,
-          price: !isNaN(Number(priceNum)) && priceNum ? priceNum : null,
-          summary: entity.summary || null,
-          url: salesAgentProductUrl(pType as any, slug),
-        }
-      })
-
-      blocks.push({
-        kind: 'PRODUCT_LIST',
-        title: blockTitle,
-        items: productItems,
-      })
-    }
-
-    // If 2 or 3 products are being compared, also add comparison card view
-    if (
-      knownProducts.length >= 2 &&
-      knownProducts.length <= 3 &&
-      (plan.narrative.some((n) => n.kind === 'ADVICE' && n.markdown.toLowerCase().includes('so sánh')) || knownProducts.length === 2)
-    ) {
+    if (isComparisonTurn) {
+      // Comparison Turn: Render ONLY the side-by-side COMPARISON_TABLE to avoid duplicate images
       const criteria = ['Giá khởi điểm', 'Dung lượng pin', 'Quãng đường', 'Công suất', 'Số chỗ ngồi']
       const compProducts = knownProducts.map((entity) => {
         const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
@@ -139,6 +88,61 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         criteria,
         products: compProducts,
       })
+    } else {
+      // Non-Comparison Turn: Render PRODUCT_LIST cards
+      const cars = knownProducts.filter((p) => p.productType === 'CAR')
+      const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
+      const accessories = knownProducts.filter((p) => p.productType === 'ACCESSORY')
+
+      let selectedProducts: typeof knownProducts = []
+      let blockTitle = 'Danh sách sản phẩm liên quan'
+
+      const mentionsCar = lowerMarkdown.includes('ô tô') || lowerMarkdown.includes('vf ') || lowerMarkdown.includes('suv')
+      const mentionsBike = lowerMarkdown.includes('xe máy') || lowerMarkdown.includes('evo') || lowerMarkdown.includes('feliz') || lowerMarkdown.includes('amio')
+
+      if (mentionsCar && !mentionsBike && cars.length > 0) {
+        selectedProducts = cars.slice(0, 8)
+        blockTitle = 'Các dòng ô tô điện VinFast'
+      } else if (mentionsBike && !mentionsCar && bikes.length > 0) {
+        selectedProducts = bikes.slice(0, 8)
+        blockTitle = 'Các dòng xe máy điện VinFast'
+      } else if (cars.length > 0 && bikes.length > 0) {
+        selectedProducts = [...cars.slice(0, 4), ...bikes.slice(0, 4)]
+        blockTitle = 'Mẫu xe nổi bật (Ô tô & Xe máy điện)'
+      } else if (accessories.length > 0) {
+        selectedProducts = accessories.slice(0, 8)
+        blockTitle = 'Phụ kiện chính hãng'
+      } else {
+        selectedProducts = knownProducts.slice(0, 8)
+        blockTitle = 'Sản phẩm liên quan'
+      }
+
+      if (selectedProducts.length > 0) {
+        const productItems = selectedProducts.map((entity) => {
+          const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
+          const factSlug = options.evidence.getFact(`fact-slug-${entity.id}`)
+          const priceNum = entity.price ?? (factPrice ? Number(factPrice.valueHash) : null)
+          const slug = entity.slug || (factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-'))
+          const pType = entity.productType || 'CAR'
+
+          return {
+            id: entity.id,
+            name: entity.name,
+            slug,
+            productType: pType,
+            thumbnailUrl: entity.thumbnailUrl || null,
+            price: !isNaN(Number(priceNum)) && priceNum ? priceNum : null,
+            summary: entity.summary || null,
+            url: salesAgentProductUrl(pType as any, slug),
+          }
+        })
+
+        blocks.push({
+          kind: 'PRODUCT_LIST',
+          title: blockTitle,
+          items: productItems,
+        })
+      }
     }
   }
 
