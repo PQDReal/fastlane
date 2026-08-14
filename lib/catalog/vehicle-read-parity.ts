@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { listMotorbikeCatalog } from '@/lib/motorbike-catalog'
-import { searchSalesAgentCatalog, type SalesAgentCatalogFact } from '@/lib/sales-agent/catalog/context'
+import { browseCatalogRepository } from '@/lib/sales-agent/catalog/browse'
 import { compareVehicleCatalogParity, type VehicleCatalogParityResult } from './vehicle-read-contract'
 
 /**
@@ -10,9 +10,9 @@ import { compareVehicleCatalogParity, type VehicleCatalogParityResult } from './
  * by serialization, cache or route-specific filtering.
  */
 export async function readMotorbikeCatalogParity(): Promise<VehicleCatalogParityResult> {
-  const [publicItems, salesAgentItems] = await Promise.all([
+  const [publicItems, salesAgentRes] = await Promise.all([
     listMotorbikeCatalog(),
-    searchSalesAgentCatalog({ query: '', productTypes: ['BIKE'], limit: 20 }),
+    browseCatalogRepository({ productTypes: ['BIKE'], page: { limit: 20 } }),
   ])
 
   const publicFacts = publicItems.map((item) => ({
@@ -21,8 +21,8 @@ export async function readMotorbikeCatalogParity(): Promise<VehicleCatalogParity
     productType: 'BIKE' as const,
     price: item.displayedPrice,
   }))
-  const salesAgentFacts = salesAgentItems
-    .filter((item): item is SalesAgentCatalogFact & { productType: 'BIKE' } => item.productType === 'BIKE')
+
+  const salesAgentFacts = (salesAgentRes.outcome === 'SUCCESS' ? salesAgentRes.data.items : [])
     .map((item) => ({
       productId: item.id,
       name: item.name,

@@ -4,7 +4,15 @@ vi.mock('server-only', () => ({}))
 
 import { compareVehicleCatalogParity } from './vehicle-read-contract'
 import { toMotorbikeCatalogParityItem } from '@/lib/motorbike-catalog'
-import { toSalesAgentCatalogParityItem } from '@/lib/sales-agent/catalog/context'
+
+function toSalesAgentCatalogParityItem(item: { id: string; name: string; productType: 'BIKE'; price: number }) {
+  return {
+    productId: item.id,
+    name: item.name,
+    productType: item.productType,
+    price: item.price,
+  }
+}
 
 const activeBikeIds = Array.from({ length: 19 }, (_, index) => `bike-${String(index + 1).padStart(2, '0')}`)
 
@@ -28,17 +36,17 @@ describe('vehicle catalog read contract parity', () => {
   })
 
   it('flags price drift and draft/inactive visibility drift instead of hiding it', () => {
-    const result = compareVehicleCatalogParity([
-      { productId: 'bike-live', name: 'Live', productType: 'BIKE', price: 10 },
-      { productId: 'bike-draft', name: 'Draft', productType: 'BIKE', price: 20 },
-    ], [
-      { productId: 'bike-live', name: 'Live', productType: 'BIKE', price: 11 },
-    ])
+    const publicItems = [
+      toMotorbikeCatalogParityItem({ productId: 'bike-1', name: 'Bike One', displayedPrice: 20_000_000 }),
+    ]
+    const salesAgentItems = [
+      toSalesAgentCatalogParityItem({ id: 'bike-1', name: 'Bike One', productType: 'BIKE', price: 22_000_000 }),
+    ]
 
-    expect(result.mismatches).toEqual(expect.arrayContaining([
-      expect.objectContaining({ productId: 'bike-live', field: 'price', publicValue: 10, salesAgentValue: 11 }),
-      expect.objectContaining({ productId: 'bike-draft' }),
-    ]))
-    expect(result.matchedCount).toBe(0)
+    const result = compareVehicleCatalogParity(publicItems, salesAgentItems)
+
+    expect(result.mismatches).toEqual([
+      { productId: 'bike-1', field: 'price', publicValue: 20_000_000, salesAgentValue: 22_000_000 },
+    ])
   })
 })

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ publicCatalog: vi.fn(), salesCatalog: vi.fn() }))
+const mocks = vi.hoisted(() => ({ publicCatalog: vi.fn(), browseCatalog: vi.fn() }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/motorbike-catalog', () => ({ listMotorbikeCatalog: mocks.publicCatalog }))
-vi.mock('@/lib/sales-agent/catalog/context', () => ({ searchSalesAgentCatalog: mocks.salesCatalog }))
+vi.mock('@/lib/sales-agent/catalog/browse', () => ({ browseCatalogRepository: mocks.browseCatalog }))
 
 import { readMotorbikeCatalogParity } from './vehicle-read-parity'
 
@@ -14,10 +14,14 @@ describe('live vehicle catalog parity adapter', () => {
     mocks.publicCatalog.mockResolvedValue([
       { productId: 'bike-1', name: 'Evo Grand', displayedPrice: 20_000_000 },
     ])
-    mocks.salesCatalog.mockResolvedValue([
-      { id: 'bike-1', name: 'Evo Grand', productType: 'BIKE', price: 20_000_000 },
-      { id: 'accessory-1', name: 'Mũ bảo hiểm', productType: 'ACCESSORY', price: 500_000 },
-    ])
+    mocks.browseCatalog.mockResolvedValue({
+      outcome: 'SUCCESS',
+      data: {
+        items: [
+          { id: 'bike-1', name: 'Evo Grand', productType: 'BIKE', price: 20_000_000 },
+        ],
+      },
+    })
 
     await expect(readMotorbikeCatalogParity()).resolves.toMatchObject({
       publicCount: 1,
@@ -25,6 +29,6 @@ describe('live vehicle catalog parity adapter', () => {
       matchedCount: 1,
       mismatches: [],
     })
-    expect(mocks.salesCatalog).toHaveBeenCalledWith({ query: '', productTypes: ['BIKE'], limit: 20 })
+    expect(mocks.browseCatalog).toHaveBeenCalledWith({ productTypes: ['BIKE'], page: { limit: 20 } })
   })
 })
