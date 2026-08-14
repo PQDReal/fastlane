@@ -159,9 +159,23 @@ export async function POST(request: Request) {
           suggestionsCount: viewModel.suggestions.length,
         })
 
-        // Stream structured turn_view event and text_delta
+        // Stream text_delta progressively in natural word chunks for smooth typing effect
+        const markdown = viewModel.answer.markdown
+        const words = markdown.split(/(\s+)/)
+        let chunkBuffer = ''
+
+        for (let i = 0; i < words.length; i++) {
+          chunkBuffer += words[i]
+          if (chunkBuffer.length >= 16 || i === words.length - 1) {
+            if (request.signal?.aborted) return
+            send({ type: 'text_delta', delta: chunkBuffer })
+            chunkBuffer = ''
+            await new Promise((resolve) => setTimeout(resolve, 15))
+          }
+        }
+
+        // Stream structured turn_view (cards, comparisons, suggestions) after text finishes
         send({ type: 'turn_view', viewModel })
-        send({ type: 'text_delta', delta: viewModel.answer.markdown })
         send({ type: 'done', provider: 'default', model: 'orchestrator', finishReason: 'stop' })
       },
     })

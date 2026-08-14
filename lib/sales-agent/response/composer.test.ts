@@ -135,4 +135,39 @@ describe('Canonical Response Composer', () => {
     expect(response.suggestions.length).toBe(1)
     expect(response.suggestions[0].label).toBe('Tìm hiểu thông số pin VF 8')
   })
+
+  it('omits product cards during clarification turns and provides comparison pair chips', () => {
+    const evidence = new EvidenceLedger()
+    const knownEntities = new KnownEntityLedger()
+    knownEntities.addEntity('PRODUCT', 'amio-id', 'Amio S', 'BROWSE', 'BIKE')
+
+    const rawPlan = {
+      schemaVersion: '2.0',
+      outcome: 'NEEDS_INPUT',
+      narrative: [
+        {
+          kind: 'ADVICE',
+          markdown: 'Bạn muốn so sánh pin và tốc độ của những mẫu nào? Ví dụ: VF 3 vs VF 5, VF 8 vs VF 9...',
+        },
+      ],
+      views: [],
+      suggestionIntents: [],
+      actionIntents: [],
+    }
+
+    const response = composeTurnResponse({
+      rawPlan,
+      evidence,
+      knownEntities,
+      conversationRef: 'conv-123',
+      turnId: 'turn-456',
+      messageId: 'msg-789',
+    })
+
+    // During clarification, no unprompted card dump!
+    expect(response.blocks.length).toBe(0)
+    // Suggestion chips should offer quick comparison pairs
+    expect(response.suggestions.length).toBeGreaterThanOrEqual(3)
+    expect(response.suggestions.some((s) => s.label.includes('VF 8 vs VF 9'))).toBe(true)
+  })
 })

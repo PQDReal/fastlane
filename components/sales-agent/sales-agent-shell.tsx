@@ -36,6 +36,7 @@ type DisplayMessage = SalesAgentMessage & {
   id: string
   pending?: boolean
   error?: boolean
+  statusText?: string
   interaction?: DisplayInteraction
   blocks?: AssistantBlock[]
   actions?: SalesAgentAction[]
@@ -278,6 +279,15 @@ export function SalesAgentShell() {
         if (part.done) break
         buffer += decoder.decode(part.value, { stream: true })
         buffer = parseSseChunk(buffer, (payload) => {
+          if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
+            let label = 'Đang tra cứu dữ liệu…'
+            if (payload.tool === 'browse_catalog') label = 'Đang tra cứu danh mục xe…'
+            else if (payload.tool === 'get_product_details') label = 'Đang lấy thông số chi tiết…'
+            else if (payload.tool === 'compare_products') label = 'Đang lập bảng so sánh…'
+            else if (payload.tool === 'discover_accessories') label = 'Đang tìm phụ kiện phù hợp…'
+            else if (payload.tool === 'get_current_promotions') label = 'Đang kiểm tra khuyến mãi…'
+            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
+          }
           if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
             receivedText = receivedText || payload.delta.length > 0
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
@@ -304,6 +314,15 @@ export function SalesAgentShell() {
       buffer += decoder.decode()
       if (buffer.trim()) {
         parseSseChunk(`${buffer}\n\n`, (payload) => {
+          if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
+            let label = 'Đang tra cứu dữ liệu…'
+            if (payload.tool === 'browse_catalog') label = 'Đang tra cứu danh mục xe…'
+            else if (payload.tool === 'get_product_details') label = 'Đang lấy thông số chi tiết…'
+            else if (payload.tool === 'compare_products') label = 'Đang lập bảng so sánh…'
+            else if (payload.tool === 'discover_accessories') label = 'Đang tìm phụ kiện phù hợp…'
+            else if (payload.tool === 'get_current_promotions') label = 'Đang kiểm tra khuyến mãi…'
+            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
+          }
           if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
             receivedText = receivedText || payload.delta.length > 0
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
@@ -409,7 +428,16 @@ export function SalesAgentShell() {
               <div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-1'}`}>
                 {item.role === 'assistant' ? (
                   <div className="space-y-2">
-                    <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} />
+                    {item.content ? (
+                      <MarkdownMessage content={item.content} streaming={item.pending} />
+                    ) : item.pending ? (
+                      <div className="flex items-center gap-2 py-1 text-xs text-slate-500">
+                        <Loader2 size={13} className="animate-spin text-brand-600 shrink-0" />
+                        <span>{item.statusText || 'Đang tra cứu…'}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">Không có câu trả lời.</p>
+                    )}
 
                     {/* Rich Blocks */}
                     {item.blocks?.map((block, idx) => {
@@ -462,7 +490,6 @@ export function SalesAgentShell() {
                     onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)}
                   />
                 )}
-                {item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}
               </div>
             </div>
           ))}
