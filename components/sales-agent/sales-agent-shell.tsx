@@ -400,7 +400,7 @@ export function SalesAgentShell() {
         </div>
         <div
           ref={listRef}
-          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/70 p-3"
+          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/70 p-3 custom-scrollbar"
           style={{ overflowAnchor: showScrollButton ? 'auto' : 'none' }}
           role="log"
           aria-live="polite"
@@ -511,9 +511,53 @@ export function SalesAgentShell() {
           ))}
           </div>
         </div>
-        <div className="relative">
-          {showScrollButton && <button type="button" onClick={scrollToLatest} className="absolute -top-11 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:bg-slate-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label="Cuộn đến tin nhắn mới nhất"><ArrowDown size={15} /></button>}
-          <form onSubmit={(event) => { event.preventDefault(); void send() }} className="border-t border-slate-200 p-3"><div className="flex min-w-0 items-end gap-1.5 rounded-xl border border-slate-300 bg-white p-1.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100"><textarea value={draft} onChange={(event) => setDraft(event.target.value.slice(0, 2_000))} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} disabled={sending} rows={1} placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'} className="min-h-9 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-1 text-sm leading-5 outline-none disabled:cursor-not-allowed disabled:opacity-60" aria-label="Câu hỏi cho Sales Agent" /><Button type="submit" size="icon" disabled={!draft.trim() || sending} className="h-9 w-9 shrink-0 bg-brand-600 text-white hover:bg-brand-700" aria-label="Gửi câu hỏi"><ArrowUp size={16} /></Button></div><p className="mt-1.5 text-[10px] text-slate-400">Không gửi CCCD, OTP, thẻ hoặc mật khẩu.</p></form>
+        <div className="relative border-t border-slate-100 bg-white/95 backdrop-blur-sm p-3">
+          {showScrollButton && (
+            <button
+              type="button"
+              onClick={scrollToLatest}
+              className="absolute -top-10 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:bg-slate-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              aria-label="Cuộn đến tin nhắn mới nhất"
+            >
+              <ArrowDown size={14} />
+            </button>
+          )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void send()
+            }}
+            className="space-y-1.5"
+          >
+            <div className="relative flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value.slice(0, 2_000))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    void send()
+                  }
+                }}
+                disabled={sending}
+                rows={1}
+                placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'}
+                className="max-h-28 min-h-[36px] flex-1 resize-none border-0 bg-transparent py-1.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-relaxed"
+                aria-label="Câu hỏi cho Sales Agent"
+              />
+              <button
+                type="submit"
+                disabled={!draft.trim() || sending}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-all duration-150 hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200/80 disabled:text-slate-400"
+                aria-label="Gửi câu hỏi"
+              >
+                <ArrowUp size={15} strokeWidth={2.5} />
+              </button>
+            </div>
+            <p className="text-center text-[10px] text-slate-400 font-normal select-none">
+              Không gửi CCCD, OTP, thẻ ngân hàng hoặc mật khẩu.
+            </p>
+          </form>
         </div>
       </motion.aside>
     </>}

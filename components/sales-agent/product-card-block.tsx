@@ -31,7 +31,7 @@ export function ProductCardBlock({
           {title}
         </p>
       )}
-      <div className="flex gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin scrollbar-thumb-slate-200" data-scrollable>
+      <div className="flex gap-2 horizontal-scroll-smooth pb-1.5 pt-0.5" data-scrollable>
         {items.map((item) => {
           const formattedPrice = item.price
             ? `${(item.price >= 1_000_000_000 ? (item.price / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + ' tỷ' : (item.price / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' triệu')} VNĐ`
