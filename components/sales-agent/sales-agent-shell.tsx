@@ -511,7 +511,7 @@ export function SalesAgentShell() {
           ))}
           </div>
         </div>
-        <div className="relative border-t border-slate-100 bg-white/95 backdrop-blur-sm p-3">
+        <div className="relative bg-slate-50/70 p-3 pt-1 pb-3">
           {showScrollButton && (
             <button
               type="button"
@@ -529,7 +529,7 @@ export function SalesAgentShell() {
             }}
             className="space-y-1.5"
           >
-            <div className="relative flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
+            <div className="relative flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200/90 bg-white p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value.slice(0, 2_000))}
