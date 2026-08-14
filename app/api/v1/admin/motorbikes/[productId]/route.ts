@@ -11,7 +11,9 @@ import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbi
 import {
   buildMotorbikeVersionMedia,
   findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_DETAIL_IMAGES,
   MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+  normalizeMotorbikeDetailImages,
   normalizeMotorbikeVersionMedia,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
@@ -90,12 +92,10 @@ export async function GET(request: Request, context: Context) {
   
   const listing_image_url = specsObj.catalog?.listing_image_url || image_urls[0] || ''
   const hero_image_url = specsObj.catalog?.hero_image_url || image_urls[1] || ''
-  const detail_image_urls = specsObj.detail_images || image_urls.slice(-3) || ['', '', '']
-  
-  // Pad detail images to ensure 3 items
-  while (detail_image_urls.length < 3) {
-    detail_image_urls.push('')
-  }
+  const legacyDetailImages = Array.isArray(specsObj.detail_images)
+    ? specsObj.detail_images
+    : image_urls.slice(-3)
+  const detail_image_urls = normalizeMotorbikeDetailImages(legacyDetailImages)
 
   const reconstructedVersions = reconstructMotorbikeAdminConfiguration({
     productVariants: productVariants || [],
@@ -175,7 +175,7 @@ export async function PATCH(request: Request, context: Context) {
     is_active = true,
     listing_image_url,
     hero_image_url,
-    detail_image_urls = [],
+    detail_image_urls: rawDetailImageUrls = [],
     specifications = {},
     specification_fields = undefined,
     colors = [],
@@ -183,6 +183,7 @@ export async function PATCH(request: Request, context: Context) {
     versions = [],
     landing_page_blocks = [],
   } = body
+  const detail_image_urls = normalizeMotorbikeDetailImages(rawDetailImageUrls)
 
   // Validation
   if (!name?.trim() || !slug?.trim()) {
@@ -196,6 +197,9 @@ export async function PATCH(request: Request, context: Context) {
   }
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
+  }
+  if (Array.isArray(rawDetailImageUrls) && rawDetailImageUrls.length > MAX_MOTORBIKE_DETAIL_IMAGES) {
+    return NextResponse.json({ error: `Thư viện ảnh chi tiết chỉ được có tối đa ${MAX_MOTORBIKE_DETAIL_IMAGES} ảnh.` }, { status: 400 })
   }
   const normalizedColorNames = colors.map((color: any) => String(color.color_name ?? '').trim().toLocaleLowerCase('vi'))
   if (normalizedColorNames.some((colorName: string) => !colorName) || new Set(normalizedColorNames).size !== normalizedColorNames.length) {

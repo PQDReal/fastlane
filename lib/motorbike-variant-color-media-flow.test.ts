@@ -31,16 +31,23 @@ describe('motorbike version and color media flow', () => {
     expect(depositClient).toContain('swatch: variant.image_color_url')
   })
 
+  it('keeps the product detail image library synchronized end to end', () => {
+    expect(createRoute).toContain('detail_images: detail_image_urls')
+    expect(editRoute).toContain('const detail_image_urls = normalizeMotorbikeDetailImages')
+    expect(catalog).toContain('detailImageUrls: Array.isArray(catalog.detail_image_urls)')
+    expect(productPage).toContain('fallbackDetailImageUrls={detailImages}')
+  })
+
   it('keeps version galleries in the product images tab', () => {
     for (const page of [createAdminPage, editAdminPage]) {
       const imagesTab = page.indexOf("activeTab === 'images'")
       const specsTab = page.indexOf("activeTab === 'specs'")
       const variantsTab = page.indexOf("activeTab === 'variants'")
       const landingTab = page.indexOf("activeTab === 'landing_page'")
-      const versionGallery = page.lastIndexOf('<MotorbikeVersionMediaFields')
+      const detailLibrary = page.lastIndexOf('<MotorbikeDetailImageLibrary')
 
-      expect(versionGallery).toBeGreaterThan(imagesTab)
-      expect(versionGallery).toBeLessThan(specsTab)
+      expect(detailLibrary).toBeGreaterThan(imagesTab)
+      expect(detailLibrary).toBeLessThan(specsTab)
       expect(page.slice(variantsTab, landingTab)).not.toContain('<MotorbikeVersionMediaFields')
     }
   })

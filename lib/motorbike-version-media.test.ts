@@ -2,11 +2,22 @@ import { describe, expect, it } from 'vitest'
 import {
   buildMotorbikeVersionMedia,
   findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_DETAIL_IMAGES,
   MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+  normalizeMotorbikeDetailImages,
   normalizeMotorbikeVersionMedia,
 } from './motorbike-version-media'
 
 describe('motorbike version media', () => {
+  it('normalizes the product detail image library to 20 unique URLs', () => {
+    const urls = Array.from({ length: 25 }, (_, index) => ` /detail-${index % 21}.webp `)
+    const normalized = normalizeMotorbikeDetailImages(urls)
+
+    expect(normalized).toHaveLength(MAX_MOTORBIKE_DETAIL_IMAGES)
+    expect(MAX_MOTORBIKE_VERSION_DETAIL_IMAGES).toBe(MAX_MOTORBIKE_DETAIL_IMAGES)
+    expect(new Set(normalized).size).toBe(MAX_MOTORBIKE_DETAIL_IMAGES)
+  })
+
   it('normalizes, de-duplicates and limits detail images', () => {
     const urls = Array.from({ length: 25 }, (_, index) => ` /image-${index}.webp `)
     urls.splice(2, 0, ' /image-1.webp ')

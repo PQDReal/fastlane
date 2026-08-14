@@ -56,8 +56,7 @@ export function BikeVersionMediaGallery({
   ))
   const resolvedColorIndex = Math.min(selectedColorIndex, Math.max(availableColors.length - 1, 0))
   const selectedColor = availableColors[resolvedColorIndex]
-  const versionDetails = selectedVersion?.detailImageUrls.filter(Boolean) ?? []
-  const detailImages = versionDetails.length > 0 ? versionDetails : fallbackDetailImageUrls.filter(Boolean)
+  const detailImages = fallbackDetailImageUrls.filter(Boolean).slice(0, 20)
 
   return (
     <section id="design" className="bg-slate-950 py-20 text-white">
@@ -184,9 +183,7 @@ export function BikeVersionMediaGallery({
         <div className="mb-12 text-center">
           <h2 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h2>
           <p className="mt-2 text-xs text-white/50">
-            {versionDetails.length > 0
-              ? `Bộ ảnh riêng của ${selectedVersion?.name}.`
-              : 'Hình ảnh thực tế chi tiết của xe.'}
+            Hình ảnh thực tế chi tiết của xe.
           </p>
         </div>
 
@@ -199,7 +196,7 @@ export function BikeVersionMediaGallery({
             transition={{ duration: 0.16 }}
             className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {detailImages.slice(0, 20).map((url, index) => (
+            {detailImages.map((url, index) => (
               <div
                 key={`${url}-${index}`}
                 className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900"

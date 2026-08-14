@@ -1,4 +1,16 @@
-export const MAX_MOTORBIKE_VERSION_DETAIL_IMAGES = 20
+export const MAX_MOTORBIKE_DETAIL_IMAGES = 20
+export const MAX_MOTORBIKE_VERSION_DETAIL_IMAGES = MAX_MOTORBIKE_DETAIL_IMAGES
+
+export function normalizeMotorbikeDetailImages(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+
+  return Array.from(new Set(
+    value
+      .filter((url): url is string => typeof url === 'string')
+      .map((url) => url.trim())
+      .filter(Boolean),
+  )).slice(0, MAX_MOTORBIKE_DETAIL_IMAGES)
+}
 
 export type MotorbikeVersionMedia = {
   version: string

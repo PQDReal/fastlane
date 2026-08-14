@@ -31,8 +31,8 @@ import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
-import { MotorbikeVersionMediaFields } from '@/components/admin/motorbike-version-media-fields'
 import { MotorbikeVersionColorMediaFields } from '@/components/admin/motorbike-version-color-media-fields'
+import { MotorbikeDetailImageLibrary } from '@/components/admin/motorbike-detail-image-library'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
 import {
   normalizeMotorbikeVariantColorMedia,
@@ -108,7 +108,7 @@ const initialFormState: FormState = {
   is_active: true,
   listing_image_url: '',
   hero_image_url: '',
-  detail_image_urls: ['', '', ''],
+  detail_image_urls: [],
   specifications: {
     'Quãng đường đi được mỗi lần sạc': '',
     'Công suất tối đa': '',
@@ -617,10 +617,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const resolvedPreviewVersionIndex = Math.min(previewVersionIndex, Math.max(form.versions.length - 1, 0))
   const previewVersion = form.versions[resolvedPreviewVersionIndex]
   const previewHeroImage = previewVersion?.image_url?.trim() || form.hero_image_url
-  const previewVersionDetailImages = (previewVersion?.detail_image_urls ?? []).filter(Boolean)
-  const previewDetailImages = previewVersionDetailImages.length > 0
-    ? previewVersionDetailImages
-    : form.detail_image_urls.filter(Boolean)
+  const previewDetailImages = form.detail_image_urls.filter(Boolean)
   const previewColors = form.colors.filter((color) => previewVersion && selectedColorsFor(previewVersion).includes(color.color_name))
   const resolvedPreviewColorIndex = Math.min(previewColorIndex, Math.max(previewColors.length - 1, 0))
   const previewColor = previewColors[resolvedPreviewColorIndex]
@@ -803,32 +800,11 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               )}
             </div>
 
-            <div className="border-t border-slate-100 pt-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Hình ảnh chi tiết theo phiên bản</h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Mỗi phiên bản có thể dùng ảnh đại diện và bộ ảnh riêng; bỏ trống để dùng ảnh chung của sản phẩm.
-                </p>
-              </div>
-              <div className="mt-5 space-y-5">
-                {form.versions.map((version, versionIndex) => (
-                  <section key={`${version.sku}-${versionIndex}`} className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">{version.name || 'Phiên bản chưa đặt tên'}</h4>
-                      <p className="mt-0.5 text-[11px] text-slate-500">SKU gốc: {version.sku || 'Chưa có SKU'}</p>
-                    </div>
-                    <MotorbikeVersionMediaFields
-                      versionName={version.name}
-                      imageUrl={version.image_url ?? ''}
-                      detailImageUrls={version.detail_image_urls ?? []}
-                      onImageChange={(imageUrl) => updateVersion(versionIndex, { image_url: imageUrl })}
-                      onDetailImagesChange={(detailImageUrls) => updateVersion(versionIndex, { detail_image_urls: detailImageUrls })}
-                      onError={(message) => notify('error', 'Không thể cập nhật hình ảnh', message)}
-                    />
-                  </section>
-                ))}
-              </div>
-            </div>
+            <MotorbikeDetailImageLibrary
+              images={form.detail_image_urls}
+              onChange={(detail_image_urls) => setForm((current) => ({ ...current, detail_image_urls }))}
+              onError={(message) => notify('error', 'Không thể cập nhật thư viện ảnh', message)}
+            />
           </div>
         )}
 
@@ -1795,7 +1771,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 <div className="text-center mb-12">
                   <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
                   <p className="text-xs text-white/50 mt-2">
-                    {previewVersionDetailImages.length > 0 ? `Bộ ảnh riêng của ${previewVersion?.name}.` : 'Hình ảnh thực tế chi tiết của xe.'}
+                    Hình ảnh thực tế chi tiết của xe.
                   </p>
                 </div>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

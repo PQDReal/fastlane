@@ -10,7 +10,9 @@ import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbi
 import {
   buildMotorbikeVersionMedia,
   findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_DETAIL_IMAGES,
   MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+  normalizeMotorbikeDetailImages,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
 
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
     description,
     listing_image_url,
     hero_image_url,
-    detail_image_urls = [],
+    detail_image_urls: rawDetailImageUrls = [],
     specifications = {},
     specification_fields = undefined,
     colors = [],
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
     landing_page_blocks = [],
   } = body
   const isActive = body.is_active === true
+  const detail_image_urls = normalizeMotorbikeDetailImages(rawDetailImageUrls)
 
   // Basic validation
   if (!name?.trim() || !slug?.trim()) {
@@ -89,6 +92,9 @@ export async function POST(request: Request) {
   }
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
+  }
+  if (Array.isArray(rawDetailImageUrls) && rawDetailImageUrls.length > MAX_MOTORBIKE_DETAIL_IMAGES) {
+    return NextResponse.json({ error: `Thư viện ảnh chi tiết chỉ được có tối đa ${MAX_MOTORBIKE_DETAIL_IMAGES} ảnh.` }, { status: 400 })
   }
   const normalizedColorNames = colors.map((color: any) => String(color.color_name ?? '').trim().toLocaleLowerCase('vi'))
   if (normalizedColorNames.some((colorName: string) => !colorName) || new Set(normalizedColorNames).size !== normalizedColorNames.length) {
