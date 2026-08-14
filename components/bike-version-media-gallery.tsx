@@ -56,6 +56,7 @@ export function BikeVersionMediaGallery({
   ))
   const resolvedColorIndex = Math.min(selectedColorIndex, Math.max(availableColors.length - 1, 0))
   const selectedColor = availableColors[resolvedColorIndex]
+  const selectedColorImage = selectedColor?.imageUrl || representativeImage
   const detailImages = fallbackDetailImageUrls.filter(Boolean).slice(0, 20)
 
   return (
@@ -99,7 +100,7 @@ export function BikeVersionMediaGallery({
           <div className="mb-16 grid items-center gap-12 lg:grid-cols-12">
             <div className="relative flex h-80 items-center justify-center overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-6 lg:col-span-8 lg:h-96">
               <AnimatePresence mode="wait">
-                {selectedColor?.imageUrl && (
+                {selectedColorImage && (
                   <motion.div
                     key={`${selectedVersion?.sku}-${selectedColor.colorName}`}
                     initial={{ opacity: 0, scale: 0.96 }}
@@ -109,7 +110,7 @@ export function BikeVersionMediaGallery({
                     className="absolute inset-6"
                   >
                     <Image
-                      src={selectedColor.imageUrl}
+                      src={selectedColorImage}
                       alt={`${productName} ${selectedVersion?.name} - ${selectedColor.colorName}`}
                       fill
                       sizes="(max-width: 1024px) 100vw, 768px"

@@ -42,9 +42,13 @@ export function resolveMotorbikeVariantColorMedia(
   const mediaByColor = normalizeMotorbikeVariantColorMedia(version.media_by_color)
   const ownMedia = mediaByColor[colorName]
 
-  return ownMedia ?? {
-    image_url: text(color.image_url),
-    swatch: text(color.swatch),
+  return {
+    // A vehicle image may be customized for a specific version × color pair.
+    // If no customization exists, the color's shared/base image remains the fallback.
+    image_url: text(ownMedia?.image_url) || text(color.image_url),
+    // Swatches are owned by the product color CRUD. Keep the legacy combination
+    // value only as a read/compatibility fallback for records saved before this contract.
+    swatch: text(color.swatch) || text(ownMedia?.swatch),
   }
 }
 

@@ -100,6 +100,9 @@ export async function POST(request: Request) {
   if (normalizedColorNames.some((colorName: string) => !colorName) || new Set(normalizedColorNames).size !== normalizedColorNames.length) {
     return NextResponse.json({ error: 'Tên màu không được để trống hoặc trùng nhau.' }, { status: 400 })
   }
+  if (colors.some((color: any) => !String(color.swatch ?? '').trim())) {
+    return NextResponse.json({ error: 'Mỗi màu phải có một swatch dùng chung.' }, { status: 400 })
+  }
   const normalizedVersionNames = versions.map((version: any) => String(version.name ?? '').trim().toLocaleLowerCase('vi'))
   const normalizedVersionSkus = versions.map((version: any) => String(version.sku ?? '').trim().toLocaleLowerCase())
   if (normalizedVersionNames.some((versionName: string) => !versionName)
@@ -139,8 +142,8 @@ export async function POST(request: Request) {
   const colorMediaForConfigurations: MotorbikeVariantColorMedia[] = sellableConfigurations.map(({ version, color }: any) => (
     resolveMotorbikeVariantColorMedia(version, color)
   ))
-  if (colorMediaForConfigurations.some((media) => !media.image_url || !media.swatch)) {
-    return NextResponse.json({ error: 'Mỗi tổ hợp phiên bản và màu phải có đầy đủ hình ảnh xe và swatch.' }, { status: 400 })
+  if (colorMediaForConfigurations.some((media) => !media.swatch)) {
+    return NextResponse.json({ error: 'Mỗi tổ hợp phiên bản và màu phải có swatch dùng chung.' }, { status: 400 })
   }
   const versionMedia = buildMotorbikeVersionMedia(versions)
 
@@ -195,7 +198,7 @@ export async function POST(request: Request) {
       const configurationIndex = sellableConfigurations.findIndex(({ color }: any) => color.color_name === c.color_name)
       const fallbackMedia = configurationIndex >= 0 ? colorMediaForConfigurations[configurationIndex] : { image_url: '', swatch: '' }
       return {
-        swatch: fallbackMedia.swatch,
+        swatch: String(c.swatch ?? '').trim() || fallbackMedia.swatch,
         image_url: fallbackMedia.image_url,
         color_name: c.color_name,
         color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',

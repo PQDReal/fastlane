@@ -6,7 +6,7 @@ import {
 } from './motorbike-variant-color-media'
 
 describe('motorbike variant color media', () => {
-  it('uses media from the version and color combination first', () => {
+  it('uses a custom vehicle image but keeps the shared color swatch', () => {
     expect(resolveMotorbikeVariantColorMedia({
       media_by_color: { Đỏ: { image_url: '/version-red.webp', swatch: '/version-red-swatch.webp' } },
     }, {
@@ -15,7 +15,20 @@ describe('motorbike variant color media', () => {
       swatch: '/shared-red-swatch.webp',
     })).toEqual({
       image_url: '/version-red.webp',
-      swatch: '/version-red-swatch.webp',
+      swatch: '/shared-red-swatch.webp',
+    })
+  })
+
+  it('falls back to a legacy combination swatch only when the color has none', () => {
+    expect(resolveMotorbikeVariantColorMedia({
+      media_by_color: { Đỏ: { image_url: '/version-red.webp', swatch: '/legacy-red-swatch.webp' } },
+    }, {
+      color_name: 'Đỏ',
+      image_url: '/shared-red.webp',
+      swatch: '',
+    })).toEqual({
+      image_url: '/version-red.webp',
+      swatch: '/legacy-red-swatch.webp',
     })
   })
 

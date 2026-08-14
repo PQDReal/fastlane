@@ -96,13 +96,20 @@ export async function GET(request: Request, context: Context) {
     ? specsObj.detail_images
     : image_urls.slice(-3)
   const detail_image_urls = normalizeMotorbikeDetailImages(legacyDetailImages)
+  const colorDetails = (Array.isArray(specsObj.color_details) ? specsObj.color_details : []).map((color: any) => ({
+    ...color,
+    // Older records stored the only swatch copy on vehicle_variants. Hydrate it
+    // into the shared color record so the editor can migrate the product safely.
+    swatch: String(color.swatch ?? '').trim()
+      || String((vehicleVariants || []).find((variant: any) => variant.color === color.color_name)?.image_color_url ?? '').trim(),
+  }))
 
   const reconstructedVersions = reconstructMotorbikeAdminConfiguration({
     productVariants: productVariants || [],
     vehicleVariants: vehicleVariants || [],
     inventoryByVariantId,
     declaredVersions: specsObj.variants,
-    colors: specsObj.color_details || [],
+    colors: colorDetails,
     productName: product.name,
   })
 
@@ -121,17 +128,17 @@ export async function GET(request: Request, context: Context) {
       'Kích thước & Tiện ích',
       DEFAULT_MOTORBIKE_SPEC_FIELDS,
     ),
-    colors: specsObj.color_details || [],
+    colors: colorDetails,
     versions: reconstructedVersions.map((version) => {
       const media = findMotorbikeVersionMedia(versionMedia, version)
       const mediaByColor = Object.fromEntries(
         (vehicleVariants || [])
           .filter((variant: any) => variant.sku?.replace(/-C\d{2}$/i, '') === version.sku || variant.version === version.name)
           .map((variant: any) => {
-            const fallbackColor = (specsObj.color_details || []).find((color: any) => color.color_name === variant.color)
+            const fallbackColor = colorDetails.find((color: any) => color.color_name === variant.color)
             return [variant.color, {
               image_url: variant.image_car_url || fallbackColor?.image_url || '',
-              swatch: variant.image_color_url || fallbackColor?.swatch || '',
+              swatch: fallbackColor?.swatch || variant.image_color_url || '',
             }]
           }),
       )
@@ -205,6 +212,9 @@ export async function PATCH(request: Request, context: Context) {
   if (normalizedColorNames.some((colorName: string) => !colorName) || new Set(normalizedColorNames).size !== normalizedColorNames.length) {
     return NextResponse.json({ error: 'Tên màu không được để trống hoặc trùng nhau.' }, { status: 400 })
   }
+  if (colors.some((color: any) => !String(color.swatch ?? '').trim())) {
+    return NextResponse.json({ error: 'Mỗi màu phải có một swatch dùng chung.' }, { status: 400 })
+  }
   const normalizedVersionNames = versions.map((version: any) => String(version.name ?? '').trim().toLocaleLowerCase('vi'))
   const normalizedVersionSkus = versions.map((version: any) => String(version.sku ?? '').trim().toLocaleLowerCase())
   if (normalizedVersionNames.some((versionName: string) => !versionName)
@@ -249,8 +259,8 @@ export async function PATCH(request: Request, context: Context) {
   const colorMediaForConfigurations: MotorbikeVariantColorMedia[] = sellableConfigurations.map(({ version, color }: any) => (
     resolveMotorbikeVariantColorMedia(version, color)
   ))
-  if (colorMediaForConfigurations.some((media) => !media.image_url || !media.swatch)) {
-    return NextResponse.json({ error: 'Mỗi tổ hợp phiên bản và màu phải có đầy đủ hình ảnh xe và swatch.' }, { status: 400 })
+  if (colorMediaForConfigurations.some((media) => !media.swatch)) {
+    return NextResponse.json({ error: 'Mỗi tổ hợp phiên bản và màu phải có swatch dùng chung.' }, { status: 400 })
   }
   const versionMedia = buildMotorbikeVersionMedia(versions)
 
@@ -303,7 +313,7 @@ export async function PATCH(request: Request, context: Context) {
       const configurationIndex = sellableConfigurations.findIndex(({ color }: any) => color.color_name === c.color_name)
       const fallbackMedia = configurationIndex >= 0 ? colorMediaForConfigurations[configurationIndex] : { image_url: '', swatch: '' }
       return {
-        swatch: fallbackMedia.swatch,
+        swatch: String(c.swatch ?? '').trim() || fallbackMedia.swatch,
         image_url: fallbackMedia.image_url,
         color_name: c.color_name,
         color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',

@@ -531,6 +531,9 @@ export default function NewMotorbikePage() {
     if (form.colors.some((c) => !c.color_name.trim())) {
       return 'Tất cả các màu phải có tên màu (Tab 4)'
     }
+    if (form.colors.some((c) => !c.swatch.trim())) {
+      return 'Tất cả các màu phải có swatch dùng chung (Tab 4)'
+    }
     const normalizedColorNames = form.colors.map((color) => color.color_name.trim().toLocaleLowerCase('vi'))
     if (new Set(normalizedColorNames).size !== normalizedColorNames.length) {
       return 'Tên màu không được trùng nhau (Tab 4)'
@@ -550,9 +553,9 @@ export default function NewMotorbikePage() {
       const color = form.colors.find((entry) => entry.color_name === colorName)
       if (!color) return true
       const media = resolveMotorbikeVariantColorMedia(version, color)
-      return !media.image_url || !media.swatch
+      return !media.swatch
     }))) {
-      return 'Mỗi tổ hợp phiên bản × màu phải có đầy đủ hình ảnh xe và swatch (Tab 4)'
+      return 'Mỗi tổ hợp phiên bản × màu phải có swatch dùng chung (Tab 4)'
     }
     return null
   }
@@ -615,6 +618,7 @@ export default function NewMotorbikePage() {
   const previewColorMedia = previewVersion && previewColor
     ? resolveMotorbikeVariantColorMedia(previewVersion, previewColor)
     : { image_url: '', swatch: '' }
+  const previewDisplayImage = previewColorMedia.image_url || previewHeroImage
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
@@ -930,7 +934,7 @@ export default function NewMotorbikePage() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div>
                   <h3 className="text-base font-bold text-slate-900">1. Màu sắc xe</h3>
-                  <p className="text-xs text-slate-500 mt-1">Khai báo tên và nhóm màu; ảnh xe và swatch được thiết lập riêng trong từng phiên bản.</p>
+                  <p className="text-xs text-slate-500 mt-1">Khai báo tên, nhóm màu và swatch dùng chung; ảnh xe có thể tùy chỉnh riêng trong từng phiên bản.</p>
                 </div>
                 <button
                   type="button"
@@ -975,6 +979,37 @@ export default function NewMotorbikePage() {
                         <option value="STANDARD">Màu tiêu chuẩn</option>
                         <option value="ADVANCED">Màu nâng cao</option>
                       </select>
+                    </div>
+
+                    <div className="sm:col-span-12 border-t border-slate-200 pt-3">
+                      <label className="block text-xs font-bold uppercase text-slate-600">Swatch màu dùng chung</label>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                        {color.swatch ? (
+                          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-1">
+                            <img src={color.swatch} alt={`Swatch ${color.color_name}`} className="h-full w-full rounded-full object-cover" />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-700">Chưa có swatch dùng chung.</span>
+                        )}
+                        <ImageUploadDropzone
+                          compact
+                          label={color.swatch ? 'Đổi swatch' : 'Tải swatch'}
+                          folder="fastlane/products/motorbikes/colors"
+                          onError={(message) => notify('error', 'Không thể cập nhật swatch', message)}
+                          onUploadSuccess={(urls) => updateColor(idx, { swatch: urls[0] || '' })}
+                        />
+                        {color.swatch && (
+                          <button
+                            type="button"
+                            onClick={() => updateColor(idx, { swatch: '' })}
+                            className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                            aria-label={`Xóa swatch ${color.color_name}`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500">Swatch này sẽ tự dùng cho mọi phiên bản của màu {color.color_name || 'này'}.</p>
                     </div>
                   </div>
                 ))}
@@ -1658,10 +1693,10 @@ export default function NewMotorbikePage() {
               <section className="mx-auto max-w-6xl px-6 py-20">
                 <div className="grid gap-12 lg:grid-cols-12 items-center">
                   <div className="lg:col-span-8 flex justify-center items-center h-96 bg-slate-900/40 border border-white/5 rounded-2xl p-6 relative">
-                    {previewColorMedia.image_url ? (
+                    {previewDisplayImage ? (
                       <motion.img
                         key={`${resolvedPreviewVersionIndex}-${resolvedPreviewColorIndex}`}
-                        src={previewColorMedia.image_url}
+                        src={previewDisplayImage}
                         alt="Preview bike color"
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}

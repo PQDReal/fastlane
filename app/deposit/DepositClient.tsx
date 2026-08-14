@@ -992,7 +992,7 @@ export function DepositClient({
     ? selectedVersionRows
     : effectiveDbVariants
   const variantColors = Array.from(new Map(canonicalColorRows
-    .filter((variant: any) => variant.color && variant.image_car_url)
+    .filter((variant: any) => variant.color)
     .map((variant: any) => [variant.color, {
       name: variant.color,
       image: variant.image_car_url,

@@ -18,6 +18,15 @@ describe('motorbike version and color media flow', () => {
     }
   })
 
+  it('keeps swatches in the shared color CRUD and makes vehicle images optional', () => {
+    for (const page of [createAdminPage, editAdminPage]) {
+      expect(page).toContain('Swatch màu dùng chung')
+      expect(page).toContain("return !media.swatch")
+    }
+    expect(fs.readFileSync(new URL('../components/admin/motorbike-version-color-media-fields.tsx', import.meta.url), 'utf8'))
+      .toContain('Swatch dùng chung')
+  })
+
   it('hydrates combination media when reopening the admin editor', () => {
     expect(editRoute).toContain('image_car_url,image_color_url')
     expect(editRoute).toContain('media_by_color: mediaByColor')
