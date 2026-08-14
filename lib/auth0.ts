@@ -23,7 +23,7 @@ export const auth0 = new Auth0Client({
   appBaseUrl,
   authorizationParameters: {
     audience: process.env.AUTH0_AUDIENCE,
-    scope: 'openid profile email',
+    scope: 'openid profile email offline_access',
     ui_locales: 'vi',
   },
   enableAccessTokenEndpoint: true,

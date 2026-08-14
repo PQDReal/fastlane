@@ -32,7 +32,8 @@ export async function authorizeAdminCatalogRequest(request: Request) {
   try {
     const accessToken = await auth0.getAccessToken()
     token = accessToken.token
-  } catch {
+  } catch (error) {
+    console.error('getAccessToken failed in authorizeAdminCatalogRequest:', error)
     throw new ApiAuthError(
       401,
       'AUTHENTICATION_REQUIRED',
@@ -65,7 +66,8 @@ export async function authorizeAdminInventoryRequest(request: Request) {
   try {
     const accessToken = await auth0.getAccessToken()
     token = accessToken.token
-  } catch {
+  } catch (error) {
+    console.error('getAccessToken failed in authorizeAdminInventoryRequest:', error)
     throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
   }
 

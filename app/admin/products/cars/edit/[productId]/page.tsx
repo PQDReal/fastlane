@@ -31,6 +31,7 @@ import { CombinationMultiSelect } from '@/components/admin/combination-multi-sel
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
+import { formatSpecificationValue } from '@/lib/spec-formatter'
 
 const colorMap: Record<string, string> = {
   'Solar Ruby': '#941B26',
@@ -133,13 +134,14 @@ interface FormState {
     'Hệ thống túi khí': string
     'Hệ thống ABS': string
     'Hệ thống EBD': string
-  }
+  } & Record<string, string>
+  hidden_specifications: string[]
+  custom_specifications: { name: string; category: string }[]
   colors: ColorEntry[]
   advanced_color_price: number
   interiors: InteriorEntry[]
   versions: VersionEntry[]
   landing_page_blocks: any[]
-  advanced_color_price?: number
 }
 
 const defaultLandingBlocks = [
@@ -213,6 +215,8 @@ const initialFormState: FormState = {
     'Hệ thống ABS': '',
     'Hệ thống EBD': '',
   },
+  hidden_specifications: [],
+  custom_specifications: [],
   colors: [
     { color_name: 'Trắng (Brahminy White)', image_url: '', swatch: '', color_type: 'STANDARD' },
     { color_name: 'Xám (Neptune Grey)', image_url: '', swatch: '', color_type: 'STANDARD' },
@@ -227,7 +231,6 @@ const initialFormState: FormState = {
     { name: 'Phiên bản Plus (Thuê pin)', sku: 'VINFAST-CAR-PLUS-01', price: 530000000, deposit_amount: 15000000, compatible_colors: ['Trắng (Brahminy White)', 'Xám (Neptune Grey)'], interiors_by_color: { 'Trắng (Brahminy White)': ['Đen (Granite Black)', 'Nâu (Saddle Brown)'], 'Xám (Neptune Grey)': ['Đen (Granite Black)', 'Nâu (Saddle Brown)'] }, stock_by_configuration: {} },
   ],
   landing_page_blocks: defaultLandingBlocks,
-  advanced_color_price: 0,
 }
 
 export default function EditCarPage({ params }: { params: Promise<{ productId: string }> }) {
@@ -241,6 +244,9 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [showAddSpecForm, setShowAddSpecForm] = useState(false)
+  const [newSpecName, setNewSpecName] = useState('')
+  const [newSpecCategory, setNewSpecCategory] = useState('Vận hành & Pin')
 
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
@@ -279,8 +285,14 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
           }
         }
 
-        setForm(dbState)
-        setOriginalForm(dbState)
+        const mergedState = {
+          ...initialFormState,
+          ...dbState,
+          hidden_specifications: dbState.hidden_specifications || [],
+          custom_specifications: dbState.custom_specifications || [],
+        }
+        setForm(mergedState)
+        setOriginalForm(mergedState)
       } catch (e: any) {
         notify('error', 'Tải sản phẩm thất bại', e.message)
       } finally {
@@ -410,7 +422,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
         ...current,
         specifications: {
           ...current.specifications,
-          [key]: val,
+          [key]: formatSpecificationValue(key as string, val),
         },
         landing_page_blocks: nextBlocks
       }
@@ -1032,127 +1044,331 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
           <div className="space-y-8">
             <div>
               <h3 className="text-base font-bold text-slate-900">Thông số kỹ thuật của xe</h3>
-              <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết và cấu hình xe.</p>
+              <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết và cấu hình xe. Bấm vào biểu tượng con mắt để ẩn/hiện thông số.</p>
             </div>
 
-            {/* 1. Performance & Powertrain */}
-            <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2 text-slate-800">
-                <Zap size={16} className="text-brand-600" /> Vận hành & Pin
-              </h4>
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  { label: 'Quãng đường đi được *', key: 'Quãng đường đi được', placeholder: 'Ví dụ: 300 km (WLTP)' },
-                  { label: 'Công suất tối đa *', key: 'Công suất tối đa', placeholder: 'Ví dụ: 100 kW' },
-                  { label: 'Mô-men xoắn cực đại', key: 'Mô-men xoắn cực đại', placeholder: 'Ví dụ: 135 Nm' },
-                  { label: 'Tốc độ tối đa', key: 'Tốc độ tối đa', placeholder: 'Ví dụ: 150 km/h' },
-                  { label: 'Hệ dẫn động', key: 'Hệ dẫn động', placeholder: 'Ví dụ: FWD (Cầu trước)' },
-                  { label: 'Dung lượng pin', key: 'Dung lượng pin', placeholder: 'Ví dụ: 37.23 kWh' },
-                  { label: 'Thời gian sạc nhanh', key: 'Thời gian sạc nhanh', placeholder: 'Ví dụ: Khoảng 30 phút (10-70%)' },
-                  { label: 'Công suất sạc DC tối đa', key: 'Công suất sạc DC tối đa', placeholder: 'Ví dụ: 60 kW' },
-                ].map((spec) => (
-                  <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
-                    <input
-                      type="text"
-                      placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
-                      onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
-                      className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Helper UI function for rendering a spec field */}
+            {(() => {
+              const renderSpecField = (key: string, label?: string, placeholder?: string, isCustom = false) => {
+                const isHidden = form.hidden_specifications.includes(key)
+                const displayLabel = label || key
 
-            {/* 2. Dimensions & Capacity */}
-            <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2 text-slate-800">
-                <Layers size={16} className="text-brand-600" /> Kích thước & Trọng lượng
-              </h4>
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { label: 'Kích thước Dài x Rộng x Cao *', key: 'Dài x Rộng x Cao', placeholder: 'Ví dụ: 3.965 x 1.720 x 1.580 mm' },
-                  { label: 'Chiều dài cơ sở *', key: 'Chiều dài cơ sở', placeholder: 'Ví dụ: 2.513 mm' },
-                  { label: 'Khoảng sáng gầm xe', key: 'Khoảng sáng gầm xe', placeholder: 'Ví dụ: 182 mm' },
-                  { label: 'Khối lượng / Tải trọng', key: 'Khối lượng / Tải trọng', placeholder: 'Ví dụ: 1360/325 kg' },
-                  { label: 'Số chỗ ngồi *', key: 'Số chỗ ngồi', placeholder: 'Ví dụ: 5 ghế' },
-                ].map((spec) => (
-                  <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
-                    <input
-                      type="text"
-                      placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
-                      onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
-                      className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+                const handleToggleHidden = () => {
+                  setForm(curr => ({
+                    ...curr,
+                    hidden_specifications: isHidden
+                      ? curr.hidden_specifications.filter(k => k !== key)
+                      : [...curr.hidden_specifications, key]
+                  }))
+                }
 
-            {/* 3. Interior & Exterior */}
-            <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2 text-slate-800">
-                <Palette size={16} className="text-brand-600" /> Nội thất & Ngoại thất
-              </h4>
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { label: 'Đèn chiếu sáng phía trước', key: 'Đèn chiếu sáng phía trước', placeholder: 'Ví dụ: Đèn pha LED tự động' },
-                  { label: 'Kích thước la-zăng', key: 'Kích thước la-zăng', placeholder: 'Ví dụ: 16 inch' },
-                  { label: 'Hệ thống giải trí', key: 'Hệ thống giải trí', placeholder: 'Ví dụ: Màn hình cảm ứng 10 inch' },
-                  { label: 'Hệ thống điều hòa', key: 'Hệ thống điều hòa', placeholder: 'Ví dụ: Tự động, có màng lọc PM2.5' },
-                  { label: 'Điều chỉnh ghế lái', key: 'Điều chỉnh ghế lái', placeholder: 'Ví dụ: Chỉnh cơ 6 hướng' },
-                ].map((spec) => (
-                  <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
-                    <input
-                      type="text"
-                      placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
-                      onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
-                      className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+                const handleDelete = () => {
+                  setForm(curr => {
+                    const newSpecs = { ...curr.specifications }
+                    delete newSpecs[key]
+                    return {
+                      ...curr,
+                      custom_specifications: curr.custom_specifications.filter((k: any) => k.name ? k.name !== key : k !== key),
+                      hidden_specifications: curr.hidden_specifications.filter((k: any) => k !== key),
+                      specifications: newSpecs
+                    }
+                  })
+                }
 
-            {/* 4. Safety */}
-            <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2 text-slate-800">
-                <Check size={16} className="text-brand-600" /> Hệ thống An toàn
-              </h4>
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { label: 'Hệ thống túi khí', key: 'Hệ thống túi khí', placeholder: 'Ví dụ: 4 túi khí' },
-                  { label: 'Hệ thống ABS (Chống bó cứng phanh)', key: 'Hệ thống ABS', placeholder: 'Ví dụ: Có' },
-                  { label: 'Hệ thống EBD (Phân phối lực phanh điện tử)', key: 'Hệ thống EBD', placeholder: 'Ví dụ: Có' },
-                ].map((spec) => (
-                  <div key={spec.key}>
-                    <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                return (
+                  <div key={key} className={`group ${isHidden ? 'opacity-50' : ''}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold text-slate-600 line-clamp-1" title={displayLabel}>
+                        {displayLabel}
+                      </label>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={handleToggleHidden}
+                          className="p-1 hover:bg-slate-100 rounded text-slate-500"
+                          title={isHidden ? "Hiện thông số này" : "Ẩn thông số này"}
+                        >
+                          <Eye size={14} className={isHidden ? "text-slate-400 line-through" : ""} />
+                        </button>
+                        {isCustom && (
+                          <button
+                            type="button"
+                            onClick={handleDelete}
+                            className="p-1 hover:bg-red-50 rounded text-red-500"
+                            title="Xóa thông số này"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <input
                       type="text"
-                      placeholder={spec.placeholder}
-                      value={form.specifications[spec.key as keyof FormState['specifications']]}
-                      onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
-                      className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                      placeholder={placeholder || `Nhập ${displayLabel.toLowerCase()}`}
+                      value={form.specifications[key as keyof FormState['specifications']] || ''}
+                      onChange={(e) => handleUpdateSpec(key as any, e.target.value)}
+                      className={`h-10 w-full rounded-md border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
+                        isHidden 
+                          ? 'border-slate-100 text-slate-400 focus:border-slate-300 focus:ring-slate-100' 
+                          : 'border-slate-200 text-slate-900 focus:border-brand-500 focus:ring-brand-100'
+                      }`}
                     />
                   </div>
-                ))}
-              </div>
-            </div>
+                )
+              }
+
+              return (
+                <>
+                  {/* 1. Performance & Powertrain */}
+                  <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                    <h4 className="text-sm font-bold flex items-center gap-1.5 border-b pb-2 text-slate-800">
+                      <Zap size={16} className="text-brand-600" /> Vận hành & Pin
+                    </h4>
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                      {renderSpecField('Quãng đường đi được', 'Quãng đường đi được *', 'Ví dụ: 300')}
+                      {renderSpecField('Công suất tối đa', 'Công suất tối đa *', 'Ví dụ: 100')}
+                      {renderSpecField('Mô-men xoắn cực đại', 'Mô-men xoắn cực đại', 'Ví dụ: 135')}
+                      {renderSpecField('Tốc độ tối đa', 'Tốc độ tối đa', 'Ví dụ: 150')}
+                      {renderSpecField('Hệ dẫn động', 'Hệ dẫn động', 'Ví dụ: FWD')}
+                      {renderSpecField('Dung lượng pin', 'Dung lượng pin', 'Ví dụ: 37.23')}
+                      {renderSpecField('Thời gian sạc nhanh', 'Thời gian sạc nhanh', 'Ví dụ: 30')}
+                      {renderSpecField('Công suất sạc DC tối đa', 'Công suất sạc DC tối đa', 'Ví dụ: 60')}
+                      {form.custom_specifications.filter((c: any) => c.category === 'Vận hành & Pin').map((c: any) => renderSpecField(c.name || c, c.name || c, undefined, true))}
+                    </div>
+                  </div>
+
+                  {/* 2. Dimensions & Capacity */}
+                  <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                    <h4 className="text-sm font-bold flex items-center gap-1.5 border-b pb-2 text-slate-800">
+                      <Layers size={16} className="text-brand-600" /> Kích thước & Trọng lượng
+                    </h4>
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                      {renderSpecField('Dài x Rộng x Cao', 'Kích thước Dài x Rộng x Cao *', 'Nhập liền: 396517201580')}
+                      {renderSpecField('Chiều dài cơ sở', 'Chiều dài cơ sở *', 'Ví dụ: 2513')}
+                      {renderSpecField('Khoảng sáng gầm xe', 'Khoảng sáng gầm xe', 'Ví dụ: 182')}
+                      {renderSpecField('Khối lượng / Tải trọng', 'Khối lượng / Tải trọng', 'Ví dụ: 1360325')}
+                      {renderSpecField('Số chỗ ngồi', 'Số chỗ ngồi *', 'Ví dụ: 5 ghế')}
+                      {form.custom_specifications.filter((c: any) => c.category === 'Kích thước & Trọng lượng').map((c: any) => renderSpecField(c.name || c, c.name || c, undefined, true))}
+                    </div>
+                  </div>
+
+                  {/* 3. Interior & Exterior */}
+                  <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                    <h4 className="text-sm font-bold flex items-center gap-1.5 border-b pb-2 text-slate-800">
+                      <Palette size={16} className="text-brand-600" /> Nội thất & Ngoại thất
+                    </h4>
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                      {renderSpecField('Đèn chiếu sáng phía trước', 'Đèn chiếu sáng phía trước', 'Ví dụ: Đèn pha LED')}
+                      {renderSpecField('Kích thước la-zăng', 'Kích thước la-zăng', 'Ví dụ: 16')}
+                      {renderSpecField('Hệ thống giải trí', 'Hệ thống giải trí', 'Ví dụ: Màn hình 10 inch')}
+                      {renderSpecField('Hệ thống điều hòa', 'Hệ thống điều hòa', 'Ví dụ: Tự động')}
+                      {renderSpecField('Điều chỉnh ghế lái', 'Điều chỉnh ghế lái', 'Ví dụ: Chỉnh cơ 6 hướng')}
+                      {form.custom_specifications.filter((c: any) => c.category === 'Nội thất & Ngoại thất').map((c: any) => renderSpecField(c.name || c, c.name || c, undefined, true))}
+                    </div>
+                  </div>
+
+                  {/* 4. Safety */}
+                  <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                    <h4 className="text-sm font-bold flex items-center gap-1.5 border-b pb-2 text-slate-800">
+                      <Check size={16} className="text-brand-600" /> Hệ thống An toàn
+                    </h4>
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                      {renderSpecField('Hệ thống túi khí', 'Hệ thống túi khí', 'Ví dụ: 4 túi khí')}
+                      {renderSpecField('Hệ thống ABS', 'Hệ thống ABS (Chống bó cứng)', 'Ví dụ: Có')}
+                      {renderSpecField('Hệ thống EBD', 'Hệ thống EBD (Phân phối lực phanh)', 'Ví dụ: Có')}
+                      {form.custom_specifications.filter((c: any) => c.category === 'Hệ thống An toàn').map((c: any) => renderSpecField(c.name || c, c.name || c, undefined, true))}
+                    </div>
+                  </div>
+
+                  {/* 5. Custom Specs */}
+                  <div className="space-y-4 bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                    <h4 className="text-sm font-bold flex items-center gap-1.5 border-b pb-2 text-slate-800">
+                      <FileText size={16} className="text-brand-600" /> Thông số khác
+                    </h4>
+                    {form.custom_specifications.filter((c: any) => c.category === 'Thông số khác' || !c.category).length === 0 ? (
+                      <p className="text-sm text-slate-500 italic">Chưa có thông số tuỳ chỉnh nào ở mục này.</p>
+                    ) : (
+                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        {form.custom_specifications.filter((c: any) => c.category === 'Thông số khác' || !c.category).map((c: any) => renderSpecField(c.name || c, c.name || c, undefined, true))}
+                      </div>
+                    )}
+                    <div className="pt-2">
+                      {showAddSpecForm ? (
+                        <div className="flex items-center gap-2 max-w-xl">
+                          <select 
+                            value={newSpecCategory}
+                            onChange={(e) => setNewSpecCategory(e.target.value)}
+                            className="h-9 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-brand-500"
+                          >
+                            <option value="Vận hành & Pin">Vận hành & Pin</option>
+                            <option value="Kích thước & Trọng lượng">Kích thước & Trọng lượng</option>
+                            <option value="Nội thất & Ngoại thất">Nội thất & Ngoại thất</option>
+                            <option value="Hệ thống An toàn">Hệ thống An toàn</option>
+                            <option value="Thông số khác">Thông số khác</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={newSpecName}
+                            onChange={(e) => setNewSpecName(e.target.value)}
+                            placeholder="Tên thông số (ví dụ: Góc thoát)"
+                            className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-brand-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                const trimmed = newSpecName.trim()
+                                if (!trimmed) return
+                                if (form.specifications[trimmed as any] !== undefined) {
+                                  notify('error', 'Lỗi', 'Thông số này đã tồn tại')
+                                  return
+                                }
+                                setForm(curr => ({
+                                  ...curr,
+                                  custom_specifications: [...curr.custom_specifications, { name: trimmed, category: newSpecCategory }],
+                                  specifications: { ...curr.specifications, [trimmed]: '' }
+                                }))
+                                setNewSpecName('')
+                                setShowAddSpecForm(false)
+                              } else if (e.key === 'Escape') {
+                                setShowAddSpecForm(false)
+                                setNewSpecName('')
+                              }
+                            }}
+                          />
+                          <Button 
+                            type="button" 
+                            size="sm"
+                            onClick={() => {
+                              const trimmed = newSpecName.trim()
+                              if (!trimmed) return
+                              if (form.specifications[trimmed as any] !== undefined) {
+                                notify('error', 'Lỗi', 'Thông số này đã tồn tại')
+                                return
+                              }
+                              setForm(curr => ({
+                                ...curr,
+                                custom_specifications: [...curr.custom_specifications, { name: trimmed, category: newSpecCategory }],
+                                specifications: { ...curr.specifications, [trimmed]: '' }
+                              }))
+                              setNewSpecName('')
+                              setShowAddSpecForm(false)
+                            }}
+                          >
+                            Thêm
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setShowAddSpecForm(false)
+                              setNewSpecName('')
+                            }}
+                          >
+                            Hủy
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddSpecForm(true)}
+                          className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-slate-200 bg-white shadow-sm hover:bg-slate-100 hover:text-slate-900 h-9 px-4 py-2"
+                        >
+                          <Plus size={16} className="mr-2" /> Thêm thông số
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
           </div>
         )}
 
         {activeTab === 'variants' && (
           <div className="space-y-8">
-            {/* Color section */}
+            {/* Version section */}
             <div>
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">1. Màu ngoại thất xe</h3>
+                  <h3 className="text-base font-bold text-slate-900">1. Các phiên bản & Giá bán</h3>
+                  <p className="text-xs text-slate-500 mt-1">Thiết lập giá bán gốc, tiền đặt cọc và SKU cho mỗi phiên bản.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addVersion}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-md transition"
+                >
+                  <Plus size={14} /> Thêm phiên bản
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {form.versions.map((ver, idx) => (
+                  <div
+                    key={idx}
+                    className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
+                  >
+                    <div className="sm:col-span-4">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Tên phiên bản</label>
+                      <input
+                        type="text"
+                        value={ver.name}
+                        onChange={(e) => updateVersion(idx, { name: e.target.value })}
+                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">SKU gốc</label>
+                      <input
+                        type="text"
+                        value={ver.sku}
+                        onChange={(e) => updateVersion(idx, { sku: e.target.value })}
+                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Giá bán (VND)</label>
+                      <input
+                        type="number"
+                        value={ver.price}
+                        onChange={(e) => updateVersion(idx, { price: Number(e.target.value) })}
+                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Tiền cọc (VND)</label>
+                      <input
+                        type="number"
+                        value={ver.deposit_amount}
+                        onChange={(e) => updateVersion(idx, { deposit_amount: Number(e.target.value) })}
+                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeVersion(idx)}
+                        className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                        aria-label="Xóa phiên bản"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Color section */}
+            <div className="border-t border-slate-100 pt-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">2. Màu ngoại thất xe</h3>
                   <p className="text-xs text-slate-500 mt-1">Thêm các tùy chọn màu kèm ảnh xe tương ứng và swatch màu sắc.</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1184,7 +1400,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                     key={idx}
                     className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
                   >
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-3">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Tên màu</label>
                       <input
                         type="text"
@@ -1195,8 +1411,8 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                       <label className="mt-3 flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={!!color.is_advanced}
-                          onChange={(e) => updateColor(idx, { is_advanced: e.target.checked })}
+                          checked={color.color_type === 'ADVANCED'}
+                          onChange={(e) => updateColor(idx, { color_type: e.target.checked ? 'ADVANCED' : 'STANDARD' })}
                           className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4"
                         />
                         <span className="text-[11px] font-semibold text-slate-700">Đây là màu nâng cao (tính phí)</span>
@@ -1292,13 +1508,6 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                         <Trash2 size={16} />
                       </button>
                     </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 uppercase">Nhóm màu</label>
-                      <select value={color.color_type ?? 'STANDARD'} onChange={(e) => updateColor(idx, { color_type: e.target.value as ColorEntry['color_type'] })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500">
-                        <option value="STANDARD">Màu tiêu chuẩn</option>
-                        <option value="ADVANCED">Màu nâng cao</option>
-                      </select>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1308,7 +1517,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
             <div className="border-t border-slate-100 pt-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">2. Màu sắc & Hình ảnh Nội thất</h3>
+                  <h3 className="text-base font-bold text-slate-900">3. Màu sắc & Hình ảnh Nội thất</h3>
                   <p className="text-xs text-slate-500 mt-1">Thêm các tùy chọn màu nội thất kèm ảnh nội thất và swatch tương ứng.</p>
                 </div>
                 <button
@@ -1487,117 +1696,6 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Version section */}
-            <div className="border-t border-slate-100 pt-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">3. Các phiên bản & Giá bán</h3>
-                  <p className="text-xs text-slate-500 mt-1">Thiết lập giá bán gốc, tiền đặt cọc và SKU cho mỗi phiên bản.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addVersion}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-md transition"
-                >
-                  <Plus size={14} /> Thêm phiên bản
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {form.versions.map((ver, idx) => (
-                  <div
-                    key={idx}
-                    className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
-                  >
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase">Tên phiên bản</label>
-                      <input
-                        type="text"
-                        value={ver.name}
-                        onChange={(e) => updateVersion(idx, { name: e.target.value })}
-                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-3">
-                      <label className="block text-xs font-bold text-slate-600 uppercase">SKU gốc</label>
-                      <input
-                        type="text"
-                        value={ver.sku}
-                        onChange={(e) => updateVersion(idx, { sku: e.target.value })}
-                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 uppercase">Giá bán (VND)</label>
-                      <input
-                        type="number"
-                        value={ver.price}
-                        onChange={(e) => updateVersion(idx, { price: Number(e.target.value) })}
-                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 uppercase">Tiền cọc (VND)</label>
-                      <input
-                        type="number"
-                        value={ver.deposit_amount}
-                        onChange={(e) => updateVersion(idx, { deposit_amount: Number(e.target.value) })}
-                        className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-1 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removeVersion(idx)}
-                        className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
-                        aria-label="Xóa phiên bản"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-
-                    <div className="sm:col-span-12 grid gap-3 border-t border-slate-200 pt-3 lg:grid-cols-[190px_minmax(0,1fr)] lg:items-start">
-                      <div>
-                        <p className="text-xs font-bold uppercase text-slate-600">Tổ hợp áp dụng</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">Chọn ngoại thất, sau đó chọn nội thất có thể ghép cho từng màu.</p>
-                      </div>
-                      <div className="space-y-3">
-                        <CombinationMultiSelect
-                          label={`Ngoại thất áp dụng cho ${ver.name}`}
-                          options={form.colors.map((color) => color.color_name)}
-                          selected={selectedColorsFor(ver)}
-                          onChange={(colors) => updateCompatibleColors(idx, colors)}
-                        />
-                        {selectedColorsFor(ver).map((colorName) => (
-                          <div key={colorName} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[minmax(150px,0.4fr)_minmax(0,1fr)] md:items-center">
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-semibold text-slate-700" title={colorName}>{colorName}</p>
-                            </div>
-                            <CombinationMultiSelect
-                              label={`Nội thất của ${ver.name} - ${colorName}`}
-                              options={form.interiors.map((interior) => interior.interior_name)}
-                              selected={selectedInteriorsFor(ver, colorName)}
-                              onChange={(interiors) => updateCompatibleInteriors(idx, colorName, interiors)}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {form.colors.some((color) => color.color_type === 'ADVANCED') && (
-                <label className="mt-4 block max-w-xs text-xs font-bold uppercase text-slate-600">
-                  Phụ thu chung cho màu nâng cao (VND)
-                  <input type="number" min="0" value={form.advanced_color_price} onChange={(event) => setForm((current) => ({ ...current, advanced_color_price: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500" />
-                </label>
-              )}
             </div>
 
             <div className="border-t border-slate-100 pt-6">
