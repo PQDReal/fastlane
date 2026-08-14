@@ -1034,7 +1034,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
               <div className="flex flex-wrap gap-4 mb-4">
                 {form.detail_image_urls.map((url, idx) => (
                   <div key={idx} className="relative w-36 h-24 rounded-lg border bg-slate-50 flex items-center justify-center overflow-hidden group shadow-sm transition-all hover:shadow-md">
-                    <img src={url} alt={`Detail ${idx + 1}`} className="max-w-full max-h-full object-contain p-1" />
+                    {url ? <img src={url} alt={`Detail ${idx + 1}`} className="max-w-full max-h-full object-contain p-1" /> : <span className="text-[10px] text-slate-400">Chưa có ảnh</span>}
                     
                     {/* Delete button (top-right on hover) */}
                     <button
@@ -1887,7 +1887,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                                 <div className="flex flex-wrap gap-3 mb-3">
                                   {(block.data.images || []).map((url: string, imgIdx: number) => (
                                     <div key={imgIdx} className="relative h-16 w-24 rounded border overflow-hidden bg-slate-50 group flex items-center justify-center">
-                                      <img src={url} className="max-h-full max-w-full object-contain p-1" alt="Gallery item" />
+                                      {url ? <img src={url} className="max-h-full max-w-full object-contain p-1" alt="Gallery item" /> : <span className="text-[10px] text-slate-400">Chưa có ảnh</span>}
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -2141,7 +2141,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 md:gap-6 mb-16">
                       {displayImgs.slice(0, 20).map((image: string, index: number) => (
                         <div key={`${image}-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem]">
-                          <img src={image} alt={`Chi tiết ${form.name || 'xe'} ${index + 1}`} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                          {image ? <img src={image} alt={`Chi tiết ${form.name || 'xe'} ${index + 1}`} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">Chưa tải ảnh chi tiết</div>}
                           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12 text-white">
                             <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
                           </div>
@@ -2154,7 +2154,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                 {/* Variants Pricing Section */}
                 {form.versions.length > 1 && (
                   <section id="variants" className="relative py-32 bg-black overflow-hidden flex items-center justify-center min-h-[600px] text-white">
-                     <img src={displayIntImg || form.hero_image_url} alt="Interior" className="absolute inset-0 w-full h-full object-cover opacity-70"/>
+                     {(displayIntImg || form.hero_image_url) && <img src={displayIntImg || form.hero_image_url} alt="Interior" className="absolute inset-0 w-full h-full object-cover opacity-70"/>}
                      
                      <div className="relative z-10 w-full max-w-4xl mx-auto px-6">
                        <div className="bg-white/70 backdrop-blur-xl p-8 sm:p-14 shadow-2xl rounded-3xl">

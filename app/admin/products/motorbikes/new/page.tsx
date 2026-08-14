@@ -1389,7 +1389,7 @@ export default function NewMotorbikePage() {
                                 <div className="grid grid-cols-4 gap-2 mb-3">
                                   {(block.data.images || []).map((imgUrl: string, imgIdx: number) => (
                                     <div key={imgIdx} className="relative h-20 rounded overflow-hidden border border-slate-200">
-                                      <img src={imgUrl} className="h-full w-full object-cover" alt={`Gallery item ${imgIdx}`} />
+                                      {imgUrl ? <img src={imgUrl} className="h-full w-full object-cover" alt={`Gallery item ${imgIdx}`} /> : <span className="flex h-full items-center justify-center text-[10px] text-slate-400">Chưa có ảnh</span>}
                                       <button
                                         type="button"
                                         onClick={() => {
