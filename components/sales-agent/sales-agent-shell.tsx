@@ -237,11 +237,24 @@ export function SalesAgentShell() {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const listRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const followBottomRef = useRef(true)
   const autoScrollUntilRef = useRef(0)
   const pathname = usePathname()
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
+
+  // Auto-expand textarea up to 5 lines (default 1 line)
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    if (draft) {
+      // 1 line ~36px, 5 lines ~116px (20px line-height * 5 + 16px padding)
+      const newHeight = Math.min(textarea.scrollHeight, 116)
+      textarea.style.height = `${newHeight}px`
+    }
+  }, [draft])
 
   const scrollToLatest = useCallback(() => {
     const list = listRef.current
@@ -531,6 +544,7 @@ export function SalesAgentShell() {
           >
             <div className="relative flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200/90 bg-white p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
               <textarea
+                ref={textareaRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value.slice(0, 2_000))}
                 onKeyDown={(event) => {
@@ -542,7 +556,7 @@ export function SalesAgentShell() {
                 disabled={sending}
                 rows={1}
                 placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'}
-                className="max-h-28 min-h-[36px] flex-1 resize-none border-0 bg-transparent py-1.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-relaxed"
+                className="max-h-[116px] min-h-[36px] overflow-y-auto custom-scrollbar flex-1 resize-none border-0 bg-transparent py-2 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-5"
                 aria-label="Câu hỏi cho Sales Agent"
               />
               <button
