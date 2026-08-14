@@ -64,7 +64,6 @@ export type SalesAgentToolCall =
         productTypes?: SalesAgentProductType[]
         minPrice?: number
         maxPrice?: number
-        stockFilter?: 'ALL' | 'IN_STOCK'
         limit?: number
       }
     }
@@ -81,7 +80,6 @@ export type SalesAgentToolCall =
         vehicleProductId?: string
         minPrice?: number
         maxPrice?: number
-        stockFilter?: 'ALL' | 'IN_STOCK'
         limit?: number
       }
     }
@@ -132,14 +130,13 @@ export const SALES_AGENT_TOOL_DEFINITIONS = [
         productTypes: { type: 'array', maxItems: 3, items: { type: 'string', enum: ['CAR', 'BIKE', 'ACCESSORY'] } },
         minPrice: { type: 'number', minimum: 0 },
         maxPrice: { type: 'number', minimum: 0 },
-        stockFilter: { type: 'string', enum: ['ALL', 'IN_STOCK'] },
         limit: { type: 'integer', minimum: 1, maximum: 20 },
       },
     },
   },
   {
     name: 'get_vehicle_details',
-    description: 'Lấy giá, tồn kho, phiên bản và thông số chuẩn hóa của một mẫu xe bằng product UUID.',
+    description: 'Lấy trạng thái đang bán, giá, phiên bản, URL và thông số chuẩn hóa của một mẫu xe bằng product UUID.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -156,7 +153,7 @@ export const SALES_AGENT_TOOL_DEFINITIONS = [
       required: ['productIds'],
       properties: {
         productIds: { type: 'array', minItems: 2, maxItems: 3, items: { type: 'string', format: 'uuid' } },
-        criteria: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'string', enum: SALES_AGENT_COMPARE_CRITERIA } },
+        criteria: { type: 'array', minItems: 1, maxItems: SALES_AGENT_COMPARE_CRITERIA.length, items: { type: 'string', enum: SALES_AGENT_COMPARE_CRITERIA } },
       },
     },
   },
@@ -180,7 +177,6 @@ export const SALES_AGENT_TOOL_DEFINITIONS = [
         vehicleProductId: { type: 'string', format: 'uuid' },
         minPrice: { type: 'number', minimum: 0 },
         maxPrice: { type: 'number', minimum: 0 },
-        stockFilter: { type: 'string', enum: ['ALL', 'IN_STOCK'] },
         limit: { type: 'integer', minimum: 1, maximum: 20 },
       },
     },
@@ -264,12 +260,6 @@ function compareCriteria(value: unknown) {
   return [...new Set(values)] as SalesAgentCompareCriteria[]
 }
 
-function stockFilter(value: unknown) {
-  if (value === undefined) return 'ALL' as const
-  if (value !== 'ALL' && value !== 'IN_STOCK') throw new Error('stockFilter không hợp lệ.')
-  return value
-}
-
 function assertPriceRange(minPrice: number | undefined, maxPrice: number | undefined) {
   if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
     throw new Error('Khoảng giá không hợp lệ.')
@@ -318,7 +308,7 @@ export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgen
   }
 
   if (name === 'search_catalog') {
-    exactKeys(input, ['query', 'productTypes', 'minPrice', 'maxPrice', 'stockFilter', 'limit'])
+    exactKeys(input, ['query', 'productTypes', 'minPrice', 'maxPrice', 'limit'])
     const minPrice = boundedPrice(input.minPrice, 'minPrice')
     const maxPrice = boundedPrice(input.maxPrice, 'maxPrice')
     assertPriceRange(minPrice, maxPrice)
@@ -329,7 +319,6 @@ export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgen
         productTypes: productTypes(input.productTypes),
         minPrice,
         maxPrice,
-        stockFilter: stockFilter(input.stockFilter),
         limit: boundedLimit(input.limit, 8),
       },
     }
@@ -361,7 +350,7 @@ export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgen
   }
 
   if (name === 'discover_accessories') {
-    exactKeys(input, ['query', 'vehicleProductId', 'minPrice', 'maxPrice', 'stockFilter', 'limit'])
+    exactKeys(input, ['query', 'vehicleProductId', 'minPrice', 'maxPrice', 'limit'])
     const minPrice = boundedPrice(input.minPrice, 'minPrice')
     const maxPrice = boundedPrice(input.maxPrice, 'maxPrice')
     assertPriceRange(minPrice, maxPrice)
@@ -372,7 +361,6 @@ export function parseSalesAgentToolCall(name: string, value: unknown): SalesAgen
         vehicleProductId: input.vehicleProductId === undefined ? undefined : uuid(input.vehicleProductId, 'vehicleProductId'),
         minPrice,
         maxPrice,
-        stockFilter: stockFilter(input.stockFilter),
         limit: boundedLimit(input.limit, 8),
       },
     }

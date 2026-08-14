@@ -72,7 +72,7 @@ describe('sales agent deterministic tool planner', () => {
 
   it('limits generic vehicle recommendations to vehicle product types', async () => {
     await expect(planSalesAgentTools('Tư vấn mẫu xe phù hợp')).resolves.toEqual({
-      calls: [{ name: 'search_catalog', arguments: { query: 'Tư vấn mẫu xe phù hợp', productTypes: ['CAR', 'BIKE'], limit: 8 } }],
+      calls: [{ name: 'search_catalog', arguments: { productTypes: ['CAR', 'BIKE'], limit: 8 } }],
     })
   })
 
@@ -81,10 +81,8 @@ describe('sales agent deterministic tool planner', () => {
       calls: [{
         name: 'search_catalog',
         arguments: {
-          query: 'Tìm xe máy điện dưới 20 triệu còn hàng',
           productTypes: ['BIKE'],
           maxPrice: 20_000_000,
-          stockFilter: 'IN_STOCK',
           limit: 8,
         },
       }],

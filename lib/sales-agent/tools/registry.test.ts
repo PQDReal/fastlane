@@ -26,13 +26,13 @@ describe('sales agent tool registry', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns the common envelope for catalog search', async () => {
-    mocks.search.mockResolvedValue([{ id, name: 'VF 8', slug: 'vf-8', productType: 'CAR', price: 1, availableQuantity: null, availability: 'UNKNOWN', facts: {}, dataAsOf: '2026-08-12T00:00:00.000Z', sourceUpdatedAt: null }])
+    mocks.search.mockResolvedValue([{ id, name: 'VF 8', slug: 'vf-8', url: '/cars/vf-8', productType: 'CAR', isActive: true, description: null, price: 1, facts: {}, dataAsOf: '2026-08-12T00:00:00.000Z', sourceUpdatedAt: null }])
 
     const result = await executeSalesAgentTool('search_catalog', { query: 'VF 8' })
 
-    expect(result).toMatchObject({ tool: 'search_catalog', schemaVersion: '1.0', status: 'PARTIAL', data: { items: [{ id }] }, evidence: [{ source: 'products/product_variants/inventory_items', entityIds: [id] }] })
+    expect(result).toMatchObject({ tool: 'search_catalog', schemaVersion: '1.0', status: 'OK', data: { items: [{ id, url: '/cars/vf-8', isActive: true }] }, evidence: [{ source: 'products/product_variants', entityIds: [id] }] })
     expect(result.readAt).toEqual(expect.any(String))
-    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'INVENTORY_UNKNOWN' }))
+    expect(result.warnings).toEqual([])
   })
 
   it('returns canonical vehicle IDs for the model-native resolver tool', async () => {
@@ -84,7 +84,6 @@ describe('sales agent tool registry', () => {
         warnings: [],
         name: 'VF 8',
         pricing: { from: 1, currency: 'VND' },
-        availability: { state: 'IN_STOCK', availableQuantity: 2 },
         specs: {},
       },
       {
@@ -93,7 +92,6 @@ describe('sales agent tool registry', () => {
         warnings: [],
         name: 'VF 7',
         pricing: { from: 2, currency: 'VND' },
-        availability: { state: 'IN_STOCK', availableQuantity: 1 },
         specs: {},
       },
     ])

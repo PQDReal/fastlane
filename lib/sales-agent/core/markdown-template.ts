@@ -3,7 +3,7 @@ QUY TẮC TRÌNH BÀY MARKDOWN
 - Chọn đúng một mẫu nhỏ nhất phù hợp; không tạo các mục rỗng và không lặp lại câu hỏi.
 - Dùng tiêu đề cấp 3 (###), đoạn văn ngắn, **in đậm** cho giá trị quan trọng.
 - Khi thật sự cần công thức, dùng \\( ... \\) cho inline và \\[ ... \\] cho một dòng riêng.
-- Không dùng HTML, hình ảnh, raw URL hoặc tự tạo Markdown link.
+- Không dùng HTML, hình ảnh hoặc raw URL. Chỉ tạo Markdown link khi dùng nguyên url nội bộ do tool cấp.
 - Không đặt toàn bộ câu trả lời trong code block.
 
 MẪU TƯ VẤN / GIẢI THÍCH
@@ -24,11 +24,11 @@ MẪU SO SÁNH
 
 **Kết luận:** [Nêu khác biệt theo nhu cầu, không tự xếp hạng khi thiếu dữ liệu]
 
-MẪU GIÁ / TỒN KHO / PHỤ KIỆN
+MẪU GIÁ / SẢN PHẨM / PHỤ KIỆN
 ### Thông tin hiện tại
 - **Sản phẩm:** [Tên]
 - **Giá:** [Giá trị hoặc Chưa có dữ liệu]
-- **Tình trạng:** [Giá trị hoặc Chưa có dữ liệu]
+- **Đang bán:** [Có, khi isActive=true]
 
 > Dữ liệu cập nhật: [dataAsOf nếu nguồn cung cấp]
 
@@ -40,7 +40,7 @@ MẪU HƯỚNG DẪN / THỦ TỤC
 **Cần chuẩn bị**
 - [Giấy tờ hoặc điều kiện đã có nguồn]
 
-MẪU THIẾU DỮ LIỆU
-### Chưa đủ dữ liệu xác thực
-[Nói rõ thông tin nào chưa có và hỏi tối đa một câu để tiếp tục.]
+MẪU DỮ LIỆU TỪNG PHẦN
+### Thông tin hiện có
+[Trả lời bằng các fact đã có. Nêu riêng field chưa cập nhật trong một câu ngắn, rồi đưa ra gợi ý hoặc bước tiếp theo hữu ích.]
 `.trim()

@@ -15,7 +15,7 @@ vi.mock('ai', () => ({
 vi.mock('../providers/registry', () => ({ getSalesAgentLanguageModel: mocks.getModel }))
 vi.mock('../tools/registry', () => ({ executeSalesAgentTool: mocks.executeTool }))
 
-import { runSalesAgentHarness } from './harness'
+import { runSalesAgentHarness, validatedCatalogConstraint } from './harness'
 
 const vehicleIds = [
   '00000000-0000-0000-0000-000000000001',
@@ -151,5 +151,60 @@ describe('sales agent model-native harness', () => {
 
     expect(result.text).toBe('Hãy chọn tiêu chí bạn ưu tiên.')
     expect(result.interaction?.slot).toBe('criteria')
+  })
+
+  it('turns a signed budget selection into enforced BIKE price filters', async () => {
+    mocks.generateText.mockImplementation(async (input: any) => {
+      input.prepareStep?.({ stepNumber: 0 })
+      await input.tools.search_catalog.execute({ query: 'Dưới 700 triệu', productTypes: ['CAR'] }, { abortSignal: new AbortController().signal })
+      return { text: 'Đây là các mẫu xe máy điện phù hợp.', finishReason: 'stop', steps: [{}], usage: {}, toolCalls: [], toolResults: [] }
+    })
+
+    await runSalesAgentHarness({
+      message: 'Dưới 700 triệu',
+      history: [{ role: 'user', content: 'Tư vấn xe máy điện' }],
+      interactionSelection: {
+        slot: 'budget',
+        productType: 'BIKE',
+        options: [{ optionId: 'budget-1', label: 'Dưới 700 triệu', value: 'under_700m', kind: 'allowlist' }],
+      },
+    })
+
+    expect(mocks.executeTool).toHaveBeenCalledWith('search_catalog', { productTypes: ['BIKE'], maxPrice: 700_000_000 })
+  })
+
+  it('derives a product type from user history when an older budget token has none', () => {
+    expect(validatedCatalogConstraint('Dưới 700 triệu', [{ role: 'user', content: 'Tôi cần xe máy điện' }], {
+      slot: 'budget',
+      options: [{ optionId: 'budget-1', label: 'Dưới 700 triệu', value: 'under_700m', kind: 'allowlist' }],
+    })).toMatchObject({ productType: 'BIKE', maxPrice: 700_000_000, clearNameQuery: true })
+  })
+
+  it('returns only server-supplied navigation URLs as an allowlist', async () => {
+    mocks.executeTool.mockResolvedValue({
+      ...toolResult('search_catalog'),
+      data: { items: [{ id: vehicleIds[0], name: 'Evo Grand', url: '/bikes/evo-grand', isActive: true }] },
+    })
+    mocks.generateText.mockImplementation(async (input: any) => {
+      input.prepareStep?.({ stepNumber: 0 })
+      await input.tools.search_catalog.execute({ productTypes: ['BIKE'] }, { abortSignal: new AbortController().signal })
+      return { text: '[Xem Evo Grand](/bikes/evo-grand)', finishReason: 'stop', steps: [{}], usage: {}, toolCalls: [], toolResults: [] }
+    })
+
+    const result = await runSalesAgentHarness({ message: 'Gợi ý xe máy điện' })
+
+    expect(result.allowedNavigationHrefs).toEqual(['/bikes/evo-grand'])
+  })
+
+  it('treats a prose accessory vehicle sentinel as an omitted optional filter', async () => {
+    mocks.generateText.mockImplementation(async (input: any) => {
+      input.prepareStep?.({ stepNumber: 0 })
+      await input.tools.discover_accessories.execute({ query: 'sạc an toàn', vehicleProductId: 'general', minPrice: 0, maxPrice: 0, limit: 6 }, { abortSignal: new AbortController().signal })
+      return { text: 'Đây là các phụ kiện đang bán.', finishReason: 'stop', steps: [{}], usage: {}, toolCalls: [], toolResults: [] }
+    })
+
+    await runSalesAgentHarness({ message: 'Phụ kiện nên mua' })
+
+    expect(mocks.executeTool).toHaveBeenCalledWith('discover_accessories', { query: 'sạc an toàn', limit: 6 })
   })
 })

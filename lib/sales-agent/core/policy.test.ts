@@ -8,9 +8,11 @@ describe('Sales Agent Markdown policy', () => {
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('MẪU SO SÁNH')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('| Tiêu chí | [Xe A] | [Xe B] |')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('MẪU HƯỚNG DẪN / THỦ TỤC')
-    expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('MẪU THIẾU DỮ LIỆU')
+    expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('MẪU DỮ LIỆU TỪNG PHẦN')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('\\[ ... \\]')
     expect(SALES_AGENT_SYSTEM_PROMPT).toContain(SALES_AGENT_MARKDOWN_TEMPLATE)
+    expect(SALES_AGENT_SYSTEM_PROMPT).toContain('không mặc định biến toàn bộ câu trả lời')
+    expect(SALES_AGENT_SYSTEM_PROMPT).toContain('không dùng số lượng tồn kho')
   })
 
   it('places the Markdown contract in the system message sent to providers', () => {

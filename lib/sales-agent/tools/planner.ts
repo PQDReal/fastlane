@@ -64,7 +64,7 @@ export async function planSalesAgentTools(message: string, history: SalesAgentMe
   if (wantsPromotion) {
     calls = [{ name: 'get_current_promotions', arguments: { productType: resolvedVehicles.length === 1 ? resolvedVehicles[0].productType : undefined } }]
   } else if (wantsAccessory) {
-    calls = [{ name: 'discover_accessories', arguments: { query: message, vehicleProductId: resolvedVehicles.length === 1 ? resolvedVehicles[0].id : undefined, limit: 6 } }]
+    calls = [{ name: 'discover_accessories', arguments: { vehicleProductId: resolvedVehicles.length === 1 ? resolvedVehicles[0].id : undefined, limit: 6 } }]
   } else if (effectiveWantsCompare) {
     const criteria = conversationState.slots.criteria ?? []
     calls = references.length >= 2
@@ -73,16 +73,15 @@ export async function planSalesAgentTools(message: string, history: SalesAgentMe
   } else if (wantsDetails && references.length === 1) {
     calls = [{ name: 'get_vehicle_details', arguments: { productId: references[0] } }]
   } else if (wantsCatalog || wantsDetails || effectiveWantsCompare) {
-    const classifiedType = classifySalesAgentProductType(message).type
-    const criteria = conversationState.slots.criteria ?? []
+    const classifiedType = classifySalesAgentProductType(message).type ?? conversationState.slots.productType
+    const productNameQuery = resolvedVehicles.length === 1 ? resolvedVehicles[0].name : undefined
     calls = [{
       name: 'search_catalog',
       arguments: {
-        query: message,
+        ...(productNameQuery ? { query: productNameQuery } : {}),
         ...(classifiedType ? { productTypes: [classifiedType] } : wantsCatalog && !hasExplicitCatalogEntityType(message) ? { productTypes: ['CAR', 'BIKE'] } : {}),
         ...(conversationState.slots.minPrice !== undefined ? { minPrice: conversationState.slots.minPrice } : {}),
         ...(conversationState.slots.maxPrice !== undefined ? { maxPrice: conversationState.slots.maxPrice } : {}),
-        ...(criteria.includes('availability') ? { stockFilter: 'IN_STOCK' as const } : {}),
         limit: 8,
       },
     }]

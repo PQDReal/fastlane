@@ -21,12 +21,8 @@ function productType(value: unknown): SalesAgentProductType | undefined {
   return value === 'CAR' || value === 'BIKE' || value === 'ACCESSORY' ? value : undefined
 }
 
-function optionDescription(price: number | null, availability: string) {
-  const parts = [
-    price === null ? undefined : `Từ ${new Intl.NumberFormat('vi-VN').format(price)} đồng`,
-    availability === 'IN_STOCK' ? 'Đang có sẵn' : undefined,
-  ].filter(Boolean)
-  return parts.join(' · ') || undefined
+function optionDescription(price: number | null) {
+  return price === null ? undefined : `Từ ${new Intl.NumberFormat('vi-VN').format(price)} đồng`
 }
 
 /** Searches only the active/type-bound catalog and returns a fresh signed page token. */
@@ -51,8 +47,7 @@ export async function searchSalesAgentInteraction(input: SalesAgentInteractionSe
     ...items.map((item) => ({
       optionId: `opt_${randomUUID()}`,
       label: item.name,
-      ...(optionDescription(item.price, item.availability) ? { description: optionDescription(item.price, item.availability) } : {}),
-      ...(item.availability === 'IN_STOCK' ? { recommended: true } : {}),
+      ...(optionDescription(item.price) ? { description: optionDescription(item.price) } : {}),
     })),
     ...selectedOptions.filter((selected) => !items.some((item) => item.name === selected.label)),
   ].slice(0, 8)

@@ -14,6 +14,8 @@ describe('sales agent navigation resolver', () => {
 
   it('removes model-authored URLs and only renders a server-owned action', () => {
     expect(stripUntrustedNavigation('Xem [VF 8](/cars/fabricated) hoặc https://example.com')).toBe('Xem VF 8 hoặc')
+    expect(stripUntrustedNavigation('Xem [VF 8](/cars/vf-8)', ['/cars/vf-8'])).toBe('Xem [VF 8](/cars/vf-8)')
+    expect(stripUntrustedNavigation('Xem [VF 8](/cars/fabricated)', ['/cars/vf-8'])).toBe('Xem VF 8')
     expect(navigationActionMarkdown({ actionKey: 'VIEW_PRODUCT', entityType: 'CAR', entityId: 'p1', label: 'Xem [VF 8]', href: '/cars/vf-8' })).toBe('[Xem \\[VF 8\\]](/cars/vf-8)')
   })
 

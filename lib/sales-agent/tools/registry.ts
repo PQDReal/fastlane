@@ -5,7 +5,6 @@ import {
   getSalesAgentVehicleSnapshots,
   searchSalesAgentCatalog,
   resolveSalesAgentVehicleReferences,
-  type SalesAgentCatalogFact,
   type SalesAgentVehicleSnapshot,
 } from '../catalog/context'
 import { discoverSalesAgentAccessories } from '../catalog/accessories'
@@ -57,19 +56,12 @@ function unavailable(tool: SalesAgentToolCall['name'], readAt: string, error: un
   }], null)
 }
 
-function inventoryWarnings(items: SalesAgentCatalogFact[]) {
-  return items.some((item) => item.availability === 'UNKNOWN')
-    ? [{ code: 'INVENTORY_UNKNOWN', message: 'Một hoặc nhiều sản phẩm chưa có dòng tồn kho hợp lệ; không coi là còn hàng hoặc hết hàng.' }]
-    : []
-}
-
 function snapshotWarnings(snapshot: SalesAgentVehicleSnapshot) {
   return snapshot.warnings.map(({ code, message }) => ({ code, message }))
 }
 
 function criterionIsAvailable(vehicle: SalesAgentVehicleSnapshot, criterion: SalesAgentCompareCriteria) {
   if (criterion === 'price') return vehicle.pricing.from !== null
-  if (criterion === 'availability') return vehicle.availability.state !== 'UNKNOWN'
   const fact = vehicle.specs[criterion]
   return Boolean(fact && fact.comparable && fact.value !== null)
 }
@@ -140,16 +132,13 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
 
     if (call.name === 'search_catalog') {
       const items = await searchSalesAgentCatalog(call.arguments)
-      const warnings = [
-        ...inventoryWarnings(items),
-        ...(items.length ? [] : [{ code: 'PRODUCT_NOT_FOUND', message: 'Không tìm thấy sản phẩm active phù hợp với bộ lọc đã yêu cầu.' }]),
-      ]
+      const warnings = items.length ? [] : [{ code: 'PRODUCT_NOT_FOUND', message: 'Không tìm thấy sản phẩm đang bán phù hợp với bộ lọc đã yêu cầu.' }]
       return envelope(
         call.name,
         readAt,
-        { items: items.map(({ slug: _slug, ...item }) => item) },
-        items.length ? warnings.some((warning) => warning.code === 'INVENTORY_UNKNOWN') ? 'PARTIAL' : 'OK' : 'NOT_FOUND',
-        [evidence('products/product_variants/inventory_items', items.map((item) => item.id))],
+        { items },
+        items.length ? 'OK' : 'NOT_FOUND',
+        [evidence('products/product_variants', items.map((item) => item.id))],
         warnings,
       )
     }
@@ -168,7 +157,7 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
         readAt,
         { vehicle },
         warnings.length ? 'PARTIAL' : 'OK',
-        [evidence('products/product_variants/inventory_items/vehicle_variants', [vehicle.productId], vehicle.sourceUpdatedAt)],
+        [evidence('products/product_variants/vehicle_variants', [vehicle.productId], vehicle.sourceUpdatedAt)],
         warnings,
       )
     }
@@ -194,7 +183,7 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
           ...(criteria.length ? { criteria, missingCriteria } : {}),
         } : null,
         status,
-        [evidence('products/product_variants/inventory_items/vehicle_variants', vehicles.map((vehicle) => vehicle.productId))],
+        [evidence('products/product_variants/vehicle_variants', vehicles.map((vehicle) => vehicle.productId))],
         warnings,
       )
     }
@@ -218,7 +207,7 @@ export async function executeSalesAgentTool(name: string, input: unknown): Promi
         readAt,
         { items: result.items },
         result.items.length ? result.warnings.length ? 'PARTIAL' : 'OK' : result.warnings.length ? 'PARTIAL' : 'NOT_FOUND',
-        [evidence('products/product_variants/inventory_items/product_collection_memberships', result.items.map((item) => item.productId))],
+        [evidence('products/product_variants/product_collection_memberships', result.items.map((item) => item.productId))],
         result.warnings,
       )
     }

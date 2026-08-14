@@ -2,6 +2,7 @@ import 'server-only'
 
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { salesAgentCatalogUrl, salesAgentProductUrl } from './paths'
 
 export const SALES_AGENT_NAVIGATION_ACTIONS = [
   'VIEW_PRODUCT',
@@ -30,9 +31,9 @@ export function requestsNavigation(message: string) {
 
 export async function resolveSalesAgentNavigation(intent: SalesAgentNavigationIntent): Promise<SalesAgentNavigationAction | null> {
   if (intent.actionKey === 'BROWSE_CATALOG') {
-    if (intent.entityType === 'ACCESSORY') return { ...intent, label: 'Xem danh mục phụ kiện', href: '/accessories' }
-    if (intent.entityType === 'BIKE') return { ...intent, label: 'Xem danh mục xe máy điện', href: '/bikes' }
-    return { ...intent, label: 'Xem danh mục ô tô điện', href: '/cars' }
+    if (intent.entityType === 'ACCESSORY') return { ...intent, label: 'Xem danh mục phụ kiện', href: salesAgentCatalogUrl('ACCESSORY') }
+    if (intent.entityType === 'BIKE') return { ...intent, label: 'Xem danh mục xe máy điện', href: salesAgentCatalogUrl('BIKE') }
+    return { ...intent, label: 'Xem danh mục ô tô điện', href: salesAgentCatalogUrl('CAR') }
   }
   if (intent.actionKey === 'OPEN_COMPARE') return { ...intent, label: 'Mở trang so sánh xe', href: '/compare' }
   if (intent.actionKey !== 'VIEW_PRODUCT' || !intent.entityId || !intent.entityType) return null
@@ -46,8 +47,7 @@ export async function resolveSalesAgentNavigation(intent: SalesAgentNavigationIn
   if (error || !data) return null
   const actualType = data.product_type === 'ACCESSORY' ? 'ACCESSORY' : data.product_type === 'BIKE' ? 'BIKE' : 'CAR'
   if (actualType !== intent.entityType) return null
-  const prefix = actualType === 'ACCESSORY' ? '/accessories' : actualType === 'BIKE' ? '/bikes' : '/cars'
-  return { ...intent, label: `Xem ${data.name}`, href: `${prefix}/${data.slug}` }
+  return { ...intent, label: `Xem ${data.name}`, href: salesAgentProductUrl(actualType, data.slug) }
 }
 
 export function navigationActionMarkdown(action: SalesAgentNavigationAction) {
@@ -55,9 +55,12 @@ export function navigationActionMarkdown(action: SalesAgentNavigationAction) {
   return `[${label}](${action.href})`
 }
 
-export function stripUntrustedNavigation(value: string) {
+export function stripUntrustedNavigation(value: string, allowedHrefs: Iterable<string> = []) {
+  const allowed = new Set(allowedHrefs)
   return value
-    .replace(/\[([^\]]+)]\((?:https?:\/\/|\/)[^)]+\)/gi, '$1')
+    .replace(/\[([^\]]+)]\(((?:https?:\/\/|\/)[^)]+)\)/gi, (_match, label: string, href: string) => (
+      allowed.has(href) ? `[${label}](${href})` : label
+    ))
     .replace(/https?:\/\/[^\s<>)]+/gi, '')
     .replace(/(^|\s)\/(?:cars|bikes|accessories)(?:\/[^\s<>)]+)?/gi, '$1')
     .replace(/[ \t]+\n/g, '\n')

@@ -20,7 +20,6 @@ describe('sales agent tool contracts', () => {
         productTypes: undefined,
         minPrice: undefined,
         maxPrice: undefined,
-        stockFilter: 'ALL',
         limit: 20,
       },
     })
@@ -55,5 +54,6 @@ describe('sales agent tool contracts', () => {
     expect(() => parseSalesAgentToolCall('compare_vehicles', { productIds: [productId] })).toThrow('2 đến 3')
     expect(() => parseSalesAgentToolCall('get_vehicle_details', { productId: 'VF 8' })).toThrow('UUID')
     expect(() => parseSalesAgentToolCall('get_vehicle_details', { productId, rawSql: 'select *' })).toThrow('rawSql')
+    expect(() => parseSalesAgentToolCall('search_catalog', { stockFilter: 'IN_STOCK' })).toThrow('stockFilter')
   })
 })

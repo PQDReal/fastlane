@@ -26,8 +26,8 @@ describe('sales agent interaction search', () => {
   beforeEach(() => {
     process.env.SALES_AGENT_INTERACTION_SECRET = 'test-search-secret'
     mocks.search.mockResolvedValue([
-      { id: 'bike-evo-grand', name: 'VinFast Evo Grand', price: 22000000, availability: 'IN_STOCK' },
-      { id: 'bike-feliz', name: 'VinFast Feliz S', price: 30000000, availability: 'UNKNOWN' },
+      { id: 'bike-evo-grand', name: 'VinFast Evo Grand', price: 22000000, isActive: true },
+      { id: 'bike-feliz', name: 'VinFast Feliz S', price: 30000000, isActive: true },
     ])
   })
 

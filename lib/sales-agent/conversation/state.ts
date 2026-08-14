@@ -86,7 +86,6 @@ function criteriaFromMessage(message: string): SalesAgentCriteria[] {
   if (normalized.includes('quang duong') || normalized.includes('pham vi')) criteria.push('range_km')
   if (normalized.includes('cong suat') || normalized.includes('dong co')) criteria.push('max_power_kw')
   if (normalized.includes('gia') || normalized.includes('ngan sach')) criteria.push('price')
-  if (normalized.includes('ton kho') || normalized.includes('con hang') || normalized.includes('co san')) criteria.push('availability')
   return criteria
 }
 

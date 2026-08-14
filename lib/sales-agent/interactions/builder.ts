@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 
 import { searchSalesAgentCatalog, type SalesAgentCatalogFact, type SalesAgentProductType } from '../catalog/context'
 import { validateSalesAgentInteraction, SALES_AGENT_INTERACTION_MAX_OPTIONS, type SalesAgentInteraction, type SalesAgentInteractionSlot, type SalesAgentInteractionMode } from '../contracts/interaction'
+import { salesAgentBudgetOptions } from './budget'
 import { interactionTokenPayloadFromInteraction, signSalesAgentInteractionToken } from './token'
 
 type ChoiceRequest = {
@@ -29,14 +30,6 @@ const CRITERIA_OPTIONS: OptionDraft[] = [
   { value: 'range_km', label: 'Quãng đường', kind: 'allowlist' },
   { value: 'max_power_kw', label: 'Công suất', kind: 'allowlist' },
   { value: 'price', label: 'Giá bán', kind: 'allowlist' },
-  { value: 'availability', label: 'Tình trạng còn hàng', kind: 'allowlist' },
-]
-
-const BUDGET_OPTIONS: OptionDraft[] = [
-  { value: 'under_700m', label: 'Dưới 700 triệu', kind: 'allowlist' },
-  { value: '700m_900m', label: '700–900 triệu', kind: 'allowlist' },
-  { value: '900m_1_2b', label: '900 triệu–1,2 tỷ', kind: 'allowlist' },
-  { value: 'over_1_2b', label: 'Trên 1,2 tỷ', kind: 'allowlist' },
 ]
 
 const USAGE_OPTIONS: OptionDraft[] = [
@@ -47,31 +40,31 @@ const USAGE_OPTIONS: OptionDraft[] = [
 ]
 
 function vehicleDescription(item: SalesAgentCatalogFact) {
-  const facts = [
-    item.price !== null ? `Từ ${new Intl.NumberFormat('vi-VN').format(item.price)} đồng` : undefined,
-    item.availability === 'IN_STOCK' ? 'Đang có sẵn' : undefined,
-  ].filter(Boolean)
-  return facts.join(' · ') || undefined
+  return item.price !== null ? `Từ ${new Intl.NumberFormat('vi-VN').format(item.price)} đồng` : undefined
 }
 
 async function vehicleOptions(request: ChoiceRequest): Promise<OptionDraft[]> {
   const productTypes: SalesAgentProductType[] = request.productType === 'CAR' || request.productType === 'BIKE'
     ? [request.productType]
     : ['CAR', 'BIKE']
-  const items = await searchSalesAgentCatalog({ productTypes, stockFilter: 'ALL', limit: SALES_AGENT_INTERACTION_MAX_OPTIONS })
+  const items = await searchSalesAgentCatalog({ productTypes, limit: SALES_AGENT_INTERACTION_MAX_OPTIONS })
   return items.map((item) => ({
     value: item.id,
     label: item.name,
     description: vehicleDescription(item),
     kind: 'product' as const,
-    recommended: item.availability === 'IN_STOCK',
   }))
+}
+
+function budgetOptions(productType?: SalesAgentProductType): OptionDraft[] {
+  const type = productType === 'BIKE' || productType === 'ACCESSORY' ? productType : 'CAR'
+  return salesAgentBudgetOptions(type).map((option) => ({ ...option, kind: 'allowlist' }))
 }
 
 function optionDrafts(request: ChoiceRequest, vehicles: OptionDraft[]) {
   if (request.slot === 'vehicles' || request.slot === 'vehicle') return vehicles
   if (request.slot === 'criteria') return CRITERIA_OPTIONS
-  if (request.slot === 'budget') return BUDGET_OPTIONS
+  if (request.slot === 'budget') return budgetOptions(request.productType)
   return USAGE_OPTIONS
 }
 
