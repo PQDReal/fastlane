@@ -45,11 +45,25 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
 
   if (knownProducts.length > 0) {
-    const productItems = knownProducts.slice(0, 6).map((entity) => {
+    // Separate cars and bikes for balanced presentation if both are present
+    const cars = knownProducts.filter((p) => p.productType === 'CAR')
+    const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
+    const accessories = knownProducts.filter((p) => p.productType === 'ACCESSORY')
+
+    let selectedProducts: typeof knownProducts = []
+
+    if (cars.length > 0 && bikes.length > 0) {
+      // Balanced mix of prominent cars and bikes
+      selectedProducts = [...cars.slice(0, 4), ...bikes.slice(0, 4)]
+    } else {
+      selectedProducts = knownProducts.slice(0, 8)
+    }
+
+    const productItems = selectedProducts.map((entity) => {
       const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
       const factSlug = options.evidence.getFact(`fact-slug-${entity.id}`)
-      const priceNum = factPrice ? Number(factPrice.valueHash) : null
-      const slug = factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-')
+      const priceNum = entity.price ?? (factPrice ? Number(factPrice.valueHash) : null)
+      const slug = entity.slug || (factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-'))
       const pType = entity.productType || 'CAR'
 
       return {
@@ -57,27 +71,42 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         name: entity.name,
         slug,
         productType: pType,
+        thumbnailUrl: entity.thumbnailUrl || null,
         price: !isNaN(Number(priceNum)) && priceNum ? priceNum : null,
+        summary: entity.summary || null,
         url: salesAgentProductUrl(pType as any, slug),
       }
     })
 
+    const title = cars.length > 0 && bikes.length > 0
+      ? 'Mẫu xe nổi bật (Ô tô & Xe máy điện)'
+      : cars.length > 0
+        ? 'Các dòng ô tô điện VinFast'
+        : bikes.length > 0
+          ? 'Các dòng xe máy điện VinFast'
+          : accessories.length > 0
+            ? 'Phụ kiện chính hãng'
+            : 'Sản phẩm liên quan'
+
     blocks.push({
       kind: 'PRODUCT_LIST',
-      title: knownProducts.length > 1 ? 'Danh sách sản phẩm liên quan' : 'Chi tiết sản phẩm',
+      title,
       items: productItems,
     })
 
-    // If 2 or more products are being discussed in detail, also add comparison card view
-    if (knownProducts.length >= 2 && knownProducts.length <= 3) {
+    // If 2 or 3 products are being compared, also add comparison card view
+    if (knownProducts.length >= 2 && knownProducts.length <= 3 && (plan.narrative.some((n) => n.kind === 'ADVICE' && n.markdown.toLowerCase().includes('so sánh')) || knownProducts.length === 2)) {
       const criteria = ['Giá khởi điểm', 'Dung lượng pin', 'Quãng đường', 'Công suất', 'Số chỗ ngồi']
       const compProducts = knownProducts.map((entity) => {
         const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
-        const factPriceVal = factPrice ? `${Number(factPrice.valueHash).toLocaleString('vi-VN')} VNĐ` : 'Liên hệ'
+        const factPriceVal = (entity.price != null || factPrice)
+          ? `${(entity.price ?? Number(factPrice?.valueHash)).toLocaleString('vi-VN')} VNĐ`
+          : 'Liên hệ'
 
         return {
           productId: entity.id,
           name: entity.name,
+          thumbnailUrl: entity.thumbnailUrl || null,
           values: {
             'Giá khởi điểm': factPriceVal,
           },
@@ -115,7 +144,17 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
 
   // Smart ambient suggestions based on known entities
   if (suggestions.length === 0) {
-    if (knownProducts.length >= 2) {
+    const cars = knownProducts.filter((p) => p.productType === 'CAR')
+    const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
+
+    if (cars.length > 0 && bikes.length > 0) {
+      suggestions.push(
+        { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các mẫu ô tô điện', payload: 'có những ô tô nào' },
+        { suggestionId: `sug-2-${options.turnId}`, label: 'Xem các mẫu xe máy điện', payload: 'xe máy điện' },
+        { suggestionId: `sug-3-${options.turnId}`, label: 'Tư vấn mua xe trả góp', payload: 'Dự toán trả góp' },
+        { suggestionId: `sug-4-${options.turnId}`, label: 'Chính sách bảo hành & pin', payload: 'Chính sách bảo hành pin' },
+      )
+    } else if (knownProducts.length >= 2) {
       suggestions.push(
         { suggestionId: `sug-1-${options.turnId}`, label: `Dự toán trả góp ${knownProducts[0].name}`, payload: `Dự toán trả góp ${knownProducts[0].name}` },
         { suggestionId: `sug-2-${options.turnId}`, label: `Đặt lịch lái thử ${knownProducts[0].name}`, payload: `Đặt lịch lái thử ${knownProducts[0].name}` },

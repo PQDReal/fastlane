@@ -94,17 +94,29 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         if (result.outcome === 'SUCCESS' && result.data) {
           if (toolName === 'browse_catalog' && Array.isArray(result.data.items)) {
             for (const item of result.data.items) {
-              knownEntities.addEntity('PRODUCT', item.id, item.name, 'BROWSE', item.productType)
+              knownEntities.addEntity('PRODUCT', item.id, item.name, 'BROWSE', item.productType, {
+                slug: item.slug,
+                thumbnailUrl: item.thumbnailUrl,
+                price: item.price,
+                summary: item.summary,
+              })
             }
           } else if (toolName === 'resolve_catalog_entities' && Array.isArray(result.data.resolutions)) {
             for (const res of result.data.resolutions) {
               if (res.outcome === 'RESOLVED') {
-                knownEntities.addEntity(res.entity.kind, res.entity.id, res.entity.name, 'RESOLVER', res.entity.productType)
+                knownEntities.addEntity(res.entity.kind, res.entity.id, res.entity.name, 'RESOLVER', res.entity.productType, {
+                  slug: res.entity.slug,
+                })
               }
             }
           } else if (toolName === 'get_product_details' && Array.isArray(result.data.products)) {
             for (const p of result.data.products) {
-              knownEntities.addEntity('PRODUCT', p.productId, p.name, 'DETAILS', p.productType)
+              knownEntities.addEntity('PRODUCT', p.productId, p.name, 'DETAILS', p.productType, {
+                slug: p.slug,
+                thumbnailUrl: p.thumbnailUrl,
+                price: p.pricing?.from,
+                summary: p.description,
+              })
             }
           }
         }

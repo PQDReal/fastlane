@@ -50,93 +50,124 @@ export async function browseCatalogRepository(
   const dataAsOf = readAt
   const client = getSupabaseAdmin()
 
-  let query = client
-    .from('products')
-    .select(`
-      id,
-      name,
-      slug,
-      description,
-      product_type,
-      displayed_price,
-      image_urls,
-      thumbnail_url,
-      is_active,
-      updated_at,
-      product_variants (
-        id,
-        name,
-        sku,
-        original_price,
-        sale_price,
-        is_active
-      )
-    `)
-    .eq('is_active', true)
-
-  if (input.productTypes && input.productTypes.length > 0) {
-    const dbTypes = input.productTypes.flatMap((t) => {
-      if (t === 'CAR') return ['CAR', 'VEHICLE']
-      if (t === 'BIKE') return ['BIKE', 'MOTORBIKE']
-      return ['ACCESSORY']
-    })
-    query = query.in('product_type', dbTypes)
-  }
-
-  if (input.price?.min !== undefined) {
-    query = query.gte('displayed_price', input.price.min)
-  }
-  if (input.price?.max !== undefined) {
-    query = query.lte('displayed_price', input.price.max)
-  }
-
   const limit = input.page?.limit ?? 10
   const direction = input.sort?.direction === 'DESC' ? false : true
+  const requestedTypes = (input.productTypes && input.productTypes.length > 0)
+    ? input.productTypes
+    : ['CAR', 'BIKE'] as ProductType[]
 
-  if (input.sort?.field === 'NAME') {
-    query = query.order('name', { ascending: direction })
-  } else if (input.sort?.field === 'UPDATED_AT') {
-    query = query.order('updated_at', { ascending: direction })
+  let rows: any[] = []
+  let hasMore = false
+
+  const PRODUCT_FIELDS = `
+    id,
+    name,
+    slug,
+    description,
+    product_type,
+    displayed_price,
+    image_urls,
+    thumbnail_url,
+    is_active,
+    updated_at,
+    product_variants (
+      id,
+      name,
+      sku,
+      original_price,
+      sale_price,
+      is_active
+    )
+  `
+
+  if (requestedTypes.length > 1 && (!input.sort?.field || input.sort.field === 'PRICE')) {
+    // Multi-type browse: Fetch representative active items from EACH requested category
+    const limitPerType = Math.max(5, Math.ceil(limit / requestedTypes.length))
+    const queries = requestedTypes.map((t) => {
+      const dbTypes = t === 'CAR' ? ['CAR', 'VEHICLE'] : t === 'BIKE' ? ['BIKE', 'MOTORBIKE'] : ['ACCESSORY']
+      let subQuery = client
+        .from('products')
+        .select(PRODUCT_FIELDS)
+        .eq('is_active', true)
+        .in('product_type', dbTypes)
+
+      if (input.price?.min !== undefined) subQuery = subQuery.gte('displayed_price', input.price.min)
+      if (input.price?.max !== undefined) subQuery = subQuery.lte('displayed_price', input.price.max)
+
+      return subQuery.order('displayed_price', { ascending: direction }).limit(limitPerType)
+    })
+
+    const results = await Promise.all(queries)
+    for (const res of results) {
+      if (res.data) rows.push(...res.data)
+    }
   } else {
-    query = query.order('displayed_price', { ascending: direction })
-  }
+    // Single-type browse or explicit custom field sort
+    let query = client
+      .from('products')
+      .select(PRODUCT_FIELDS)
+      .eq('is_active', true)
 
-  query = query.limit(limit + 1)
-
-  const { data, error } = await query
-
-  if (error) {
-    const observation: ToolObservationRef = {
-      observationId: `obs-${toolCallId}`,
-      toolCallId,
-      outcome: 'UNAVAILABLE',
-      issueCodes: ['RESOURCE_UNAVAILABLE'],
-      inputHash: JSON.stringify(input),
-      readAt,
+    if (input.productTypes && input.productTypes.length > 0) {
+      const dbTypes = input.productTypes.flatMap((t) => {
+        if (t === 'CAR') return ['CAR', 'VEHICLE']
+        if (t === 'BIKE') return ['BIKE', 'MOTORBIKE']
+        return ['ACCESSORY']
+      })
+      query = query.in('product_type', dbTypes)
     }
-    return {
-      schemaVersion: '2.0',
-      toolCallId,
-      tool: 'browse_catalog',
-      readAt,
-      dataAsOf,
-      evidence: [],
-      observation,
-      issues: [{ code: 'RESOURCE_UNAVAILABLE', message: `Database error: ${error.message}` }],
-      appliedBindings: [],
-      outcome: 'UNAVAILABLE',
-      data: null,
-    }
-  }
 
-  const rows = (data ?? []) as any[]
-  const hasMore = rows.length > limit
-  const candidateRows = hasMore ? rows.slice(0, limit) : rows
+    if (input.price?.min !== undefined) {
+      query = query.gte('displayed_price', input.price.min)
+    }
+    if (input.price?.max !== undefined) {
+      query = query.lte('displayed_price', input.price.max)
+    }
+
+    if (input.sort?.field === 'NAME') {
+      query = query.order('name', { ascending: direction })
+    } else if (input.sort?.field === 'UPDATED_AT') {
+      query = query.order('updated_at', { ascending: direction })
+    } else {
+      query = query.order('displayed_price', { ascending: direction })
+    }
+
+    query = query.limit(limit + 1)
+    const { data, error } = await query
+
+    if (error) {
+      const observation: ToolObservationRef = {
+        observationId: `obs-${toolCallId}`,
+        toolCallId,
+        outcome: 'UNAVAILABLE',
+        issueCodes: ['RESOURCE_UNAVAILABLE'],
+        inputHash: JSON.stringify(input),
+        readAt,
+      }
+      return {
+        schemaVersion: '2.0',
+        toolCallId,
+        tool: 'browse_catalog',
+        readAt,
+        dataAsOf,
+        evidence: [],
+        observation,
+        issues: [{ code: 'RESOURCE_UNAVAILABLE', message: `Database error: ${error.message}` }],
+        appliedBindings: [],
+        outcome: 'UNAVAILABLE',
+        data: null,
+      }
+    }
+
+    const fetched = (data ?? []) as any[]
+    hasMore = fetched.length > limit
+    rows = hasMore ? fetched.slice(0, limit) : fetched
+  }
 
   const items: CatalogBrowseItem[] = []
   const evidence: EvidenceRecord[] = []
 
-  for (const row of candidateRows) {
+  for (const row of rows) {
     const pType = mapDatabaseProductType(row.product_type)
     if (!pType) continue
 
