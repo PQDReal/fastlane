@@ -7,6 +7,8 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
 import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { normalizeCarSkuBase } from '@/lib/car-sku'
+import { allocateVehicleVariantSkus } from '@/lib/vehicle-sku'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -125,7 +127,7 @@ export async function POST(request: Request) {
         if (!interiorNames.has(interiorName)) return []
         const colorIndex = colors.findIndex((color: any) => color.color_name === colorName)
         const interiorIndex = interiors.findIndex((interior: any) => interior.interior_name === interiorName)
-        return [{ version, versionIndex, color: colors[colorIndex], colorIndex, interior: interiors[interiorIndex], interiorIndex }]
+        return [{ version, versionIndex, color: colors[colorIndex], colorIndex, interior: interiors[interiorIndex], interiorIndex, interiorCount: selectedInteriors.length }]
       })
     })
   })
@@ -287,6 +289,12 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin()
+  let allocatedSkus: string[]
+  try {
+    allocatedSkus = await allocateVehicleVariantSkus(supabase, 'CAR', sellableConfigurations.length)
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe ô tô.' }, { status: 500 })
+  }
 
   // 1. Insert into products
   const { error: productError } = await supabase
@@ -310,10 +318,10 @@ export async function POST(request: Request) {
   }
 
   // One row represents one exact sellable version + exterior + interior triple.
-  const productVariantRows = sellableConfigurations.map(({ version, color, colorIndex, interior, interiorIndex }: any) => ({
+  const productVariantRows = sellableConfigurations.map(({ version, color, interior }: any, rowIndex: number) => ({
     id: randomUUID(),
     product_id: productId,
-    sku: `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}-I${String(interiorIndex + 1).padStart(2, '0')}`,
+    sku: allocatedSkus[rowIndex],
     name: `${version.name} - ${color.color_name} - ${interior.interior_name}`,
     original_price: priceForConfiguration(version, color),
     sale_price: null,
@@ -321,7 +329,7 @@ export async function POST(request: Request) {
     option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(color.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}&interior=${String(interior.interior_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
     metadata: {
       source: 'admin_car_creation',
-      base_sku: version.sku,
+      base_sku: normalizeCarSkuBase(version.sku, color.color_name, interior.interior_name),
       version: version.name,
       color: color.color_name,
       interior_color: interior.interior_name,
@@ -378,6 +386,7 @@ export async function POST(request: Request) {
           migrated_at: generatedAt,
           product_slug: slug,
           version_order: versionIndex + 1,
+          version_sku: sourceVersion.sku,
           hero_image_url,
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
@@ -404,6 +413,7 @@ export async function POST(request: Request) {
         color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
         color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
         version: sourceVersion.name,
+        interior_color: interiorItem.interior_name,
         is_active: is_active,
         product_variant_id: variantRow.id,
       })

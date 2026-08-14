@@ -1,0 +1,28 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+const source = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
+const routes = {
+  carCreate: source('./cars/route.ts'),
+  carEdit: source('./cars/[productId]/route.ts'),
+  bikeCreate: source('./motorbikes/route.ts'),
+  bikeEdit: source('./motorbikes/[productId]/route.ts'),
+}
+
+describe('admin vehicle SKU write routes', () => {
+  it('allocates opaque canonical SKUs for every newly created configuration', () => {
+    expect(routes.carCreate).toContain("allocateVehicleVariantSkus(supabase, 'CAR'")
+    expect(routes.bikeCreate).toContain("allocateVehicleVariantSkus(supabase, 'BIKE'")
+    expect(routes.carCreate).not.toContain('buildCarVariantSku')
+    expect(routes.bikeCreate).not.toMatch(/sku:\s*`\$\{version\.sku\}-C/)
+  })
+
+  it('matches edit rows by configuration and preserves existing variant IDs and SKUs', () => {
+    for (const route of [routes.carEdit, routes.bikeEdit]) {
+      expect(route).toContain('vehicleConfigurationKey')
+      expect(route).toContain('assignment.existingProduct?.sku')
+      expect(route).toContain('assignment.existingProduct?.id')
+      expect(route).not.toContain('buildCarVariantSku')
+    }
+  })
+})

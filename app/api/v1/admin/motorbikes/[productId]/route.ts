@@ -17,6 +17,7 @@ import {
   normalizeMotorbikeVersionMedia,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
+import { allocateVehicleVariantSkus, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -350,17 +351,42 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   // 2. Fetch existing relations to preserve IDs and identify deletions
-  const { data: existingPV } = await supabase.from('product_variants').select('id, sku').eq('product_id', productId)
-  const pvMap = new Map(existingPV?.map((r) => [r.sku, r.id]) || [])
+  const { data: existingPV } = await supabase.from('product_variants').select('id, sku, metadata').eq('product_id', productId)
+  const productVariantById = new Map((existingPV || []).map((row: any) => [String(row.id), row]))
 
-  const { data: existingVV } = await supabase.from('vehicle_variants').select('id, sku').eq('product_id', productId)
-  const vvMap = new Map(existingVV?.map((r) => [r.sku, r.id]) || [])
+  const { data: existingVV } = await supabase
+    .from('vehicle_variants')
+    .select('id, sku, product_variant_id, version, color')
+    .eq('product_id', productId)
+  const vehicleVariantByConfiguration = new Map<string, any>()
+  for (const row of existingVV || []) {
+    const key = vehicleConfigurationKey({ version: row.version, color: row.color })
+    if (!vehicleVariantByConfiguration.has(key)) vehicleVariantByConfiguration.set(key, row)
+  }
 
   // 3. Form new rows
-  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem, colorIndex }: any, rowIndex: number) => {
-      const sku = `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`
+  const assignments = sellableConfigurations.map(({ version, color }: any) => {
+    const existingVehicle = vehicleVariantByConfiguration.get(vehicleConfigurationKey({
+      version: version.name,
+      color: color.color_name,
+    }))
+    const existingProduct = existingVehicle?.product_variant_id
+      ? productVariantById.get(String(existingVehicle.product_variant_id))
+      : undefined
+    return { existingVehicle, existingProduct }
+  })
+  let allocatedSkus: string[]
+  try {
+    allocatedSkus = await allocateVehicleVariantSkus(supabase, 'BIKE', assignments.filter((item: { existingProduct?: unknown }) => !item.existingProduct).length)
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe máy điện.' }, { status: 500 })
+  }
+  let allocatedSkuIndex = 0
+  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem }: any, rowIndex: number) => {
+      const assignment = assignments[rowIndex]
+      const sku = assignment.existingProduct?.sku || allocatedSkus[allocatedSkuIndex++]
       return {
-        id: pvMap.get(sku) || randomUUID(),
+        id: assignment.existingProduct?.id || randomUUID(),
         product_id: productId,
         sku,
         name: `${version.name} - ${colorItem.color_name}`,
@@ -402,6 +428,7 @@ export async function PATCH(request: Request, context: Context) {
           migrated_at: generatedAt,
           product_slug: slug,
           version_order: versionIndex + 1,
+          version_sku: originalVersion.sku,
           hero_image_url,
           version_image_url: findMotorbikeVersionMedia(versionMedia, originalVersion)?.image_url || '',
           original_price: Number(variantRow.original_price),
@@ -412,7 +439,7 @@ export async function PATCH(request: Request, context: Context) {
       }
 
       vehicleVariantRows.push({
-        id: vvMap.get(sku) || randomUUID(),
+        id: assignments[rowIndex].existingVehicle?.id || randomUUID(),
         product_id: productId,
         product_type: 'BIKE',
         product_name: name,
@@ -433,19 +460,17 @@ export async function PATCH(request: Request, context: Context) {
   })
 
   // 4. Perform deletions
-  const newPvSkus = productVariantRows.map((r: any) => r.sku)
-  const existingPvSkus = existingPV?.map((r) => r.sku) || []
-  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s))
+  const newPvIds = new Set(productVariantRows.map((row: any) => String(row.id)))
+  const pvIdsToDelete = (existingPV || []).filter((row: any) => !newPvIds.has(String(row.id))).map((row: any) => row.id)
 
-  const newVvSkus = vehicleVariantRows.map((r) => r.sku)
-  const existingVvSkus = existingVV?.map((r) => r.sku) || []
-  const vvSkusToDelete = existingVvSkus.filter((s) => !newVvSkus.includes(s))
+  const newVvIds = new Set(vehicleVariantRows.map((row) => String(row.id)))
+  const vvIdsToDelete = (existingVV || []).filter((row: any) => !newVvIds.has(String(row.id))).map((row: any) => row.id)
 
-  if (vvSkusToDelete.length > 0) {
+  if (vvIdsToDelete.length > 0) {
     const { error: vvDelError } = await supabase
       .from('vehicle_variants')
       .delete()
-      .in('sku', vvSkusToDelete)
+      .in('id', vvIdsToDelete)
       .eq('product_id', productId)
     if (vvDelError) {
       return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
@@ -461,18 +486,14 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi lưu phiên bản sản phẩm: ${pvUpsertError.message}` }, { status: 500 })
   }
 
-  if (pvSkusToDelete.length > 0) {
-    const variantsToDelete = (existingPV || []).filter((row) => pvSkusToDelete.includes(row.sku))
-    const idsToDelete = variantsToDelete.map((row) => row.id)
-    if (idsToDelete.length > 0) {
-      await supabase.from('inventory_items').delete().in('variant_id', idsToDelete)
-      await supabase.from('cart_items').delete().in('variant_id', idsToDelete)
-      await supabase.from('product_media').delete().in('variant_id', idsToDelete)
-    }
+  if (pvIdsToDelete.length > 0) {
+    await supabase.from('inventory_items').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('cart_items').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('product_media').delete().in('variant_id', pvIdsToDelete)
     const { error: pvDelError } = await supabase
       .from('product_variants')
       .delete()
-      .in('sku', pvSkusToDelete)
+      .in('id', pvIdsToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
       return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })

@@ -136,7 +136,7 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
       productRows.map((row) => [versionName(row), {
         id: row.id,
         name: versionName(row),
-        sku: row.sku.replace(/-C\d{2}$/i, ''),
+        sku: text(record(record(row.specs).catalog).version_sku) || row.sku,
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
         order: orderOf(row, 'version_order'),

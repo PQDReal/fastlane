@@ -136,6 +136,10 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   })
 
   const initialCar = Array.isArray(params.model) ? params.model[0] : params.model
+  const requestedReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo
+  const initialReturnTo = typeof requestedReturnTo === 'string' && requestedReturnTo.startsWith('/') && !requestedReturnTo.startsWith('//')
+    ? requestedReturnTo
+    : undefined
   const requestedType = Array.isArray(params.type) ? params.type[0] : params.type
   const initialVehicleType: DepositVehicleType =
     requestedType === 'motorbike' ||
@@ -150,6 +154,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
       motorbikesData={motorbikesData}
       specsData={specsData}
       initialCar={initialCar}
+      initialReturnTo={initialReturnTo}
       initialVehicleType={initialVehicleType}
     />
   )

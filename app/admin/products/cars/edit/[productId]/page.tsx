@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -101,6 +101,7 @@ interface VersionEntry {
 }
 
 const configurationKey = (exterior: string, interior: string) => JSON.stringify([exterior, interior])
+const inventoryFocusKey = (version: string, exterior: string, interior: string) => JSON.stringify([version, exterior, interior])
 
 interface FormState {
   name: string
@@ -236,6 +237,7 @@ const initialFormState: FormState = {
 export default function EditCarPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [form, setForm] = useState<FormState>(initialFormState)
   const [originalForm, setOriginalForm] = useState<FormState | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -250,6 +252,7 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
 
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
+  const [focusedInventoryKey, setFocusedInventoryKey] = useState<string | null>(null)
 
   const STORAGE_KEY = `fastlane.admin.products.cars.edit.${productId}.v1`
 
@@ -301,6 +304,38 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
     }
     void fetchProduct()
   }, [productId, notify, STORAGE_KEY])
+
+  const inventoryFocusParam = searchParams.get('inventoryKey')
+
+  useEffect(() => {
+    if (!inventoryFocusParam) return
+    setActiveTab('variants')
+    setFocusedInventoryKey(inventoryFocusParam)
+  }, [inventoryFocusParam])
+
+  useEffect(() => {
+    if (!focusedInventoryKey || isLoading || form.versions.length === 0) return
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`inventory-${encodeURIComponent(focusedInventoryKey)}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 120)
+    return () => window.clearTimeout(timer)
+  }, [focusedInventoryKey, form.versions.length, isLoading])
+
+  useEffect(() => {
+    if (!focusedInventoryKey) return
+    const clearFocus = () => setFocusedInventoryKey(null)
+    const timer = window.setTimeout(() => {
+      document.addEventListener('pointerdown', clearFocus, true)
+      document.addEventListener('keydown', clearFocus, true)
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('pointerdown', clearFocus, true)
+      document.removeEventListener('keydown', clearFocus, true)
+    }
+  }, [focusedInventoryKey])
 
   // 3. Save edit snapshot to this tab on change (only after loading is complete)
   useEffect(() => {
@@ -1707,24 +1742,35 @@ export default function EditCarPage({ params }: { params: Promise<{ productId: s
                     <tr><th className="px-4 py-3">Phiên bản</th><th className="px-4 py-3">Ngoại thất</th><th className="px-4 py-3">Nội thất</th><th className="px-4 py-3">Số lượng tồn</th></tr>
                   </thead>
                   <tbody>
-                    {form.versions.flatMap((version, versionIndex) => selectedColorsFor(version).flatMap((exterior) => selectedInteriorsFor(version, exterior).map((interior) => (
-                      <tr key={`${version.sku}-${configurationKey(exterior, interior)}`} className="border-t border-slate-100">
+                    {form.versions.flatMap((version, versionIndex) => selectedColorsFor(version).flatMap((exterior) => selectedInteriorsFor(version, exterior).map((interior) => {
+                      const rowFocusKey = inventoryFocusKey(version.name, exterior, interior)
+                      const isFocused = focusedInventoryKey === rowFocusKey
+                      return (
+                      <tr
+                        key={`${version.sku}-${configurationKey(exterior, interior)}`}
+                        id={`inventory-${encodeURIComponent(rowFocusKey)}`}
+                        className={`border-t border-slate-100 ${isFocused ? 'bg-[#8b5a3c]/10' : ''}`}
+                      >
                         <td className="px-4 py-3 font-semibold text-slate-800">{version.name || 'Phiên bản chưa đặt tên'}</td>
                         <td className="px-4 py-3 text-slate-700">{exterior}</td>
                         <td className="px-4 py-3 text-slate-700">{interior}</td>
                         <td className="px-4 py-2">
-                          <input
-                            aria-label={`Tồn kho ${version.name} - ${exterior} - ${interior}`}
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={version.stock_by_configuration?.[configurationKey(exterior, interior)] ?? 0}
-                            onChange={(event) => updateConfigurationStock(versionIndex, exterior, interior, Number(event.target.value))}
-                            className="h-9 w-28 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500"
-                          />
+                          <div className={`mx-auto flex w-fit min-w-24 flex-col items-center rounded-lg px-3 py-1 ${isFocused ? 'border border-[#8b5a3c]/30 bg-[#8b5a3c]/15 shadow-sm' : ''}`}>
+                            {isFocused && <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#6f472d]">Đang chọn</span>}
+                            <input
+                              aria-label={`Tồn kho ${version.name} - ${exterior} - ${interior}`}
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={version.stock_by_configuration?.[configurationKey(exterior, interior)] ?? 0}
+                              onChange={(event) => updateConfigurationStock(versionIndex, exterior, interior, Number(event.target.value))}
+                              className={`h-9 w-28 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500 ${isFocused ? 'border-[#8b5a3c]/40 bg-transparent text-[#6f472d]' : ''}`}
+                            />
+                          </div>
                         </td>
                       </tr>
-                    ))))}
+                      )
+                    })))}
                   </tbody>
                 </table>
               </div>

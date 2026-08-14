@@ -325,7 +325,8 @@ export default async function BikeDetailPage(
         /^(?:https?:\/\/|\/)/i.test(value) &&
         /\.pdf(?:[?#].*)?$/i.test(value),
     ) ?? ''
-  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}`
+  const productDetailHref = `/bikes/${encodeURIComponent(product.slug)}`
+  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}&returnTo=${encodeURIComponent(productDetailHref)}`
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
   const estimatorHref = `/cost-estimator?vehicle=${encodeURIComponent(product.slug)}`
 

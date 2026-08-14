@@ -15,6 +15,7 @@ import {
   normalizeMotorbikeDetailImages,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
+import { allocateVehicleVariantSkus } from '@/lib/vehicle-sku'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -213,6 +214,12 @@ export async function POST(request: Request) {
   const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) => priceForConfiguration(version, color)))
 
   const supabase = getSupabaseAdmin()
+  let allocatedSkus: string[]
+  try {
+    allocatedSkus = await allocateVehicleVariantSkus(supabase, 'BIKE', sellableConfigurations.length)
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe máy điện.' }, { status: 500 })
+  }
 
   // 1. Insert into products
   const { error: productError } = await supabase
@@ -239,10 +246,10 @@ export async function POST(request: Request) {
   // Inventory is tracked per sellable version + colour combination. Do not
   // create one shared product variant for every colour, otherwise setting one
   // colour to zero would incorrectly hide all colours of that model.
-  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem, colorIndex }: any, rowIndex: number) => ({
+  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem }: any, rowIndex: number) => ({
       id: randomUUID(),
       product_id: productId,
-      sku: `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
+      sku: allocatedSkus[rowIndex],
       name: `${version.name} - ${colorItem.color_name}`,
       original_price: priceForConfiguration(version, colorItem),
       sale_price: null,
@@ -292,6 +299,7 @@ export async function POST(request: Request) {
           migrated_at: generatedAt,
           product_slug: slug,
           version_order: versionIndex + 1,
+          version_sku: origVersion.sku,
           hero_image_url,
           version_image_url: findMotorbikeVersionMedia(versionMedia, origVersion)?.image_url || '',
           original_price: Number(variantRow.original_price),
