@@ -1,50 +1,54 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import type { Metadata } from 'next'
+import { CheckCircle2, MapPin, PhoneCall } from 'lucide-react'
+import { InfoSection, PublicInfoPage } from '@/components/public-info-page'
+
+export const metadata: Metadata = {
+  title: 'Dịch vụ cứu hộ 24/7 | FASTLANE',
+  description: 'Hướng dẫn liên hệ và phạm vi hỗ trợ cứu hộ FASTLANE.',
+}
 
 export default function RescuePage() {
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl mb-6">
-        <Link href="/" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Trở về trang chủ
-        </Link>
-      </div>
-      <div className="mx-auto max-w-4xl bg-white p-8 md:p-12 rounded-2xl shadow-sm border border-slate-100">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-8">Dịch vụ Cứu hộ 24/7</h1>
-        <div className="prose prose-slate max-w-none">
-          <p className="lead text-lg text-slate-600 mb-8">
-            An tâm trên mọi hành trình với dịch vụ cứu hộ khẩn cấp hoạt động xuyên suốt ngày đêm.
-          </p>
-          <div className="bg-red-50 border border-red-100 rounded-xl p-6 mb-8 text-center">
-            <h2 className="text-red-600 font-bold text-xl mb-2">HOTLINE CỨU HỘ KHẨN CẤP</h2>
-            <p className="text-4xl font-black text-red-700 tracking-wider">1900 9999</p>
+    <PublicInfoPage
+      eyebrow="Hỗ trợ"
+      title="Dịch vụ cứu hộ 24/7"
+      intro="Khi phương tiện gặp sự cố trên đường, hãy gọi tổng đài để được tiếp nhận thông tin và hướng dẫn phương án hỗ trợ phù hợp."
+    >
+      <div className="rounded-3xl bg-slate-950 p-8 text-white sm:p-10">
+        <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <PhoneCall className="text-brand-300" size={28} />
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-white/55">Hotline cứu hộ khẩn cấp</p>
+            <a href="tel:1900232389" className="mt-2 block text-4xl font-semibold tracking-tight text-white sm:text-5xl">1900 xxxx</a>
           </div>
-          <div className="space-y-6 text-slate-700">
-            <section>
-              <h2 className="text-xl font-semibold text-slate-900 mb-3">Phạm vi hỗ trợ</h2>
-              <p>
-                Dịch vụ cứu hộ 24/7 của Fastlane phủ sóng trên toàn lãnh thổ Việt Nam. Bất kể bạn đang ở đâu, trên cao tốc hay đường mòn, chúng tôi luôn có mặt kịp thời.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-xl font-semibold text-slate-900 mb-3">Các trường hợp hỗ trợ miễn phí</h2>
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Xe hết pin/chết máy dọc đường.</li>
-                <li>Xịt lốp, nổ lốp cần thay lốp dự phòng.</li>
-                <li>Lỗi phần mềm điều khiển ảnh hưởng đến khả năng vận hành.</li>
-                <li>Kéo xe về xưởng dịch vụ gần nhất trong trường hợp hư hỏng nặng.</li>
-              </ul>
-            </section>
-            <section>
-              <h2 className="text-xl font-semibold text-slate-900 mb-3">Thời gian phản hồi</h2>
-              <p>
-                Chúng tôi cam kết có mặt tại hiện trường trong vòng 30 - 45 phút đối với khu vực nội thành, và từ 1 - 2 tiếng đối với khu vực ngoại ô và cao tốc.
-              </p>
-            </section>
-          </div>
+          <a href="tel:1900232389" className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">Gọi ngay</a>
         </div>
       </div>
-    </div>
+      <div className="mt-12 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+          <MapPin className="text-brand-700" size={24} />
+          <h2 className="mt-6 text-xl font-semibold text-slate-950">Thông tin cần cung cấp</h2>
+          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+            <li>• Vị trí hiện tại hoặc điểm dễ nhận biết.</li>
+            <li>• Biển số xe và số điện thoại liên hệ.</li>
+            <li>• Tình trạng xe, mức độ hư hỏng hoặc cảnh báo trên xe.</li>
+          </ul>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+          <CheckCircle2 className="text-brand-700" size={24} />
+          <h2 className="mt-6 text-xl font-semibold text-slate-950">Phạm vi hỗ trợ</h2>
+          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+            <li>• Hướng dẫn xử lý sự cố đơn giản tại chỗ.</li>
+            <li>• Sửa chữa trên đường trong khả năng cung cấp.</li>
+            <li>• Kéo xe đến xưởng dịch vụ phù hợp khi cần thiết.</li>
+          </ul>
+        </div>
+      </div>
+      <div className="mt-12">
+        <InfoSection title="Lưu ý">
+          <p>Phạm vi, điều kiện áp dụng và chi phí (nếu có) phụ thuộc tình trạng xe, thời hạn bảo hành và đánh giá của đơn vị cứu hộ. Nhân viên tổng đài sẽ thông báo trước khi triển khai.</p>
+        </InfoSection>
+      </div>
+    </PublicInfoPage>
   )
 }
