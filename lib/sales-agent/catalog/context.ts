@@ -159,7 +159,6 @@ function searchScore(item: SalesAgentCatalogFact, query: string) {
   if (!terms.length) return 0
   const name = normalizeProductSearchText(`${item.name} ${item.slug}`)
   const matched = terms.filter((term) => name.includes(term)).length
-  if (matched === 0) return -1
   const normalizedQuery = normalizeProductSearchText(query)
   const normalizedName = normalizeProductSearchText(item.name)
   const shortName = normalizedName.replace(/^vinfast /, '')
@@ -227,6 +226,13 @@ async function listCandidateRows(options: SalesAgentCatalogSearchOptions): Promi
     if (result.error) throw new Error(`Không thể tìm catalog agent: ${result.error.message}`)
     return (result.data ?? []) as ProductRow[]
   })
+
+  if (rows.length === 0) {
+    const { data, error } = await base().order('displayed_price', { ascending: true }).limit(50)
+    if (error) throw new Error(`Không thể đọc catalog agent: ${error.message}`)
+    return (data ?? []) as unknown as ProductRow[]
+  }
+
   return [...new Map(rows.map((row: ProductRow) => [String(row.id), row])).values()] as ProductRow[]
 }
 
