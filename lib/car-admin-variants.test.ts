@@ -52,13 +52,7 @@ describe('reconstructCarAdminConfiguration', () => {
       '["Desat Silver","Granite Black"]': 0,
       '["Infinity Blanc","Granite Black"]': 4,
     })
-    expect(result.interiors).toEqual([{
-      interior_name: 'Granite Black',
-      image_url: '',
-      swatch: 'black.webp',
-      image_urls: [],
-      allowed_combinations: [],
-    }])
+    expect(result.interiors).toEqual([{ interior_name: 'Granite Black', image_url: '', image_urls: [], allowed_combinations: [], swatch: 'black.webp' }])
   })
 
   it('keeps exact Admin metadata as a fallback when vehicle rows are absent', () => {

@@ -9,7 +9,7 @@ function functionBody(name) {
   expect(start).toBeGreaterThanOrEqual(0)
   const bodyStart = sql.indexOf('as $function$', start)
   const bodyEnd = sql.indexOf('$function$;', bodyStart)
-  return sql.slice(bodyStart, bodyEnd)
+  return sql.slice(bodyStart, bodyEnd).replace(/\r/g, '')
 }
 
 describe('canonical admin accessory writer migration', () => {
