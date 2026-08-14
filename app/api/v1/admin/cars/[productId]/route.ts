@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { mergeVehicleSpecFields, normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
 import { revalidateTag } from 'next/cache'
 import path from 'path'
 import fs from 'fs'
@@ -7,7 +8,7 @@ import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
-import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructCarAdminConfiguration } from '@/lib/car-admin-variants'
 
 type Context = { params: Promise<{ productId: string }> }
@@ -111,7 +112,9 @@ export async function GET(request: Request, context: Context) {
   let interiors = (specsObj.interiors || []).map((i: any) => ({
     interior_name: i.name,
     image_url: i.image,
-    swatch: i.swatch
+    swatch: i.swatch,
+    image_urls: i.image_urls || (i.image ? [i.image] : []),
+    allowed_combinations: i.allowed_combinations || []
   }))
 
   // Load cars.json to resolve fallbacks
@@ -148,15 +151,32 @@ export async function GET(request: Request, context: Context) {
   // colour metadata into the admin editor so the dashboard and deposit page
   // cannot disagree about tiers or available colours.
   const canonicalColors = new Map<string, any>()
+  for (const color of colors) {
+    if (color.color_name) {
+      canonicalColors.set(String(color.color_name), {
+        ...color,
+        images_by_version: {}
+      })
+    }
+  }
+
   for (const row of vehicleVariants ?? []) {
-    if (!row.color || row.is_active === false || canonicalColors.has(String(row.color))) continue
-    canonicalColors.set(String(row.color), {
-      color_name: row.color,
-      image_url: row.image_car_url || '',
-      swatch: row.image_color_url || '',
-      color_type: row.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
-      price_adjustment: Number(row.color_price_adjustment || 0),
-    })
+    if (!row.color || row.is_active === false) continue
+    const colorKey = String(row.color)
+    if (!canonicalColors.has(colorKey)) {
+      canonicalColors.set(colorKey, {
+        color_name: row.color,
+        image_url: row.image_car_url || '',
+        swatch: row.image_color_url || '',
+        color_type: row.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        price_adjustment: Number(row.color_price_adjustment || 0),
+        images_by_version: {}
+      })
+    }
+    if (row.version && row.image_car_url) {
+      const colorData = canonicalColors.get(colorKey)
+      colorData.images_by_version[row.version] = row.image_car_url
+    }
   }
   if (canonicalColors.size > 0) colors = Array.from(canonicalColors.values())
 
@@ -270,6 +290,7 @@ export async function GET(request: Request, context: Context) {
     'Hệ thống túi khí': versionSpecs?.safety?.airbagSystem || '',
     'Hệ thống ABS': versionSpecs?.safety?.abs || '',
     'Hệ thống EBD': versionSpecs?.safety?.ebd || '',
+    ...(specsObj.specifications_flat && typeof specsObj.specifications_flat === 'object' ? specsObj.specifications_flat : {}),
   }
 
   const reconstructed = reconstructCarAdminConfiguration({
@@ -312,8 +333,12 @@ export async function GET(request: Request, context: Context) {
     listing_image_url,
     hero_image_url,
     logo_image_url: specsObj.logo_image_url || specsObj.logo_image || '',
+    brochure_url: specsObj.brochure_url || '',
     detail_image_urls,
     specifications: reconstructedSpecifications,
+    hidden_specifications: specsObj.hidden_specifications || [],
+    custom_specifications: specsObj.custom_specifications || [],
+    specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specsObj.specification_fields), specsObj.specifications_flat || {}),
     colors,
     interiors,
     versions: reconstructedVersions,
@@ -364,11 +389,14 @@ export async function PATCH(request: Request, context: Context) {
     logo_image_url = '',
     detail_image_urls = [],
     specifications = {},
+    hidden_specifications = [],
+    custom_specifications = [],
     colors = [],
     advanced_color_price = 0,
     interiors = [],
     versions = [],
     landing_page_blocks = [],
+    specification_fields,
   } = body
 
   // Validation
@@ -390,6 +418,24 @@ export async function PATCH(request: Request, context: Context) {
   const priceForConfiguration = (version: any, color: any) =>
     Number(version.price) + (color.color_type === 'ADVANCED' ? advancedColorPrice : 0)
   const interiorNames = new Set(interiors.map((interior: any) => String(interior.interior_name)))
+  
+  // Sync interior allowed_combinations back to version.interiors_by_color
+  versions.forEach((version: any) => {
+    version.interiors_by_color = {}
+    const selectedColors = Array.isArray(version.compatible_colors)
+      ? Array.from(new Set(version.compatible_colors.map(String)))
+      : colors.map((color: any) => String(color.color_name))
+      
+    selectedColors.forEach((colorName: string) => {
+      version.interiors_by_color[colorName] = interiors
+        .filter((interior: any) => {
+          if (!interior.allowed_combinations || interior.allowed_combinations.length === 0) return true
+          return interior.allowed_combinations.includes(`${version.name}::${colorName}`)
+        })
+        .map((interior: any) => String(interior.interior_name))
+    })
+  })
+
   const sellableConfigurations = versions.flatMap((version: any, versionIndex: number) => {
     const selectedColors = Array.isArray(version.compatible_colors)
       ? Array.from(new Set(version.compatible_colors.map(String)))
@@ -429,6 +475,10 @@ export async function PATCH(request: Request, context: Context) {
   const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) =>
     priceForConfiguration(version, color)))
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
+  const configuredSpecFields = mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
+  const specValue = (key: string) => configuredSpecFields.find((field) => field.key === key)?.visible !== false
+    ? specifications[key]
+    : ''
 
   // Form structured image_urls array
   const image_urls: string[] = [listing_image_url, hero_image_url]
@@ -451,27 +501,27 @@ export async function PATCH(request: Request, context: Context) {
       price: version.price,
       specs: {
         powertrain: {
-          distance: specifications['Quãng đường đi được'] || '',
-          maxPower: specifications['Công suất tối đa'] || '',
-          maxTorque: specifications['Mô-men xoắn cực đại'] || '',
-          topSpeed: specifications['Tốc độ tối đa'] || '',
-          drivetrain: specifications['Hệ dẫn động'] || '',
-          batteryCapacity: specifications['Dung lượng pin'] || '',
-          fastChargingTime: specifications['Thời gian sạc nhanh'] || '',
-          maxDCCharging: specifications['Công suất sạc DC tối đa'] || '',
+          distance: specValue('Quãng đường đi được') || '',
+          maxPower: specValue('Công suất tối đa') || '',
+          maxTorque: specValue('Mô-men xoắn cực đại') || '',
+          topSpeed: specValue('Tốc độ tối đa') || '',
+          drivetrain: specValue('Hệ dẫn động') || '',
+          batteryCapacity: specValue('Dung lượng pin') || '',
+          fastChargingTime: specValue('Thời gian sạc nhanh') || '',
+          maxDCCharging: specValue('Công suất sạc DC tối đa') || '',
         },
         dimension: {
-          length: specifications['Dài x Rộng x Cao'] || '',
-          wheelbase: specifications['Chiều dài cơ sở'] || '',
-          croundClearance: specifications['Khoảng sáng gầm xe'] || '',
-          kurbWeightPayload: specifications['Khối lượng / Tải trọng'] || '',
+          length: specValue('Dài x Rộng x Cao') || '',
+          wheelbase: specValue('Chiều dài cơ sở') || '',
+          croundClearance: specValue('Khoảng sáng gầm xe') || '',
+          kurbWeightPayload: specValue('Khối lượng / Tải trọng') || '',
         },
         exterior: {
           auto: specifications['Đèn chiếu sáng phía trước'] || '',
           lazang: specifications['Kích thước la-zăng'] || '',
         },
         interior: {
-          numberOfSeats: Number(specifications['Số chỗ ngồi']) || specifications['Số chỗ ngồi'] || 5,
+          numberOfSeats: Number(specValue('Số chỗ ngồi')) || specValue('Số chỗ ngồi') || 5,
           informationCenter: specifications['Hệ thống giải trí'] || '',
           airConditioner: specifications['Hệ thống điều hòa'] || '',
           driverSeatAdjustment: specifications['Điều chỉnh ghế lái'] || '',
@@ -492,6 +542,8 @@ export async function PATCH(request: Request, context: Context) {
     specs: specsByVersion,
     deposit: `${new Intl.NumberFormat('vi-VN').format(versions[0]?.deposit_amount || 15000000)} VNĐ`,
     options: [],
+    hidden_specifications,
+    custom_specifications,
     range_km: Number(specifications['Quãng đường đi được']?.replace(/[^0-9]/g, '')) || 300,
     marketing: {
       design: {
@@ -537,7 +589,9 @@ export async function PATCH(request: Request, context: Context) {
     interiors: interiors.map((i: any) => ({
       name: i.interior_name,
       image: i.image_url,
-      swatch: i.swatch
+      swatch: i.swatch,
+      image_urls: i.image_urls || (i.image_url ? [i.image_url] : []),
+      allowed_combinations: i.allowed_combinations || []
     })),
     variant_compatibility: sellableConfigurations.map(({ version, color, interior }: any) => ({
       version: version.name,
@@ -553,6 +607,8 @@ export async function PATCH(request: Request, context: Context) {
       detail_images: detail_image_urls,
     },
     landing_page_blocks
+    , specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
+    , specifications_flat: specifications
   }
 
   const supabase = getSupabaseAdmin()
@@ -641,8 +697,10 @@ export async function PATCH(request: Request, context: Context) {
         sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
-        image_car_url: colorItem.image_url,
+        image_car_url: colorItem.images_by_version?.[sourceVersion.name] || colorItem.image_url,
         image_color_url: colorItem.swatch,
+        color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
         version: sourceVersion.name,
         is_active: is_active,
         product_variant_id: variantRow.id,
@@ -676,7 +734,18 @@ export async function PATCH(request: Request, context: Context) {
       .in('sku', pvSkusToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
-      return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })
+      if (pvDelError.code === '23503') {
+        const { error: pvUpdateError } = await supabase
+          .from('product_variants')
+          .update({ is_active: false })
+          .in('sku', pvSkusToDelete)
+          .eq('product_id', productId)
+        if (pvUpdateError) {
+          return NextResponse.json({ error: `Lỗi vô hiệu hóa phiên bản cũ: ${pvUpdateError.message}` }, { status: 500 })
+        }
+      } else {
+        return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })
+      }
     }
   }
 
@@ -691,7 +760,18 @@ export async function PATCH(request: Request, context: Context) {
       .in('sku', vvSkusToDelete)
       .eq('product_id', productId)
     if (vvDelError) {
-      return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
+      if (vvDelError.code === '23503') {
+        const { error: vvUpdateError } = await supabase
+          .from('vehicle_variants')
+          .update({ is_active: false })
+          .in('sku', vvSkusToDelete)
+          .eq('product_id', productId)
+        if (vvUpdateError) {
+          return NextResponse.json({ error: `Lỗi vô hiệu hóa cấu hình xe cũ: ${vvUpdateError.message}` }, { status: 500 })
+        }
+      } else {
+        return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
+      }
     }
   }
 
@@ -737,6 +817,7 @@ export async function PATCH(request: Request, context: Context) {
   await Promise.all([
     deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
     deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 
@@ -807,6 +888,7 @@ export async function DELETE(request: Request, context: Context) {
   await Promise.all([
     deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
     deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 

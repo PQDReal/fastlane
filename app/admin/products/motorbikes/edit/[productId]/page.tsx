@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Undo2,
   X,
   Zap,
 } from 'lucide-react'
@@ -30,6 +31,14 @@ import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
+
+const MOTORBIKE_FORM_RENDERED_SPEC_KEYS = new Set([
+  'Quãng đường đi được mỗi lần sạc', 'Công suất tối đa', 'Tốc độ tối đa', 'Thời gian sạc tiêu chuẩn',
+  'Dài x Rộng x Cao', 'Chiều cao yên', 'Khoảng sáng gầm', 'Thể tích cốp', 'Trọng lượng', 'Khóa xe',
+  'Đèn pha trước', 'Phanh trước và sau', 'Giảm xóc', 'Tiêu chuẩn chống nước động cơ',
+  'Kích thước lốp Trước - Sau',
+])
 
 interface ColorEntry {
   color_name: string
@@ -74,6 +83,7 @@ interface FormState {
     'Tiêu chuẩn chống nước động cơ': string
     'Kích thước lốp Trước - Sau': string
   }
+  specification_fields: VehicleSpecField[]
   colors: ColorEntry[]
   advanced_color_price: number
   versions: VersionEntry[]
@@ -106,6 +116,7 @@ const initialFormState: FormState = {
     'Tiêu chuẩn chống nước động cơ': '',
     'Kích thước lốp Trước - Sau': '',
   },
+  specification_fields: DEFAULT_MOTORBIKE_SPEC_FIELDS,
   colors: [],
   advanced_color_price: 0,
   versions: [],
@@ -123,6 +134,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false)
+  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Thông số bổ sung' })
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
 
   const STORAGE_KEY = `fastlane.admin.products.motorbikes.edit.${productId}.v1`
@@ -159,7 +172,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           }
         }
 
-        setForm(dbState)
+        setForm({ ...dbState, specification_fields: Array.isArray(dbState.specification_fields) ? dbState.specification_fields : DEFAULT_MOTORBIKE_SPEC_FIELDS.map((field) => ({ ...field })) })
         setOriginalForm(dbState)
       } catch (e: any) {
         notify('error', 'Tải sản phẩm thất bại', e.message)
@@ -262,6 +275,58 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
         [key]: val,
       },
     }))
+  }
+
+  const updateMotorbikeSpecVisibility = (key: string, visible: boolean) => {
+    setForm((current) => ({ ...current, specification_fields: current.specification_fields.map((field) => field.key === key ? { ...field, visible } : field) }))
+  }
+
+  const removeMotorbikeSpecNow = (key: string) => {
+    setForm((current) => {
+      const specifications = { ...current.specifications }
+      delete specifications[key as keyof typeof specifications]
+      return { ...current, specifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
+    })
+  }
+
+  const removeMotorbikeSpec = (key: string) => {
+    const field = form.specification_fields.find((item) => item.key === key)
+    const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((item) => item.key === key)
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [...items, {
+      id: toastId,
+      kind: 'warning',
+      title: isDefault ? 'Xác nhận ẩn thông số?' : 'Xác nhận xóa thông số?',
+      message: isDefault ? `Thông số “${field?.label || key}” sẽ không hiển thị sau khi lưu.` : `Thông số “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
+      action: { label: isDefault ? 'Ẩn thông số' : 'Xóa thông số', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); isDefault ? updateMotorbikeSpecVisibility(key, false) : removeMotorbikeSpecNow(key) } },
+      secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+    }])
+  }
+
+  const restoreMotorbikeSpec = (key: string) => updateMotorbikeSpecVisibility(key, true)
+
+  const addCustomMotorbikeSpec = () => {
+    const label = specDraft.label.trim()
+    if (!label && specDraft.value.trim()) {
+      notify('warning', 'Thiếu tên thông số', 'Giá trị đã nhập cần đi kèm tên thông số.')
+      return
+    }
+    if (!label) {
+      notify('warning', 'Chưa nhập tên thông số', 'Vui lòng nhập tên thông số trước khi thêm.')
+      return
+    }
+    const duplicated = form.specification_fields.some((field) => field.label.trim().toLocaleLowerCase() === label.toLocaleLowerCase())
+    if (duplicated) {
+      notify('warning', 'Tên thông số đã tồn tại', 'Tên thông số mới không được trùng với bất kỳ thông số hiện có.')
+      return
+    }
+    setForm((current) => ({
+      ...current,
+      specifications: { ...current.specifications, [label]: specDraft.value },
+      specification_fields: [...current.specification_fields.filter((field) => field.key !== label), { key: label, label, section: specDraft.section, visible: true }],
+    }))
+    setSpecDraft({ label: '', value: '', section: 'Thông số bổ sung' })
+    setIsSpecDialogOpen(false)
   }
 
   // Add/Remove colors
@@ -684,16 +749,20 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
 
         {activeTab === 'specs' && (
           <div className="space-y-6">
-            <div>
+            <div className="flex items-start justify-between">
+              <div>
               <h3 className="text-base font-bold text-slate-900">Thông số kỹ thuật của xe</h3>
               <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết.</p>
+              </div>
+              <Button type="button" onClick={() => setIsSpecDialogOpen(true)} className="bg-amber-50 text-amber-700 hover:bg-amber-100"><Plus size={14} /> Thêm thông số</Button>
             </div>
 
+            <h4 className="text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Động cơ & Vận hành</h4>
             {/* Core Specs Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 bg-slate-50 rounded-xl p-5 border border-slate-100">
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <BatteryCharging size={14} className="text-brand-600" /> Quãng đường/Sạc
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <BatteryCharging size={14} className="text-brand-600" /> Quãng đường/Sạc<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? restoreMotorbikeSpec('Quãng đường đi được mỗi lần sạc') : removeMotorbikeSpec('Quãng đường đi được mỗi lần sạc')} className={form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -705,8 +774,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Zap size={14} className="text-brand-600" /> Công suất tối đa
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Zap size={14} className="text-brand-600" /> Công suất tối đa<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? restoreMotorbikeSpec('Công suất tối đa') : removeMotorbikeSpec('Công suất tối đa')} className={form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -718,8 +787,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Gauge size={14} className="text-brand-600" /> Tốc độ tối đa
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Gauge size={14} className="text-brand-600" /> Tốc độ tối đa<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? restoreMotorbikeSpec('Tốc độ tối đa') : removeMotorbikeSpec('Tốc độ tối đa')} className={form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -731,8 +800,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Clock size={14} className="text-brand-600" /> Thời gian sạc
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Clock size={14} className="text-brand-600" /> Thời gian sạc<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? restoreMotorbikeSpec('Thời gian sạc tiêu chuẩn') : removeMotorbikeSpec('Thời gian sạc tiêu chuẩn')} className={form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -742,8 +811,22 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   className="mt-2 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500"
                 />
               </div>
+              {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin hiển thị <strong>màu đỏ</strong> sẽ không được hiển thị sau khi lưu</p>}
             </div>
 
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && field.section === 'Vận hành & Pin' && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
+                <div key={field.key}>
+                  {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
+                  <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
+                  {isRemoved && isDefault && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
+                </div>
+              ))}
+            </div>
+
+            <h4 className="mt-8 text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Kích thước & Tiện ích</h4>
             {/* General Specs Grid */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
               {[
@@ -753,7 +836,6 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 { label: 'Thể tích cốp', key: 'Thể tích cốp', placeholder: 'Ví dụ: 25 Lít' },
                 { label: 'Trọng lượng', key: 'Trọng lượng', placeholder: 'Ví dụ: 110 kg' },
                 { label: 'Khóa xe', key: 'Khóa xe', placeholder: 'Ví dụ: Smartkey' },
-                { label: 'Loại pin/ắc quy', key: 'Loại pin/ắc quy', placeholder: 'Ví dụ: Pin LFP' },
                 { label: 'Đèn pha trước', key: 'Đèn pha trước', placeholder: 'Ví dụ: Đèn LED' },
                 { label: 'Phanh trước và sau', key: 'Phanh trước và sau', placeholder: 'Ví dụ: Phanh đĩa Trước / Phanh cơ Sau' },
                 { label: 'Hệ thống giảm xóc', key: 'Giảm xóc', placeholder: 'Ví dụ: Giảm chấn thủy lực' },
@@ -761,7 +843,8 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 { label: 'Kích thước lốp Trước - Sau', key: 'Kích thước lốp Trước - Sau', placeholder: 'Ví dụ: 90/90-12 Trước & Sau' },
               ].map((spec) => (
                 <div key={spec.key}>
-                  <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                  {(() => { const isRemoved = form.specification_fields.find((field) => field.key === spec.key)?.visible === false; return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{spec.label}</label><button type="button" onClick={() => isRemoved ? restoreMotorbikeSpec(spec.key) : removeMotorbikeSpec(spec.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông tin ${spec.label}` : `Ẩn thông tin ${spec.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
                   <input
                     type="text"
                     placeholder={spec.placeholder}
@@ -769,6 +852,19 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                     className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
+                  {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && field.section !== 'Vận hành & Pin' && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
+                <div key={field.key}>
+                  {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
+                  <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
+                  {isRemoved && isDefault && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông số này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
                 </div>
               ))}
             </div>
@@ -1383,6 +1479,20 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
         )}
       </div>
 
+      <AnimatePresence>
+        {isSpecDialogOpen && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl" initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 8 }}>
+            <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900">Thêm thông số kỹ thuật</h3><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng"><X size={18} /></button></div>
+            <div className="mt-5 space-y-4">
+              <input value={specDraft.label} onChange={(event) => setSpecDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Công nghệ sạc" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+              <p className="mt-1 text-xs text-red-600"><strong>Lưu ý:</strong> Không được trùng với 1 trong tên thông số hiện có.</p>
+              <input value={specDraft.value} onChange={(event) => setSpecDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Giá trị, ví dụ: Sạc nhanh 20 phút" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+            </div>
+            <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={addCustomMotorbikeSpec}>Thêm thông số</Button></div>
+          </motion.div>
+        </motion.div>}
+      </AnimatePresence>
+
       {/* Recover Draft Dialog overlay */}
       <AnimatePresence>
         {showRestorePrompt && (
@@ -1575,10 +1685,10 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     ].map((stat, idx) => {
                       const Icon = stat.icon
                       return (
-                        <div key={idx} className="flex flex-col items-center text-center p-6 bg-slate-950/40 rounded-xl border border-white/5">
+                        <div key={idx} className="flex min-h-[198px] flex-col items-center justify-center text-center p-6 bg-slate-950/80 rounded-2xl border border-white/10">
                           <Icon className="h-8 w-8 text-brand-500 mb-3" />
                           <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold">{stat.label}</span>
-                          <span className="text-xl font-bold mt-2 text-white">{stat.value}</span>
+                          <span className="mt-3 max-w-[240px] text-2xl font-bold leading-tight text-white">{stat.value}</span>
                         </div>
                       )
                     })}
@@ -1598,20 +1708,14 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                   <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
                   <p className="text-xs text-white/50 mt-2">Được thiết kế tinh xảo, đáp ứng đầy đủ mọi nhu cầu di chuyển.</p>
                 </div>
-                <div className="grid gap-6 sm:grid-cols-3">
-                  {form.detail_image_urls.map((url, idx) => (
-                    <div key={idx} className="h-64 rounded-xl border border-white/5 bg-slate-900 overflow-hidden relative group">
-                      {url ? (
-                        <img src={url} alt={`Detail view ${idx}`} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
-                        <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {form.detail_image_urls.slice(0, 20).map((url, idx) => (
+                      <div key={idx} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900">
+                        {url ? <img src={url} alt={`Chi tiết ${form.name || 'xe'} ${idx + 1}`} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12"><span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span></div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               </section>
                 </>
               )}
@@ -1620,14 +1724,25 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               <section id="preview-specs" className="bg-slate-950/80 py-16">
                 <div className="mx-auto max-w-3xl px-6">
                   <h3 className="text-xl font-bold text-center mb-8 border-b border-white/10 pb-4">Bảng thông số kỹ thuật chi tiết</h3>
-                  <div className="divide-y divide-white/5 text-sm">
-                    {Object.entries(form.specifications).map(([key, val]) => (
-                      <div key={key} className="flex py-3 justify-between items-center gap-4">
-                        <span className="text-white/60 font-semibold">{key}</span>
-                        <span className="text-white font-bold text-right">{val || 'Chưa cập nhật'}</span>
+                  {(() => {
+                    const visibleFields = form.specification_fields.filter((field) => field.visible !== false)
+                    const operationFields = visibleFields.filter((field) => field.section === 'Vận hành & Pin')
+                    const utilityFields = visibleFields.filter((field) => field.section !== 'Vận hành & Pin')
+                    const renderGroup = (title: string, fields: typeof visibleFields) => (
+                      <div>
+                        <h4 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3">{title}</h4>
+                        <div className="divide-y divide-white/5 text-sm">
+                          {fields.map((field) => (
+                            <div key={field.key} className="flex py-3 justify-between items-center gap-4">
+                              <span className="text-white/60 font-semibold">{field.label}</span>
+                              <span className="text-white font-bold text-right">{String(form.specifications[field.key as keyof FormState['specifications']] ?? '') || 'Chưa cập nhật'}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    )
+                    return <div className="grid gap-12 lg:grid-cols-2">{renderGroup('Động cơ & Vận hành', operationFields)}{renderGroup('Kích thước & Tiện ích', utilityFields)}</div>
+                  })()}
                 </div>
               </section>
             </div>

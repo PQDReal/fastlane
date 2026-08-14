@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
+import { mergeVehicleSpecFields, normalizeVehicleSpecFields } from '@/lib/vehicle-specifications'
 import { revalidateTag } from 'next/cache'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
-import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -61,14 +62,18 @@ export async function POST(request: Request) {
     is_active = true,
     listing_image_url,
     hero_image_url,
+    brochure_url,
+    detail_image_urls,
+    specifications,
+    hidden_specifications = [],
+    custom_specifications = [],
     logo_image_url = '',
-    detail_image_urls = [],
-    specifications = {},
     colors = [],
     interiors = [],
     versions = [],
     advanced_color_price = 0,
     landing_page_blocks = [],
+    specification_fields,
   } = body
 
   // Basic validation
@@ -89,6 +94,24 @@ export async function POST(request: Request) {
   const priceForConfiguration = (version: any, color: any) =>
     Number(version.price) + (color.color_type === 'ADVANCED' ? advancedColorPrice : 0)
   const interiorNames = new Set(interiors.map((interior: any) => String(interior.interior_name)))
+  
+  // Sync interior allowed_combinations back to version.interiors_by_color
+  versions.forEach((version: any) => {
+    version.interiors_by_color = {}
+    const selectedColors = Array.isArray(version.compatible_colors)
+      ? Array.from(new Set(version.compatible_colors.map(String)))
+      : colors.map((color: any) => String(color.color_name))
+      
+    selectedColors.forEach((colorName: string) => {
+      version.interiors_by_color[colorName] = interiors
+        .filter((interior: any) => {
+          if (!interior.allowed_combinations || interior.allowed_combinations.length === 0) return true
+          return interior.allowed_combinations.includes(`${version.name}::${colorName}`)
+        })
+        .map((interior: any) => String(interior.interior_name))
+    })
+  })
+
   const sellableConfigurations = versions.flatMap((version: any, versionIndex: number) => {
     const selectedColors = Array.isArray(version.compatible_colors)
       ? Array.from(new Set(version.compatible_colors.map(String)))
@@ -194,6 +217,8 @@ export async function POST(request: Request) {
     specs: specsByVersion,
     deposit: `${new Intl.NumberFormat('vi-VN').format(versions[0]?.deposit_amount || 15000000)} VNĐ`,
     options: [],
+    hidden_specifications,
+    custom_specifications,
     range_km: Number(specifications['Quãng đường đi được']?.replace(/[^0-9]/g, '')) || 300,
     marketing: {
       design: {
@@ -239,7 +264,9 @@ export async function POST(request: Request) {
     interiors: interiors.map((i: any) => ({
       name: i.interior_name,
       image: i.image_url,
-      swatch: i.swatch
+      swatch: i.swatch,
+      image_urls: i.image_urls || (i.image_url ? [i.image_url] : []),
+      allowed_combinations: i.allowed_combinations || []
     })),
     variant_compatibility: sellableConfigurations.map(({ version, color, interior }: any) => ({
       version: version.name,
@@ -255,6 +282,8 @@ export async function POST(request: Request) {
       detail_images: detail_image_urls,
     },
     landing_page_blocks
+    , specification_fields: mergeVehicleSpecFields(normalizeVehicleSpecFields(specification_fields), specifications)
+    , specifications_flat: specifications
   }
 
   const supabase = getSupabaseAdmin()
@@ -370,8 +399,10 @@ export async function POST(request: Request) {
         sku: variantRow.sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
-        image_car_url: colorItem.image_url,
+        image_car_url: colorItem.images_by_version?.[sourceVersion.name] || colorItem.image_url,
         image_color_url: colorItem.swatch,
+        color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
         version: sourceVersion.name,
         is_active: is_active,
         product_variant_id: variantRow.id,
@@ -394,6 +425,7 @@ export async function POST(request: Request) {
   await Promise.all([
     deleteRedisKeysByPrefix(CAR_CATALOG_CACHE_PREFIX),
     deleteRedisKeysByPrefix(CAR_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 

@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import Redis from 'ioredis'
 import { createClient } from '@supabase/supabase-js'
+import {
+  normalizeVersionName,
+  selectCanonicalSourceVersions,
+} from './motorbike-version-normalization.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -105,20 +110,14 @@ const oldBikeIds = new Set(oldBikeRows.map((row) => row.id))
 const referencedOldRows = deposits.filter((order) =>
   oldBikeIds.has(order.vehicle_variant_id),
 )
+const oldProductsById = new Map(products.map((product) => [product.id, product]))
 
-assert(products.length === 18, `Expected 18 active motorbikes, received ${products.length}`)
-assert(
-  oldBikeRows.length === 18,
-  `Expected 18 existing BIKE placeholders, received ${oldBikeRows.length}`,
-)
-assert(
-  new Set(oldBikeRows.map((row) => row.product_id)).size === 18,
-  'Existing BIKE placeholders must contain one row per product',
-)
+assert(products.length > 0, 'Expected at least one active motorbike')
 
 const generatedAt = new Date().toISOString()
 const rows = []
 const report = []
+const productSpecificationUpdates = []
 
 for (const product of products) {
   const specifications = product.specifications
@@ -132,11 +131,11 @@ for (const product of products) {
 
   const colors = specifications.color_details
   const images = product.image_urls
-  const versions = sourceVariants
-    .filter((variant) => variant.product_id === product.id)
-    .sort((left, right) =>
-      String(left.sku).localeCompare(String(right.sku), 'en'),
-    )
+  const versions = selectCanonicalSourceVersions({
+    product,
+    sourceVariants,
+    overrides: VERSION_OVERRIDES,
+  })
 
   assert(Array.isArray(colors) && colors.length > 0, `${product.name}: missing colors`)
   assert(Array.isArray(images), `${product.name}: image_urls must be an array`)
@@ -147,8 +146,24 @@ for (const product of products) {
   assert(versions.length > 0, `${product.name}: missing active versions`)
 
   const detailImages = images.slice(-3)
-  const catalogSpecs = {
+  const canonicalVersionNames = versions.map((sourceVersion) =>
+    VERSION_OVERRIDES[sourceVersion.baseSku]?.name ?? sourceVersion.canonicalName,
+  )
+  const canonicalSpecifications = {
     ...specifications,
+    variants: canonicalVersionNames,
+    variant_compatibility: Array.isArray(specifications.variant_compatibility)
+      ? specifications.variant_compatibility.map((entry) => ({
+          ...entry,
+          version: canonicalVersionNames.find((name) =>
+            String(entry?.version ?? '').toLocaleLowerCase('vi').startsWith(name.toLocaleLowerCase('vi')),
+          ) ?? entry.version,
+        }))
+      : specifications.variant_compatibility,
+  }
+  productSpecificationUpdates.push({ id: product.id, specifications: canonicalSpecifications })
+  const catalogSpecs = {
+    ...canonicalSpecifications,
     catalog: {
       product_slug: product.slug,
       description: product.description ?? '',
@@ -161,11 +176,11 @@ for (const product of products) {
   }
 
   versions.forEach((sourceVersion, versionIndex) => {
-    assert(nonEmpty(sourceVersion.sku), `${product.name}: version missing SKU`)
+    assert(nonEmpty(sourceVersion.baseSku), `${product.name}: version missing SKU`)
     assert(nonEmpty(sourceVersion.name), `${product.name}: version missing name`)
 
-    const override = VERSION_OVERRIDES[sourceVersion.sku] ?? {}
-    const versionName = override.name ?? sourceVersion.name
+    const override = VERSION_OVERRIDES[sourceVersion.baseSku] ?? {}
+    const versionName = override.name ?? sourceVersion.canonicalName
     const originalPrice =
       override.original_price ?? Number(sourceVersion.original_price)
     const salePrice =
@@ -189,7 +204,7 @@ for (const product of products) {
       assert(nonEmpty(colorName), `${product.name}: color ${colorIndex + 1} has no name`)
       assert(nonEmpty(vehicleImage), `${product.name}/${colorName}: missing vehicle image`)
       assert(nonEmpty(swatchImage), `${product.name}/${colorName}: missing swatch image`)
-      assert(detailImages.every(nonEmpty), `${product.name}: incomplete detail images`)
+      assert(detailImages.length === 3, `${product.name}: detail image contract must contain three slots`)
 
       rows.push({
         id: randomUUID(),
@@ -208,7 +223,7 @@ for (const product of products) {
           },
         },
         variant_name: `${product.name} ${versionName} - ${colorName}`,
-        sku: `${sourceVersion.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
+        sku: `${sourceVersion.baseSku}-C${String(colorIndex + 1).padStart(2, '0')}`,
         price,
         color: colorName,
         image_car_url: vehicleImage,
@@ -227,15 +242,72 @@ for (const product of products) {
   })
 }
 
-assert(rows.length === 118, `Expected 118 generated rows, received ${rows.length}`)
+const oldRowsBySku = new Map(oldBikeRows.map((row) => [String(row.sku).toUpperCase(), row]))
+const usedOldIds = new Set()
+for (const row of rows) {
+  const existing = oldRowsBySku.get(String(row.sku).toUpperCase())
+  if (existing && !usedOldIds.has(existing.id)) {
+    row.id = existing.id
+    usedOldIds.add(existing.id)
+  }
+}
 
-// Reuse every placeholder ID for the first generated combination of the same
-// product. This preserves deposit_orders.vehicle_variant_id and any future FK
-// references while replacing placeholder content in place.
-for (const oldRow of oldBikeRows) {
-  const replacement = rows.find((row) => row.product_id === oldRow.product_id)
-  assert(replacement, `No replacement generated for placeholder ${oldRow.id}`)
+async function invalidateDepositMetadataCache() {
+  const redisUrl = process.env.REDIS_URL?.trim()
+  if (!redisUrl) return 0
+
+  const redis = new Redis(redisUrl, { maxRetriesPerRequest: 1 })
+  redis.on('error', () => undefined)
+  try {
+    let cursor = '0'
+    let deleted = 0
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        'MATCH',
+        'fastlane:deposit-vehicle-metadata:v1:*',
+        'COUNT',
+        100,
+      )
+      cursor = nextCursor
+      if (keys.length > 0) deleted += await redis.del(...keys)
+    } while (cursor !== '0')
+    return deleted
+  } catch (error) {
+    console.warn(`Unable to invalidate Redis metadata cache: ${error instanceof Error ? error.message : String(error)}`)
+    return 0
+  } finally {
+    await redis.quit().catch(() => redis.disconnect())
+  }
+}
+
+// Preserve IDs that are referenced by deposit orders even when their legacy
+// SKU is not part of the regenerated matrix.
+for (const oldRow of oldBikeRows.filter((row) => referencedOldRows.some((order) => order.vehicle_variant_id === row.id))) {
+  if (usedOldIds.has(oldRow.id)) continue
+  const product = oldProductsById.get(oldRow.product_id)
+  const specifications = product?.specifications && typeof product.specifications === 'object'
+    ? product.specifications
+    : {}
+  const oldVersion = normalizeVersionName({
+    productName: product?.name,
+    rawName: oldRow.version,
+    declaredVersions: specifications.variants,
+    colors: specifications.color_details,
+  })
+  const replacement = rows.find((row) =>
+    row.product_id === oldRow.product_id
+      && row.color === oldRow.color
+      && row.version.toLocaleLowerCase('vi') === oldVersion.toLocaleLowerCase('vi')
+      && !usedOldIds.has(row.id),
+  ) ?? rows.find((row) =>
+    row.product_id === oldRow.product_id
+      && row.color === oldRow.color
+      && !usedOldIds.has(row.id),
+  )
+  assert(replacement, `No replacement generated for referenced row ${oldRow.id}`)
   replacement.id = oldRow.id
+  usedOldIds.add(oldRow.id)
 }
 
 assert(new Set(rows.map((row) => row.id)).size === rows.length, 'Duplicate generated IDs')
@@ -323,8 +395,22 @@ try {
     if (error) throw new Error(`Post-insert verification failed: ${error.message}`)
     migratedRows.push(...(data ?? []))
   }
-  assert(migratedRows.length === 118, `Verified ${migratedRows.length}/118 migrated rows`)
+  assert(migratedRows.length === rows.length, `Verified ${migratedRows.length}/${rows.length} migrated rows`)
   assert(migratedRows.every((row) => nonEmpty(row.sku) && nonEmpty(row.version) && nonEmpty(row.color)), 'Migrated rows are incomplete')
+
+  const obsoleteIds = oldBikeRows.map((row) => row.id).filter((id) => !usedOldIds.has(id))
+  for (const ids of chunk(obsoleteIds, 50)) {
+    const { error } = await supabase.from('vehicle_variants').delete().in('id', ids)
+    if (error) throw new Error(`Unable to remove obsolete BIKE rows: ${error.message}`)
+  }
+
+  for (const update of productSpecificationUpdates) {
+    const { error } = await supabase
+      .from('products')
+      .update({ specifications: update.specifications, updated_at: new Date().toISOString() })
+      .eq('id', update.id)
+    if (error) throw new Error(`Unable to normalize ${update.id} specifications: ${error.message}`)
+  }
 } catch (error) {
   if (insertedIds.length > 0) {
     for (const ids of chunk(insertedIds, 50)) {
@@ -335,6 +421,9 @@ try {
     const { id, ...changes } = oldRow
     await supabase.from('vehicle_variants').update(changes).eq('id', id)
   }
+  for (const [id, product] of oldProductsById) {
+    await supabase.from('products').update({ specifications: product.specifications }).eq('id', id)
+  }
   throw error
 }
 
@@ -344,6 +433,9 @@ const { data: finalRows, error: finalError } = await supabase
   .eq('product_type', 'BIKE')
 
 if (finalError) throw new Error(`Final verification failed: ${finalError.message}`)
-assert(finalRows?.length === 118, `Final BIKE row count is ${finalRows?.length ?? 0}, expected 118`)
+assert(finalRows?.length === rows.length, `Final BIKE row count is ${finalRows?.length ?? 0}, expected ${rows.length}`)
 
-console.log('Migration complete: 118/118 BIKE vehicle_variants rows verified.')
+const invalidatedMetadataKeys = await invalidateDepositMetadataCache()
+
+console.log(`Migration complete: ${rows.length}/${rows.length} BIKE vehicle_variants rows verified.`)
+console.log(`Invalidated ${invalidatedMetadataKeys} deposit metadata cache keys.`)

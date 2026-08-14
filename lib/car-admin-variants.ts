@@ -116,11 +116,13 @@ export function reconstructCarAdminConfiguration(input: {
     ? input.declaredVersions.map(text).filter(Boolean)
     : []
   const inferredInteriors = new Map(input.interiors
-    .filter((row) => text(row.interior_name))
-    .map((row) => [key(row.interior_name), {
+    .filter((row: any) => text(row.interior_name))
+    .map((row: any) => [key(row.interior_name), {
       interior_name: text(row.interior_name),
       image_url: text(row.image_url),
       swatch: text(row.swatch),
+      image_urls: row.image_urls || [],
+      allowed_combinations: row.allowed_combinations || [],
     }]))
   const versions = new Map<string, any>()
 
@@ -174,10 +176,13 @@ export function reconstructCarAdminConfiguration(input: {
     for (const interior of interiors) {
       const interiorName = text(interior.interior_name)
       if (!interiorName) continue
+      const existing = inferredInteriors.get(key(interiorName))
       inferredInteriors.set(key(interiorName), {
         interior_name: interiorName,
-        image_url: text(interior.image_url),
-        swatch: text(interior.swatch),
+        image_url: text(interior.image_url) || existing?.image_url || '',
+        swatch: text(interior.swatch) || existing?.swatch || '',
+        image_urls: existing?.image_urls || [],
+        allowed_combinations: existing?.allowed_combinations || [],
       })
       version.stock_by_configuration[JSON.stringify([exterior, interiorName])] = row.product_variant_id
         ? input.inventoryByVariantId.get(String(row.product_variant_id)) ?? 0
