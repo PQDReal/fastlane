@@ -464,7 +464,6 @@ export function SalesAgentShell() {
                             key={`block-${idx}`}
                             title={block.title}
                             items={block.items}
-                            onSelectProduct={(name) => void send(`Tư vấn thêm về ${name}`)}
                           />
                         )
                       }
@@ -474,7 +473,6 @@ export function SalesAgentShell() {
                             key={`block-${idx}`}
                             criteria={block.criteria}
                             products={block.products}
-                            onSelectProduct={(name) => void send(`Tư vấn thêm về ${name}`)}
                           />
                         )
                       }
