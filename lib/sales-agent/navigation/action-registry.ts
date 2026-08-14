@@ -1,10 +1,10 @@
 import type {
   NavigationActionKey,
-  NavigationIntentV2,
-  ProductTypeV2,
-  SalesAgentActionV2,
-} from '../../contracts/v2'
-import { salesAgentProductUrl } from '../../navigation/paths'
+  NavigationIntent,
+  ProductType,
+  SalesAgentAction,
+} from '../contracts'
+import { salesAgentProductUrl } from './paths'
 
 export const ACTION_LABELS: Record<NavigationActionKey, string> = {
   BROWSE_CATALOG: 'Xem tất cả sản phẩm',
@@ -17,7 +17,7 @@ export const ACTION_LABELS: Record<NavigationActionKey, string> = {
 
 export function resolveActionHref(
   actionKey: NavigationActionKey,
-  entityType?: ProductTypeV2,
+  entityType?: ProductType,
   slug?: string,
 ): string {
   switch (actionKey) {
@@ -50,10 +50,10 @@ export function resolveActionHref(
 }
 
 export function resolveNavigationAction(
-  intent: NavigationIntentV2,
+  intent: NavigationIntent,
   entitySlug?: string,
   customLabel?: string,
-): SalesAgentActionV2 {
+): SalesAgentAction {
   const href = resolveActionHref(intent.actionKey, intent.entityType, entitySlug)
   const label = customLabel || ACTION_LABELS[intent.actionKey] || 'Xem chi tiết'
 

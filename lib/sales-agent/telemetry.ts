@@ -1,9 +1,18 @@
 import 'server-only'
 
-import {
-  parseSalesAgentInteractionMetric,
-  type SalesAgentInteractionMetric,
-} from './contracts/telemetry'
+import type { SalesAgentInteractionMetric } from './contracts/interaction'
+
+export function parseSalesAgentInteractionMetric(value: unknown): SalesAgentInteractionMetric {
+  if (!value || typeof value !== 'object') throw new Error('Metric phải là JSON object.')
+  const input = value as any
+  return {
+    interactionId: String(input.interactionId || ''),
+    slot: String(input.slot || ''),
+    action: input.action || 'RENDERED',
+    selectedCount: typeof input.selectedCount === 'number' ? input.selectedCount : undefined,
+    timestamp: input.timestamp || new Date().toISOString(),
+  }
+}
 
 export function salesAgentInteractionMetricsEnabled() {
   return process.env.SALES_AGENT_INTERACTION_METRICS_ENABLED === 'true'
@@ -11,10 +20,6 @@ export function salesAgentInteractionMetricsEnabled() {
 
 export function recordSalesAgentInteractionMetric(metric: SalesAgentInteractionMetric) {
   if (!salesAgentInteractionMetricsEnabled()) return false
-  // Keep the log payload aggregate-only so it can be shipped to any metrics
-  // backend without exposing prompt text, free labels, PII or continuation data.
   console.info('[sales-agent-interaction-metric]', JSON.stringify(metric))
   return true
 }
-
-export { parseSalesAgentInteractionMetric }

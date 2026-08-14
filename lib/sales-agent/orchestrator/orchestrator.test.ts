@@ -6,7 +6,7 @@ import { KnownEntityLedger } from './ledgers/known-entities'
 import { BindingLedger } from './ledgers/bindings'
 import { EvidenceLedger } from './ledgers/evidence'
 
-describe('Orchestrator V2 Ledgers', () => {
+describe('Canonical Orchestrator Ledgers', () => {
   it('KnownEntityLedger registers and queries entities', () => {
     const ledger = new KnownEntityLedger()
     ledger.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8', 'RESOLVER')
@@ -58,7 +58,7 @@ describe('Orchestrator V2 Ledgers', () => {
     expect(conflictRes.conflict?.field).toBe('productTypes')
   })
 
-  it('EvidenceLedger indexes facts and validates FactPointerV2', () => {
+  it('EvidenceLedger indexes facts and validates FactPointer', () => {
     const ledger = new EvidenceLedger()
     const readAt = new Date().toISOString()
 

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { getSalesAgentVehicleSnapshots } from '../catalog/context'
+import { getProductDetailsRepository } from '../catalog/product-details'
 import type { SalesAgentInteractionTokenPayload } from './token'
 
 type SelectedInteractionOption = {
@@ -27,11 +27,13 @@ export async function validateSalesAgentInteractionProducts(
   }
 
   const productIds = [...new Set(productOptions.map((option) => option.value))]
-  const snapshots = await getSalesAgentVehicleSnapshots(productIds)
-  if (snapshots.length !== productIds.length) {
+  const detailsRes = await getProductDetailsRepository({ productIds })
+  const products = detailsRes.outcome === 'SUCCESS' ? detailsRes.data.products : []
+
+  if (products.length !== productIds.length) {
     throw new SalesAgentInteractionValidationError('Một hoặc nhiều mẫu xe đã ngừng bán hoặc không còn trong catalog active.')
   }
-  if (payload.productType && snapshots.some((snapshot) => snapshot.productType !== payload.productType)) {
+  if (payload.productType && products.some((p) => p.productType !== payload.productType)) {
     throw new SalesAgentInteractionValidationError('Mẫu xe đã chọn không cùng loại với interaction này.')
   }
 }

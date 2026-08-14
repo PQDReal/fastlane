@@ -2,15 +2,28 @@ import { NextResponse } from 'next/server'
 
 import { isSalesAgentEnabled } from '@/lib/sales-agent/core/flags'
 import { redactSalesAgentInput } from '@/lib/sales-agent/core/policy'
-import { limitSalesAgentHistory, SalesAgentRequestError, parseSalesAgentMessageRequest, type SalesAgentSseEvent } from '@/lib/sales-agent/contracts/message'
+import {
+  limitSalesAgentHistory,
+  SalesAgentRequestError,
+  parseSalesAgentMessageRequest,
+  type SalesAgentTurnInput,
+  type TurnViewModel,
+} from '@/lib/sales-agent/contracts'
 import { consumeSalesAgentInteractionResponse, validateSalesAgentInteractionResponse } from '@/lib/sales-agent/interactions/token'
 import { validateSalesAgentInteractionProducts, SalesAgentInteractionValidationError } from '@/lib/sales-agent/interactions/validation'
 import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
-import { runTurnV2 } from '@/lib/sales-agent/orchestrator/v2/run-turn'
-import { composeTurnResponse } from '@/lib/sales-agent/response/v2/composer'
-import type { SalesAgentTurnInputV2 } from '@/lib/sales-agent/contracts/v2'
+import { runTurn } from '@/lib/sales-agent/orchestrator/run-turn'
+import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
 
 export const runtime = 'nodejs'
+
+export type SalesAgentSseEvent =
+  | { type: 'meta'; conversationId: string; messageId: string }
+  | { type: 'tool_status'; tool: string; status: 'running' | 'complete' | 'not_found' | 'error' | 'OK' }
+  | { type: 'text_delta'; delta: string }
+  | { type: 'turn_view'; viewModel: TurnViewModel }
+  | { type: 'done'; provider: string; model: string; finishReason: 'stop' | 'requires_input' }
+  | { type: 'error'; code: string; message: string; retryable: boolean }
 
 function event(value: SalesAgentSseEvent) {
   return `data: ${JSON.stringify(value)}\n\n`
@@ -39,7 +52,7 @@ function streamResponse(payload: {
         if (payload.signal?.aborted) return
         await payload.run(send)
       } catch (error) {
-        console.error('Sales Agent V2 request failed', { reason: error instanceof Error ? error.message : 'UNKNOWN_ERROR' })
+        console.error('Sales Agent request failed', { reason: error instanceof Error ? error.message : 'UNKNOWN_ERROR' })
         recordSalesAgentDebugEvent('stream.failed', { conversationId: payload.conversationId, messageId: payload.messageId }, {
           error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
         })
@@ -100,23 +113,24 @@ export async function POST(request: Request) {
           message: redactSalesAgentInput(payload.message),
           history,
           pageContext: payload.pageContext,
-          runtimeVersion: 'V2',
         })
 
-        const turnInput: SalesAgentTurnInputV2 = interactionSelection
+        const redactedUserText = redactSalesAgentInput(payload.message)
+
+        const turnInput: SalesAgentTurnInput = interactionSelection
           ? {
               kind: 'INTERACTION_SUBMIT',
               interactionId: interactionSelection.payload.slot,
               selectedOptionIds: interactionSelection.selectedOptions.map((o) => o.optionId),
-              freeText: interactionSelection.freeText,
+              freeText: interactionSelection.freeText ? redactSalesAgentInput(interactionSelection.freeText) : undefined,
               continuationToken: payload.interactionResponse?.continuationToken || 'valid-token',
             }
           : {
               kind: 'USER_MESSAGE',
-              text: payload.message,
+              text: redactedUserText,
             }
 
-        const turnResult = await runTurnV2({
+        const turnResult = await runTurn({
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
           signal: request.signal,
@@ -136,14 +150,19 @@ export async function POST(request: Request) {
           messageId,
         })
 
-        recordSalesAgentDebugEvent('v2.turn.completed', { conversationId, messageId }, {
+        recordSalesAgentDebugEvent('turn.completed', { conversationId, messageId }, {
           text: viewModel.answer.markdown,
           toolCallsCount: turnResult.toolCallsCount,
           stepsCount: turnResult.stepsCount,
+          blocksCount: viewModel.blocks.length,
+          actionsCount: viewModel.actions.length,
+          suggestionsCount: viewModel.suggestions.length,
         })
 
+        // Stream structured turn_view event and text_delta
+        send({ type: 'turn_view', viewModel })
         send({ type: 'text_delta', delta: viewModel.answer.markdown })
-        send({ type: 'done', provider: 'default', model: 'v2-orchestrator', finishReason: 'stop' })
+        send({ type: 'done', provider: 'default', model: 'orchestrator', finishReason: 'stop' })
       },
     })
   } catch (error) {

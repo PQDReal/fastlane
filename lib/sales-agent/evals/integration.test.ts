@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-import { browseCatalogRepository } from '../catalog/v2/browse-repository'
-import { resolveCatalogEntitiesRepository } from '../catalog/v2/identity-repository'
-import { getProductDetailsRepository } from '../catalog/v2/product-details-repository'
-import { composeTurnResponse } from '../response/v2/composer'
-import { KnownEntityLedger } from '../orchestrator/v2/ledgers/known-entities'
-import { EvidenceLedger } from '../orchestrator/v2/ledgers/evidence'
+import { browseCatalogRepository } from '../catalog/browse'
+import { resolveCatalogEntitiesRepository } from '../catalog/identity'
+import { getProductDetailsRepository } from '../catalog/product-details'
+import { composeTurnResponse } from '../response/composer'
+import { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
+import { EvidenceLedger } from '../orchestrator/ledgers/evidence'
 
 vi.mock('@/lib/supabase-admin', () => {
   const mockProducts = [
@@ -95,7 +95,7 @@ vi.mock('@/lib/supabase-admin', () => {
   }
 })
 
-describe('V2 E2E Integration Evals', () => {
+describe('Canonical E2E Integration Evals', () => {
   it('Scenario 1: "Giá xe hiện tại" executes browse_catalog and yields active vehicles with prices', async () => {
     const browseRes = await browseCatalogRepository(
       {

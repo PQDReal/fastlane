@@ -1,37 +1,37 @@
 import 'server-only'
 
 import { generateText, isStepCount, tool, type ToolSet } from 'ai'
-import { getSalesAgentLanguageModel } from '../../providers/registry'
-import { SALES_AGENT_PROMPT_MANIFEST_V2 } from '../../prompt/v2/manifest'
-import { executeDataToolV2 } from '../../tools/definitions/v2'
+import { getSalesAgentLanguageModel } from '../providers/registry'
+import { SALES_AGENT_PROMPT_MANIFEST } from '../prompt/manifest'
+import { executeDataTool } from '../tools/definitions'
 import {
-  DEFAULT_V2_RUN_BUDGET,
+  DEFAULT_RUN_BUDGET,
   TOOL_CONTRACTS,
-  type AgentResponsePlanV2,
-  type DataToolNameV2,
-  type FactPointerV2,
-  type PlannedNarrativeItemV2,
+  type AgentResponsePlan,
+  type DataToolName,
+  type FactPointer,
+  type PlannedNarrativeItem,
   type SalesAgentRunBudget,
-  type SalesAgentTurnInputV2,
-  type ToolResultV2,
-} from '../../contracts/v2'
+  type SalesAgentTurnInput,
+  type ToolResult,
+} from '../contracts'
 import { KnownEntityLedger } from './ledgers/known-entities'
 import { BindingLedger } from './ledgers/bindings'
 import { EvidenceLedger } from './ledgers/evidence'
 
-export type RunTurnV2Options = {
-  input: SalesAgentTurnInputV2
+export type RunTurnOptions = {
+  input: SalesAgentTurnInput
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   budget?: SalesAgentRunBudget
   selectedProvider?: string
   signal?: AbortSignal
   onToolCall?: (toolName: string, callId: string) => void
-  onToolResult?: (toolName: string, result: ToolResultV2) => void
+  onToolResult?: (toolName: string, result: ToolResult) => void
 }
 
-export type RunTurnV2Result = {
+export type RunTurnResult = {
   text: string
-  responsePlan: AgentResponsePlanV2
+  responsePlan: AgentResponsePlan
   knownEntities: KnownEntityLedger
   bindings: BindingLedger
   evidence: EvidenceLedger
@@ -40,8 +40,8 @@ export type RunTurnV2Result = {
   finishReason: string
 }
 
-export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Result> {
-  const budget = options.budget ?? DEFAULT_V2_RUN_BUDGET
+export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
+  const budget = options.budget ?? DEFAULT_RUN_BUDGET
   const knownEntities = new KnownEntityLedger()
   const bindings = new BindingLedger()
   const evidence = new EvidenceLedger()
@@ -53,7 +53,7 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
   const tools: ToolSet = {}
 
   for (const [key, contract] of Object.entries(TOOL_CONTRACTS)) {
-    const toolName = key as DataToolNameV2
+    const toolName = key as DataToolName
     tools[toolName] = tool({
       description: contract.description,
       inputSchema: contract.inputSchema,
@@ -86,7 +86,7 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
           }
         }
 
-        const result = await executeDataToolV2(toolName, bindingRes.effectiveInput, toolCallId)
+        const result = await executeDataTool(toolName, bindingRes.effectiveInput, toolCallId)
         evidence.recordToolResult(toolCallId, result)
         options.onToolResult?.(toolName, result)
 
@@ -94,17 +94,17 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
         if (result.outcome === 'SUCCESS' && result.data) {
           if (toolName === 'browse_catalog' && Array.isArray(result.data.items)) {
             for (const item of result.data.items) {
-              knownEntities.addEntity('PRODUCT', item.id, item.name, 'BROWSE')
+              knownEntities.addEntity('PRODUCT', item.id, item.name, 'BROWSE', item.productType)
             }
           } else if (toolName === 'resolve_catalog_entities' && Array.isArray(result.data.resolutions)) {
             for (const res of result.data.resolutions) {
               if (res.outcome === 'RESOLVED') {
-                knownEntities.addEntity(res.entity.kind, res.entity.id, res.entity.name, 'RESOLVER')
+                knownEntities.addEntity(res.entity.kind, res.entity.id, res.entity.name, 'RESOLVER', res.entity.productType)
               }
             }
           } else if (toolName === 'get_product_details' && Array.isArray(result.data.products)) {
             for (const p of result.data.products) {
-              knownEntities.addEntity('PRODUCT', p.productId, p.name, 'DETAILS')
+              knownEntities.addEntity('PRODUCT', p.productId, p.name, 'DETAILS', p.productType)
             }
           }
         }
@@ -139,7 +139,7 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
 
   const response = await generateText({
     model: lm.model,
-    system: SALES_AGENT_PROMPT_MANIFEST_V2.systemPrompt,
+    system: SALES_AGENT_PROMPT_MANIFEST.systemPrompt,
     messages,
     tools,
     stopWhen: [isStepCount(budget.maxModelSteps)],
@@ -149,7 +149,7 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
 
   // Extract fact pointers from current turn evidence ledger
   const allEvidence = evidence.getAllEvidence()
-  const currentTurnFactPointers: FactPointerV2[] = allEvidence.flatMap((ev) =>
+  const currentTurnFactPointers: FactPointer[] = allEvidence.flatMap((ev) =>
     ev.facts.map((f) => ({
       factRef: f.factRef,
       evidenceId: ev.evidenceId,
@@ -159,7 +159,7 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
     })),
   )
 
-  const narrative: PlannedNarrativeItemV2[] = []
+  const narrative: PlannedNarrativeItem[] = []
 
   if (currentTurnFactPointers.length > 0) {
     narrative.push({
@@ -185,7 +185,7 @@ export async function runTurnV2(options: RunTurnV2Options): Promise<RunTurnV2Res
     })
   }
 
-  const responsePlan: AgentResponsePlanV2 = {
+  const responsePlan: AgentResponsePlan = {
     schemaVersion: '2.0',
     outcome: negativeObservations.length > 0 && currentTurnFactPointers.length === 0 ? 'DEGRADED' : 'ANSWER',
     narrative,

@@ -2,7 +2,8 @@ import 'server-only'
 
 import { randomUUID } from 'node:crypto'
 
-import { searchSalesAgentCatalog, type SalesAgentProductType } from '../catalog/context'
+import { browseCatalogRepository } from '../catalog/browse'
+import type { ProductType } from '../contracts'
 import { validateSalesAgentInteraction, type SalesAgentInteraction } from '../contracts/interaction'
 import {
   interactionTokenPayloadFromInteraction,
@@ -17,7 +18,7 @@ export type SalesAgentInteractionSearchInput = {
   selectedOptionIds?: string[]
 }
 
-function productType(value: unknown): SalesAgentProductType | undefined {
+function productType(value: unknown): ProductType | undefined {
   return value === 'CAR' || value === 'BIKE' || value === 'ACCESSORY' ? value : undefined
 }
 
@@ -38,11 +39,11 @@ export async function searchSalesAgentInteraction(input: SalesAgentInteractionSe
     return { optionId, label: option.label }
   })
   const type = productType(payload.productType)
-  const items = await searchSalesAgentCatalog({
-    query: input.query?.trim().slice(0, 120),
+  const browseRes = await browseCatalogRepository({
     ...(type ? { productTypes: [type] } : {}),
-    limit: Math.min(4, Math.max(0, 8 - selectedOptions.length)),
+    page: { limit: Math.min(4, Math.max(0, 8 - selectedOptions.length)) },
   })
+  const items = browseRes.outcome === 'SUCCESS' ? browseRes.data.items : []
   const optionDrafts = [
     ...items.map((item) => ({
       optionId: `opt_${randomUUID()}`,
@@ -52,9 +53,9 @@ export async function searchSalesAgentInteraction(input: SalesAgentInteractionSe
     ...selectedOptions.filter((selected) => !items.some((item) => item.name === selected.label)),
   ].slice(0, 8)
   const interactionWithoutToken = {
-    schemaVersion: '1.0' as const,
+    schemaVersion: '2.0' as const,
     interactionId: payload.interactionId,
-    kind: 'choice' as const,
+    kind: 'CHOICE' as const,
     slot: payload.slot,
     mode: payload.mode,
     ...(type ? { productType: type } : {}),

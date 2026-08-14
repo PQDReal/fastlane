@@ -1,4 +1,4 @@
-import { limitSalesAgentHistory, type SalesAgentMessage } from '../contracts/message'
+import { limitSalesAgentHistory, type SalesAgentMessage } from '../contracts/turn'
 import type { SalesAgentProviderInput } from '../providers/types'
 import { SALES_AGENT_MARKDOWN_TEMPLATE } from './markdown-template'
 

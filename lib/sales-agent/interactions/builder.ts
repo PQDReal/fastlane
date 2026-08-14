@@ -2,8 +2,15 @@ import 'server-only'
 
 import { randomUUID } from 'node:crypto'
 
-import { searchSalesAgentCatalog, type SalesAgentCatalogFact, type SalesAgentProductType } from '../catalog/context'
-import { validateSalesAgentInteraction, SALES_AGENT_INTERACTION_MAX_OPTIONS, type SalesAgentInteraction, type SalesAgentInteractionSlot, type SalesAgentInteractionMode } from '../contracts/interaction'
+import { browseCatalogRepository } from '../catalog/browse'
+import type { ProductType } from '../contracts'
+import {
+  SALES_AGENT_INTERACTION_MAX_OPTIONS,
+  validateSalesAgentInteraction,
+  type SalesAgentInteraction,
+  type SalesAgentInteractionSlot,
+  type SalesAgentInteractionMode,
+} from '../contracts/interaction'
 import { salesAgentBudgetOptions } from './budget'
 import { interactionTokenPayloadFromInteraction, signSalesAgentInteractionToken } from './token'
 
@@ -13,7 +20,7 @@ type ChoiceRequest = {
   minSelections: number
   maxSelections: number
   allowFreeText?: boolean
-  productType?: SalesAgentProductType
+  productType?: ProductType
 }
 
 type OptionDraft = {
@@ -39,24 +46,28 @@ const USAGE_OPTIONS: OptionDraft[] = [
   { value: 'first_vehicle', label: 'Mua xe điện đầu tiên', kind: 'allowlist', recommended: true },
 ]
 
-function vehicleDescription(item: SalesAgentCatalogFact) {
-  return item.price !== null ? `Từ ${new Intl.NumberFormat('vi-VN').format(item.price)} đồng` : undefined
+function vehicleDescription(price: number | null) {
+  return price !== null ? `Từ ${new Intl.NumberFormat('vi-VN').format(price)} đồng` : undefined
 }
 
 async function vehicleOptions(request: ChoiceRequest): Promise<OptionDraft[]> {
-  const productTypes: SalesAgentProductType[] = request.productType === 'CAR' || request.productType === 'BIKE'
+  const productTypes: ProductType[] = request.productType === 'CAR' || request.productType === 'BIKE'
     ? [request.productType]
     : ['CAR', 'BIKE']
-  const items = await searchSalesAgentCatalog({ productTypes, limit: SALES_AGENT_INTERACTION_MAX_OPTIONS })
+  const browseRes = await browseCatalogRepository({
+    productTypes,
+    page: { limit: SALES_AGENT_INTERACTION_MAX_OPTIONS },
+  })
+  const items = browseRes.outcome === 'SUCCESS' ? browseRes.data.items : []
   return items.map((item) => ({
     value: item.id,
     label: item.name,
-    description: vehicleDescription(item),
+    description: vehicleDescription(item.price),
     kind: 'product' as const,
   }))
 }
 
-function budgetOptions(productType?: SalesAgentProductType): OptionDraft[] {
+function budgetOptions(productType?: ProductType): OptionDraft[] {
   const type = productType === 'BIKE' || productType === 'ACCESSORY' ? productType : 'CAR'
   return salesAgentBudgetOptions(type).map((option) => ({ ...option, kind: 'allowlist' }))
 }
@@ -89,9 +100,9 @@ export async function buildSalesAgentInteraction(request: ChoiceRequest, context
     ...(draft.recommended ? { recommended: true } : {}),
   }))
   const interactionWithoutToken = {
-    schemaVersion: '1.0' as const,
+    schemaVersion: '2.0' as const,
     interactionId,
-    kind: 'choice' as const,
+    kind: 'CHOICE' as const,
     slot: request.slot,
     mode: request.mode,
     ...(request.productType ? { productType: request.productType } : {}),
@@ -106,6 +117,6 @@ export async function buildSalesAgentInteraction(request: ChoiceRequest, context
     expiresAt,
   }
   const tokenOptions = Object.fromEntries(options.map((option, index) => [option.optionId, { label: option.label, value: drafts[index].value, kind: drafts[index].kind }]))
-  const continuationToken = signSalesAgentInteractionToken(interactionTokenPayloadFromInteraction(interactionWithoutToken, context.conversationId, context.messageId, tokenOptions))
+  const continuationToken = signSalesAgentInteractionToken(interactionTokenPayloadFromInteraction(interactionWithoutToken as any, context.conversationId, context.messageId, tokenOptions))
   return validateSalesAgentInteraction({ ...interactionWithoutToken, continuationToken })
 }

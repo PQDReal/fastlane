@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ search: vi.fn() }))
+const mocks = vi.hoisted(() => ({ browse: vi.fn() }))
 vi.mock('server-only', () => ({}))
-vi.mock('../catalog/context', () => ({ searchSalesAgentCatalog: mocks.search }))
+vi.mock('../catalog/browse', () => ({ browseCatalogRepository: mocks.browse }))
 
 import { searchSalesAgentInteraction } from './search'
 import { signSalesAgentInteractionToken, verifySalesAgentInteractionToken } from './token'
 
 const payload = {
-  schemaVersion: '1.0' as const,
+  schemaVersion: '2.0' as const,
   interactionId: 'interaction-search',
   conversationId: 'conversation-search',
   messageId: 'message-search',
   slot: 'vehicle' as const,
-  mode: 'single' as const,
+  mode: 'SINGLE' as const,
   productType: 'BIKE' as const,
   minSelections: 1,
   maxSelections: 1,
@@ -25,16 +25,21 @@ const payload = {
 describe('sales agent interaction search', () => {
   beforeEach(() => {
     process.env.SALES_AGENT_INTERACTION_SECRET = 'test-search-secret'
-    mocks.search.mockResolvedValue([
-      { id: 'bike-evo-grand', name: 'VinFast Evo Grand', price: 22000000, isActive: true },
-      { id: 'bike-feliz', name: 'VinFast Feliz S', price: 30000000, isActive: true },
-    ])
+    mocks.browse.mockResolvedValue({
+      outcome: 'SUCCESS',
+      data: {
+        items: [
+          { id: 'bike-evo-grand', name: 'VinFast Evo Grand', price: 22000000, isActive: true },
+          { id: 'bike-feliz', name: 'VinFast Feliz S', price: 30000000, isActive: true },
+        ],
+      },
+    })
   })
 
   it('binds query search to the signed product type and rotates the option token', async () => {
     const result = await searchSalesAgentInteraction({ continuationToken: signSalesAgentInteractionToken(payload), conversationId: 'conversation-search', query: 'EvoGrand' })
 
-    expect(mocks.search).toHaveBeenCalledWith({ query: 'EvoGrand', productTypes: ['BIKE'], limit: 4 })
+    expect(mocks.browse).toHaveBeenCalledWith({ productTypes: ['BIKE'], page: { limit: 4 } })
     expect(result.options.map((option) => option.label)).toEqual(['VinFast Evo Grand', 'VinFast Feliz S'])
     expect(verifySalesAgentInteractionToken(result.continuationToken).options).toMatchObject({ [result.options[0].optionId]: { value: 'bike-evo-grand', kind: 'product' } })
   })

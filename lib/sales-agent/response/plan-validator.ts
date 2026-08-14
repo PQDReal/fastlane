@@ -1,15 +1,15 @@
 import {
-  agentResponsePlanV2Schema,
-  type AgentResponsePlanV2,
-  type FactPointerV2,
-  type PlannedNarrativeItemV2,
-} from '../../contracts/v2'
-import type { EvidenceLedger } from '../../orchestrator/v2/ledgers/evidence'
-import type { KnownEntityLedger } from '../../orchestrator/v2/ledgers/known-entities'
+  agentResponsePlanSchema,
+  type AgentResponsePlan,
+  type FactPointer,
+  type PlannedNarrativeItem,
+} from '../contracts'
+import type { EvidenceLedger } from '../orchestrator/ledgers/evidence'
+import type { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
 
 export type ValidationResult = {
   valid: boolean
-  plan: AgentResponsePlanV2
+  plan: AgentResponsePlan
   warnings: Array<{ code: string; message: string }>
 }
 
@@ -19,11 +19,10 @@ export function validateResponsePlan(
   knownEntities: KnownEntityLedger,
 ): ValidationResult {
   const warnings: Array<{ code: string; message: string }> = []
-  const parsed = agentResponsePlanV2Schema.safeParse(rawPlan)
+  const parsed = agentResponsePlanSchema.safeParse(rawPlan)
 
   if (!parsed.success) {
-    // If schema parsing fails, build a safe fallback plan
-    const fallbackPlan: AgentResponsePlanV2 = {
+    const fallbackPlan: AgentResponsePlan = {
       schemaVersion: '2.0',
       outcome: 'DEGRADED',
       narrative: [
@@ -44,11 +43,11 @@ export function validateResponsePlan(
   }
 
   const plan = parsed.data
-  const sanitizedNarrative: PlannedNarrativeItemV2[] = []
+  const sanitizedNarrative: PlannedNarrativeItem[] = []
 
   for (const item of plan.narrative) {
     if (item.kind === 'FASTLANE_FACT') {
-      const validPointers: FactPointerV2[] = []
+      const validPointers: FactPointer[] = []
       for (const pointer of item.facts) {
         const check = evidence.validateFactPointer(pointer)
         if (check.valid) {
@@ -69,7 +68,6 @@ export function validateResponsePlan(
         })
       }
     } else if (item.kind === 'ADVICE') {
-      // Validate subjects against known entities
       const validSubjects = (item.subjects ?? []).filter((subj) =>
         knownEntities.hasEntity(subj.kind as any, subj.id),
       )
@@ -92,7 +90,7 @@ export function validateResponsePlan(
     }
   }
 
-  const sanitizedPlan: AgentResponsePlanV2 = {
+  const sanitizedPlan: AgentResponsePlan = {
     ...plan,
     narrative: sanitizedNarrative.length > 0 ? sanitizedNarrative : [
       {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { EvidenceLedger } from '../../orchestrator/v2/ledgers/evidence'
-import { KnownEntityLedger } from '../../orchestrator/v2/ledgers/known-entities'
+import { EvidenceLedger } from '../orchestrator/ledgers/evidence'
+import { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
 import { composeTurnResponse } from './composer'
 import { validateResponsePlan } from './plan-validator'
 
-describe('Response Composer V2', () => {
+describe('Canonical Response Composer', () => {
   it('validates response plan and keeps valid fact pointers', () => {
     const evidence = new EvidenceLedger()
     const knownEntities = new KnownEntityLedger()
@@ -93,7 +93,7 @@ describe('Response Composer V2', () => {
     expect(warnings[0].code).toBe('INVALID_FACT_POINTER')
   })
 
-  it('composes TurnViewModelV2 with actions and suggestions', () => {
+  it('composes TurnViewModel with blocks, actions and suggestions', () => {
     const evidence = new EvidenceLedger()
     const knownEntities = new KnownEntityLedger()
     knownEntities.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8')
@@ -128,6 +128,8 @@ describe('Response Composer V2', () => {
     expect(response.schemaVersion).toBe('2.0')
     expect(response.answer.markdown).toContain('Giá xe VinFast VF 8')
     expect(response.answer.completeness).toBe('COMPLETE')
+    expect(response.blocks.length).toBe(1)
+    expect(response.blocks[0].kind).toBe('PRODUCT_LIST')
     expect(response.actions.length).toBe(1)
     expect(response.actions[0].actionKey).toBe('VIEW_PRODUCT')
     expect(response.suggestions.length).toBe(1)

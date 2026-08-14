@@ -7,8 +7,9 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
+import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
 import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agent/contracts/turn'
-import { getVisibleSalesAgentInteractionOptions, SALES_AGENT_INTERACTION_VISIBLE_OPTIONS } from '@/lib/sales-agent/contracts/interaction'
+import { getVisibleSalesAgentInteractionOptions, SALES_AGENT_INTERACTION_VISIBLE_OPTIONS, type SalesAgentInteractionMetric } from '@/lib/sales-agent/contracts/interaction'
 
 type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean }
 type DisplayInteraction = {

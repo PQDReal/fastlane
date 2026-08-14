@@ -11,7 +11,7 @@ type InteractionTokenOption = {
 }
 
 export type SalesAgentInteractionTokenPayload = {
-  schemaVersion: '1.0'
+  schemaVersion: '1.0' | '2.0'
   interactionId: string
   conversationId: string
   messageId: string
@@ -64,7 +64,7 @@ export function verifySalesAgentInteractionToken(token: string): SalesAgentInter
   } catch {
     throw new Error('Continuation token không hợp lệ.')
   }
-  if (!payload || typeof payload !== 'object' || (payload as Record<string, unknown>).schemaVersion !== '1.0') throw new Error('Continuation token không hợp lệ.')
+  if (!payload || typeof payload !== 'object' || ((payload as Record<string, unknown>).schemaVersion !== '1.0' && (payload as Record<string, unknown>).schemaVersion !== '2.0')) throw new Error('Continuation token không hợp lệ.')
   const result = payload as SalesAgentInteractionTokenPayload
   const expiresAt = Date.parse(result.expiresAt)
   if (!result.interactionId || !result.conversationId || !result.messageId || !result.options || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('Interaction đã hết hạn hoặc không hợp lệ.')
@@ -81,7 +81,7 @@ export function validateSalesAgentInteractionResponse(response: SalesAgentIntera
   if ((!selected.length && !payload.allowFreeText) || selected.length > payload.maxSelections || (!response.freeText && selected.length < payload.minSelections)) throw new Error('Số lựa chọn không hợp lệ.')
   if (!payload.allowFreeText && response.freeText) throw new Error('Interaction không nhận nội dung nhập thêm.')
   const selectedOptions = selected.map((optionId) => {
-    const option = payload.options[optionId]
+    const option = (payload.options as Record<string, InteractionTokenOption>)[optionId]
     if (!option) throw new Error('Lựa chọn không thuộc interaction này.')
     return { optionId, ...option }
   })
