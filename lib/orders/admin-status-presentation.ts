@@ -62,8 +62,16 @@ export function refundStatusPresentation(
 export function accessoryOrderStatusPresentation(
   status: AccessoryAdminOrderStatus,
   refundStatus: AdminOrderRefundStatus,
+  paymentAttemptStatus?: string | null,
 ): AdminOrderStatusPresentation {
   if (status === 'CANCELLED') return cancelledOrderStatusPresentation(refundStatus)
+
+  if (status === 'PENDING' && paymentAttemptStatus === 'PENDING') {
+    return presentation('Đang xác minh thanh toán', 'pending')
+  }
+  if (status === 'PENDING' && paymentAttemptStatus === 'FAILED') {
+    return presentation('Thanh toán thất bại', 'cancelled')
+  }
 
   const statuses: Record<Exclude<AccessoryAdminOrderStatus, 'CANCELLED'>, [string, AdminOrderStatusTone]> = {
     PENDING: ['Đang chờ thanh toán', 'pending'],
@@ -76,22 +84,30 @@ export function accessoryOrderStatusPresentation(
   return presentation(label, tone)
 }
 
-type VehicleOrderStatusInput = {
+export type VehicleOrderStatusInput = {
   status: string
   refundStatus: AdminOrderRefundStatus
   payment: string
+  paymentAttemptStatus?: string | null
   vehicleType?: string
 }
 
 export function depositPaymentStatusPresentation(
-  input: Pick<VehicleOrderStatusInput, 'status' | 'refundStatus' | 'payment'>,
+  input: Pick<VehicleOrderStatusInput, 'status' | 'refundStatus' | 'payment' | 'paymentAttemptStatus'>,
 ): AdminOrderStatusPresentation {
   if (input.status === 'CANCELLED') {
     return cancelledOrderStatusPresentation(input.refundStatus)
   }
-  return input.payment === 'Paid'
-    ? presentation('Đã đặt cọc', 'success')
-    : presentation('Chờ thanh toán cọc', 'pending')
+  if (input.payment === 'Paid') {
+    return presentation('Đã đặt cọc', 'success')
+  }
+  if (input.paymentAttemptStatus === 'PENDING') {
+    return presentation('Đang xác minh thanh toán', 'pending')
+  }
+  if (input.paymentAttemptStatus === 'FAILED') {
+    return presentation('Thanh toán thất bại', 'cancelled')
+  }
+  return presentation('Chờ thanh toán cọc', 'pending')
 }
 
 export function vehicleOrderStatusPresentation(

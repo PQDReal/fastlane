@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   accessoryOrderStatusPresentation,
   cancelledOrderStatusPresentation,
+  depositPaymentStatusPresentation,
   refundStatusPresentation,
   vehicleOrderStatusPresentation,
   type AdminOrderRefundStatus,
@@ -37,5 +38,17 @@ describe('admin order status presentation', () => {
       payment: 'Paid',
     }).tone).toBe('success')
     expect(refundStatusPresentation('COMPLETED').tone).toBe('success')
+  })
+
+  it.each([
+    ['PENDING', 'Đang xác minh thanh toán', 'pending'],
+    ['FAILED', 'Thanh toán thất bại', 'cancelled'],
+  ] as const)('presents a %s deposit attempt consistently', (paymentAttemptStatus, label, tone) => {
+    expect(depositPaymentStatusPresentation({
+      status: 'PENDING_DEPOSIT',
+      refundStatus: 'NONE',
+      payment: 'Unpaid',
+      paymentAttemptStatus,
+    })).toMatchObject({ label, tone })
   })
 })

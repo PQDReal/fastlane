@@ -5,6 +5,8 @@ import {
   verifyVnPayPipeHash,
   vnPayConfig,
   vnPayDate,
+  vnPayTransactionOutcome,
+  VNPAY_PAYMENT_EXPIRY_MS,
   type VnPayParams,
 } from '@/lib/payments/vnpay'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
@@ -195,7 +197,7 @@ async function reconcileAttempt(
   }
 
   const response = await queryVnPay(attempt, clientIp)
-  const isExpired = Date.now() - new Date(attempt.created_at).getTime() > 30 * 60_000 // 30 minutes
+  const isExpired = Date.now() - new Date(attempt.created_at).getTime() >= VNPAY_PAYMENT_EXPIRY_MS
 
   if (response.vnp_ResponseCode === '94') {
     return {
@@ -209,10 +211,6 @@ async function reconcileAttempt(
   }
 
   if (response.vnp_ResponseCode !== '00') {
-    if (isExpired) {
-      await applyPaymentResult(attempt, kind, response, false)
-      return { status: 'FAILED', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('FAILED') }
-    }
     return { status: 'PENDING', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('PENDING') }
   }
   if (response.vnp_TransactionType && response.vnp_TransactionType !== '01') {
@@ -220,20 +218,23 @@ async function reconcileAttempt(
   }
 
   const transactionStatus = response.vnp_TransactionStatus || ''
-  if (transactionStatus === '01') {
+  const outcome = vnPayTransactionOutcome(transactionStatus)
+  if (outcome === 'PENDING') {
     if (isExpired) {
-      await applyPaymentResult(attempt, kind, response, false)
-      return { status: 'FAILED', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('FAILED') }
+      // Status 01 means an unfinished payment and becomes a failure after the
+      // checkout window. Other pending codes belong to refund processing and
+      // must not overwrite the original payment result.
+      if (transactionStatus === '01') {
+        await applyPaymentResult(attempt, kind, response, false)
+        return { status: 'FAILED', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('FAILED') }
+      }
     }
     return { status: 'PENDING', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('PENDING') }
   }
-  if (transactionStatus === '00' || ['02', '04', '07'].includes(transactionStatus)) {
-    const success = transactionStatus === '00'
-    await applyPaymentResult(attempt, kind, response, success)
-    const status: PaymentAttemptStatus = success ? 'PAID' : 'FAILED'
-    return { status, orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage(status) }
-  }
-  return { status: 'PENDING', orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage('PENDING') }
+  const success = outcome === 'PAID'
+  await applyPaymentResult(attempt, kind, response, success)
+  const status: PaymentAttemptStatus = success ? 'PAID' : 'FAILED'
+  return { status, orderId, orderKind: kind, transactionReference: attempt.transaction_reference, message: statusMessage(status) }
 }
 
 async function findPendingAttempt(orderId: string, kind: PaymentAttemptKind) {
@@ -262,6 +263,22 @@ export async function reconcileVnPayPayment(input: {
     }
   }
   return reconcileAttempt(attempt, input.orderKind, input.clientIp)
+}
+
+export async function reconcileVnPayPaymentAttempt(input: {
+  attemptId: string
+  orderKind: PaymentAttemptKind
+  clientIp: string
+}) {
+  const table = input.orderKind === 'deposit' ? 'vnpay_deposit_attempts' : 'vnpay_checkout_attempts'
+  const columns = input.orderKind === 'deposit' ? DEPOSIT_ATTEMPT_COLUMNS : ATTEMPT_COLUMNS
+  const result = await getSupabaseAdmin().from(table).select(columns)
+    .eq('id', input.attemptId).maybeSingle<PaymentAttempt>()
+  if (result.error) throw result.error
+  if (!result.data) {
+    throw new VnPayPaymentReconciliationError('Không tìm thấy giao dịch VNPay cần đối soát.', 'ATTEMPT_NOT_FOUND')
+  }
+  return reconcileAttempt(result.data, input.orderKind, input.clientIp)
 }
 
 export async function reconcilePendingVnPayPayments(input: {

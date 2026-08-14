@@ -72,12 +72,14 @@ export function AdminOrderDetailDrawer({ order, debugActionsEnabled, isOpen, onC
     status: order.status,
     refundStatus: order.refundStatus,
     payment: order.payment,
+    paymentAttemptStatus: order.paymentAttemptStatus,
     vehicleType: order.vehicleType,
   })
   const paymentPresentation = depositPaymentStatusPresentation({
     status: order.status,
     refundStatus: order.refundStatus,
     payment: order.payment,
+    paymentAttemptStatus: order.paymentAttemptStatus,
   })
 
   const formatMoney = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + ' ₫'

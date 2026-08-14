@@ -7,4 +7,8 @@ describe('VNPAY Return page', () => {
   it('never writes payment state', () => {
     expect(source).toMatch(/processVnPayCallback\([\s\S]+updatePayment:\s*false/)
   })
+
+  it('does not simulate an IPN request from the browser', () => {
+    expect(source).not.toMatch(/AutoIpnTrigger|payments\/vnpay\/ipn/)
+  })
 })

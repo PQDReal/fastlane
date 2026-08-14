@@ -223,6 +223,7 @@ export function AdminOrdersClient({
               status: order.status,
               refundStatus: order.refundStatus,
               payment: order.payment,
+              paymentAttemptStatus: order.paymentAttemptStatus,
               vehicleType: order.vehicleType,
             })
             return (

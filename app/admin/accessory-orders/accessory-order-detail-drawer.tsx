@@ -51,7 +51,7 @@ export function AccessoryOrderDetailDrawer({
 }: AccessoryOrderDetailDrawerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const orderStatus = order
-    ? accessoryOrderStatusPresentation(order.status, order.refundStatus)
+    ? accessoryOrderStatusPresentation(order.status, order.refundStatus, order.paymentAttemptStatus)
     : null
   const refundStatus = order ? refundStatusPresentation(order.refundStatus) : null
 
