@@ -111,6 +111,7 @@ export const assistantBlockSchema = z.discriminatedUnion('kind', [
       productId: z.string(),
       name: z.string(),
       thumbnailUrl: z.string().nullable().optional(),
+      url: z.string().optional(),
       values: z.record(z.string(), z.string()),
     })),
   }),

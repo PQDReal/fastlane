@@ -69,6 +69,9 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       const criteria = ['Giá khởi điểm', 'Dung lượng pin', 'Quãng đường', 'Công suất', 'Số chỗ ngồi']
       const compProducts = knownProducts.map((entity) => {
         const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
+        const factSlug = options.evidence.getFact(`fact-slug-${entity.id}`)
+        const slug = entity.slug || (factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-'))
+        const pType = entity.productType || 'CAR'
         const factPriceVal = (entity.price != null || factPrice)
           ? `${(entity.price ?? Number(factPrice?.valueHash)).toLocaleString('vi-VN')} VNĐ`
           : 'Liên hệ'
@@ -77,6 +80,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
           productId: entity.id,
           name: entity.name,
           thumbnailUrl: entity.thumbnailUrl || null,
+          url: salesAgentProductUrl(pType as any, slug),
           values: {
             'Giá khởi điểm': factPriceVal,
           },

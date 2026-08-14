@@ -474,6 +474,7 @@ export function SalesAgentShell() {
                             key={`block-${idx}`}
                             criteria={block.criteria}
                             products={block.products}
+                            onSelectProduct={(name) => void send(`Tư vấn thêm về ${name}`)}
                           />
                         )
                       }
