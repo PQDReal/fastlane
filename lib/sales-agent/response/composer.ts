@@ -67,6 +67,29 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       title: knownProducts.length > 1 ? 'Danh sách sản phẩm liên quan' : 'Chi tiết sản phẩm',
       items: productItems,
     })
+
+    // If 2 or more products are being discussed in detail, also add comparison card view
+    if (knownProducts.length >= 2 && knownProducts.length <= 3) {
+      const criteria = ['Giá khởi điểm', 'Dung lượng pin', 'Quãng đường', 'Công suất', 'Số chỗ ngồi']
+      const compProducts = knownProducts.map((entity) => {
+        const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
+        const factPriceVal = factPrice ? `${Number(factPrice.valueHash).toLocaleString('vi-VN')} VNĐ` : 'Liên hệ'
+
+        return {
+          productId: entity.id,
+          name: entity.name,
+          values: {
+            'Giá khởi điểm': factPriceVal,
+          },
+        }
+      })
+
+      blocks.push({
+        kind: 'COMPARISON_TABLE',
+        criteria,
+        products: compProducts,
+      })
+    }
   }
 
   // 3. Compose Actions
@@ -94,21 +117,23 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   if (suggestions.length === 0) {
     if (knownProducts.length >= 2) {
       suggestions.push(
-        { suggestionId: `sug-1-${options.turnId}`, label: `So sánh ${knownProducts[0].name} và ${knownProducts[1].name}`, payload: `So sánh ${knownProducts[0].name} và ${knownProducts[1].name}` },
-        { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: `Dự toán trả góp ${knownProducts[0].name}` },
-        { suggestionId: `sug-3-${options.turnId}`, label: 'Đặt lịch lái thử', payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
+        { suggestionId: `sug-1-${options.turnId}`, label: `Dự toán trả góp ${knownProducts[0].name}`, payload: `Dự toán trả góp ${knownProducts[0].name}` },
+        { suggestionId: `sug-2-${options.turnId}`, label: `Đặt lịch lái thử ${knownProducts[0].name}`, payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
+        { suggestionId: `sug-3-${options.turnId}`, label: `Phụ kiện ${knownProducts[0].name}`, payload: `Phụ kiện cho ${knownProducts[0].name}` },
       )
     } else if (knownProducts.length === 1) {
       suggestions.push(
         { suggestionId: `sug-1-${options.turnId}`, label: `Thông số ${knownProducts[0].name}`, payload: `Thông số kỹ thuật ${knownProducts[0].name}` },
         { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: `Dự toán trả góp ${knownProducts[0].name}` },
-        { suggestionId: `sug-3-${options.turnId}`, label: 'Phụ kiện phù hợp', payload: `Phụ kiện phù hợp cho ${knownProducts[0].name}` },
+        { suggestionId: `sug-3-${options.turnId}`, label: 'Đặt lịch lái thử', payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
+        { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện phù hợp', payload: `Phụ kiện phù hợp cho ${knownProducts[0].name}` },
       )
     } else {
       suggestions.push(
         { suggestionId: `sug-1-${options.turnId}`, label: 'Giá xe hiện tại', payload: 'Giá xe hiện tại' },
         { suggestionId: `sug-2-${options.turnId}`, label: 'So sánh VF 8 và VF 9', payload: 'So sánh VF 8 và VF 9' },
         { suggestionId: `sug-3-${options.turnId}`, label: 'Chính sách bảo hành pin', payload: 'Chính sách bảo hành pin' },
+        { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện nên mua', payload: 'Phụ kiện nên mua' },
       )
     }
   }
