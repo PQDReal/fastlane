@@ -7,9 +7,14 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
+import { ProductCardBlock } from './product-card-block'
+import { ComparisonCardBlock } from './comparison-card-block'
+import { SuggestionChips } from './suggestion-chips'
+import { ActionButtons } from './action-buttons'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
 import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agent/contracts/turn'
 import { getVisibleSalesAgentInteractionOptions, SALES_AGENT_INTERACTION_VISIBLE_OPTIONS, type SalesAgentInteractionMetric } from '@/lib/sales-agent/contracts/interaction'
+import type { AssistantBlock, SalesAgentAction, SalesAgentSuggestion, TurnViewModel } from '@/lib/sales-agent/contracts'
 
 type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean }
 type DisplayInteraction = {
@@ -27,7 +32,15 @@ type DisplayInteraction = {
   expiresAt: string
   submitted?: boolean
 }
-type DisplayMessage = SalesAgentMessage & { id: string; pending?: boolean; error?: boolean; interaction?: DisplayInteraction }
+type DisplayMessage = SalesAgentMessage & {
+  id: string
+  pending?: boolean
+  error?: boolean
+  interaction?: DisplayInteraction
+  blocks?: AssistantBlock[]
+  actions?: SalesAgentAction[]
+  suggestions?: SalesAgentSuggestion[]
+}
 type InteractionSubmission = { selectedOptionIds: string[]; freeText?: string }
 type InteractionSearchResult = DisplayInteraction
 type InteractionSearchCallback = (result: InteractionSearchResult, selectedOptionIds: string[]) => void
@@ -269,6 +282,15 @@ export function SalesAgentShell() {
             receivedText = receivedText || payload.delta.length > 0
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
           }
+          if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
+            const vm = payload.viewModel as TurnViewModel
+            setMessages((items) => items.map((item) => item.id === assistantId ? {
+              ...item,
+              blocks: vm.blocks,
+              actions: vm.actions,
+              suggestions: vm.suggestions,
+            } : item))
+          }
           if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
           if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
@@ -285,6 +307,15 @@ export function SalesAgentShell() {
           if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
             receivedText = receivedText || payload.delta.length > 0
             setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
+          }
+          if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
+            const vm = payload.viewModel as TurnViewModel
+            setMessages((items) => items.map((item) => item.id === assistantId ? {
+              ...item,
+              blocks: vm.blocks,
+              actions: vm.actions,
+              suggestions: vm.suggestions,
+            } : item))
           }
           if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
           if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
@@ -371,9 +402,70 @@ export function SalesAgentShell() {
             setShowScrollButton(true)
           }}
         >
-          <div ref={contentRef} className="min-w-0 space-y-2">
+          <div ref={contentRef} className="min-w-0 space-y-3">
           {!messages.length && <div className="min-w-0 space-y-2.5"><div className="py-2 text-sm leading-5 text-slate-700">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div><div className="flex flex-wrap gap-1.5">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
-          {messages.map((item) => <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}><div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-2'}`}>{item.role === 'assistant' ? <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} /> : <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>}{item.interaction && <ChoiceInteraction interaction={item.interaction} conversationId={conversationIdRef.current} disabled={sending} onSearchResult={(result, selectedOptionIds) => updateInteractionSearch(item.id, item.interaction!, result, selectedOptionIds)} onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)} />}{item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}</div></div>)}
+          {messages.map((item) => (
+            <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}>
+              <div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-1'}`}>
+                {item.role === 'assistant' ? (
+                  <div className="space-y-2">
+                    <MarkdownMessage content={item.content || 'Đang tra cứu…'} streaming={item.pending} />
+
+                    {/* Rich Blocks */}
+                    {item.blocks?.map((block, idx) => {
+                      if (block.kind === 'PRODUCT_LIST') {
+                        return (
+                          <ProductCardBlock
+                            key={`block-${idx}`}
+                            title={block.title}
+                            items={block.items}
+                            onSelectProduct={(name) => void send(`Tư vấn thêm về ${name}`)}
+                          />
+                        )
+                      }
+                      if (block.kind === 'COMPARISON_TABLE') {
+                        return (
+                          <ComparisonCardBlock
+                            key={`block-${idx}`}
+                            criteria={block.criteria}
+                            products={block.products}
+                          />
+                        )
+                      }
+                      return null
+                    })}
+
+                    {/* Action Buttons */}
+                    {item.actions && item.actions.length > 0 && (
+                      <ActionButtons actions={item.actions} />
+                    )}
+
+                    {/* Suggestion Chips */}
+                    {item.suggestions && item.suggestions.length > 0 && !item.pending && (
+                      <SuggestionChips
+                        suggestions={item.suggestions}
+                        disabled={sending}
+                        onSelect={(payload) => void send(payload)}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>
+                )}
+
+                {item.interaction && (
+                  <ChoiceInteraction
+                    interaction={item.interaction}
+                    conversationId={conversationIdRef.current}
+                    disabled={sending}
+                    onSearchResult={(result, selectedOptionIds) => updateInteractionSearch(item.id, item.interaction!, result, selectedOptionIds)}
+                    onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)}
+                  />
+                )}
+                {item.pending && <Loader2 size={13} className="mt-1.5 animate-spin text-brand-600" aria-label="Đang tải" />}
+              </div>
+            </div>
+          ))}
           </div>
         </div>
         <div className="relative">
