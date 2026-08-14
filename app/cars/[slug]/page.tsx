@@ -190,6 +190,8 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
   if (product.name === 'VF 3') {
     bannerImg = carRichData.gallery?.exterior_images?.[1] || bannerImg
+  } else if (product.name === 'VF 5' || product.slug === 'vf-5') {
+    bannerImg = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8239f7a0/reserves/VF5/2025/hero.webp'
   } else if (product.slug === 'vf-8-all-new' || product.name.toLowerCase().includes('vf 8 the all')) {
     bannerImg = 'https://vinfastauto.com/themes/porto/img/vf8-new-product/hero-banner.svg'
   } else if (product.name.includes('MPV')) {
@@ -231,6 +233,8 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
   const dbSpecsVariants = specsObj.specs || {}
   const dbVariantKeys = Object.keys(dbSpecsVariants)
+  
+  const brochureUrl = specsObj.brochure_url || null
 
   const variantKeys = dbVariantKeys.length > 0 ? dbVariantKeys : Object.keys(carSpecs.variants || {})
   
@@ -577,7 +581,13 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
               
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
                 <Button className="bg-[#e19200] hover:bg-blue-700 text-white rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">NHẬN TƯ VẤN</Button>
-                <Button variant="outline" className="border-[#e19200] text-[#e19200] hover:bg-blue-50 rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">XEM CHI TIẾT</Button>
+                {brochureUrl ? (
+                  <Button variant="outline" className="border-[#e19200] text-[#e19200] hover:bg-blue-50 rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider" asChild>
+                    <a href={brochureUrl} target="_blank" rel="noopener noreferrer">XEM CHI TIẾT</a>
+                  </Button>
+                ) : (
+                  <Button variant="outline" className="border-[#e19200] text-[#e19200] hover:bg-blue-50 rounded-none w-[200px] py-6 uppercase font-bold text-xs tracking-wider">XEM CHI TIẾT</Button>
+                )}
               </div>
             </div>
           </div>
@@ -618,7 +628,13 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
             </div>
             
             <div className="mt-16 flex justify-center">
-              <Button variant="outline" className="rounded-full px-8 border-black text-black hover:bg-black/5 font-bold">Xem bản PDF Thông số chi tiết</Button>
+              {brochureUrl ? (
+                <Button variant="outline" className="rounded-full px-8 border-black text-black hover:bg-black/5 font-bold" asChild>
+                  <a href={brochureUrl} target="_blank" rel="noopener noreferrer">Xem bản PDF Thông số chi tiết</a>
+                </Button>
+              ) : (
+                <Button variant="outline" className="rounded-full px-8 border-black text-black hover:bg-black/5 font-bold">Xem bản PDF Thông số chi tiết</Button>
+              )}
             </div>
           </div>
         </section>
