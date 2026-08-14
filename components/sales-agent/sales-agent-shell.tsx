@@ -542,7 +542,7 @@ export function SalesAgentShell() {
             }}
             className="space-y-1.5"
           >
-            <div className="relative flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200/90 bg-white p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
+            <div className="relative rounded-2xl border border-slate-200/90 bg-white p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
               <textarea
                 ref={textareaRef}
                 value={draft}
@@ -556,13 +556,13 @@ export function SalesAgentShell() {
                 disabled={sending}
                 rows={1}
                 placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'}
-                className="max-h-[116px] min-h-[36px] overflow-y-auto custom-scrollbar flex-1 resize-none border-0 bg-transparent py-2 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-5"
+                className="max-h-[116px] min-h-[36px] w-full resize-none border-0 bg-transparent py-2 pr-10 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-5 custom-scrollbar"
                 aria-label="Câu hỏi cho Sales Agent"
               />
               <button
                 type="submit"
                 disabled={!draft.trim() || sending}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-all duration-150 hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200/80 disabled:text-slate-400"
+                className="absolute right-1.5 bottom-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-all duration-150 hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200/80 disabled:text-slate-400"
                 aria-label="Gửi câu hỏi"
               >
                 <ArrowUp size={15} strokeWidth={2.5} />
