@@ -7,6 +7,11 @@ import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields } from '@/lib/vehicle-specifications'
+import {
+  buildMotorbikeVersionMedia,
+  findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+} from '@/lib/motorbike-version-media'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -84,6 +89,9 @@ export async function POST(request: Request) {
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
   }
+  if (versions.some((version: any) => Array.isArray(version.detail_image_urls) && version.detail_image_urls.length > MAX_MOTORBIKE_VERSION_DETAIL_IMAGES)) {
+    return NextResponse.json({ error: `Mỗi phiên bản chỉ được có tối đa ${MAX_MOTORBIKE_VERSION_DETAIL_IMAGES} ảnh chi tiết.` }, { status: 400 })
+  }
   if (versions.some((version: any) => Object.values(version.stock_by_color ?? {}).some((value) => !Number.isInteger(Number(value)) || Number(value) < 0))) {
     return NextResponse.json({ error: 'Tồn kho của từng phiên bản và màu phải là số nguyên không âm.' }, { status: 400 })
   }
@@ -109,6 +117,7 @@ export async function POST(request: Request) {
   if (sellableConfigurations.some(({ version, color }: any) => !Number.isFinite(priceForConfiguration(version, color)) || priceForConfiguration(version, color) <= 0)) {
     return NextResponse.json({ error: 'Giá bán của từng phiên bản phải lớn hơn 0.' }, { status: 400 })
   }
+  const versionMedia = buildMotorbikeVersionMedia(versions)
 
   const productId = randomUUID()
   const categoryId = '6dfde2e5-b9d5-755c-10db-19a7ce6c24b5' // Xe máy điện category ID
@@ -152,6 +161,7 @@ export async function POST(request: Request) {
       interior_images: [],
     },
     variants: versions.map((v: any) => v.name),
+    version_media: versionMedia,
     variant_compatibility: sellableConfigurations.map(({ version, color }: any) => ({
       version: version.name,
       exterior_color: color.color_name,
@@ -212,6 +222,8 @@ export async function POST(request: Request) {
         base_sku: version.sku,
         version: version.name,
         color: colorItem.color_name,
+        version_image_url: findMotorbikeVersionMedia(versionMedia, version)?.image_url || null,
+        version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, version)?.detail_image_urls || [],
       },
       deposit_amount: version.deposit_amount,
     }))
@@ -246,8 +258,10 @@ export async function POST(request: Request) {
           product_slug: slug,
           version_order: versionIndex + 1,
           hero_image_url,
+          version_image_url: findMotorbikeVersionMedia(versionMedia, origVersion)?.image_url || '',
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
+          version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, origVersion)?.detail_image_urls || [],
           listing_image_url,
         },
       }

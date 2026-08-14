@@ -8,6 +8,12 @@ import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructMotorbikeAdminConfiguration } from '@/lib/motorbike-admin-variants'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields } from '@/lib/vehicle-specifications'
+import {
+  buildMotorbikeVersionMedia,
+  findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+  normalizeMotorbikeVersionMedia,
+} from '@/lib/motorbike-version-media'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -78,6 +84,7 @@ export async function GET(request: Request, context: Context) {
 
   // Reconstruct form state
   const specsObj = product.specifications || {}
+  const versionMedia = normalizeMotorbikeVersionMedia(specsObj.version_media)
   const image_urls = product.image_urls || []
   
   const listing_image_url = specsObj.catalog?.listing_image_url || image_urls[0] || ''
@@ -114,7 +121,14 @@ export async function GET(request: Request, context: Context) {
       DEFAULT_MOTORBIKE_SPEC_FIELDS,
     ),
     colors: specsObj.color_details || [],
-    versions: reconstructedVersions,
+    versions: reconstructedVersions.map((version) => {
+      const media = findMotorbikeVersionMedia(versionMedia, version)
+      return {
+        ...version,
+        image_url: media?.image_url || '',
+        detail_image_urls: media?.detail_image_urls || [],
+      }
+    }),
     advanced_color_price: Number(product.advanced_color_price || 0),
     landing_page_blocks: specsObj.landing_page_blocks || [],
   }
@@ -170,6 +184,9 @@ export async function PATCH(request: Request, context: Context) {
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
   }
+  if (versions.some((version: any) => Array.isArray(version.detail_image_urls) && version.detail_image_urls.length > MAX_MOTORBIKE_VERSION_DETAIL_IMAGES)) {
+    return NextResponse.json({ error: `Mỗi phiên bản chỉ được có tối đa ${MAX_MOTORBIKE_VERSION_DETAIL_IMAGES} ảnh chi tiết.` }, { status: 400 })
+  }
 
   const colorNames = new Set(colors.map((color: any) => String(color.color_name)))
   const advancedColorPrice = Math.max(0, Number(advanced_color_price) || 0)
@@ -200,6 +217,7 @@ export async function PATCH(request: Request, context: Context) {
   if (sellableConfigurations.some(({ version, color }: any) => !Number.isFinite(priceForConfiguration(version, color)) || priceForConfiguration(version, color) <= 0)) {
     return NextResponse.json({ error: 'Giá bán của từng phiên bản phải lớn hơn 0.' }, { status: 400 })
   }
+  const versionMedia = buildMotorbikeVersionMedia(versions)
 
   const categoryId = '6dfde2e5-b9d5-755c-10db-19a7ce6c24b5'
 
@@ -239,6 +257,7 @@ export async function PATCH(request: Request, context: Context) {
       interior_images: [],
     },
     variants: versions.map((v: any) => v.name),
+    version_media: versionMedia,
     variant_compatibility: sellableConfigurations.map(({ version, color }: any) => ({
       version: version.name,
       exterior_color: color.color_name,
@@ -304,6 +323,8 @@ export async function PATCH(request: Request, context: Context) {
           base_sku: version.sku,
           version: version.name,
           color: colorItem.color_name,
+          version_image_url: findMotorbikeVersionMedia(versionMedia, version)?.image_url || null,
+          version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, version)?.detail_image_urls || [],
         },
         deposit_amount: version.deposit_amount,
       }
@@ -328,8 +349,10 @@ export async function PATCH(request: Request, context: Context) {
           product_slug: slug,
           version_order: versionIndex + 1,
           hero_image_url,
+          version_image_url: findMotorbikeVersionMedia(versionMedia, originalVersion)?.image_url || '',
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
+          version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, originalVersion)?.detail_image_urls || [],
           listing_image_url,
         },
       }

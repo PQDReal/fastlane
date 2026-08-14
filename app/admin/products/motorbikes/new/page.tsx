@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
+import { MotorbikeVersionMediaFields } from '@/components/admin/motorbike-version-media-fields'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
 
 const STORAGE_KEY = 'fastlane.admin.products.motorbikes.new.v1'
@@ -53,6 +54,8 @@ interface VersionEntry {
   sku: string
   price: number
   deposit_amount: number
+  image_url?: string
+  detail_image_urls?: string[]
   stock_by_color?: Record<string, number>
   compatible_colors?: string[]
 }
@@ -161,8 +164,8 @@ const initialFormState: FormState = {
   ],
   advanced_color_price: 0,
   versions: [
-    { name: 'Phiên bản Không kèm Pin (Thuê pin)', sku: 'VINFAST-NEWBIKE-02', price: 23000000, deposit_amount: 2000000, stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
-    { name: 'Phiên bản Kèm Pin (Mua đứt pin)', sku: 'VINFAST-NEWBIKE-01', price: 29000000, deposit_amount: 2000000, stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
+    { name: 'Phiên bản Không kèm Pin (Thuê pin)', sku: 'VINFAST-NEWBIKE-02', price: 23000000, deposit_amount: 2000000, image_url: '', detail_image_urls: [], stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
+    { name: 'Phiên bản Kèm Pin (Mua đứt pin)', sku: 'VINFAST-NEWBIKE-01', price: 29000000, deposit_amount: 2000000, image_url: '', detail_image_urls: [], stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
   ],
   landing_page_blocks: defaultLandingBlocks,
 }
@@ -180,6 +183,7 @@ export default function NewMotorbikePage() {
 
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
+  const [previewVersionIndex, setPreviewVersionIndex] = useState(0)
 
   // 1. Toast notify helper
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -404,7 +408,7 @@ export default function NewMotorbikePage() {
       ...current,
       versions: [
         ...current.versions,
-        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000, stock_by_color: {}, compatible_colors: current.colors.map((color) => color.color_name) },
+        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000, image_url: '', detail_image_urls: [], stock_by_color: {}, compatible_colors: current.colors.map((color) => color.color_name) },
       ],
     }))
   }
@@ -561,6 +565,14 @@ export default function NewMotorbikePage() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
   }
+
+  const resolvedPreviewVersionIndex = Math.min(previewVersionIndex, Math.max(form.versions.length - 1, 0))
+  const previewVersion = form.versions[resolvedPreviewVersionIndex]
+  const previewHeroImage = previewVersion?.image_url?.trim() || form.hero_image_url
+  const previewVersionDetailImages = (previewVersion?.detail_image_urls ?? []).filter(Boolean)
+  const previewDetailImages = previewVersionDetailImages.length > 0
+    ? previewVersionDetailImages
+    : form.detail_image_urls.filter(Boolean)
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
@@ -1040,6 +1052,14 @@ export default function NewMotorbikePage() {
                         onChange={(colors) => updateCompatibleColors(idx, colors)}
                       />
                     </div>
+                    <MotorbikeVersionMediaFields
+                      versionName={ver.name}
+                      imageUrl={ver.image_url ?? ''}
+                      detailImageUrls={ver.detail_image_urls ?? []}
+                      onImageChange={(imageUrl) => updateVersion(idx, { image_url: imageUrl })}
+                      onDetailImagesChange={(detailImageUrls) => updateVersion(idx, { detail_image_urls: detailImageUrls })}
+                      onError={(message) => notify('error', 'Không thể cập nhật hình ảnh', message)}
+                    />
                   </div>
                 ))}
               </div>
@@ -1527,9 +1547,9 @@ export default function NewMotorbikePage() {
             <div className="min-h-screen pb-32">
               {/* HERO Banner */}
               <section id="preview-top" className="relative flex h-[90vh] min-h-[600px] w-full flex-col justify-between overflow-hidden">
-                {form.hero_image_url ? (
+                {previewHeroImage ? (
                   <img
-                    src={form.hero_image_url}
+                    src={previewHeroImage}
                     alt={form.name || 'Motorbike Hero'}
                     className="absolute inset-0 h-full w-full object-cover"
                   />
@@ -1593,6 +1613,34 @@ export default function NewMotorbikePage() {
                   </nav>
                 </div>
               </div>
+
+              {/* VERSION SELECTOR */}
+              {form.versions.length > 0 && (
+                <section className="mx-auto max-w-6xl px-6 pt-16">
+                  <div className="mb-6 text-center">
+                    <span className="text-xs font-bold uppercase tracking-[0.24em] text-brand-400">Phiên bản đang xem</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {form.versions.map((version, index) => (
+                      <button
+                        key={`${version.sku}-${index}`}
+                        type="button"
+                        onClick={() => setPreviewVersionIndex(index)}
+                        aria-pressed={resolvedPreviewVersionIndex === index}
+                        className={`relative min-h-24 rounded-2xl border px-5 py-4 text-left transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                          resolvedPreviewVersionIndex === index
+                            ? 'border-brand-400 bg-brand-500/15 text-white'
+                            : 'border-white/10 bg-white/5 text-white/70 hover:border-white/30 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="block pr-7 text-sm font-bold leading-5">{version.name || 'Phiên bản chưa đặt tên'}</span>
+                        <span className="mt-2 block text-xs text-white/50">{formatPrice(version.price)}</span>
+                        {resolvedPreviewVersionIndex === index && <Check className="absolute right-4 top-4 text-brand-400" size={18} />}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {/* COLOR SELECTOR AND VEHICLE DISPLAY */}
               <section className="mx-auto max-w-6xl px-6 py-20">
@@ -1674,14 +1722,16 @@ export default function NewMotorbikePage() {
               )}
 
               {/* DETAIL IMAGES LANDING */}
-              {form.detail_image_urls && form.detail_image_urls.length > 0 && (
+              {previewDetailImages.length > 0 && (
                 <section id="preview-details-gallery" className="mx-auto max-w-6xl px-6 py-20 bg-slate-950 text-white">
                   <div className="text-center mb-12">
                     <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
-                    <p className="text-xs text-white/50 mt-2">Hình ảnh thực tế chi tiết của xe.</p>
+                    <p className="text-xs text-white/50 mt-2">
+                      {previewVersionDetailImages.length > 0 ? `Bộ ảnh riêng của ${previewVersion?.name}.` : 'Hình ảnh thực tế chi tiết của xe.'}
+                    </p>
                   </div>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {form.detail_image_urls.slice(0, 20).map((url, idx) => (
+                    {previewDetailImages.slice(0, 20).map((url, idx) => (
                       <div key={idx} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900">
                         {url ? <img src={url} alt={`Chi tiết ${form.name || 'xe'} ${idx + 1}`} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12"><span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span></div>
