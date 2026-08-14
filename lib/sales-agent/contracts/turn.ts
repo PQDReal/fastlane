@@ -1,4 +1,7 @@
-import type { SalesAgentInteraction, SalesAgentInteractionResponse } from './interaction'
+import { z } from 'zod'
+
+export const productTypeSchema = z.enum(['CAR', 'BIKE', 'ACCESSORY'])
+export type ProductType = z.infer<typeof productTypeSchema>
 
 export type SalesAgentMessage = {
   role: 'user' | 'assistant'
@@ -20,10 +23,6 @@ export function estimateSalesAgentMessageTokens(message: SalesAgentMessage) {
   return SALES_AGENT_MESSAGE_OVERHEAD_TOKENS + estimateSalesAgentTextTokens(message.content)
 }
 
-export function estimateSalesAgentHistoryTokens(history: SalesAgentMessage[]) {
-  return SALES_AGENT_MESSAGE_OVERHEAD_TOKENS + history.reduce((total, message) => total + estimateSalesAgentMessageTokens(message), 0)
-}
-
 function toUserLedTurns(history: SalesAgentMessage[]) {
   const turns: SalesAgentMessage[][] = []
   for (const message of history) {
@@ -32,9 +31,6 @@ function toUserLedTurns(history: SalesAgentMessage[]) {
       continue
     }
     const currentTurn = turns.at(-1)
-    // A normal client turn contains one user and one assistant message. Ignore
-    // duplicate assistant entries so the bounded context cannot be inflated by
-    // orphaned or replayed provider events.
     if (currentTurn && currentTurn.length === 1) currentTurn.push(message)
   }
   return turns
@@ -57,22 +53,73 @@ export function limitSalesAgentHistory(history: SalesAgentMessage[]) {
   return keptTurns.flat()
 }
 
+export const salesAgentUserMessageInputSchema = z.object({
+  kind: z.literal('USER_MESSAGE'),
+  text: z.string().trim().min(1).max(2000),
+})
+
+export const salesAgentInteractionSubmitInputSchema = z.object({
+  kind: z.literal('INTERACTION_SUBMIT'),
+  interactionId: z.string().trim().min(1),
+  selectedOptionIds: z.array(z.string().trim().min(1)).min(1).max(8),
+  freeText: z.string().trim().max(500).optional(),
+  continuationToken: z.string().trim().min(1),
+})
+
+export const salesAgentSuggestionSelectInputSchema = z.object({
+  kind: z.literal('SUGGESTION_SELECT'),
+  suggestionId: z.string().trim().min(1),
+  payload: z.string().trim().optional(),
+})
+
+export const salesAgentActionInvokeInputSchema = z.object({
+  kind: z.literal('ACTION_INVOKE'),
+  actionId: z.string().trim().min(1),
+  continuationToken: z.string().trim().min(1),
+})
+
+export const salesAgentTurnInputSchema = z.discriminatedUnion('kind', [
+  salesAgentUserMessageInputSchema,
+  salesAgentInteractionSubmitInputSchema,
+  salesAgentSuggestionSelectInputSchema,
+  salesAgentActionInvokeInputSchema,
+])
+export type SalesAgentTurnInput = z.infer<typeof salesAgentTurnInputSchema>
+
+export const createSalesAgentTurnRequestSchema = z.object({
+  schemaVersion: z.literal('2.0').default('2.0'),
+  conversationId: z.string().trim().min(1).optional(),
+  clientTurnId: z.string().trim().min(1),
+  input: salesAgentTurnInputSchema,
+  pageContext: z.object({
+    routeKey: z.string().trim().min(1).optional(),
+    currentProductId: z.string().trim().min(1).optional(),
+    currentProductType: productTypeSchema.optional(),
+  }).optional(),
+  locale: z.literal('vi-VN').default('vi-VN'),
+})
+export type CreateSalesAgentTurnRequest = z.infer<typeof createSalesAgentTurnRequestSchema>
+
+export class SalesAgentRequestError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SalesAgentRequestError'
+  }
+}
+
 export type SalesAgentMessageRequest = {
   conversationId?: string
   message: string
   guestHistory?: SalesAgentMessage[]
-  interactionResponse?: SalesAgentInteractionResponse
+  interactionResponse?: {
+    interactionId: string
+    selectedOptionIds: string[]
+    freeText?: string
+    continuationToken: string
+  }
   pageContext?: { routeKey: string; entityId?: string }
   locale?: 'vi-VN'
 }
-
-export type SalesAgentSseEvent =
-  | { type: 'meta'; conversationId: string; messageId: string }
-  | { type: 'tool_status'; tool: string; status: 'running' | 'OK' | 'PARTIAL' | 'NOT_FOUND' | 'AMBIGUOUS' | 'UNAVAILABLE' }
-  | { type: 'text_delta'; delta: string }
-  | { type: 'interaction'; interaction: SalesAgentInteraction }
-  | { type: 'done'; provider: string; model: string; finishReason: 'stop' | 'requires_input' }
-  | { type: 'error'; code: string; message: string; retryable: boolean }
 
 export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessageRequest {
   if (!value || typeof value !== 'object') throw new SalesAgentRequestError('Request phải là JSON object.')
@@ -101,38 +148,12 @@ export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessage
       }
     : undefined
 
-  const interactionResponse = input.interactionResponse && typeof input.interactionResponse === 'object'
-    ? parseInteractionResponse(input.interactionResponse)
-    : undefined
-
   return {
     conversationId: typeof input.conversationId === 'string' ? input.conversationId.slice(0, 120) : undefined,
     message,
     guestHistory,
-    interactionResponse,
+    interactionResponse: input.interactionResponse as any,
     pageContext,
     locale: input.locale === 'vi-VN' || input.locale == null ? 'vi-VN' : undefined,
-  }
-}
-
-function parseInteractionResponse(value: object): SalesAgentInteractionResponse {
-  const input = value as Record<string, unknown>
-  const interactionId = typeof input.interactionId === 'string' ? input.interactionId.trim().slice(0, 120) : ''
-  const continuationToken = typeof input.continuationToken === 'string' ? input.continuationToken.slice(0, 8_192) : ''
-  if (!Array.isArray(input.selectedOptionIds) || input.selectedOptionIds.some((item) => typeof item !== 'string')) {
-    throw new SalesAgentRequestError('Lựa chọn tương tác không hợp lệ.')
-  }
-  const selectedOptionIds = input.selectedOptionIds.map((item) => item.trim()).filter(Boolean)
-  const freeText = typeof input.freeText === 'string' ? input.freeText.trim().slice(0, 500) : undefined
-  if (!interactionId || !continuationToken || selectedOptionIds.length > 8 || new Set(selectedOptionIds).size !== selectedOptionIds.length || !selectedOptionIds.length && !freeText) {
-    throw new SalesAgentRequestError('Lựa chọn tương tác không hợp lệ.')
-  }
-  return { interactionId, selectedOptionIds, ...(freeText ? { freeText } : {}), continuationToken }
-}
-
-export class SalesAgentRequestError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'SalesAgentRequestError'
   }
 }
