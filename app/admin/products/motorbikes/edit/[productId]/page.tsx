@@ -802,6 +802,33 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                 </div>
               )}
             </div>
+
+            <div className="border-t border-slate-100 pt-6">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Hình ảnh chi tiết theo phiên bản</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Mỗi phiên bản có thể dùng ảnh đại diện và bộ ảnh riêng; bỏ trống để dùng ảnh chung của sản phẩm.
+                </p>
+              </div>
+              <div className="mt-5 space-y-5">
+                {form.versions.map((version, versionIndex) => (
+                  <section key={`${version.sku}-${versionIndex}`} className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{version.name || 'Phiên bản chưa đặt tên'}</h4>
+                      <p className="mt-0.5 text-[11px] text-slate-500">SKU gốc: {version.sku || 'Chưa có SKU'}</p>
+                    </div>
+                    <MotorbikeVersionMediaFields
+                      versionName={version.name}
+                      imageUrl={version.image_url ?? ''}
+                      detailImageUrls={version.detail_image_urls ?? []}
+                      onImageChange={(imageUrl) => updateVersion(versionIndex, { image_url: imageUrl })}
+                      onDetailImagesChange={(detailImageUrls) => updateVersion(versionIndex, { detail_image_urls: detailImageUrls })}
+                      onError={(message) => notify('error', 'Không thể cập nhật hình ảnh', message)}
+                    />
+                  </section>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1077,14 +1104,6 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                       mediaByColor={normalizeMotorbikeVariantColorMedia(ver.media_by_color)}
                       onChange={(colorName, media) => updateVariantColorMedia(idx, colorName, media)}
                       onError={(message) => notify('error', 'Không thể cập nhật hình ảnh màu', message)}
-                    />
-                    <MotorbikeVersionMediaFields
-                      versionName={ver.name}
-                      imageUrl={ver.image_url ?? ''}
-                      detailImageUrls={ver.detail_image_urls ?? []}
-                      onImageChange={(imageUrl) => updateVersion(idx, { image_url: imageUrl })}
-                      onDetailImagesChange={(detailImageUrls) => updateVersion(idx, { detail_image_urls: detailImageUrls })}
-                      onError={(message) => notify('error', 'Không thể cập nhật hình ảnh', message)}
                     />
                   </div>
                 ))}

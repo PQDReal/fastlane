@@ -6,6 +6,8 @@ const editRoute = fs.readFileSync(new URL('../app/api/v1/admin/motorbikes/[produ
 const catalog = fs.readFileSync(new URL('./motorbike-catalog.ts', import.meta.url), 'utf8')
 const productPage = fs.readFileSync(new URL('../app/bikes/[slug]/page.tsx', import.meta.url), 'utf8')
 const depositClient = fs.readFileSync(new URL('../app/deposit/DepositClient.tsx', import.meta.url), 'utf8')
+const createAdminPage = fs.readFileSync(new URL('../app/admin/products/motorbikes/new/page.tsx', import.meta.url), 'utf8')
+const editAdminPage = fs.readFileSync(new URL('../app/admin/products/motorbikes/edit/[productId]/page.tsx', import.meta.url), 'utf8')
 
 describe('motorbike version and color media flow', () => {
   it('writes each combination media to its vehicle variant row', () => {
@@ -27,5 +29,19 @@ describe('motorbike version and color media flow', () => {
     expect(productPage).toContain('const versionColorOptions = motorbike.variantRows.map')
     expect(depositClient).toContain('const variantColors = Array.from(new Map(canonicalColorRows')
     expect(depositClient).toContain('swatch: variant.image_color_url')
+  })
+
+  it('keeps version galleries in the product images tab', () => {
+    for (const page of [createAdminPage, editAdminPage]) {
+      const imagesTab = page.indexOf("activeTab === 'images'")
+      const specsTab = page.indexOf("activeTab === 'specs'")
+      const variantsTab = page.indexOf("activeTab === 'variants'")
+      const landingTab = page.indexOf("activeTab === 'landing_page'")
+      const versionGallery = page.lastIndexOf('<MotorbikeVersionMediaFields')
+
+      expect(versionGallery).toBeGreaterThan(imagesTab)
+      expect(versionGallery).toBeLessThan(specsTab)
+      expect(page.slice(variantsTab, landingTab)).not.toContain('<MotorbikeVersionMediaFields')
+    }
   })
 })
