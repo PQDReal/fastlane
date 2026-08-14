@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import { Header } from '../../../components/header'
 import { Footer } from '../../../components/footer'
 import Link from 'next/link'
-import { BikeColorSelector } from '../../../components/bike-color-selector'
 import { BikeVersionMediaGallery } from '../../../components/bike-version-media-gallery'
 import { getMotorbikeCatalogBySlug } from '../../../lib/motorbike-catalog'
 import { getSupabaseAdmin } from '../../../lib/supabase-admin'
@@ -166,11 +165,6 @@ export default async function BikeDetailPage(
     src: motorbike.heroImageUrl,
     contain: motorbike.heroImageUrl === motorbike.listingImageUrl,
   }
-  const bikeColors = motorbike.colors.map((color) => ({
-    name: color.name,
-    swatch: color.swatchUrl || undefined,
-  }))
-  const colorImages = motorbike.colors.map((color) => color.imageUrl)
   const detailImages = motorbike.detailImageUrls
   const versionMediaOptions = motorbike.versions.map((version) => {
     const media = findMotorbikeVersionMedia(storedVersionMedia, version)
@@ -180,6 +174,16 @@ export default async function BikeDetailPage(
       price: version.price,
       imageUrl: media?.image_url || '',
       detailImageUrls: media?.detail_image_urls || [],
+    }
+  })
+  const versionColorOptions = motorbike.variantRows.map((variant) => {
+    const version = motorbike.versions.find((entry) => entry.name === variant.version)
+    return {
+      versionName: variant.version,
+      versionSku: version?.sku || variant.sku.replace(/-C\d{2}$/i, ''),
+      colorName: variant.color,
+      imageUrl: variant.imageCarUrl,
+      swatchUrl: variant.imageColorUrl,
     }
   })
 
@@ -568,14 +572,6 @@ export default async function BikeDetailPage(
         </div>
       </section>
 
-      {motorbike.colors.length > 0 && (
-        <BikeColorSelector
-          colors={bikeColors}
-          images={colorImages}
-          description={description}
-        />
-      )}
-
       {/* TECHNOLOGY & SAFETY */}
       <section className="bg-muted py-32">
         <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-16 px-6 lg:grid-cols-2 lg:px-12">
@@ -690,6 +686,8 @@ export default async function BikeDetailPage(
       <BikeVersionMediaGallery
         productName={product.name}
         versions={versionMediaOptions}
+        colorVariants={versionColorOptions}
+        description={description}
         fallbackImageUrl={heroImage.src}
         fallbackDetailImageUrls={detailImages}
       />

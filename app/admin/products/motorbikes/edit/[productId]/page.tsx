@@ -32,7 +32,14 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
 import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
 import { MotorbikeVersionMediaFields } from '@/components/admin/motorbike-version-media-fields'
+import { MotorbikeVersionColorMediaFields } from '@/components/admin/motorbike-version-color-media-fields'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
+import {
+  normalizeMotorbikeVariantColorMedia,
+  renameMotorbikeVariantColorMedia,
+  resolveMotorbikeVariantColorMedia,
+  type MotorbikeVariantColorMedia,
+} from '@/lib/motorbike-variant-color-media'
 
 const MOTORBIKE_FORM_RENDERED_SPEC_KEYS = new Set([
   'Quãng đường đi được mỗi lần sạc', 'Công suất tối đa', 'Tốc độ tối đa', 'Thời gian sạc tiêu chuẩn',
@@ -56,6 +63,7 @@ interface VersionEntry {
   deposit_amount: number
   image_url?: string
   detail_image_urls?: string[]
+  media_by_color?: Record<string, MotorbikeVariantColorMedia>
   stock_by_color?: Record<string, number>
   compatible_colors?: string[]
 }
@@ -360,6 +368,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           delete stockByColor[removedName]
           return {
             ...version,
+            media_by_color: Object.fromEntries(Object.entries(normalizeMotorbikeVariantColorMedia(version.media_by_color)).filter(([colorName]) => colorName !== removedName)),
             compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).filter((name) => name !== removedName),
             stock_by_color: stockByColor,
           }
@@ -383,6 +392,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           }
           return {
             ...version,
+            media_by_color: renameMotorbikeVariantColorMedia(version.media_by_color, previousName, nextName),
             compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name))
               .map((name) => name === previousName ? nextName : name),
             stock_by_color: stockByColor,
@@ -405,6 +415,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
           deposit_amount: 2000000,
           image_url: '',
           detail_image_urls: [],
+          media_by_color: {},
           compatible_colors: current.colors.map((color) => color.color_name),
           stock_by_color: {},
         },
@@ -447,6 +458,17 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
       ...current,
       versions: current.versions.map((version, index) => index === versionIndex
         ? { ...version, stock_by_color: { ...(version.stock_by_color ?? {}), [colorName]: Math.max(0, value || 0) } }
+        : version),
+    }))
+  }
+
+  const updateVariantColorMedia = (versionIndex: number, colorName: string, media: MotorbikeVariantColorMedia) => {
+    const normalizedColorName = colorName.trim()
+    if (!normalizedColorName) return
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, media_by_color: { ...normalizeMotorbikeVariantColorMedia(version.media_by_color), [normalizedColorName]: media } }
         : version),
     }))
   }
@@ -516,14 +538,31 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
     if (!form.slug.trim()) return 'Slug không được để trống'
     if (!form.listing_image_url) return 'Hình ảnh thumbnail không được để trống (Tab 2)'
     if (!form.hero_image_url) return 'Hình ảnh landing page không được để trống (Tab 2)'
-    if (form.colors.some((c) => !c.color_name.trim() || !c.image_url || !c.swatch)) {
-      return 'Tất cả các màu phải có đầy đủ tên màu, hình xe và hình swatch (Tab 4)'
+    if (form.colors.some((c) => !c.color_name.trim())) {
+      return 'Tất cả các màu phải có tên màu (Tab 4)'
+    }
+    const normalizedColorNames = form.colors.map((color) => color.color_name.trim().toLocaleLowerCase('vi'))
+    if (new Set(normalizedColorNames).size !== normalizedColorNames.length) {
+      return 'Tên màu không được trùng nhau (Tab 4)'
     }
     if (form.versions.some((v) => !v.name.trim() || !v.sku.trim() || v.price <= 0 || v.deposit_amount <= 0)) {
       return 'Vui lòng nhập đầy đủ thông tin tên, SKU, giá và tiền cọc cho tất cả phiên bản (Tab 4)'
     }
+    const normalizedVersionNames = form.versions.map((version) => version.name.trim().toLocaleLowerCase('vi'))
+    const normalizedVersionSkus = form.versions.map((version) => version.sku.trim().toLocaleLowerCase())
+    if (new Set(normalizedVersionNames).size !== normalizedVersionNames.length || new Set(normalizedVersionSkus).size !== normalizedVersionSkus.length) {
+      return 'Tên phiên bản và SKU gốc không được trùng nhau (Tab 4)'
+    }
     if (form.versions.some((version) => selectedColorsFor(version).length === 0)) {
       return 'Mỗi phiên bản phải áp dụng cho ít nhất một màu xe (Tab 4)'
+    }
+    if (form.versions.some((version) => selectedColorsFor(version).some((colorName) => {
+      const color = form.colors.find((entry) => entry.color_name === colorName)
+      if (!color) return true
+      const media = resolveMotorbikeVariantColorMedia(version, color)
+      return !media.image_url || !media.swatch
+    }))) {
+      return 'Mỗi tổ hợp phiên bản × màu phải có đầy đủ hình ảnh xe và swatch (Tab 4)'
     }
     return null
   }
@@ -582,6 +621,12 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
   const previewDetailImages = previewVersionDetailImages.length > 0
     ? previewVersionDetailImages
     : form.detail_image_urls.filter(Boolean)
+  const previewColors = form.colors.filter((color) => previewVersion && selectedColorsFor(previewVersion).includes(color.color_name))
+  const resolvedPreviewColorIndex = Math.min(previewColorIndex, Math.max(previewColors.length - 1, 0))
+  const previewColor = previewColors[resolvedPreviewColorIndex]
+  const previewColorMedia = previewVersion && previewColor
+    ? resolveMotorbikeVariantColorMedia(previewVersion, previewColor)
+    : { image_url: '', swatch: '' }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
@@ -891,7 +936,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div>
                   <h3 className="text-base font-bold text-slate-900">1. Màu sắc xe</h3>
-                  <p className="text-xs text-slate-500 mt-1">Cập nhật các tùy chọn màu sắc, hình xe và swatch màu.</p>
+                  <p className="text-xs text-slate-500 mt-1">Khai báo tên và nhóm màu; ảnh xe và swatch được thiết lập riêng trong từng phiên bản.</p>
                 </div>
                 <button
                   type="button"
@@ -908,50 +953,15 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     key={idx}
                     className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
                   >
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-7">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Tên màu</label>
                       <input
                         type="text"
                         value={color.color_name}
                         onChange={(e) => updateColor(idx, { color_name: e.target.value })}
+                        onBlur={(e) => updateColor(idx, { color_name: e.currentTarget.value.trim() })}
                         className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
                       />
-                    </div>
-
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh xe (Color Image)</label>
-                      {color.image_url ? (
-                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
-                          <img src={color.image_url} alt="Car color" className="w-10 h-7 object-contain" />
-                          <button
-                            type="button"
-                            onClick={() => updateColor(idx, { image_url: '' })}
-                            className="text-red-500 hover:bg-red-50 rounded p-1"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <ImageUploadDropzone compact label="Tải hình xe" onUploadSuccess={(urls) => updateColor(idx, { image_url: urls[0] })} />
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình Swatch màu</label>
-                      {color.swatch ? (
-                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
-                          <img src={color.swatch} alt="Color swatch" className="w-8 h-6 object-contain" />
-                          <button
-                            type="button"
-                            onClick={() => updateColor(idx, { swatch: '' })}
-                            className="text-red-500 hover:bg-red-50 rounded p-1"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <ImageUploadDropzone compact label="Tải swatch" onUploadSuccess={(urls) => updateColor(idx, { swatch: urls[0] })} />
-                      )}
                     </div>
 
                     <div className="sm:col-span-1 flex justify-end">
@@ -964,7 +974,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                         <Trash2 size={16} />
                       </button>
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-4">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Nhóm màu</label>
                       <select value={color.color_type ?? 'STANDARD'} onChange={(e) => updateColor(idx, { color_type: e.target.value as ColorEntry['color_type'] })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500">
                         <option value="STANDARD">Màu tiêu chuẩn</option>
@@ -1061,6 +1071,13 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                         onChange={(colors) => updateCompatibleColors(idx, colors)}
                       />
                     </div>
+                    <MotorbikeVersionColorMediaFields
+                      versionName={ver.name}
+                      colors={form.colors.filter((color) => selectedColorsFor(ver).includes(color.color_name))}
+                      mediaByColor={normalizeMotorbikeVariantColorMedia(ver.media_by_color)}
+                      onChange={(colorName, media) => updateVariantColorMedia(idx, colorName, media)}
+                      onError={(message) => notify('error', 'Không thể cập nhật hình ảnh màu', message)}
+                    />
                     <MotorbikeVersionMediaFields
                       versionName={ver.name}
                       imageUrl={ver.image_url ?? ''}
@@ -1676,10 +1693,10 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
               <section className="mx-auto max-w-6xl px-6 py-20">
                 <div className="grid gap-12 lg:grid-cols-12 items-center">
                   <div className="lg:col-span-8 flex justify-center items-center h-96 bg-slate-900/40 border border-white/5 rounded-2xl p-6 relative">
-                    {form.colors.length > 0 && form.colors[previewColorIndex]?.image_url ? (
+                    {previewColorMedia.image_url ? (
                       <motion.img
-                        key={previewColorIndex}
-                        src={form.colors[previewColorIndex].image_url}
+                        key={`${resolvedPreviewVersionIndex}-${resolvedPreviewColorIndex}`}
+                        src={previewColorMedia.image_url}
                         alt="Preview bike color"
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1688,7 +1705,7 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     ) : (
                       <div className="text-slate-500 text-sm">Chưa cập nhật hình ảnh màu xe</div>
                     )}
-                    <span className="absolute bottom-4 left-6 text-xs text-white/40">Màu đang xem: {form.colors[previewColorIndex]?.color_name || 'N/A'}</span>
+                    <span className="absolute bottom-4 left-6 text-xs text-white/40">Màu đang xem: {previewColor?.color_name || 'N/A'}</span>
                   </div>
 
                   {/* Swatches details */}
@@ -1697,22 +1714,24 @@ export default function EditMotorbikePage({ params }: { params: Promise<{ produc
                     <p className="text-sm text-white/60 leading-6">{form.description || 'Chưa cung cấp mô tả xe máy điện.'}</p>
 
                     <div className="flex flex-wrap gap-3 pt-3">
-                      {form.colors.map((color, idx) => (
+                      {previewColors.map((color, idx) => {
+                        const colorMedia = previewVersion ? resolveMotorbikeVariantColorMedia(previewVersion, color) : { image_url: '', swatch: '' }
+                        return (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => setPreviewColorIndex(idx)}
                           className={`relative h-11 w-11 rounded-full border-2 p-0.5 transition active:scale-95 ${
-                            previewColorIndex === idx ? 'border-brand-500 bg-brand-500/20' : 'border-white/20 hover:border-white/50'
+                            resolvedPreviewColorIndex === idx ? 'border-brand-500 bg-brand-500/20' : 'border-white/20 hover:border-white/50'
                           }`}
                         >
-                          {color.swatch ? (
-                            <img src={color.swatch} alt={color.color_name} className="h-full w-full rounded-full object-cover" />
+                          {colorMedia.swatch ? (
+                            <img src={colorMedia.swatch} alt={color.color_name} className="h-full w-full rounded-full object-cover" />
                           ) : (
                             <span className="block h-full w-full rounded-full bg-slate-800" />
                           )}
                         </button>
-                      ))}
+                      )})}
                     </div>
                   </div>
                 </div>

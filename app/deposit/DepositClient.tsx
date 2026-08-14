@@ -991,21 +991,20 @@ export function DepositClient({
   const canonicalColorRows = selectedVersionRows.length > 0
     ? selectedVersionRows
     : effectiveDbVariants
-  const colors = isMotorbike
-    ? currentCar.colors || []
-    : Array.from(new Map(canonicalColorRows
-        .filter((variant: any) => variant.color && variant.image_car_url)
-        .map((variant: any) => [variant.color, {
-          name: variant.color,
-          image: variant.image_car_url,
-          swatch: variant.image_color_url,
-          type: variant.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
-          priceAdjustment: Number(variant.color_price_adjustment || 0),
-        }])).values())
-      .sort((a: any, b: any) => {
-        const tier = Number(a.type === 'ADVANCED') - Number(b.type === 'ADVANCED')
-        return tier || a.name.localeCompare(b.name, 'vi')
-      })
+  const variantColors = Array.from(new Map(canonicalColorRows
+    .filter((variant: any) => variant.color && variant.image_car_url)
+    .map((variant: any) => [variant.color, {
+      name: variant.color,
+      image: variant.image_car_url,
+      swatch: variant.image_color_url,
+      type: variant.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+      priceAdjustment: Number(variant.color_price_adjustment || 0),
+    }])).values())
+    .sort((a: any, b: any) => {
+      const tier = Number(a.type === 'ADVANCED') - Number(b.type === 'ADVANCED')
+      return tier || a.name.localeCompare(b.name, 'vi')
+    })
+  const colors = variantColors.length > 0 ? variantColors : currentCar.colors || []
   const variantSelectionKey = variants.join('|')
   const colorSelectionKey = colors.map((color: any) => color.name).join('|')
   const variantsPending = dbVariantsLoading || !hasCurrentDbVariants

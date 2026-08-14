@@ -13,9 +13,19 @@ export type BikeVersionMediaOption = {
   detailImageUrls: string[]
 }
 
+export type BikeVersionColorOption = {
+  versionName: string
+  versionSku: string
+  colorName: string
+  imageUrl: string
+  swatchUrl: string
+}
+
 type BikeVersionMediaGalleryProps = {
   productName: string
   versions: BikeVersionMediaOption[]
+  colorVariants: BikeVersionColorOption[]
+  description?: string
   fallbackImageUrl: string
   fallbackDetailImageUrls: string[]
 }
@@ -29,22 +39,30 @@ function formatPrice(price: number) {
 export function BikeVersionMediaGallery({
   productName,
   versions,
+  colorVariants,
+  description,
   fallbackImageUrl,
   fallbackDetailImageUrls,
 }: BikeVersionMediaGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [selectedColorIndex, setSelectedColorIndex] = useState(0)
   const selectedVersion = versions[selectedIndex] ?? versions[0]
   const hasVersionSpecificMedia = versions.some((version) => (
     Boolean(version.imageUrl) || version.detailImageUrls.some(Boolean)
   ))
   const representativeImage = selectedVersion?.imageUrl || fallbackImageUrl
+  const availableColors = colorVariants.filter((variant) => (
+    variant.versionSku === selectedVersion?.sku || variant.versionName === selectedVersion?.name
+  ))
+  const resolvedColorIndex = Math.min(selectedColorIndex, Math.max(availableColors.length - 1, 0))
+  const selectedColor = availableColors[resolvedColorIndex]
   const versionDetails = selectedVersion?.detailImageUrls.filter(Boolean) ?? []
   const detailImages = versionDetails.length > 0 ? versionDetails : fallbackDetailImageUrls.filter(Boolean)
 
   return (
     <section id="design" className="bg-slate-950 py-20 text-white">
       <div className="mx-auto max-w-6xl px-6">
-        {hasVersionSpecificMedia && versions.length > 0 && (
+        {(hasVersionSpecificMedia || colorVariants.length > 0) && versions.length > 1 && (
           <div className="mb-12">
             <div className="mb-6 text-center">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-brand-400">Phiên bản</p>
@@ -57,7 +75,10 @@ export function BikeVersionMediaGallery({
                   <button
                     key={`${version.sku}-${index}`}
                     type="button"
-                    onClick={() => setSelectedIndex(index)}
+                    onClick={() => {
+                      setSelectedIndex(index)
+                      setSelectedColorIndex(0)
+                    }}
                     aria-pressed={selected}
                     className={`relative min-h-24 rounded-2xl border px-5 py-4 text-left transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                       selected
@@ -71,6 +92,70 @@ export function BikeVersionMediaGallery({
                   </button>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {availableColors.length > 0 && (
+          <div className="mb-16 grid items-center gap-12 lg:grid-cols-12">
+            <div className="relative flex h-80 items-center justify-center overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-6 lg:col-span-8 lg:h-96">
+              <AnimatePresence mode="wait">
+                {selectedColor?.imageUrl && (
+                  <motion.div
+                    key={`${selectedVersion?.sku}-${selectedColor.colorName}`}
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-6"
+                  >
+                    <Image
+                      src={selectedColor.imageUrl}
+                      alt={`${productName} ${selectedVersion?.name} - ${selectedColor.colorName}`}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 768px"
+                      className="object-contain"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <span className="absolute bottom-4 left-6 z-20 text-xs text-white/40">
+                {selectedVersion?.name} · {selectedColor?.colorName}
+              </span>
+            </div>
+
+            <div className="space-y-6 lg:col-span-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-400">{selectedVersion?.name}</p>
+                <h2 className="mt-2 text-2xl font-bold uppercase tracking-tight">Chọn màu sắc của bạn</h2>
+              </div>
+              <p className="text-sm leading-6 text-white/60">
+                {description || 'Cá nhân hóa chiếc xe theo phong cách của bạn.'}
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                {availableColors.map((color, index) => {
+                  const selected = resolvedColorIndex === index
+                  return (
+                    <button
+                      key={`${color.versionSku}-${color.colorName}`}
+                      type="button"
+                      onClick={() => setSelectedColorIndex(index)}
+                      aria-pressed={selected}
+                      title={color.colorName}
+                      className={`relative h-11 w-11 rounded-full border-2 p-0.5 transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                        selected ? 'border-brand-500 bg-brand-500/20' : 'border-white/20 hover:border-white/50'
+                      }`}
+                    >
+                      {color.swatchUrl ? (
+                        <Image src={color.swatchUrl} alt={color.colorName} fill sizes="44px" className="rounded-full object-cover" />
+                      ) : (
+                        <span className="block h-full w-full rounded-full bg-slate-700" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-sm font-semibold text-white/70">{selectedColor?.colorName}</p>
             </div>
           </div>
         )}
