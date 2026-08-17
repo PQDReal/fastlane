@@ -33,6 +33,27 @@ DashboardSummary:
 DashboardSummaryResponse:
   $ref: './common.yaml#/DashboardSummaryResponse'
 
+AdminInventoryStatus:
+  $ref: './admin-inventory.yaml#/AdminInventoryStatus'
+AdminInventoryItem:
+  $ref: './admin-inventory.yaml#/AdminInventoryItem'
+AdminInventoryStatusCounts:
+  $ref: './admin-inventory.yaml#/AdminInventoryStatusCounts'
+AdminInventorySummary:
+  $ref: './admin-inventory.yaml#/AdminInventorySummary'
+AdminInventoryFilterProduct:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterProduct'
+AdminInventoryFilterValue:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterValue'
+AdminInventoryFilterOptions:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterOptions'
+AdminInventoryQueryData:
+  $ref: './admin-inventory.yaml#/AdminInventoryQueryData'
+AdminInventoryQueryResponse:
+  $ref: './admin-inventory.yaml#/AdminInventoryQueryResponse'
+AdminInventoryFilterOptionsResponse:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterOptionsResponse'
+
 Category:
   $ref: './product.yaml#/Category'
 CategoryResponse:

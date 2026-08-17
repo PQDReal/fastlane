@@ -1,8 +1,10 @@
-import type { NextResponse } from 'next/server'
-
 type TimingEntry = {
   name: string
   durationMs: number
+}
+
+export type ServerTimingRecorder = {
+  measure(name: string, startedAtForEntry: number): void
 }
 
 function duration(startedAt: number) {
@@ -13,7 +15,7 @@ function formatDuration(value: number) {
   return value.toFixed(1)
 }
 
-export function createServerTiming() {
+export function createServerTiming(totalName = 'total') {
   const startedAt = performance.now()
   const entries: TimingEntry[] = []
 
@@ -21,13 +23,15 @@ export function createServerTiming() {
     measure(name: string, startedAtForEntry: number) {
       entries.push({ name, durationMs: duration(startedAtForEntry) })
     },
-    attach<T extends NextResponse>(response: T): T {
-      entries.push({ name: 'total', durationMs: duration(startedAt) })
+    attach<T extends Response>(response: T): T {
+      entries.push({ name: totalName, durationMs: duration(startedAt) })
+      const measuredValue = entries
+        .map(({ name, durationMs }) => `${name};dur=${formatDuration(durationMs)}`)
+        .join(', ')
+      const existingValue = response.headers.get('Server-Timing')
       response.headers.set(
         'Server-Timing',
-        entries
-          .map(({ name, durationMs }) => `${name};dur=${formatDuration(durationMs)}`)
-          .join(', '),
+        existingValue ? `${existingValue}, ${measuredValue}` : measuredValue,
       )
       return response
     },

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 
+import { createServerTiming } from '@/lib/api/server-timing'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { toNamePrefixTsQuery } from '@/lib/catalog/search'
-import { isAdminSellableVehicleVariant } from '@/lib/admin-inventory'
 import {
   AdminAccessoryWriteValidationError,
   parseAdminAccessoryWriteRequest,
@@ -19,17 +19,28 @@ import {
   adminAccessoryValidationResponse,
 } from '@/lib/catalog/admin-accessory-api'
 
+type InventorySummary = {
+  activeSku: string | null
+  inventoryQuantity: number
+  inventoryVariantCount: number
+}
+
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
   throw error
 }
 
 export async function GET(request: Request) {
+  const timing = createServerTiming('route')
+  const finish = <T extends Response>(response: T) => timing.attach(response)
+  const authorizationStartedAt = performance.now()
   try {
-    await authorizeAdminCatalogRequest(request)
+    await authorizeAdminCatalogRequest(request, timing)
   } catch (error) {
-    return handleAuthorizationError(error)
+    timing.measure('authorization', authorizationStartedAt)
+    return finish(handleAuthorizationError(error))
   }
+  timing.measure('authorization', authorizationStartedAt)
 
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
@@ -39,21 +50,21 @@ export async function GET(request: Request) {
   const from = (page - 1) * limit
   const supabase = getSupabaseAdmin()
 
+  const productsStartedAt = performance.now()
   let dbQuery = supabase
     .from('products')
     .select(`
-      *,
+      id,
+      category_id,
+      name,
+      slug,
+      product_type,
+      displayed_price,
+      is_active,
+      created_at,
+      image_urls,
       categories (
         name
-      ),
-      service_label_assignments:product_service_label_assignments (
-        service_label_id
-      ),
-      variants:product_variants (
-        id,
-        sku,
-        is_active,
-        inventory_items (on_hand_quantity)
       )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
@@ -67,60 +78,62 @@ export async function GET(request: Request) {
   if (tsQuery) dbQuery = dbQuery.textSearch('search_vector', tsQuery, { config: 'simple' })
 
   const { data, error, count } = await dbQuery
+  timing.measure('db_products', productsStartedAt)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return finish(NextResponse.json({ error: error.message }, { status: 500 }))
   }
 
   const productRows = data ?? []
-  const vehicleProductIds = productRows
-    .filter((item) => item.product_type === 'CAR' || item.product_type === 'BIKE')
-    .map((item) => item.id)
-  const validVehicleVariantIdsByProduct = new Map<string, Set<string>>()
+  const productIdentityRows = productRows.map((item) => ({ id: String(item.id), product_type: item.product_type }))
+  const productIds = productIdentityRows.map((item) => item.id)
+  let inventorySummaries = new Map<string, InventorySummary>()
 
-  if (vehicleProductIds.length > 0) {
-    const { data: vehicleRows, error: vehicleError } = await supabase
-      .from('vehicle_variants')
-      .select('product_id,product_variant_id,product_type,sku,variant_name,version,color')
-      .in('product_id', vehicleProductIds)
+  if (productIds.length > 0) {
+    const summaryStartedAt = performance.now()
+    const { data: summaryData, error: summaryError } = await supabase.rpc('get_admin_product_inventory_summary', {
+      p_product_ids: productIds,
+    })
+    timing.measure('db_inventory_summary', summaryStartedAt)
 
-    if (vehicleError) {
-      return NextResponse.json({ error: vehicleError.message }, { status: 500 })
+    if (summaryError || !Array.isArray(summaryData)) {
+      return finish(NextResponse.json({
+        error: summaryError?.message ?? 'Phản hồi tổng hợp tồn kho không hợp lệ.',
+      }, { status: 503 }))
     }
 
-    for (const row of vehicleRows ?? []) {
-      if (!row.product_id || !isAdminSellableVehicleVariant(row)) continue
-      const variantIds = validVehicleVariantIdsByProduct.get(String(row.product_id)) ?? new Set<string>()
-      variantIds.add(String(row.product_variant_id))
-      validVehicleVariantIdsByProduct.set(String(row.product_id), variantIds)
-    }
+    inventorySummaries = new Map(summaryData.map((summary: {
+      productId?: string
+      activeSku?: string | null
+      inventoryQuantity?: number
+      inventoryVariantCount?: number
+    }) => [String(summary.productId), {
+      activeSku: summary.activeSku ?? null,
+      inventoryQuantity: Number(summary.inventoryQuantity ?? 0) || 0,
+      inventoryVariantCount: Number(summary.inventoryVariantCount ?? 0) || 0,
+    }]))
   }
 
   const total = count ?? 0
-  return NextResponse.json({
+  const transformStartedAt = performance.now()
+  const response = NextResponse.json({
     data: productRows.map((item) => {
-      const isVehicle = item.product_type === 'CAR' || item.product_type === 'BIKE'
-      const variants = Array.isArray(item.variants)
-        ? (isVehicle
-          ? item.variants.filter((variant: { id?: string }) => validVehicleVariantIdsByProduct.get(String(item.id))?.has(String(variant.id)))
-          : item.variants)
-        : []
-      const activeVariant = variants.find((variant: { is_active?: boolean }) => variant.is_active === true) ?? variants[0] ?? null
-      const inventoryQuantity = variants.reduce((total: number, variant: { inventory_items?: { on_hand_quantity?: number } | { on_hand_quantity?: number }[] | null }) => {
-            const inventory = Array.isArray(variant.inventory_items) ? variant.inventory_items[0] : variant.inventory_items
-            return total + Math.max(0, Number(inventory?.on_hand_quantity ?? 0) || 0)
-          }, 0)
-      const inventoryVariantCount = variants.length
+      const summary = inventorySummaries.get(String(item.id)) ?? { activeSku: null, inventoryQuantity: 0, inventoryVariantCount: 0 }
+      const category = Array.isArray(item.categories) ? item.categories[0] : item.categories
+      const { categories: _categories, ...product } = item
       return {
-        ...item,
-        category: item.categories?.name || 'Chưa phân loại',
-        sku: activeVariant?.sku,
-        inventory_quantity: inventoryQuantity,
-        inventory_variant_count: inventoryVariantCount,
+        ...product,
+        category: category?.name || 'Chưa phân loại',
+        sku: summary.activeSku,
+        inventory_quantity: summary.inventoryQuantity,
+        inventory_variant_count: summary.inventoryVariantCount,
       }
     }),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   })
+  timing.measure('transform', transformStartedAt)
+  response.headers.set('X-Fastlane-Inventory-Summary-Source', 'rpc')
+  return finish(response)
 }
 
 export async function POST(request: Request) {

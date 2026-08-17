@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "start": "next start",
+    "start:standalone": "node .next/standalone/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check:performance-budget": "node scripts/check-performance-budget.mjs",
@@ -41,6 +42,7 @@
     "reconcile:vehicle-inventory": "node --env-file=.env.local scripts/reconcile-vehicle-inventory.mjs",
     "reconcile:vehicle-inventory:apply": "node --env-file=.env.local scripts/reconcile-vehicle-inventory.mjs --apply",
     "verify:vehicle-skus": "node --env-file=.env.local scripts/verify-vehicle-skus.mjs",
+    "verify:admin-inventory-rpc": "node --env-file=.env.local scripts/verify-admin-inventory-rpcs.mjs",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build && npm run check:performance-budget",
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"

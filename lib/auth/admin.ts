@@ -2,6 +2,7 @@ import 'server-only'
 
 import { AccessTokenError } from '@auth0/nextjs-auth0/errors'
 
+import type { ServerTimingRecorder } from '@/lib/api/server-timing'
 import { auth0 } from '@/lib/auth0'
 import {
   authorizeAccessToken,
@@ -16,12 +17,20 @@ export const adminCatalogPolicy = {
   requiredPermissions: ['catalog:manage'],
 } as const satisfies AuthorizationPolicy
 
-export async function authorizeAdminCatalogRequest(request: Request) {
+export async function authorizeAdminCatalogRequest(
+  request: Request,
+  timing?: ServerTimingRecorder,
+) {
   if (request.headers.has('authorization')) {
-    return authorizeRequest(request, adminCatalogPolicy)
+    const jwtStartedAt = performance.now()
+    try {
+      return await authorizeRequest(request, adminCatalogPolicy)
+    } finally {
+      timing?.measure('auth_jwt', jwtStartedAt)
+    }
   }
 
-  const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser(timing)
   if (!currentUser) {
     throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
   }
@@ -31,6 +40,7 @@ export async function authorizeAdminCatalogRequest(request: Request) {
 
   let token: string
 
+  const accessTokenStartedAt = performance.now()
   try {
     const accessToken = await auth0.getAccessToken()
     token = accessToken.token
@@ -43,21 +53,36 @@ export async function authorizeAdminCatalogRequest(request: Request) {
         ? 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.'
         : 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại.',
     )
+  } finally {
+    timing?.measure('auth_token', accessTokenStartedAt)
   }
 
-  return authorizeAccessToken(token, adminCatalogPolicy)
+  const jwtStartedAt = performance.now()
+  try {
+    return await authorizeAccessToken(token, adminCatalogPolicy)
+  } finally {
+    timing?.measure('auth_jwt', jwtStartedAt)
+  }
 }
 export const adminInventoryPolicy = {
   requiredRoles: ['admin'],
   requiredPermissions: ['inventory:manage'],
 } as const satisfies AuthorizationPolicy
 
-export async function authorizeAdminInventoryRequest(request: Request) {
+export async function authorizeAdminInventoryRequest(
+  request: Request,
+  timing?: ServerTimingRecorder,
+) {
   if (request.headers.has('authorization')) {
-    return authorizeRequest(request, adminInventoryPolicy)
+    const jwtStartedAt = performance.now()
+    try {
+      return await authorizeRequest(request, adminInventoryPolicy)
+    } finally {
+      timing?.measure('auth_jwt', jwtStartedAt)
+    }
   }
 
-  const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser(timing)
   if (!currentUser) {
     throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
   }
@@ -67,6 +92,7 @@ export async function authorizeAdminInventoryRequest(request: Request) {
 
   let token: string
 
+  const accessTokenStartedAt = performance.now()
   try {
     const accessToken = await auth0.getAccessToken()
     token = accessToken.token
@@ -79,7 +105,14 @@ export async function authorizeAdminInventoryRequest(request: Request) {
         ? 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.'
         : 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại.',
     )
+  } finally {
+    timing?.measure('auth_token', accessTokenStartedAt)
   }
 
-  return authorizeAccessToken(token, adminInventoryPolicy)
+  const jwtStartedAt = performance.now()
+  try {
+    return await authorizeAccessToken(token, adminInventoryPolicy)
+  } finally {
+    timing?.measure('auth_jwt', jwtStartedAt)
+  }
 }

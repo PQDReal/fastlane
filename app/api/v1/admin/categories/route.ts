@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
+import { createServerTiming } from '@/lib/api/server-timing'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
@@ -17,19 +18,33 @@ function categoryResponse(category: any) {
 }
 
 export async function GET(request: Request) {
+  const timing = createServerTiming('route')
+  const authorizationStartedAt = performance.now()
   try {
-    await authorizeAdminCatalogRequest(request)
+    await authorizeAdminCatalogRequest(request, timing)
   } catch (error) {
-    return authorizationError(error)
+    timing.measure('authorization', authorizationStartedAt)
+    return timing.attach(authorizationError(error))
   }
+  timing.measure('authorization', authorizationStartedAt)
 
+  const databaseStartedAt = performance.now()
   const { data, error } = await getSupabaseAdmin()
     .from('categories')
     .select('id,name,slug,description,is_active,created_at,updated_at')
     .order('created_at', { ascending: false })
+  timing.measure('db_categories', databaseStartedAt)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json((data ?? []).map(categoryResponse))
+  if (error) {
+    return timing.attach(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+    )
+  }
+
+  const transformStartedAt = performance.now()
+  const categories = (data ?? []).map(categoryResponse)
+  timing.measure('transform', transformStartedAt)
+  return timing.attach(NextResponse.json(categories))
 }
 
 export async function POST(request: Request) {

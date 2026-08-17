@@ -433,7 +433,7 @@ export function ProfileContentClient({
   if (!user) {
     return (
       <main className="flex min-h-screen flex-col bg-gray-50">
-        <Header />
+        <Header initialProfile={profile} />
         <div className="flex flex-1 flex-col items-center justify-center pb-20 pt-32 text-center">
           <h1 className="text-2xl font-bold">Vui lòng đăng nhập để xem hồ sơ</h1>
           <PopupLoginButton className="mt-4 inline-block rounded-full bg-[#836100] px-6 py-3 font-bold text-white transition-colors hover:bg-[#6a4e00]">Đăng nhập ngay</PopupLoginButton>
@@ -528,7 +528,7 @@ export function ProfileContentClient({
 
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
-      <Header />
+      <Header initialProfile={profile} />
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <div className="mx-auto flex w-full max-w-[1200px] flex-1 px-6 py-32">
         <div className="flex w-full flex-col gap-8 md:flex-row">

@@ -11,7 +11,7 @@ import { useAppStore } from '@/lib/store'
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 import { UserAvatar } from '@/components/auth/user-avatar'
 import { CustomerNotifications } from '@/components/customer-notifications'
-import { getMyProfile } from '@/lib/api/profile-client'
+import { getMyProfile, type CustomerProfile } from '@/lib/api/profile-client'
 import {
   CART_ANIMATION_CANCEL,
   CART_ANIMATION_COMPLETE,
@@ -35,7 +35,7 @@ const links = [
 ]
 
 
-export function Header() {
+export function Header({ initialProfile }: { initialProfile?: CustomerProfile | null } = {}) {
   const { user, isLoading: userLoading } = useUser()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -49,11 +49,12 @@ export function Header() {
     syncCartOwner,
   } = useAppStore()
   const userSubject = typeof user?.sub === 'string' ? user.sub : null
-  const { data: profile, error: profileError } = useSWR(
-    userSubject ? ['fastlane-profile', userSubject] : null,
+  const { data: fetchedProfile, error: profileError } = useSWR(
+    userSubject && !initialProfile ? ['fastlane-profile', userSubject] : null,
     getMyProfile,
     { dedupingInterval: 300_000 },
   )
+  const profile = initialProfile ?? fetchedProfile
   // A transient profile failure must not leave a customer cart blocked forever.
   // Authorization is still enforced by every API; this fallback only restores
   // the previous customer-facing header behavior until SWR retries.
@@ -267,7 +268,7 @@ export function Header() {
           {/* The bell is non-sensitive and can render before role resolution;
               the API still enforces customer permissions and the component is
               removed as soon as an admin role is confirmed. */}
-          {userSubject && isAdmin !== true && <CustomerNotifications userSubject={userSubject} />}
+          {userSubject && isAdmin === false && <CustomerNotifications userSubject={userSubject} />}
           {user ? (
             <div className="relative hidden items-center gap-2.5 sm:flex group cursor-pointer py-2">
               <UserAvatar picture={user.picture} name={user.name} />

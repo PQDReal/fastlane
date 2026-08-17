@@ -64,6 +64,47 @@ describe('assistant rule engine', () => {
     expect(classifySearchQuery('xe máy điện không thấp hơn 15 triệu')).toMatchObject({ filters: { minPrice: 15_000_000 } })
     expect(classifySearchQuery('xe máy điện từ 15 đến 25 triệu')).toMatchObject({ filters: { minPrice: 15_000_000, maxPrice: 25_000_000 } })
   })
+  it.each([
+    ['xe máy tầm giá 20-000000', { maxPrice: 20_000_000 }],
+    ['xe máy dưới 20.000.000 vnd', { maxPrice: 20_000_000 }],
+    ['xe máy ngân sách 20000000', { maxPrice: 20_000_000 }],
+    ['xe máy từ 15-000000 đến 25-000000', { minPrice: 15_000_000, maxPrice: 25_000_000 }],
+  ])('accepts formatted VND budgets: %s', (query, priceFilter) => {
+    expect(classifySearchQuery(query)).toMatchObject({
+      intent: 'recommendation',
+      catalogQuery: '',
+      filters: { productType: 'motorbike', ...priceFilter },
+    })
+  })
+  it.each([
+    ['xe máy 20 triệu trở lên', { minPrice: 20_000_000 }],
+    ['xe máy 20 triệu trở đi', { minPrice: 20_000_000 }],
+    ['xe máy 20 triệu trở xuống', { maxPrice: 20_000_000 }],
+    ['xe may 20-000000 tro xuong', { maxPrice: 20_000_000 }],
+  ])('recognizes inclusive price direction: %s', (query, priceFilter) => {
+    expect(classifySearchQuery(query)).toMatchObject({
+      intent: 'recommendation',
+      catalogQuery: '',
+      filters: { productType: 'motorbike', ...priceFilter },
+    })
+  })
+  it.each([
+    ['phụ kiện giá tăng dần', 'asc'],
+    ['phụ kiện từ thấp đến cao', 'asc'],
+    ['phụ kiện giá giảm dần', 'desc'],
+    ['phụ kiện từ cao xuống thấp', 'desc'],
+  ])('recognizes explicit price sorting: %s', (query, direction) => {
+    expect(classifySearchQuery(query)).toMatchObject({
+      intent: 'recommendation',
+      catalogQuery: '',
+      filters: {
+        productType: 'accessory',
+        sort: direction === 'asc' ? 'price_asc' : 'price_desc',
+        sortBy: 'price',
+        sortDirection: direction,
+      },
+    })
+  })
   it('supports cheapest and most expensive recommendations', () => {
     expect(classifySearchQuery('xe máy điện rẻ nhất').filters.sort).toBe('price_asc')
     expect(classifySearchQuery('xe máy điện đắt nhất').filters.sort).toBe('price_desc')
@@ -100,6 +141,15 @@ describe('assistant rule engine', () => {
       filters: {},
     })
     expect(classifySearchQuery('Amio dung lượng pin bao nhiêu').catalogQuery).toBe('amio')
+  })
+  it.each([
+    ['xin chào, xe máy dưới 20 triệu', 'recommendation', ''],
+    ['xe máy dưới 20 triệu, cảm ơn bạn', 'recommendation', ''],
+    ['hello, tìm VF 8', 'product_search', 'vf 8'],
+    ['VF9 đi được bao xa, cảm ơn', 'product_faq', 'vf 9'],
+    ['giúp tôi tìm Amio', 'product_search', 'amio'],
+  ])('does not let casual text block a valid query: %s', (query, intent, catalogQuery) => {
+    expect(classifySearchQuery(query)).toMatchObject({ intent, catalogQuery })
   })
   it('does not turn punctuation into a catalog request', () => {
     expect(classifySearchQuery('!!!')).toMatchObject({ intent: 'unsupported', catalogQuery: '' })
