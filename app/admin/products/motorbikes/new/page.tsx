@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Undo2,
   X,
   Zap,
 } from 'lucide-react'
@@ -29,13 +30,30 @@ import { ImageUploadDropzone } from '@/components/admin/image-upload-dropzone'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import LandingPageRenderer from '@/components/landing-page-renderer'
+import { CombinationMultiSelect } from '@/components/admin/combination-multi-select'
+import { MotorbikeVersionColorMediaFields } from '@/components/admin/motorbike-version-color-media-fields'
+import { MotorbikeDetailImageLibrary } from '@/components/admin/motorbike-detail-image-library'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, type VehicleSpecField } from '@/lib/vehicle-specifications'
+import {
+  normalizeMotorbikeVariantColorMedia,
+  renameMotorbikeVariantColorMedia,
+  resolveMotorbikeVariantColorMedia,
+  type MotorbikeVariantColorMedia,
+} from '@/lib/motorbike-variant-color-media'
 
 const STORAGE_KEY = 'fastlane.admin.products.motorbikes.new.v1'
+const MOTORBIKE_FORM_RENDERED_SPEC_KEYS = new Set([
+  'Quãng đường đi được mỗi lần sạc', 'Công suất tối đa', 'Tốc độ tối đa', 'Thời gian sạc tiêu chuẩn',
+  'Dài x Rộng x Cao', 'Chiều cao yên', 'Khoảng sáng gầm', 'Thể tích cốp', 'Trọng lượng', 'Khóa xe',
+  'Đèn pha trước', 'Phanh trước và sau', 'Giảm xóc', 'Tiêu chuẩn chống nước động cơ',
+  'Kích thước lốp Trước - Sau',
+])
 
 interface ColorEntry {
   color_name: string
   image_url: string
   swatch: string
+  color_type?: 'STANDARD' | 'ADVANCED'
 }
 
 interface VersionEntry {
@@ -43,6 +61,11 @@ interface VersionEntry {
   sku: string
   price: number
   deposit_amount: number
+  image_url?: string
+  detail_image_urls?: string[]
+  media_by_color?: Record<string, MotorbikeVariantColorMedia>
+  stock_by_color?: Record<string, number>
+  compatible_colors?: string[]
 }
 
 interface FormState {
@@ -71,7 +94,9 @@ interface FormState {
     'Tiêu chuẩn chống nước động cơ': string
     'Kích thước lốp Trước - Sau': string
   }
+  specification_fields: VehicleSpecField[]
   colors: ColorEntry[]
+  advanced_color_price: number
   versions: VersionEntry[]
   landing_page_blocks: any[]
 }
@@ -140,13 +165,15 @@ const initialFormState: FormState = {
     'Tiêu chuẩn chống nước động cơ': '',
     'Kích thước lốp Trước - Sau': '',
   },
+  specification_fields: DEFAULT_MOTORBIKE_SPEC_FIELDS,
   colors: [
-    { color_name: 'Đỏ Tươi', image_url: '', swatch: '' },
-    { color_name: 'Trắng Ngọc Trai', image_url: '', swatch: '' },
+    { color_name: 'Đỏ Tươi', image_url: '', swatch: '', color_type: 'STANDARD' },
+    { color_name: 'Trắng Ngọc Trai', image_url: '', swatch: '', color_type: 'STANDARD' },
   ],
+  advanced_color_price: 0,
   versions: [
-    { name: 'Phiên bản Không kèm Pin (Thuê pin)', sku: 'VINFAST-NEWBIKE-02', price: 23000000, deposit_amount: 2000000 },
-    { name: 'Phiên bản Kèm Pin (Mua đứt pin)', sku: 'VINFAST-NEWBIKE-01', price: 29000000, deposit_amount: 2000000 },
+    { name: 'Phiên bản Không kèm Pin (Thuê pin)', sku: 'VINFAST-NEWBIKE-02', price: 23000000, deposit_amount: 2000000, image_url: '', detail_image_urls: [], media_by_color: {}, stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
+    { name: 'Phiên bản Kèm Pin (Mua đứt pin)', sku: 'VINFAST-NEWBIKE-01', price: 29000000, deposit_amount: 2000000, image_url: '', detail_image_urls: [], media_by_color: {}, stock_by_color: {}, compatible_colors: ['Đỏ Tươi', 'Trắng Ngọc Trai'] },
   ],
   landing_page_blocks: defaultLandingBlocks,
 }
@@ -159,9 +186,12 @@ export default function NewMotorbikePage() {
   const [showRestorePrompt, setShowRestorePrompt] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSpecDialogOpen, setIsSpecDialogOpen] = useState(false)
+  const [specDraft, setSpecDraft] = useState({ label: '', value: '', section: 'Thông số bổ sung' })
 
   // Temporary state for the preview color selection
   const [previewColorIndex, setPreviewColorIndex] = useState(0)
+  const [previewVersionIndex, setPreviewVersionIndex] = useState(0)
 
   // 1. Toast notify helper
   const notify = useCallback((kind: ToastMessage['kind'], title: string, message?: string) => {
@@ -277,11 +307,63 @@ export default function NewMotorbikePage() {
     }))
   }
 
+  const updateMotorbikeSpecVisibility = (key: string, visible: boolean) => {
+    setForm((current) => ({ ...current, specification_fields: current.specification_fields.map((field) => field.key === key ? { ...field, visible } : field) }))
+  }
+
+  const removeMotorbikeSpecNow = (key: string) => {
+    setForm((current) => {
+      const specifications = { ...current.specifications }
+      delete specifications[key as keyof typeof specifications]
+      return { ...current, specifications, specification_fields: current.specification_fields.filter((field) => field.key !== key) }
+    })
+  }
+
+  const removeMotorbikeSpec = (key: string) => {
+    const field = form.specification_fields.find((item) => item.key === key)
+    const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((item) => item.key === key)
+    const toastId = Date.now() + Math.random()
+    setToasts((items) => [...items, {
+      id: toastId,
+      kind: 'warning',
+      title: isDefault ? 'Xác nhận ẩn thông số?' : 'Xác nhận xóa thông số?',
+      message: isDefault ? `Thông số “${field?.label || key}” sẽ không hiển thị sau khi lưu.` : `Thông số “${field?.label || key}” sẽ bị xóa khỏi sản phẩm này.`,
+      action: { label: isDefault ? 'Ẩn thông số' : 'Xóa thông số', variant: 'danger', onClick: () => { setToasts((current) => current.filter((toast) => toast.id !== toastId)); isDefault ? updateMotorbikeSpecVisibility(key, false) : removeMotorbikeSpecNow(key) } },
+      secondaryAction: { label: 'Giữ lại', onClick: () => setToasts((current) => current.filter((toast) => toast.id !== toastId)) },
+    }])
+  }
+
+  const restoreMotorbikeSpec = (key: string) => updateMotorbikeSpecVisibility(key, true)
+
+  const addCustomMotorbikeSpec = () => {
+    const label = specDraft.label.trim()
+    if (!label && specDraft.value.trim()) {
+      notify('warning', 'Thiếu tên thông số', 'Giá trị đã nhập cần đi kèm tên thông số.')
+      return
+    }
+    if (!label) {
+      notify('warning', 'Chưa nhập tên thông số', 'Vui lòng nhập tên thông số trước khi thêm.')
+      return
+    }
+    const duplicated = form.specification_fields.some((field) => field.label.trim().toLocaleLowerCase() === label.toLocaleLowerCase())
+    if (duplicated) {
+      notify('warning', 'Tên thông số đã tồn tại', 'Tên thông số mới không được trùng với bất kỳ thông số hiện có.')
+      return
+    }
+    setForm((current) => ({
+      ...current,
+      specifications: { ...current.specifications, [label]: specDraft.value },
+      specification_fields: [...current.specification_fields.filter((field) => field.key !== label), { key: label, label, section: specDraft.section, visible: true }],
+    }))
+    setSpecDraft({ label: '', value: '', section: 'Thông số bổ sung' })
+    setIsSpecDialogOpen(false)
+  }
+
   // Add/Remove colors
   const addColor = () => {
     setForm((current) => ({
       ...current,
-      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '' }],
+      colors: [...current.colors, { color_name: 'Màu mới', image_url: '', swatch: '', color_type: 'STANDARD' }],
     }))
   }
 
@@ -290,17 +372,45 @@ export default function NewMotorbikePage() {
       notify('warning', 'Không thể xóa', 'Sản phẩm cần tối thiểu một màu sắc.')
       return
     }
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.filter((_, idx) => idx !== index),
-    }))
+    setForm((current) => {
+      const removedName = current.colors[index]?.color_name
+      return {
+        ...current,
+        colors: current.colors.filter((_, idx) => idx !== index),
+        versions: current.versions.map((version) => {
+          const stockByColor = { ...(version.stock_by_color ?? {}) }
+          if (removedName) delete stockByColor[removedName]
+          const mediaByColor = normalizeMotorbikeVariantColorMedia(version.media_by_color)
+          if (removedName) delete mediaByColor[removedName]
+          return { ...version, media_by_color: mediaByColor, stock_by_color: stockByColor, compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).filter((name) => name !== removedName) }
+        }),
+      }
+    })
   }
 
   const updateColor = (index: number, fields: Partial<ColorEntry>) => {
-    setForm((current) => ({
-      ...current,
-      colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
-    }))
+    setForm((current) => {
+      const previousName = current.colors[index]?.color_name
+      const nextName = fields.color_name
+      return {
+        ...current,
+        colors: current.colors.map((c, idx) => (idx === index ? { ...c, ...fields } : c)),
+        versions: previousName && nextName && previousName !== nextName
+          ? current.versions.map((version) => {
+              const stockByColor = { ...(version.stock_by_color ?? {}) }
+              const currentStock = stockByColor[previousName] ?? 0
+              delete stockByColor[previousName]
+              stockByColor[nextName] = currentStock
+              return {
+                ...version,
+                media_by_color: renameMotorbikeVariantColorMedia(version.media_by_color, previousName, nextName),
+                stock_by_color: stockByColor,
+                compatible_colors: (version.compatible_colors ?? current.colors.map((color) => color.color_name)).map((name) => name === previousName ? nextName : name),
+              }
+            })
+          : current.versions,
+      }
+    })
   }
 
   // Add/Remove versions
@@ -309,7 +419,7 @@ export default function NewMotorbikePage() {
       ...current,
       versions: [
         ...current.versions,
-        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000 },
+        { name: 'Phiên bản mới', sku: `VINFAST-NEW-${Date.now().toString().slice(-4)}`, price: 20000000, deposit_amount: 2000000, image_url: '', detail_image_urls: [], media_by_color: {}, stock_by_color: {}, compatible_colors: current.colors.map((color) => color.color_name) },
       ],
     }))
   }
@@ -329,6 +439,27 @@ export default function NewMotorbikePage() {
     setForm((current) => ({
       ...current,
       versions: current.versions.map((v, idx) => (idx === index ? { ...v, ...fields } : v)),
+    }))
+  }
+
+  const updateVariantStock = (versionIndex: number, colorName: string, value: number) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, stock_by_color: { ...(version.stock_by_color ?? {}), [colorName]: Math.max(0, value || 0) } }
+        : version),
+    }))
+  }
+
+  const selectedColorsFor = (version: VersionEntry) =>
+    version.compatible_colors ?? form.colors.map((color) => color.color_name)
+
+  const updateCompatibleColors = (versionIndex: number, colors: string[]) => {
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, compatible_colors: Array.from(new Set(colors)) }
+        : version),
     }))
   }
 
@@ -397,11 +528,34 @@ export default function NewMotorbikePage() {
     if (!form.slug.trim()) return 'Slug không được để trống'
     if (!form.listing_image_url) return 'Hình ảnh thumbnail không được để trống (Tab 2)'
     if (!form.hero_image_url) return 'Hình ảnh landing page không được để trống (Tab 2)'
-    if (form.colors.some((c) => !c.color_name.trim() || !c.image_url || !c.swatch)) {
-      return 'Tất cả các màu phải có đầy đủ tên màu, hình xe và hình swatch (Tab 4)'
+    if (form.colors.some((c) => !c.color_name.trim())) {
+      return 'Tất cả các màu phải có tên màu (Tab 4)'
+    }
+    if (form.colors.some((c) => !c.swatch.trim())) {
+      return 'Tất cả các màu phải có swatch dùng chung (Tab 4)'
+    }
+    const normalizedColorNames = form.colors.map((color) => color.color_name.trim().toLocaleLowerCase('vi'))
+    if (new Set(normalizedColorNames).size !== normalizedColorNames.length) {
+      return 'Tên màu không được trùng nhau (Tab 4)'
     }
     if (form.versions.some((v) => !v.name.trim() || !v.sku.trim() || v.price <= 0 || v.deposit_amount <= 0)) {
       return 'Vui lòng nhập đầy đủ thông tin tên, SKU, giá và tiền cọc cho tất cả phiên bản (Tab 4)'
+    }
+    const normalizedVersionNames = form.versions.map((version) => version.name.trim().toLocaleLowerCase('vi'))
+    const normalizedVersionSkus = form.versions.map((version) => version.sku.trim().toLocaleLowerCase())
+    if (new Set(normalizedVersionNames).size !== normalizedVersionNames.length || new Set(normalizedVersionSkus).size !== normalizedVersionSkus.length) {
+      return 'Tên phiên bản và SKU gốc không được trùng nhau (Tab 4)'
+    }
+    if (form.versions.some((version) => selectedColorsFor(version).length === 0)) {
+      return 'Mỗi phiên bản phải áp dụng cho ít nhất một màu xe (Tab 4)'
+    }
+    if (form.versions.some((version) => selectedColorsFor(version).some((colorName) => {
+      const color = form.colors.find((entry) => entry.color_name === colorName)
+      if (!color) return true
+      const media = resolveMotorbikeVariantColorMedia(version, color)
+      return !media.swatch
+    }))) {
+      return 'Mỗi tổ hợp phiên bản × màu phải có swatch dùng chung (Tab 4)'
     }
     return null
   }
@@ -442,6 +596,29 @@ export default function NewMotorbikePage() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
   }
+
+  const updateVariantColorMedia = (versionIndex: number, colorName: string, media: MotorbikeVariantColorMedia) => {
+    const normalizedColorName = colorName.trim()
+    if (!normalizedColorName) return
+    setForm((current) => ({
+      ...current,
+      versions: current.versions.map((version, index) => index === versionIndex
+        ? { ...version, media_by_color: { ...normalizeMotorbikeVariantColorMedia(version.media_by_color), [normalizedColorName]: media } }
+        : version),
+    }))
+  }
+
+  const resolvedPreviewVersionIndex = Math.min(previewVersionIndex, Math.max(form.versions.length - 1, 0))
+  const previewVersion = form.versions[resolvedPreviewVersionIndex]
+  const previewHeroImage = previewVersion?.image_url?.trim() || form.hero_image_url
+  const previewDetailImages = form.detail_image_urls.filter(Boolean)
+  const previewColors = form.colors.filter((color) => previewVersion && selectedColorsFor(previewVersion).includes(color.color_name))
+  const resolvedPreviewColorIndex = Math.min(previewColorIndex, Math.max(previewColors.length - 1, 0))
+  const previewColor = previewColors[resolvedPreviewColorIndex]
+  const previewColorMedia = previewVersion && previewColor
+    ? resolveMotorbikeVariantColorMedia(previewVersion, previewColor)
+    : { image_url: '', swatch: '' }
+  const previewDisplayImage = previewColorMedia.image_url || previewHeroImage
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 pb-24">
@@ -617,21 +794,31 @@ export default function NewMotorbikePage() {
                 </div>
               )}
             </div>
+
+            <MotorbikeDetailImageLibrary
+              images={form.detail_image_urls}
+              onChange={(detail_image_urls) => setForm((current) => ({ ...current, detail_image_urls }))}
+              onError={(message) => notify('error', 'Không thể cập nhật thư viện ảnh', message)}
+            />
           </div>
         )}
 
         {activeTab === 'specs' && (
           <div className="space-y-6">
-            <div>
+            <div className="flex items-start justify-between">
+              <div>
               <h3 className="text-base font-bold text-slate-900">Thông số kỹ thuật của xe</h3>
               <p className="text-xs text-slate-500 mt-1">Các thông số này sẽ hiển thị trong bảng so sánh chi tiết.</p>
+              </div>
+              <Button type="button" onClick={() => setIsSpecDialogOpen(true)} className="bg-amber-50 text-amber-700 hover:bg-amber-100"><Plus size={14} /> Thêm thông số</Button>
             </div>
 
+            <h4 className="text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Động cơ & Vận hành</h4>
             {/* Core Specs Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 bg-slate-50 rounded-xl p-5 border border-slate-100">
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <BatteryCharging size={14} className="text-brand-600" /> Quãng đường/Sạc
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <BatteryCharging size={14} className="text-brand-600" /> Quãng đường/Sạc<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? restoreMotorbikeSpec('Quãng đường đi được mỗi lần sạc') : removeMotorbikeSpec('Quãng đường đi được mỗi lần sạc')} className={form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Quãng đường đi được mỗi lần sạc')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -643,8 +830,8 @@ export default function NewMotorbikePage() {
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Zap size={14} className="text-brand-600" /> Công suất tối đa
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Zap size={14} className="text-brand-600" /> Công suất tối đa<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? restoreMotorbikeSpec('Công suất tối đa') : removeMotorbikeSpec('Công suất tối đa')} className={form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Công suất tối đa')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -656,8 +843,8 @@ export default function NewMotorbikePage() {
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Gauge size={14} className="text-brand-600" /> Tốc độ tối đa
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Gauge size={14} className="text-brand-600" /> Tốc độ tối đa<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? restoreMotorbikeSpec('Tốc độ tối đa') : removeMotorbikeSpec('Tốc độ tối đa')} className={form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Tốc độ tối đa')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -669,8 +856,8 @@ export default function NewMotorbikePage() {
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
-                  <Clock size={14} className="text-brand-600" /> Thời gian sạc
+                <label className={`flex items-center justify-between gap-1.5 text-xs font-bold uppercase ${form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'text-red-600' : 'text-slate-700'}`}>
+                  <Clock size={14} className="text-brand-600" /> Thời gian sạc<button type="button" onClick={() => form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? restoreMotorbikeSpec('Thời gian sạc tiêu chuẩn') : removeMotorbikeSpec('Thời gian sạc tiêu chuẩn')} className={form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'text-red-600' : 'text-slate-400'} aria-label={form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? 'Khôi phục thông tin' : 'Ẩn thông tin'}>{form.specification_fields.find((field) => field.key === 'Thời gian sạc tiêu chuẩn')?.visible === false ? <Undo2 size={14} /> : <Trash2 size={14} />}</button>
                 </label>
                 <input
                   type="text"
@@ -680,8 +867,22 @@ export default function NewMotorbikePage() {
                   className="mt-2 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500"
                 />
               </div>
+              {form.specification_fields.slice(0, 4).some((field) => field.visible === false) && <p className="col-span-full text-center text-xs text-red-600">Lưu ý: Thông tin hiển thị <strong>màu đỏ</strong> sẽ không được hiển thị sau khi lưu</p>}
             </div>
 
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && field.section === 'Vận hành & Pin' && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
+                <div key={field.key}>
+                  {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
+                  <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
+                  {isRemoved && isDefault && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
+                </div>
+              ))}
+            </div>
+
+            <h4 className="mt-8 text-lg font-bold text-slate-900 border-b border-slate-200 pb-3">Kích thước & Tiện ích</h4>
             {/* General Specs Grid */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
               {[
@@ -691,7 +892,6 @@ export default function NewMotorbikePage() {
                 { label: 'Thể tích cốp', key: 'Thể tích cốp', placeholder: 'Ví dụ: 25 Lít' },
                 { label: 'Trọng lượng', key: 'Trọng lượng', placeholder: 'Ví dụ: 110 kg' },
                 { label: 'Khóa xe', key: 'Khóa xe', placeholder: 'Ví dụ: Smartkey' },
-                { label: 'Loại pin/ắc quy', key: 'Loại pin/ắc quy', placeholder: 'Ví dụ: Pin LFP' },
                 { label: 'Đèn pha trước', key: 'Đèn pha trước', placeholder: 'Ví dụ: Đèn LED' },
                 { label: 'Phanh trước và sau', key: 'Phanh trước và sau', placeholder: 'Ví dụ: Phanh đĩa Trước / Phanh cơ Sau' },
                 { label: 'Hệ thống giảm xóc', key: 'Giảm xóc', placeholder: 'Ví dụ: Giảm chấn thủy lực' },
@@ -699,7 +899,8 @@ export default function NewMotorbikePage() {
                 { label: 'Kích thước lốp Trước - Sau', key: 'Kích thước lốp Trước - Sau', placeholder: 'Ví dụ: 90/90-12 Trước & Sau' },
               ].map((spec) => (
                 <div key={spec.key}>
-                  <label className="block text-xs font-semibold text-slate-600">{spec.label}</label>
+                  {(() => { const isRemoved = form.specification_fields.find((field) => field.key === spec.key)?.visible === false; return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{spec.label}</label><button type="button" onClick={() => isRemoved ? restoreMotorbikeSpec(spec.key) : removeMotorbikeSpec(spec.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông tin ${spec.label}` : `Ẩn thông tin ${spec.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
                   <input
                     type="text"
                     placeholder={spec.placeholder}
@@ -707,6 +908,19 @@ export default function NewMotorbikePage() {
                     onChange={(e) => handleUpdateSpec(spec.key as any, e.target.value)}
                     className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
+                  {isRemoved && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông tin này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
+              {form.specification_fields.filter((field) => !MOTORBIKE_FORM_RENDERED_SPEC_KEYS.has(field.key) && field.section !== 'Vận hành & Pin' && (DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key) || field.visible !== false)).map((field) => (
+                <div key={field.key}>
+                  {(() => { const isRemoved = field.visible === false; const isDefault = DEFAULT_MOTORBIKE_SPEC_FIELDS.some((defaultField) => defaultField.key === field.key); return <>
+                  <div className="flex items-center justify-between"><label className={`block text-xs font-semibold ${isRemoved ? 'text-red-600' : 'text-slate-600'}`}>{field.label}</label><button type="button" onClick={() => isRemoved && isDefault ? restoreMotorbikeSpec(field.key) : removeMotorbikeSpec(field.key)} className={isRemoved ? 'text-red-600' : 'text-slate-400 hover:text-red-600'} aria-label={isRemoved ? `Khôi phục thông số ${field.label}` : `Xóa thông số ${field.label}`}>{isRemoved ? <Undo2 size={14} /> : <Trash2 size={14} />}</button></div>
+                  <input value={String(form.specifications[field.key as keyof FormState['specifications']] ?? '')} onChange={(event) => setForm((current) => ({ ...current, specifications: { ...current.specifications, [field.key]: event.target.value } }))} className="mt-2 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" />
+                  {isRemoved && isDefault && <p className="mt-1 text-xs text-red-600">Lưu ý: Thông số này sẽ không được hiển thị sau khi lưu.</p>}
+                  </> })()}
                 </div>
               ))}
             </div>
@@ -720,7 +934,7 @@ export default function NewMotorbikePage() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div>
                   <h3 className="text-base font-bold text-slate-900">1. Màu sắc xe</h3>
-                  <p className="text-xs text-slate-500 mt-1">Thêm các tùy chọn màu kèm ảnh tương ứng và swatch màu sắc.</p>
+                  <p className="text-xs text-slate-500 mt-1">Khai báo tên, nhóm màu và swatch dùng chung; ảnh xe có thể tùy chỉnh riêng trong từng phiên bản.</p>
                 </div>
                 <button
                   type="button"
@@ -737,50 +951,15 @@ export default function NewMotorbikePage() {
                     key={idx}
                     className="grid gap-4 sm:grid-cols-12 items-center rounded-lg border border-slate-200 p-4 bg-slate-50/50"
                   >
-                    <div className="sm:col-span-3">
+                    <div className="sm:col-span-7">
                       <label className="block text-xs font-bold text-slate-600 uppercase">Tên màu</label>
                       <input
                         type="text"
                         value={color.color_name}
                         onChange={(e) => updateColor(idx, { color_name: e.target.value })}
+                        onBlur={(e) => updateColor(idx, { color_name: e.currentTarget.value.trim() })}
                         className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500"
                       />
-                    </div>
-
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình ảnh xe (Color Image)</label>
-                      {color.image_url ? (
-                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
-                          <img src={color.image_url} alt="Car color" className="w-10 h-7 object-contain" />
-                          <button
-                            type="button"
-                            onClick={() => updateColor(idx, { image_url: '' })}
-                            className="text-red-500 hover:bg-red-50 rounded p-1"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <ImageUploadDropzone compact label="Tải hình xe" onUploadSuccess={(urls) => updateColor(idx, { image_url: urls[0] })} />
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Hình Swatch màu</label>
-                      {color.swatch ? (
-                        <div className="relative flex items-center justify-between border rounded bg-white px-2 py-1">
-                          <img src={color.swatch} alt="Color swatch" className="w-8 h-6 object-contain" />
-                          <button
-                            type="button"
-                            onClick={() => updateColor(idx, { swatch: '' })}
-                            className="text-red-500 hover:bg-red-50 rounded p-1"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <ImageUploadDropzone compact label="Tải swatch" onUploadSuccess={(urls) => updateColor(idx, { swatch: urls[0] })} />
-                      )}
                     </div>
 
                     <div className="sm:col-span-1 flex justify-end">
@@ -792,6 +971,45 @@ export default function NewMotorbikePage() {
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+
+                    <div className="sm:col-span-4">
+                      <label className="block text-xs font-bold text-slate-600 uppercase">Nhóm màu</label>
+                      <select value={color.color_type ?? 'STANDARD'} onChange={(e) => updateColor(idx, { color_type: e.target.value as ColorEntry['color_type'] })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500">
+                        <option value="STANDARD">Màu tiêu chuẩn</option>
+                        <option value="ADVANCED">Màu nâng cao</option>
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-12 border-t border-slate-200 pt-3">
+                      <label className="block text-xs font-bold uppercase text-slate-600">Swatch màu dùng chung</label>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                        {color.swatch ? (
+                          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-1">
+                            <img src={color.swatch} alt={`Swatch ${color.color_name}`} className="h-full w-full rounded-full object-cover" />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-700">Chưa có swatch dùng chung.</span>
+                        )}
+                        <ImageUploadDropzone
+                          compact
+                          label={color.swatch ? 'Đổi swatch' : 'Tải swatch'}
+                          folder="fastlane/products/motorbikes/colors"
+                          onError={(message) => notify('error', 'Không thể cập nhật swatch', message)}
+                          onUploadSuccess={(urls) => updateColor(idx, { swatch: urls[0] || '' })}
+                        />
+                        {color.swatch && (
+                          <button
+                            type="button"
+                            onClick={() => updateColor(idx, { swatch: '' })}
+                            className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                            aria-label={`Xóa swatch ${color.color_name}`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500">Swatch này sẽ tự dùng cho mọi phiên bản của màu {color.color_name || 'này'}.</p>
                     </div>
                   </div>
                 ))}
@@ -870,8 +1088,43 @@ export default function NewMotorbikePage() {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                    <div className="sm:col-span-12 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-slate-600">Màu áp dụng</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">Chỉ các cặp được chọn mới tạo SKU.</p>
+                      </div>
+                      <CombinationMultiSelect
+                        label={`Màu áp dụng cho ${ver.name}`}
+                        options={form.colors.map((color) => color.color_name)}
+                        selected={selectedColorsFor(ver)}
+                        onChange={(colors) => updateCompatibleColors(idx, colors)}
+                      />
+                    </div>
+                    <MotorbikeVersionColorMediaFields
+                      versionName={ver.name}
+                      colors={form.colors.filter((color) => selectedColorsFor(ver).includes(color.color_name))}
+                      mediaByColor={normalizeMotorbikeVariantColorMedia(ver.media_by_color)}
+                      onChange={(colorName, media) => updateVariantColorMedia(idx, colorName, media)}
+                      onError={(message) => notify('error', 'Không thể cập nhật hình ảnh màu', message)}
+                    />
                   </div>
                 ))}
+              </div>
+              {form.colors.some((color) => color.color_type === 'ADVANCED') && (
+                <label className="mt-4 block max-w-xs text-xs font-bold uppercase text-slate-600">
+                  Phụ thu chung cho màu nâng cao (VND)
+                  <input type="number" min="0" value={form.advanced_color_price} onChange={(event) => setForm((current) => ({ ...current, advanced_color_price: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-500" />
+                </label>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-6">
+              <h3 className="text-base font-bold text-slate-900">3. Tồn kho của các tổ hợp hợp lệ</h3>
+              <p className="mt-1 text-xs text-slate-500">Chỉ những cặp phiên bản–màu đã áp dụng ở trên được tạo SKU và theo dõi tồn kho.</p>
+              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-xs font-bold uppercase text-slate-600"><tr><th className="px-4 py-3">Phiên bản</th><th className="px-4 py-3">Màu ngoại thất</th><th className="px-4 py-3">Số lượng tồn</th></tr></thead>
+                  <tbody>{form.versions.flatMap((version, versionIndex) => selectedColorsFor(version).map((colorName) => <tr key={`${version.sku}-${colorName}`} className="border-t border-slate-100"><td className="px-4 py-3 font-semibold text-slate-800">{version.name || 'Phiên bản chưa đặt tên'}</td><td className="px-4 py-3 text-slate-700">{colorName}</td><td className="px-4 py-2"><input aria-label={`Tồn kho ${version.name} - ${colorName}`} type="number" min="0" step="1" value={version.stock_by_color?.[colorName] ?? 0} onChange={(event) => updateVariantStock(versionIndex, colorName, Number(event.target.value))} className="h-9 w-28 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500" /></td></tr>))}</tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -1203,7 +1456,7 @@ export default function NewMotorbikePage() {
                                 <div className="grid grid-cols-4 gap-2 mb-3">
                                   {(block.data.images || []).map((imgUrl: string, imgIdx: number) => (
                                     <div key={imgIdx} className="relative h-20 rounded overflow-hidden border border-slate-200">
-                                      <img src={imgUrl} className="h-full w-full object-cover" alt={`Gallery item ${imgIdx}`} />
+                                      {imgUrl ? <img src={imgUrl} className="h-full w-full object-cover" alt={`Gallery item ${imgIdx}`} /> : <span className="flex h-full items-center justify-center text-[10px] text-slate-400">Chưa có ảnh</span>}
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -1263,6 +1516,20 @@ export default function NewMotorbikePage() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {isSpecDialogOpen && <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl" initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 8 }}>
+            <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900">Thêm thông số kỹ thuật</h3><button type="button" onClick={() => setIsSpecDialogOpen(false)} aria-label="Đóng"><X size={18} /></button></div>
+            <div className="mt-5 space-y-4">
+              <input value={specDraft.label} onChange={(event) => setSpecDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Tên thông số, ví dụ: Công nghệ sạc" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+              <p className="mt-1 text-xs text-red-600"><strong>Lưu ý:</strong> Không được trùng với 1 trong tên thông số hiện có.</p>
+              <input value={specDraft.value} onChange={(event) => setSpecDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Giá trị, ví dụ: Sạc nhanh 20 phút" className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" />
+            </div>
+            <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setIsSpecDialogOpen(false)}>Hủy</Button><Button type="button" onClick={addCustomMotorbikeSpec}>Thêm thông số</Button></div>
+          </motion.div>
+        </motion.div>}
+      </AnimatePresence>
 
       {/* Recover Draft Dialog overlay */}
       <AnimatePresence>
@@ -1327,9 +1594,9 @@ export default function NewMotorbikePage() {
             <div className="min-h-screen pb-32">
               {/* HERO Banner */}
               <section id="preview-top" className="relative flex h-[90vh] min-h-[600px] w-full flex-col justify-between overflow-hidden">
-                {form.hero_image_url ? (
+                {previewHeroImage ? (
                   <img
-                    src={form.hero_image_url}
+                    src={previewHeroImage}
                     alt={form.name || 'Motorbike Hero'}
                     className="absolute inset-0 h-full w-full object-cover"
                   />
@@ -1394,14 +1661,42 @@ export default function NewMotorbikePage() {
                 </div>
               </div>
 
+              {/* VERSION SELECTOR */}
+              {form.versions.length > 0 && (
+                <section className="mx-auto max-w-6xl px-6 pt-16">
+                  <div className="mb-6 text-center">
+                    <span className="text-xs font-bold uppercase tracking-[0.24em] text-brand-400">Phiên bản đang xem</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {form.versions.map((version, index) => (
+                      <button
+                        key={`${version.sku}-${index}`}
+                        type="button"
+                        onClick={() => setPreviewVersionIndex(index)}
+                        aria-pressed={resolvedPreviewVersionIndex === index}
+                        className={`relative min-h-24 rounded-2xl border px-5 py-4 text-left transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                          resolvedPreviewVersionIndex === index
+                            ? 'border-brand-400 bg-brand-500/15 text-white'
+                            : 'border-white/10 bg-white/5 text-white/70 hover:border-white/30 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="block pr-7 text-sm font-bold leading-5">{version.name || 'Phiên bản chưa đặt tên'}</span>
+                        <span className="mt-2 block text-xs text-white/50">{formatPrice(version.price)}</span>
+                        {resolvedPreviewVersionIndex === index && <Check className="absolute right-4 top-4 text-brand-400" size={18} />}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* COLOR SELECTOR AND VEHICLE DISPLAY */}
               <section className="mx-auto max-w-6xl px-6 py-20">
                 <div className="grid gap-12 lg:grid-cols-12 items-center">
                   <div className="lg:col-span-8 flex justify-center items-center h-96 bg-slate-900/40 border border-white/5 rounded-2xl p-6 relative">
-                    {form.colors.length > 0 && form.colors[previewColorIndex]?.image_url ? (
+                    {previewDisplayImage ? (
                       <motion.img
-                        key={previewColorIndex}
-                        src={form.colors[previewColorIndex].image_url}
+                        key={`${resolvedPreviewVersionIndex}-${resolvedPreviewColorIndex}`}
+                        src={previewDisplayImage}
                         alt="Preview bike color"
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1410,7 +1705,7 @@ export default function NewMotorbikePage() {
                     ) : (
                       <div className="text-slate-500 text-sm">Chưa cập nhật hình ảnh màu xe</div>
                     )}
-                    <span className="absolute bottom-4 left-6 text-xs text-white/40">Màu đang xem: {form.colors[previewColorIndex]?.color_name || 'N/A'}</span>
+                    <span className="absolute bottom-4 left-6 text-xs text-white/40">Màu đang xem: {previewColor?.color_name || 'N/A'}</span>
                   </div>
 
                   {/* Swatches details */}
@@ -1419,22 +1714,24 @@ export default function NewMotorbikePage() {
                     <p className="text-sm text-white/60 leading-6">{form.description || 'Chưa cung cấp mô tả xe máy điện.'}</p>
 
                     <div className="flex flex-wrap gap-3 pt-3">
-                      {form.colors.map((color, idx) => (
+                      {previewColors.map((color, idx) => {
+                        const colorMedia = previewVersion ? resolveMotorbikeVariantColorMedia(previewVersion, color) : { image_url: '', swatch: '' }
+                        return (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => setPreviewColorIndex(idx)}
                           className={`relative h-11 w-11 rounded-full border-2 p-0.5 transition active:scale-95 ${
-                            previewColorIndex === idx ? 'border-brand-500 bg-brand-500/20' : 'border-white/20 hover:border-white/50'
+                            resolvedPreviewColorIndex === idx ? 'border-brand-500 bg-brand-500/20' : 'border-white/20 hover:border-white/50'
                           }`}
                         >
-                          {color.swatch ? (
-                            <img src={color.swatch} alt={color.color_name} className="h-full w-full rounded-full object-cover" />
+                          {colorMedia.swatch ? (
+                            <img src={colorMedia.swatch} alt={color.color_name} className="h-full w-full rounded-full object-cover" />
                           ) : (
                             <span className="block h-full w-full rounded-full bg-slate-800" />
                           )}
                         </button>
-                      ))}
+                      )})}
                     </div>
                   </div>
                 </div>
@@ -1474,23 +1771,19 @@ export default function NewMotorbikePage() {
               )}
 
               {/* DETAIL IMAGES LANDING */}
-              {form.detail_image_urls && form.detail_image_urls.length > 0 && (
+              {previewDetailImages.length > 0 && (
                 <section id="preview-details-gallery" className="mx-auto max-w-6xl px-6 py-20 bg-slate-950 text-white">
                   <div className="text-center mb-12">
                     <h3 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h3>
-                    <p className="text-xs text-white/50 mt-2">Hình ảnh thực tế chi tiết của xe.</p>
+                    <p className="text-xs text-white/50 mt-2">
+                      Hình ảnh thực tế chi tiết của xe.
+                    </p>
                   </div>
-                  <div className="grid gap-6 sm:grid-cols-3">
-                    {form.detail_image_urls.map((url, idx) => (
-                      <div key={idx} className="h-64 rounded-xl border border-white/5 bg-slate-900 overflow-hidden relative group">
-                        {url ? (
-                          <img src={url} alt={`Detail view ${idx}`} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
-                          <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span>
-                        </div>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {previewDetailImages.slice(0, 20).map((url, idx) => (
+                      <div key={idx} className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900">
+                        {url ? <img src={url} alt={`Chi tiết ${form.name || 'xe'} ${idx + 1}`} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-slate-500 text-xs">Chưa tải ảnh chi tiết #{idx + 1}</div>}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12"><span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{idx + 1}</span></div>
                       </div>
                     ))}
                   </div>
@@ -1501,14 +1794,25 @@ export default function NewMotorbikePage() {
               <section id="preview-specs" className="bg-slate-950/80 py-16">
                 <div className="mx-auto max-w-3xl px-6">
                   <h3 className="text-xl font-bold text-center mb-8 border-b border-white/10 pb-4">Bảng thông số kỹ thuật chi tiết</h3>
-                  <div className="divide-y divide-white/5 text-sm">
-                    {Object.entries(form.specifications).map(([key, val]) => (
-                      <div key={key} className="flex py-3 justify-between items-center gap-4">
-                        <span className="text-white/60 font-semibold">{key}</span>
-                        <span className="text-white font-bold text-right">{val || 'Chưa cập nhật'}</span>
+                  {(() => {
+                    const visibleFields = form.specification_fields.filter((field) => field.visible !== false)
+                    const operationFields = visibleFields.filter((field) => field.section === 'Vận hành & Pin')
+                    const utilityFields = visibleFields.filter((field) => field.section !== 'Vận hành & Pin')
+                    const renderGroup = (title: string, fields: typeof visibleFields) => (
+                      <div>
+                        <h4 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3">{title}</h4>
+                        <div className="divide-y divide-white/5 text-sm">
+                          {fields.map((field) => (
+                            <div key={field.key} className="flex py-3 justify-between items-center gap-4">
+                              <span className="text-white/60 font-semibold">{field.label}</span>
+                              <span className="text-white font-bold text-right">{String(form.specifications[field.key as keyof FormState['specifications']] ?? '') || 'Chưa cập nhật'}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    )
+                    return <div className="grid gap-12 lg:grid-cols-2">{renderGroup('Động cơ & Vận hành', operationFields)}{renderGroup('Kích thước & Tiện ích', utilityFields)}</div>
+                  })()}
                 </div>
               </section>
             </div>

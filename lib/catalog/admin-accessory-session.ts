@@ -100,6 +100,7 @@ function normalizeVariant(value: unknown, index: number): DraftVariant {
     sku: UUID_PATTERN.test(id) && typeof row.sku === 'string' ? row.sku : '',
     originalPrice: typeof row.originalPrice === 'string' ? row.originalPrice : '',
     salePrice: typeof row.salePrice === 'string' ? row.salePrice : '',
+    stockQuantity: typeof row.stockQuantity === 'string' ? row.stockQuantity : '0',
     isActive: row.isActive !== false,
     isIncluded: row.isIncluded !== false,
     selections: Object.fromEntries(Object.entries(rawSelections).filter((entry): entry is [string, string | null] => (

@@ -1,5 +1,3 @@
-import fs from 'fs'
-import path from 'path'
 import { DepositClient } from './DepositClient'
 import {
   buildMotorbikeDepositSpecs,
@@ -37,9 +35,6 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
     )
   }
   const params = await searchParams
-  const carsDataPath = path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json')
-  const specsDataPath = path.join(process.cwd(), 'public', 'data', 'master_car_specs.json')
-
   const motorbikeCatalog = await listMotorbikeCatalog()
 
   const supabase = getSupabaseAdmin()
@@ -47,87 +42,27 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
   try {
     const { data } = await supabase
       .from('products')
-      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active)')
+      .select('id, name, is_active, specifications, advanced_color_price, vehicle_variants(color, image_car_url, image_color_url, is_active, color_type, color_price_adjustment, interior_color)')
       .eq('product_type', 'CAR')
     if (data) dbProducts = data
   } catch (e) {
     console.error('Error fetching products with variants', e)
   }
 
-  const matchedProductIds = new Set<string>()
-
-  const rawCarsData = JSON.parse(fs.readFileSync(carsDataPath, 'utf8'))
-  const carsData = rawCarsData.map((c: any) => {
-    let dbP = dbProducts.find(p => p.name === c.name || p.name === c.name.replace('VinFast ', ''))
-    if (!dbP) {
-      dbP = dbProducts.find(p => {
-        if (c.name.includes('The All-New') && !p.name.includes('The All-New')) return false
-        return c.name.includes(p.name) || p.name.includes(c.name)
-      })
-    }
-    if (dbP) {
-      c.product_id = dbP.id
-      c.specifications = dbP.specifications
-      if (dbP.is_active === false) {
-        c.is_active = false
-      }
-      matchedProductIds.add(dbP.id)
-      if (dbP.advanced_color_price !== null) {
-        c.advanced_color_price = dbP.advanced_color_price
-      }
-      if (dbP.specifications && typeof dbP.specifications === 'object') {
-        const specsObj = dbP.specifications as any
-        if (specsObj.interiors) {
-          c.interiors = specsObj.interiors
-        }
-        if (specsObj.gallery?.interior_images) {
-          c.gallery = {
-            ...c.gallery,
-            interior_images: specsObj.gallery.interior_images
-          }
-        }
-      }
-      if (dbP.vehicle_variants && dbP.vehicle_variants.length > 0) {
-        const dbColors = dbP.vehicle_variants
-          .filter((v: any) => v.is_active !== false && v.color && v.image_car_url)
-          .map((v: any) => ({
-            name: v.color,
-            image: v.image_car_url,
-            swatch: v.image_color_url
-          }))
-        
-        const uniqueColorsMap = new Map()
-        dbColors.forEach((colorObj: any) => {
-          if (!uniqueColorsMap.has(colorObj.name)) {
-            uniqueColorsMap.set(colorObj.name, colorObj)
-          }
-        })
-        
-        if (uniqueColorsMap.size > 0) {
-          c.colors = Array.from(uniqueColorsMap.values())
-        }
-      }
-    }
-    return c
-  })
-
-  // Map dynamic cars from database that are not in the static cars.json and are active
-  const unmatchedProducts = dbProducts.filter(p => !matchedProductIds.has(p.id) && p.is_active !== false)
-  const dynamicCars = unmatchedProducts.map((p: any) => {
+  // Vehicle selection data comes exclusively from the canonical Supabase rows.
+  const carsData = dbProducts.filter((p: any) => p.is_active !== false).map((p: any) => {
     const specsObj = p.specifications || {}
-    
-    let colors = []
-    if (p.vehicle_variants && p.vehicle_variants.length > 0) {
-      colors = p.vehicle_variants
-        .filter((v: any) => v.is_active !== false && v.color && v.image_car_url)
-        .map((v: any) => ({
-          name: v.color,
-          image: v.image_car_url,
-          swatch: v.image_color_url
-        }))
-    } else if (specsObj.fallback_colors) {
-      colors = specsObj.fallback_colors
-    }
+    const colors = Array.from(new Map((p.vehicle_variants || [])
+      .filter((v: any) => v.is_active !== false && v.color && v.image_car_url)
+      .map((v: any) => [v.color, {
+        name: v.color, image: v.image_car_url, swatch: v.image_color_url,
+        type: v.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        priceAdjustment: Number(v.color_price_adjustment || 0),
+        interiorColor: v.interior_color || undefined,
+      }])).values()).sort((a: any, b: any) => {
+        const tier = Number(a.type === 'ADVANCED') - Number(b.type === 'ADVANCED')
+        return tier || a.name.localeCompare(b.name, 'vi')
+      })
 
     const interiors = specsObj.interiors || []
     const variantsNames = Object.keys(specsObj.specs || {})
@@ -143,7 +78,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
 
     return {
       product_id: p.id,
-      name: p.name,
+      name: p.name.replace(/^VinFast\s+/i, ''),
       url: `/cars/${p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       price: priceStr,
       deposit: depositStr,
@@ -159,10 +94,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
       advanced_color_price: p.advanced_color_price
     }
   })
-
-  // Filter out any static cars that have been deactivated in the database
-  const activeStaticCars = carsData.filter((c: any) => c.is_active !== false)
-  const combinedCarsData = [...activeStaticCars, ...dynamicCars]
+  const combinedCarsData = carsData
 
   const motorbikesData = motorbikeCatalog.map((motorbike) => ({
     product_id: motorbike.productId,
@@ -189,25 +121,25 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
       detail_images: motorbike.detailImageUrls,
     },
   }))
-  const specsData = {
-    ...JSON.parse(fs.readFileSync(specsDataPath, 'utf8')),
-    ...buildMotorbikeDepositSpecs(motorbikesData),
-  }
+  const specsData: Record<string, any> = buildMotorbikeDepositSpecs(motorbikesData)
   // Inject specs for database-driven dynamic cars
-  unmatchedProducts.forEach((p: any) => {
+  dbProducts.filter((p: any) => p.is_active !== false).forEach((p: any) => {
     const specsObj = p.specifications || {}
-    specsData[p.name] = {
+    const depositSpecs = {
       name: p.name,
       model_key: `Products-Car-${p.name.replace(/[^a-zA-Z0-9]+/g, '')}`,
       variants: specsObj.specs || {}
     }
+    specsData[p.name] = depositSpecs
     const shortName = p.name.replace('VinFast ', '')
-    if (shortName !== p.name) {
-      specsData[shortName] = specsData[p.name]
-    }
+    specsData[shortName] = depositSpecs
   })
 
   const initialCar = Array.isArray(params.model) ? params.model[0] : params.model
+  const requestedReturnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo
+  const initialReturnTo = typeof requestedReturnTo === 'string' && requestedReturnTo.startsWith('/') && !requestedReturnTo.startsWith('//')
+    ? requestedReturnTo
+    : undefined
   const requestedType = Array.isArray(params.type) ? params.type[0] : params.type
   const initialVehicleType: DepositVehicleType =
     requestedType === 'motorbike' ||
@@ -222,6 +154,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
       motorbikesData={motorbikesData}
       specsData={specsData}
       initialCar={initialCar}
+      initialReturnTo={initialReturnTo}
       initialVehicleType={initialVehicleType}
     />
   )

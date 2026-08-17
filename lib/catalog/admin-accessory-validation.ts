@@ -99,12 +99,16 @@ function validateVariants(draft: AdminAccessoryDraft): DraftValidationIssue[] {
     const path = `variants.${index}`
     const originalPrice = Number(variant.originalPrice)
     const salePrice = variant.salePrice.trim() ? Number(variant.salePrice) : null
+    const stockQuantity = Number(variant.stockQuantity ?? '0')
     if (!variant.name.trim()) issues.push({ path: `${path}.name`, section: 'variants', severity: 'error', code: 'VARIANT_NAME_REQUIRED', message: 'Tên biến thể không được để trống.' })
     if (!Number.isSafeInteger(originalPrice) || originalPrice < 0) {
       issues.push({ path: `${path}.originalPrice`, section: 'variants', severity: 'error', code: 'VARIANT_PRICE_INVALID', message: 'Giá niêm yết phải là số nguyên VND không âm.' })
     }
     if (salePrice !== null && (!Number.isSafeInteger(salePrice) || salePrice < 0 || salePrice >= originalPrice)) {
       issues.push({ path: `${path}.salePrice`, section: 'variants', severity: 'error', code: 'VARIANT_SALE_PRICE_INVALID', message: 'Giá khuyến mại phải là số nguyên không âm và thấp hơn giá niêm yết.' })
+    }
+    if (!Number.isSafeInteger(stockQuantity) || stockQuantity < 0) {
+      issues.push({ path: `${path}.stockQuantity`, section: 'variants', severity: 'error', code: 'VARIANT_STOCK_INVALID', message: 'Tồn kho ban đầu phải là số nguyên không âm.' })
     }
     if (duplicateSignatures.has(variantSignature(variant, draft.optionGroups))) {
       issues.push({ path: `${path}.selections`, section: 'variants', severity: 'error', code: 'VARIANT_SIGNATURE_DUPLICATE', message: 'Tổ hợp tùy chọn của biến thể bị trùng.' })

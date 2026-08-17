@@ -19,7 +19,7 @@ export default function AdminCustomersPage() {
     const [portalReady, setPortalReady] = useState(false)
     const [toasts, setToasts] = useState<ToastMessage[]>([])
     const notify = (type: 'success' | 'error', message: string) => { const id = Date.now(); setToasts(current => [...current, { id, kind: type, title: message }]); window.setTimeout(() => setToasts(current => current.filter(toast => toast.id !== id)), 3500) }
-    async function load() { setLoading(true); setError(''); try { const response = await fetch('/api/v1/admin/customers', { cache: 'no-store' }), data = await payload(response); if (!response.ok) throw new Error(data?.error ?? 'Không thể tải danh sách khách hàng.'); setCustomers(data) } catch (e) { setError(e instanceof Error ? e.message : 'Không thể tải danh sách khách hàng.') } finally { setLoading(false) } }
+    async function load() { setLoading(true); setError(''); try { const response = await fetch('/api/v1/admin/customers', { cache: 'no-store' }), data = await payload(response); if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : data?.error?.message ?? 'Không thể tải danh sách khách hàng.'); setCustomers(data) } catch (e) { setError(e instanceof Error ? e.message : 'Không thể tải danh sách khách hàng.') } finally { setLoading(false) } }
     useEffect(() => { void load() }, [])
     useEffect(() => setPortalReady(true), [])
     useEffect(() => setPage(1), [search, verificationFilter])

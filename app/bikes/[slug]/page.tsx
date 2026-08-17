@@ -2,15 +2,20 @@ import { notFound } from 'next/navigation'
 import { Header } from '../../../components/header'
 import { Footer } from '../../../components/footer'
 import Link from 'next/link'
-import { BikeColorSelector } from '../../../components/bike-color-selector'
+import { BikeVersionMediaGallery } from '../../../components/bike-version-media-gallery'
 import { getMotorbikeCatalogBySlug } from '../../../lib/motorbike-catalog'
+import { getSupabaseAdmin } from '../../../lib/supabase-admin'
+import { findMotorbikeVersionMedia, normalizeMotorbikeVersionMedia } from '../../../lib/motorbike-version-media'
 import { Button } from '../../../components/ui/button'
 import {
   BatteryCharging,
   Calculator,
   Check,
+  Clock,
   CircleHelp,
   FileDown,
+  Gauge,
+  Zap,
 } from 'lucide-react'
 import { BikeShareButton } from './bike-detail-actions'
 import LandingPageRenderer from '../../../components/landing-page-renderer'
@@ -99,18 +104,6 @@ function findSpecValue(
   return partial?.[1] ?? ''
 }
 
-function getHeadlineValue(value: string): string {
-  if (!value) {
-    return 'N/A'
-  }
-
-  const match = value.match(
-    /\d+(?:[.,]\d+)?\s*(?:km\/h|km|kwh|kw|w|giờ|gio|h|phút|phut|kg|l)?/i,
-  )
-
-  return match?.[0]?.trim() || value
-}
-
 function formatPrice(price: unknown): string {
   if (
     price === null ||
@@ -143,6 +136,15 @@ export default async function BikeDetailPage(
     notFound()
   }
 
+  const { data: mediaProduct } = await getSupabaseAdmin()
+    .from('products')
+    .select('specifications')
+    .eq('id', motorbike.productId)
+    .maybeSingle()
+  const storedVersionMedia = normalizeMotorbikeVersionMedia(
+    asObject(mediaProduct?.specifications).version_media,
+  )
+
   const product = {
     id: motorbike.productId,
     name: motorbike.name,
@@ -151,21 +153,39 @@ export default async function BikeDetailPage(
     displayed_price: motorbike.displayedPrice,
   }
   const rawSpecifications = motorbike.specifications
-  const specifications = motorbike.specifications
+  const visibleSpecificationFields = motorbike.specificationFields.filter((field) => field.visible !== false)
+  const specificationLabels = new Map(visibleSpecificationFields.map((field) => [field.key, field.label]))
+  const specifications = Object.fromEntries(
+    visibleSpecificationFields
+      .map((field) => [field.key, motorbike.specifications[field.key] ?? ''])
+      .filter(([, value]) => asString(value) !== ''),
+  )
   const listingImage = motorbike.listingImageUrl
   const heroImage = {
     src: motorbike.heroImageUrl,
     contain: motorbike.heroImageUrl === motorbike.listingImageUrl,
   }
-  const bikeColors = motorbike.colors.map((color) => ({
-    name: color.name,
-    swatch: color.swatchUrl || undefined,
-  }))
-  const colorImages = motorbike.colors.map((color) => color.imageUrl)
   const detailImages = motorbike.detailImageUrls
-
-  const displayImgs = detailImages.slice(0, 2)
-  const displayIntImgs = detailImages.slice(2, 3)
+  const versionMediaOptions = motorbike.versions.map((version) => {
+    const media = findMotorbikeVersionMedia(storedVersionMedia, version)
+    return {
+      name: version.name,
+      sku: version.sku,
+      price: version.price,
+      imageUrl: media?.image_url || '',
+      detailImageUrls: media?.detail_image_urls || [],
+    }
+  })
+  const versionColorOptions = motorbike.variantRows.map((variant) => {
+    const version = motorbike.versions.find((entry) => entry.name === variant.version)
+    return {
+      versionName: variant.version,
+      versionSku: version?.sku || variant.sku,
+      colorName: variant.color,
+      imageUrl: variant.imageCarUrl,
+      swatchUrl: variant.imageColorUrl,
+    }
+  })
 
   const specEntries =
     getSpecEntries(specifications)
@@ -195,38 +215,24 @@ export default async function BikeDetailPage(
     ],
   )
 
-  const dimensionAliases = [
-    'dai x rong x cao',
-    'chieu cao yen',
-    'khoang sang gam',
-    'trong luong',
-    'tai trong',
-    'the tich cop',
-    'kich thuoc lop',
-    'khoang cach truc banh',
-  ]
-
-  const dimensionEntries =
-    specEntries.filter(([key]) => {
-      const normalizedKey =
-        normalizeText(key)
-
-      return dimensionAliases.some(
-        (alias) =>
-          normalizedKey.includes(alias),
-      )
-    })
-
-  const performanceEntries =
-    specEntries.filter(([key]) => {
-      const normalizedKey =
-        normalizeText(key)
-
-      return !dimensionAliases.some(
-        (alias) =>
-          normalizedKey.includes(alias),
-      )
-    })
+  const specificationSections = new Map(
+    visibleSpecificationFields.map((field) => [field.key, normalizeText(field.section)]),
+  )
+  const headlineSpecificationKeys = new Set([
+    'Quãng đường đi được mỗi lần sạc',
+    'Công suất tối đa',
+    'Tốc độ tối đa',
+    'Thời gian sạc tiêu chuẩn',
+  ])
+  const dimensionEntries = specEntries.filter(([key]) => {
+    if (headlineSpecificationKeys.has(key)) return false
+    const section = specificationSections.get(key) ?? ''
+    return section.includes('kich thuoc') || section.includes('tien ich')
+  })
+  const performanceEntries = specEntries.filter(([key]) => (
+    !headlineSpecificationKeys.has(key) &&
+    !dimensionEntries.some(([entryKey]) => entryKey === key)
+  ))
 
   const technologyFeatures = [
     {
@@ -319,7 +325,8 @@ export default async function BikeDetailPage(
         /^(?:https?:\/\/|\/)/i.test(value) &&
         /\.pdf(?:[?#].*)?$/i.test(value),
     ) ?? ''
-  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}`
+  const productDetailHref = `/bikes/${encodeURIComponent(product.slug)}`
+  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}&returnTo=${encodeURIComponent(productDetailHref)}`
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
   const estimatorHref = `/cost-estimator?vehicle=${encodeURIComponent(product.slug)}`
 
@@ -457,46 +464,27 @@ export default async function BikeDetailPage(
       ) : (
         <>
           {/* HIGHLIGHTS */}
-          <section
-            id="performance"
-            className="bg-muted py-24"
-          >
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="grid grid-cols-2 gap-8 text-center md:grid-cols-4 md:gap-12">
-            {[
-              [
-                getHeadlineValue(range),
-                'Quãng đường',
-              ],
-              [
-                getHeadlineValue(maxPower),
-                'Công suất tối đa',
-              ],
-              [
-                getHeadlineValue(maxSpeed),
-                'Tốc độ tối đa',
-              ],
-              [
-                getHeadlineValue(chargingTime),
-                'Thời gian sạc',
-              ],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="flex flex-col items-center px-3"
-              >
-                <p className="mb-2 text-3xl font-bold tracking-tighter md:text-5xl">
-                  {value}
-                </p>
-
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {label}
-                </p>
+          <section id="performance" className="border-y border-slate-100 bg-white py-16">
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: 'Quãng đường', value: range || 'N/A', icon: BatteryCharging },
+                  { label: 'Công suất tối đa', value: maxPower || 'N/A', icon: Zap },
+                  { label: 'Tốc độ tối đa', value: maxSpeed || 'N/A', icon: Gauge },
+                  { label: 'Thời gian sạc', value: chargingTime || 'N/A', icon: Clock },
+                ].map((stat) => {
+                  const Icon = stat.icon
+                  return (
+                    <div key={stat.label} className="flex min-h-[236px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
+                      <Icon className="mb-5 h-9 w-9 text-brand-500" strokeWidth={2} />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{stat.label}</span>
+                      <span className="mt-4 max-w-[240px] text-2xl font-bold leading-tight text-slate-950">{stat.value}</span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
 
       {/* CUSTOMER UTILITIES */}
       <section className="border-b border-black/5 bg-background py-14 sm:py-16">
@@ -580,72 +568,6 @@ export default async function BikeDetailPage(
                   </p>
                 </div>
               </a>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {motorbike.colors.length > 0 && (
-        <BikeColorSelector
-          colors={bikeColors}
-          images={colorImages}
-        />
-      )}
-
-      {/* DESIGN SECTION */}
-      <section
-        id="design"
-        className="bg-background py-32"
-      >
-        <div className="mx-auto max-w-[1440px] px-6 lg:px-12">
-          <div className="mb-16">
-            <h2 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
-              Thiết kế dành cho nhịp sống hiện đại
-            </h2>
-
-            <p className="max-w-2xl text-xl text-muted-foreground">
-              {description}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            {displayImgs[0] && (
-              <div className="overflow-hidden rounded-[2rem] md:col-span-2">
-                <Image
-                  src={displayImgs[0]}
-                  alt={`Thiết kế ${product.name}`}
-                  width={1440}
-                  height={810}
-                  sizes="(max-width: 1024px) 100vw, 1440px"
-                  className="h-auto w-full object-cover"
-                />
-              </div>
-            )}
-
-            {displayImgs[1] && (
-              <div className="aspect-square overflow-hidden rounded-[2rem]">
-                <Image
-                  src={displayImgs[1]}
-                  alt={`Ngoại hình ${product.name}`}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            )}
-
-            {displayIntImgs[0] && (
-              <div className="relative aspect-square overflow-hidden rounded-[2rem]">
-                <Image
-                  src={displayIntImgs[0]}
-                  alt={`Chi tiết ${product.name}`}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
             )}
           </div>
         </div>
@@ -762,6 +684,15 @@ export default async function BikeDetailPage(
         </>
       )}
 
+      <BikeVersionMediaGallery
+        productName={product.name}
+        versions={versionMediaOptions}
+        colorVariants={versionColorOptions}
+        description={description}
+        fallbackImageUrl={heroImage.src}
+        fallbackDetailImageUrls={detailImages}
+      />
+
       {/* FULL SPECS */}
       <section
         id="specs"
@@ -779,22 +710,20 @@ export default async function BikeDetailPage(
               </h3>
 
               <ul className="space-y-4">
-                {performanceEntries
-                  .slice(0, 14)
-                  .map(([key, value]) => (
-                    <li
-                      key={key}
-                      className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {key}
-                      </span>
+                {performanceEntries.map(([key, value]) => (
+                  <li
+                    key={key}
+                    className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      {specificationLabels.get(key) || key}
+                    </span>
 
-                      <span className="max-w-[55%] text-right font-semibold">
-                        {value}
-                      </span>
-                    </li>
-                  ))}
+                    <span className="max-w-[55%] text-right font-semibold">
+                      {value}
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -811,7 +740,7 @@ export default async function BikeDetailPage(
                       className="flex justify-between gap-8 border-b border-black/5 py-2 text-sm"
                     >
                       <span className="text-muted-foreground">
-                        {key}
+                        {specificationLabels.get(key) || key}
                       </span>
 
                       <span className="max-w-[55%] text-right font-semibold">

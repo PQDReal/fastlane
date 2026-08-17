@@ -199,7 +199,10 @@ async function processDepositCallback(
     return { ...base, success: false, message: 'Giao dịch này đã hết hạn hoặc đã được thay thế.' }
   }
   if (options.updatePayment === false) {
-    return { ...base, message: success ? 'Thanh toán đặt cọc thành công.' : 'Thanh toán chưa thành công hoặc đã bị hủy.' }
+    if (success && attempt.status === 'PENDING') {
+      return { ...base, success: false, message: 'Đang chờ xác nhận thanh toán từ VNPAY. Vui lòng kiểm tra lại trạng thái sau ít phút.' }
+    }
+    return { ...base, success: attempt.status === 'PAID', message: attempt.status === 'PAID' ? 'Thanh toán đặt cọc thành công.' : 'Thanh toán chưa thành công hoặc đã bị hủy.' }
   }
 
   const supabase = getSupabaseAdmin()
@@ -273,7 +276,10 @@ export async function processVnPayCallback(
     return { ...base, success: false, message: 'Giao dịch này đã hết hạn hoặc đã được thay thế.' }
   }
   if (options.updatePayment === false) {
-    return { ...base, message: success ? 'Thanh toán đơn hàng thành công.' : 'Thanh toán chưa thành công hoặc đã bị hủy.' }
+    if (success && attempt.status === 'PENDING') {
+      return { ...base, success: false, message: 'Đang chờ xác nhận thanh toán từ VNPAY. Vui lòng kiểm tra lại trạng thái sau ít phút.' }
+    }
+    return { ...base, success: attempt.status === 'PAID', message: attempt.status === 'PAID' ? 'Thanh toán đơn hàng thành công.' : 'Thanh toán chưa thành công hoặc đã bị hủy.' }
   }
   if (attempt.status === 'PAID') {
     await getSupabaseAdmin().from('orders').update({ status: 'PAID' })

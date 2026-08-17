@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { AccessTokenError } from '@auth0/nextjs-auth0/errors'
+
 import { auth0 } from '@/lib/auth0'
 import {
   authorizeAccessToken,
@@ -32,11 +34,14 @@ export async function authorizeAdminCatalogRequest(request: Request) {
   try {
     const accessToken = await auth0.getAccessToken()
     token = accessToken.token
-  } catch {
+  } catch (error) {
+    console.error('getAccessToken failed in authorizeAdminCatalogRequest:', error)
     throw new ApiAuthError(
       401,
       'AUTHENTICATION_REQUIRED',
-      'Authentication is required.',
+      error instanceof AccessTokenError
+        ? 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.'
+        : 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại.',
     )
   }
 
@@ -65,8 +70,15 @@ export async function authorizeAdminInventoryRequest(request: Request) {
   try {
     const accessToken = await auth0.getAccessToken()
     token = accessToken.token
-  } catch {
-    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  } catch (error) {
+    console.error('getAccessToken failed in authorizeAdminInventoryRequest:', error)
+    throw new ApiAuthError(
+      401,
+      'AUTHENTICATION_REQUIRED',
+      error instanceof AccessTokenError
+        ? 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.'
+        : 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại.',
+    )
   }
 
   return authorizeAccessToken(token, adminInventoryPolicy)

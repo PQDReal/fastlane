@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   canReplayAfterPreviewAuth,
+  createAuthLoginHref,
   createPreviewAuthRetryHref,
+  isAuthenticationRequiredApiResponse,
   isPreviewAuthRequiredResponse,
   PREVIEW_AUTH_REQUIRED_CODE,
   PREVIEW_AUTH_REQUIRED_HEADER,
@@ -21,6 +23,8 @@ describe('preview auth expiry protocol', () => {
 
     expect(isPreviewAuthRequiredResponse(expired)).toBe(true)
     expect(isPreviewAuthRequiredResponse(ordinaryUnauthorized)).toBe(false)
+    expect(isAuthenticationRequiredApiResponse(expired)).toBe(false)
+    expect(isAuthenticationRequiredApiResponse(ordinaryUnauthorized)).toBe(true)
   })
 
   it('keeps the complete current URL as the post-authentication destination', () => {
@@ -29,6 +33,11 @@ describe('preview auth expiry protocol', () => {
       search: '?tab=orders',
       hash: '#FL-123',
     })).toBe('/preview-auth/retry?returnTo=%2Fprofile%3Ftab%3Dorders%23FL-123')
+    expect(createAuthLoginHref({
+      pathname: '/admin/customers',
+      search: '?filter=active',
+      hash: '#row-1',
+    })).toBe('/auth/login?returnTo=%2Fadmin%2Fcustomers%3Ffilter%3Dactive%23row-1')
   })
 
   it('uses a namespaced key for the non-sensitive client expiry timestamp', () => {

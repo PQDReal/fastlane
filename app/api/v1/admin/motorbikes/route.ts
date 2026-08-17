@@ -5,7 +5,17 @@ import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
 import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
-import { MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields } from '@/lib/vehicle-specifications'
+import {
+  buildMotorbikeVersionMedia,
+  findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_DETAIL_IMAGES,
+  MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+  normalizeMotorbikeDetailImages,
+} from '@/lib/motorbike-version-media'
+import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
+import { allocateVehicleVariantSkus } from '@/lib/vehicle-sku'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -60,13 +70,16 @@ export async function POST(request: Request) {
     description,
     listing_image_url,
     hero_image_url,
-    detail_image_urls = [],
+    detail_image_urls: rawDetailImageUrls = [],
     specifications = {},
+    specification_fields = undefined,
     colors = [],
+    advanced_color_price = 0,
     versions = [],
     landing_page_blocks = [],
   } = body
   const isActive = body.is_active === true
+  const detail_image_urls = normalizeMotorbikeDetailImages(rawDetailImageUrls)
 
   // Basic validation
   if (!name?.trim() || !slug?.trim()) {
@@ -81,6 +94,59 @@ export async function POST(request: Request) {
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
   }
+  if (Array.isArray(rawDetailImageUrls) && rawDetailImageUrls.length > MAX_MOTORBIKE_DETAIL_IMAGES) {
+    return NextResponse.json({ error: `Thư viện ảnh chi tiết chỉ được có tối đa ${MAX_MOTORBIKE_DETAIL_IMAGES} ảnh.` }, { status: 400 })
+  }
+  const normalizedColorNames = colors.map((color: any) => String(color.color_name ?? '').trim().toLocaleLowerCase('vi'))
+  if (normalizedColorNames.some((colorName: string) => !colorName) || new Set(normalizedColorNames).size !== normalizedColorNames.length) {
+    return NextResponse.json({ error: 'Tên màu không được để trống hoặc trùng nhau.' }, { status: 400 })
+  }
+  if (colors.some((color: any) => !String(color.swatch ?? '').trim())) {
+    return NextResponse.json({ error: 'Mỗi màu phải có một swatch dùng chung.' }, { status: 400 })
+  }
+  const normalizedVersionNames = versions.map((version: any) => String(version.name ?? '').trim().toLocaleLowerCase('vi'))
+  const normalizedVersionSkus = versions.map((version: any) => String(version.sku ?? '').trim().toLocaleLowerCase())
+  if (normalizedVersionNames.some((versionName: string) => !versionName)
+    || normalizedVersionSkus.some((sku: string) => !sku)
+    || new Set(normalizedVersionNames).size !== normalizedVersionNames.length
+    || new Set(normalizedVersionSkus).size !== normalizedVersionSkus.length) {
+    return NextResponse.json({ error: 'Tên phiên bản và SKU gốc không được để trống hoặc trùng nhau.' }, { status: 400 })
+  }
+  if (versions.some((version: any) => Array.isArray(version.detail_image_urls) && version.detail_image_urls.length > MAX_MOTORBIKE_VERSION_DETAIL_IMAGES)) {
+    return NextResponse.json({ error: `Mỗi phiên bản chỉ được có tối đa ${MAX_MOTORBIKE_VERSION_DETAIL_IMAGES} ảnh chi tiết.` }, { status: 400 })
+  }
+  if (versions.some((version: any) => Object.values(version.stock_by_color ?? {}).some((value) => !Number.isInteger(Number(value)) || Number(value) < 0))) {
+    return NextResponse.json({ error: 'Tồn kho của từng phiên bản và màu phải là số nguyên không âm.' }, { status: 400 })
+  }
+
+  const colorNames = new Set(colors.map((color: any) => String(color.color_name)))
+  const advancedColorPrice = Math.max(0, Number(advanced_color_price) || 0)
+  const priceForConfiguration = (version: any, color: any) =>
+    Number(version.price) + (color.color_type === 'ADVANCED' ? advancedColorPrice : 0)
+  const sellableConfigurations = versions.flatMap((version: any, versionIndex: number) => {
+    const selectedColors = Array.isArray(version.compatible_colors)
+      ? Array.from(new Set(version.compatible_colors.map(String)))
+      : colors.map((color: any) => String(color.color_name))
+    return selectedColors.flatMap((colorName: string) => {
+      if (!colorNames.has(colorName)) return []
+      const colorIndex = colors.findIndex((color: any) => color.color_name === colorName)
+      return [{ version, versionIndex, color: colors[colorIndex], colorIndex }]
+    })
+  })
+  const configurationSignatures = sellableConfigurations.map(({ version, color }: any) => `${version.sku}\u001f${color.color_name}`)
+  if (sellableConfigurations.length === 0 || new Set(configurationSignatures).size !== configurationSignatures.length) {
+    return NextResponse.json({ error: 'Các cặp phiên bản và màu phải hợp lệ, không trùng nhau.' }, { status: 400 })
+  }
+  if (sellableConfigurations.some(({ version, color }: any) => !Number.isFinite(priceForConfiguration(version, color)) || priceForConfiguration(version, color) <= 0)) {
+    return NextResponse.json({ error: 'Giá bán của từng phiên bản phải lớn hơn 0.' }, { status: 400 })
+  }
+  const colorMediaForConfigurations: MotorbikeVariantColorMedia[] = sellableConfigurations.map(({ version, color }: any) => (
+    resolveMotorbikeVariantColorMedia(version, color)
+  ))
+  if (colorMediaForConfigurations.some((media) => !media.swatch)) {
+    return NextResponse.json({ error: 'Mỗi tổ hợp phiên bản và màu phải có swatch dùng chung.' }, { status: 400 })
+  }
+  const versionMedia = buildMotorbikeVersionMedia(versions)
 
   const productId = randomUUID()
   const categoryId = '6dfde2e5-b9d5-755c-10db-19a7ce6c24b5' // Xe máy điện category ID
@@ -89,16 +155,13 @@ export async function POST(request: Request) {
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
   const priceStr = versions.map((v: any) => `${v.name}: ${priceFormatter.format(v.price)}`).join(' / ')
 
-  // Form structured image_urls array
-  // Format: [ listing_image, hero_image, color1_car, color1_swatch, color2_car, color2_swatch, ..., detail1, detail2, detail3 ]
-  const image_urls: string[] = [listing_image_url, hero_image_url]
-  colors.forEach((color: any) => {
-    image_urls.push(color.image_url)
-    image_urls.push(color.swatch)
-  })
-  detail_image_urls.forEach((url: string) => {
-    image_urls.push(url)
-  })
+  const image_urls = Array.from(new Set([
+    listing_image_url,
+    hero_image_url,
+    ...colorMediaForConfigurations.flatMap((media) => [media.image_url, media.swatch]),
+    ...versionMedia.flatMap((media) => [media.image_url, ...media.detail_image_urls]),
+    ...detail_image_urls,
+  ].filter(Boolean)))
 
   // Format specifications JSON
   const formattedSpecs = {
@@ -106,6 +169,12 @@ export async function POST(request: Request) {
     name,
     price: priceStr,
     specs: specifications,
+    specification_fields: mergeVehicleSpecFields(
+      normalizeMotorbikeSpecFields(specification_fields),
+      specifications,
+      'Kích thước & Tiện ích',
+      DEFAULT_MOTORBIKE_SPEC_FIELDS,
+    ),
     colors: colors.map((c: any) => c.color_name),
     images: image_urls,
     status: 'Đang kinh doanh',
@@ -118,20 +187,39 @@ export async function POST(request: Request) {
       interior_images: [],
     },
     variants: versions.map((v: any) => v.name),
-    product_type: 'motorbike',
-    color_details: colors.map((c: any) => ({
-      swatch: c.swatch,
-      image_url: c.image_url,
-      color_name: c.color_name,
+    version_media: versionMedia,
+    variant_compatibility: sellableConfigurations.map(({ version, color }: any, rowIndex: number) => ({
+      version: version.name,
+      exterior_color: color.color_name,
+      image_url: colorMediaForConfigurations[rowIndex].image_url,
+      swatch: colorMediaForConfigurations[rowIndex].swatch,
     })),
+    product_type: 'motorbike',
+    color_details: colors.map((c: any) => {
+      const configurationIndex = sellableConfigurations.findIndex(({ color }: any) => color.color_name === c.color_name)
+      const fallbackMedia = configurationIndex >= 0 ? colorMediaForConfigurations[configurationIndex] : { image_url: '', swatch: '' }
+      return {
+        swatch: String(c.swatch ?? '').trim() || fallbackMedia.swatch,
+        image_url: fallbackMedia.image_url,
+        color_name: c.color_name,
+        color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        price_adjustment: c.color_type === 'ADVANCED' ? advancedColorPrice : 0,
+      }
+    }),
     detail_images: detail_image_urls,
     representative_image: hero_image_url,
     landing_page_blocks,
   }
 
-  const displayedPrice = Math.min(...versions.map((v: any) => Number(v.price)))
+  const displayedPrice = Math.min(...sellableConfigurations.map(({ version, color }: any) => priceForConfiguration(version, color)))
 
   const supabase = getSupabaseAdmin()
+  let allocatedSkus: string[]
+  try {
+    allocatedSkus = await allocateVehicleVariantSkus(supabase, 'BIKE', sellableConfigurations.length)
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe máy điện.' }, { status: 500 })
+  }
 
   // 1. Insert into products
   const { error: productError } = await supabase
@@ -147,6 +235,7 @@ export async function POST(request: Request) {
       specifications: formattedSpecs,
       image_urls,
       displayed_price: displayedPrice,
+      advanced_color_price: advancedColorPrice,
     })
 
   if (productError) {
@@ -157,20 +246,27 @@ export async function POST(request: Request) {
   // Inventory is tracked per sellable version + colour combination. Do not
   // create one shared product variant for every colour, otherwise setting one
   // colour to zero would incorrectly hide all colours of that model.
-  const productVariantRows = versions.flatMap((version: any) =>
-    colors.map((colorItem: any, colorIndex: number) => ({
+  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem }: any, rowIndex: number) => ({
       id: randomUUID(),
       product_id: productId,
-      sku: `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`,
+      sku: allocatedSkus[rowIndex],
       name: `${version.name} - ${colorItem.color_name}`,
-      original_price: version.price,
+      original_price: priceForConfiguration(version, colorItem),
       sale_price: null,
       is_active: isActive,
       option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      metadata: { source: 'admin_motorbike_creation', version: version.name, color: colorItem.color_name },
+      metadata: {
+        source: 'admin_motorbike_creation',
+        base_sku: version.sku,
+        version: version.name,
+        color: colorItem.color_name,
+        color_image_url: colorMediaForConfigurations[rowIndex].image_url,
+        color_swatch_url: colorMediaForConfigurations[rowIndex].swatch,
+        version_image_url: findMotorbikeVersionMedia(versionMedia, version)?.image_url || null,
+        version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, version)?.detail_image_urls || [],
+      },
       deposit_amount: version.deposit_amount,
-    })),
-  )
+    }))
 
   const { error: variantError } = await supabase
     .from('product_variants')
@@ -187,10 +283,7 @@ export async function POST(request: Request) {
   const generatedAt = new Date().toISOString()
 
   productVariantRows.forEach((variantRow: any, rowIndex: number) => {
-    const versionIndex = Math.floor(rowIndex / colors.length)
-    const colorIndex = rowIndex % colors.length
-    const origVersion = versions[versionIndex]
-    const colorItem = colors[colorIndex]
+    const { versionIndex, colorIndex, version: origVersion, color: colorItem } = sellableConfigurations[rowIndex]
       const variantId = randomUUID()
       const catalogSpecs = {
         ...formattedSpecs,
@@ -198,13 +291,20 @@ export async function POST(request: Request) {
           source: 'products/product_variants',
           sale_price: null,
           color_order: colorIndex + 1,
+          color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+          color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
+          variant_color_image_url: colorMediaForConfigurations[rowIndex].image_url,
+          variant_color_swatch_url: colorMediaForConfigurations[rowIndex].swatch,
           description,
           migrated_at: generatedAt,
           product_slug: slug,
           version_order: versionIndex + 1,
+          version_sku: origVersion.sku,
           hero_image_url,
+          version_image_url: findMotorbikeVersionMedia(versionMedia, origVersion)?.image_url || '',
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
+          version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, origVersion)?.detail_image_urls || [],
           listing_image_url,
         },
       }
@@ -220,8 +320,10 @@ export async function POST(request: Request) {
         sku: variantRow.sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
-        image_car_url: colorItem.image_url,
-        image_color_url: colorItem.swatch,
+        color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
+        image_car_url: colorMediaForConfigurations[rowIndex].image_url,
+        image_color_url: colorMediaForConfigurations[rowIndex].swatch,
         version: origVersion.name,
         is_active: isActive,
         product_variant_id: variantRow.id,
@@ -241,10 +343,13 @@ export async function POST(request: Request) {
 
   const { error: inventoryError } = await supabase
     .from('inventory_items')
-    .insert(productVariantRows.map((variantRow: any) => ({
+  .insert(productVariantRows.map((variantRow: any, rowIndex: number) => {
+    const { version, color } = sellableConfigurations[rowIndex]
+    return {
       variant_id: variantRow.id,
-      on_hand_quantity: 0,
-    })))
+      on_hand_quantity: Number(version?.stock_by_color?.[color?.color_name] ?? 0),
+    }
+  }))
   if (inventoryError) {
     await supabase.from('vehicle_variants').delete().eq('product_id', productId)
     await supabase.from('product_variants').delete().eq('product_id', productId)
@@ -256,6 +361,7 @@ export async function POST(request: Request) {
   await Promise.all([
     deleteRedisKey(MOTORBIKE_CATALOG_CACHE_KEY),
     deleteRedisKeysByPrefix(MOTORBIKE_DETAIL_CACHE_PREFIX),
+    deleteRedisKeysByPrefix(DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX),
     deleteRedisKeysByPrefix(PRODUCT_SEARCH_CACHE_PREFIX),
   ])
 

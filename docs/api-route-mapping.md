@@ -16,6 +16,7 @@
 | `/api/deposit/quote` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/kyc/complete` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/kyc/create-session` | POST | — | LEGACY_OR_EXTERNAL |
+| `/api/preview-auth/session` | POST | — | LEGACY_OR_EXTERNAL |
 | `/api/v1/admin/accessory-templates` | GET, POST | `/admin/accessory-templates` | MAPPED |
 | `/api/v1/admin/accessory-templates/{templateId}` | GET, PATCH, DELETE, POST | `/admin/accessory-templates/{templateId}` | MAPPED |
 | `/api/v1/admin/accessory-templates/lookups` | GET | `/admin/accessory-templates/lookups` | MAPPED |
@@ -69,6 +70,7 @@
 | `/api/v1/orders/{orderId}` | GET, DELETE | `/orders/{orderId}` | MAPPED |
 | `/api/v1/orders/{orderId}/payment` | POST | `/orders/{orderId}/payment` | MISSING_IN_OPENAPI |
 | `/api/v1/payments/vnpay/ipn` | GET | `/payments/vnpay/ipn` | MISSING_IN_OPENAPI |
+| `/api/v1/payments/vnpay/reconcile` | POST | `/payments/vnpay/reconcile` | MISSING_IN_OPENAPI |
 | `/api/v1/products` | GET | `/products` | MAPPED |
 | `/api/v1/search/assistant` | POST | `/search/assistant` | MISSING_IN_OPENAPI |
 | `/api/v1/test-drive/requests` | POST | `/test-drive/requests` | MAPPED |

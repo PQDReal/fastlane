@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { classifySearchQuery, normalizeAssistantQuery } from '@/lib/assistant/rules'
 import { retrieveCatalogProducts } from '@/lib/assistant/catalog-context'
-import { summarizeWithOpenAI } from '@/lib/assistant/openai'
 import type { AssistantResponse } from '@/lib/assistant/types'
 
 const FAQ_FACT_TOPICS = [
@@ -51,8 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: response })
   }
   if (rule.intent === 'casual') {
-    const llm = await summarizeWithOpenAI(rule, [])
-    const response: AssistantResponse = { intent: rule.intent, message: llm?.message ?? 'Xin chào! Mình có thể giúp bạn tìm ô tô điện, xe máy điện và phụ kiện.', followUpQuestion: llm?.followUpQuestion ?? 'Bạn đang quan tâm đến ô tô, xe máy điện hay phụ kiện?', products: [], source: llm ? 'rules+llm' : 'rules' }
+    const response: AssistantResponse = { intent: rule.intent, message: 'Xin chào! Mình có thể giúp bạn tìm ô tô điện, xe máy điện và phụ kiện.', followUpQuestion: 'Bạn đang quan tâm đến ô tô, xe máy điện hay phụ kiện?', products: [], source: 'rules' }
     return NextResponse.json({ data: response })
   }
   try {
@@ -71,7 +69,6 @@ export async function POST(request: Request) {
         : requestedLimit
     let products = await retrieveCatalogProducts(rule.catalogQuery, rule.filters, resultLimit)
     if (rule.intent === 'product_faq') products = focusFaqProducts(rule.catalogQuery, products)
-    const llm = await summarizeWithOpenAI(rule, products.slice(0, 12))
     const publicProducts = products.map(({ facts: _facts, searchableText: _searchableText, ...product }) => product)
     const rankingProduct = rule.filters.sortBy && products[0]
     const rankingPattern = rule.filters.sortBy === 'top_speed' ? /(speed|toc.?do)/i : rule.filters.sortBy === 'range' ? /(distance|range|quang.?duong|pham.?vi)/i : rule.filters.sortBy === 'power' ? /(power|cong.?suat)/i : /(battery|capacity|dung.?luong|pin)/i
@@ -87,10 +84,8 @@ export async function POST(request: Request) {
       : products.length > 1
         ? `Mình tìm thấy ${products.length} sản phẩm phù hợp với “${rule.catalogQuery || query}”.`
         : 'Mình chưa tìm thấy sản phẩm phù hợp. Bạn thử đổi từ khóa hoặc ngân sách nhé.')
-    const rankingMessage = rankingFact && llm?.message && !rankingFact[1].split(/\s+/).some((token) => llm.message?.includes(token))
-      ? `${llm.message} Thông số dùng để xếp hạng: ${rankingFact[1]}.`
-      : llm?.message ?? fallbackMessage
-    const response: AssistantResponse = { intent: rule.intent, message: rankingMessage, followUpQuestion: llm?.followUpQuestion ?? (products.length ? null : 'Bạn muốn tìm theo dòng xe, loại sản phẩm hay ngân sách?'), products: publicProducts, source: llm ? 'rules+llm' : 'rules' }
+    const rankingMessage = fallbackMessage
+    const response: AssistantResponse = { intent: rule.intent, message: rankingMessage, followUpQuestion: products.length ? null : 'Bạn muốn tìm theo dòng xe, loại sản phẩm hay ngân sách?', products: publicProducts, source: 'rules' }
     return NextResponse.json({ data: response })
   } catch (error) {
     console.error('Assistant catalog search failed', error)

@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(new URL('./055_consolidate_admin_accessory_writer.sql', import.meta.url), 'utf8')
+  .replace(/\r\n?/g, '\n')
 
 function functionBody(name) {
   const start = sql.indexOf(`create or replace function public.${name}(`)
   expect(start).toBeGreaterThanOrEqual(0)
   const bodyStart = sql.indexOf('as $function$', start)
   const bodyEnd = sql.indexOf('$function$;', bodyStart)
-  return sql.slice(bodyStart, bodyEnd)
+  return sql.slice(bodyStart, bodyEnd).replace(/\r/g, '')
 }
 
 describe('canonical admin accessory writer migration', () => {

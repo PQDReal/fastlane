@@ -55,6 +55,7 @@ describe('mapAdminAccessoryEditorRow', () => {
         original_price: 1000000,
         sale_price: null,
         is_active: true,
+        inventory: { on_hand_quantity: 9 },
         option_mappings: [{ option_group_id: 'group-1', option_value_id: 'value-1' }],
       }],
       media: [{
@@ -84,6 +85,7 @@ describe('mapAdminAccessoryEditorRow', () => {
       sku: 'JACKET-M',
       selections: { 'group-1': 'value-1' },
       imageUrls: ['https://cdn.example.com/m.webp'],
+      stockQuantity: '9',
     })
     expect(data.draft.sections[0]).toMatchObject({ id: 'features', itemsText: 'Ấm' })
   })

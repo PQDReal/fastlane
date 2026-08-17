@@ -1,12 +1,14 @@
 export type DepositVehicleVariantSelection = {
   vehicleVariant: string
   exteriorColor: string
+  interiorColor?: string
 }
 
 export type DepositVehicleVariantCandidate = {
   version?: string | null
   variant_name?: string | null
   color?: string | null
+  interior_color?: string | null
 }
 
 export function vehicleSelectionKey(value: unknown): string {
@@ -27,6 +29,10 @@ export function matchesDepositVehicleVariant(
     vehicleSelectionKey(candidate.color) !==
     vehicleSelectionKey(selection.exteriorColor)
   ) {
+    return false
+  }
+
+  if (selection.interiorColor && vehicleSelectionKey(candidate.interior_color) !== vehicleSelectionKey(selection.interiorColor)) {
     return false
   }
 

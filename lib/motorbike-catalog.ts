@@ -1,10 +1,9 @@
 import 'server-only'
 
 import { cache } from 'react'
-import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { MOTORBIKE_CATALOG_CACHE_KEY, motorbikeDetailCacheKey } from '@/lib/cache-keys'
-import { readRedisJson, writeRedisJson } from '@/lib/redis'
+import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields, type VehicleSpecField } from '@/lib/vehicle-specifications'
+import { normalizeMotorbikeVersionName } from '@/lib/motorbike-version'
 import type { VehicleCatalogParityItem } from '@/lib/catalog/vehicle-read-contract'
 
 type JsonRecord = Record<string, unknown>
@@ -13,6 +12,8 @@ export type MotorbikeCatalogColor = {
   name: string
   imageUrl: string
   swatchUrl: string
+  type: 'STANDARD' | 'ADVANCED'
+  priceAdjustment: number
   order: number
 }
 
@@ -32,6 +33,8 @@ export type MotorbikeCatalogVariantRow = {
   sku: string
   price: number
   depositAmount: number
+  imageCarUrl: string
+  imageColorUrl: string
 }
 
 export type MotorbikeCatalogItem = {
@@ -44,6 +47,7 @@ export type MotorbikeCatalogItem = {
   detailImageUrls: string[]
   brochureUrl: string
   specifications: JsonRecord
+  specificationFields: VehicleSpecField[]
   displayedPrice: number
   colors: MotorbikeCatalogColor[]
   versions: MotorbikeCatalogVersion[]
@@ -97,15 +101,6 @@ function record(value: unknown): JsonRecord {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function normalizedVersion(row: VehicleVariantRow): string {
-  const version = text(row.version) || text(row.variant_name)
-  const color = text(row.color)
-  const suffix = color ? ` - ${color}` : ''
-  return suffix && version.toLocaleLowerCase().endsWith(suffix.toLocaleLowerCase())
-    ? version.slice(0, -suffix.length).trim()
-    : version
 }
 
 function number(value: unknown): number {
@@ -178,21 +173,30 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
       : Object.fromEntries(
           Object.entries(rootSpecs).filter(([key]) => key !== 'catalog'),
         )
+    const declaredVersions = Array.isArray(rootSpecs.variants) ? rootSpecs.variants : []
+    const versionName = (row: VehicleVariantRow) => normalizeMotorbikeVersionName(
+      text(row.version) || text(row.variant_name),
+      declaredVersions,
+      sourceRows.map((candidate) => candidate.color),
+      first.product_name,
+    )
 
     const colors = [...new Map(
       sourceRows.map((row) => [row.color, {
         name: row.color,
         imageUrl: row.image_car_url,
         swatchUrl: row.image_color_url,
+        type: (record(record(row.specs).catalog).color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD') as 'STANDARD' | 'ADVANCED',
+        priceAdjustment: number(record(record(row.specs).catalog).color_price_adjustment),
         order: orderOf(row, 'color_order'),
       }]),
     ).values()].sort((left, right) => left.order - right.order)
 
     const versions = [...new Map(
-      sourceRows.map((row) => [normalizedVersion(row), {
+      sourceRows.map((row) => [versionName(row), {
         id: row.id,
-        name: normalizedVersion(row),
-        sku: row.sku.replace(/-C\d{2}$/i, ''),
+        name: versionName(row),
+        sku: text(record(record(row.specs).catalog).version_sku) || row.sku,
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
         order: orderOf(row, 'version_order'),
@@ -215,17 +219,25 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
         rootSpecs.brochure,
       ),
       specifications,
+      specificationFields: mergeVehicleSpecFields(
+        normalizeMotorbikeSpecFields(rootSpecs.specification_fields),
+        specifications,
+        'Kích thước & Tiện ích',
+        DEFAULT_MOTORBIKE_SPEC_FIELDS,
+      ),
       displayedPrice: authorityPrices.get(`${first.product_id}:*`)
-        ?? (() => { throw new Error(`Không thể dựng giá xe máy điện ${first.product_id}: thiếu giá active product_variants.`) })(),
+        ?? Math.min(...versions.map((version) => version.price)),
       colors,
       versions,
       variantRows: sourceRows.map((row) => ({
         id: row.id,
-        version: normalizedVersion(row),
+        version: versionName(row),
         color: row.color,
         sku: row.sku,
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
+        imageCarUrl: row.image_car_url,
+        imageColorUrl: row.image_color_url,
       })),
     }
   }).sort((left, right) => left.name.localeCompare(right.name, 'vi'))
@@ -290,41 +302,13 @@ export function toMotorbikeCatalogParityItem(item: Pick<MotorbikeCatalogItem, 'p
   }
 }
 
-const loadCachedMotorbikeCatalog = unstable_cache(
-  loadMotorbikeCatalog,
-  ['motorbike-catalog-v2'],
-  {
-    revalidate: 300,
-    tags: ['motorbike-catalog'],
-  },
-)
-
-async function loadDistributedMotorbikeCatalog() {
-  const cached = await readRedisJson<MotorbikeCatalogItem[]>(
-    MOTORBIKE_CATALOG_CACHE_KEY,
-  )
-  if (cached) {
-    return cached
-  }
-
-  const items = await loadCachedMotorbikeCatalog()
-  await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, items, 300)
-  return items
-}
-
-// React cache deduplicates calls within one render. The Next data cache keeps the
-// public catalog warm across requests while still refreshing external DB changes.
-export const listMotorbikeCatalog = cache(loadDistributedMotorbikeCatalog)
+// React cache only deduplicates calls within the current request. Do not persist
+// the catalog here: admin/backend edits must be visible after the next reload.
+export const listMotorbikeCatalog = cache(loadMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
-  const detailKey = motorbikeDetailCacheKey(slug)
-  const cached = await readRedisJson<MotorbikeCatalogItem>(detailKey)
-  if (cached) return cached
-
   const items = await listMotorbikeCatalog()
-  const item = items.find((entry) => entry.slug === slug) ?? null
-  if (item) await writeRedisJson(detailKey, item, 300)
-  return item
+  return items.find((entry) => entry.slug === slug) ?? null
 }
 
 export async function getMotorbikeCatalogByName(name: string) {

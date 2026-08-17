@@ -79,11 +79,19 @@ async function connectedRedis() {
   }
 }
 
-export async function readRedisJson<T>(key: string): Promise<T | null> {
+export async function readRedisJson<T>(
+  key: string,
+  options: { allowMemoryFallback?: boolean } = {},
+): Promise<T | null> {
+  const allowMemoryFallback = options.allowMemoryFallback !== false
   const startedAt = performance.now()
   try {
     const client = await connectedRedis()
     if (!client) {
+      if (!allowMemoryFallback) {
+        recordCacheRead(key, 'BYPASS', performance.now() - startedAt)
+        return null
+      }
       const item = redisGlobal.fastlaneMemoryCache!.get(key)
       if (item && item.expiresAt > Date.now()) {
         recordCacheRead(key, 'HIT', performance.now() - startedAt)
@@ -98,6 +106,10 @@ export async function readRedisJson<T>(key: string): Promise<T | null> {
     return parsed
   } catch (error) {
     reportRedisFallback(error)
+    if (!allowMemoryFallback) {
+      recordCacheRead(key, 'BYPASS', performance.now() - startedAt)
+      return null
+    }
     const item = redisGlobal.fastlaneMemoryCache!.get(key)
     if (item && item.expiresAt > Date.now()) {
       recordCacheRead(key, 'HIT', performance.now() - startedAt)

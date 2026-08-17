@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Check } from 'lucide-react'
 import Image from 'next/image'
 
 interface BikeColorSelectorProps {
   colors: (string | { name: string; swatch?: string })[]
   images: string[]
+  description?: string
 }
 
 const colorMap: Record<string, string> = {
@@ -71,27 +71,7 @@ function colorBackground(colorName: string) {
   return colorHex(colorName)
 }
 
-function isLightColor(colorName: string, hexCode: string) {
-  const normalized = colorName.toLocaleLowerCase('vi')
-  if (
-    normalized.includes('trắng') ||
-    normalized.includes('white') ||
-    normalized.includes('blanc') ||
-    normalized.includes('vàng') ||
-    normalized.includes('yellow')
-  ) {
-    return true
-  }
-
-  const hex = hexCode.replace('#', '')
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return false
-  const red = Number.parseInt(hex.slice(0, 2), 16)
-  const green = Number.parseInt(hex.slice(2, 4), 16)
-  const blue = Number.parseInt(hex.slice(4, 6), 16)
-  return (red * 299 + green * 587 + blue * 114) / 1000 >= 160
-}
-
-export function BikeColorSelector({ colors, images }: BikeColorSelectorProps) {
+export function BikeColorSelector({ colors, images, description }: BikeColorSelectorProps) {
   const availableOptions = colors
     .map((color, index) => ({ color, image: images[index] }))
     .filter(
@@ -110,79 +90,58 @@ export function BikeColorSelector({ colors, images }: BikeColorSelectorProps) {
   const selectedColorName = typeof selectedColorObj === 'string' ? selectedColorObj : selectedColorObj.name
 
   return (
-    <section className="py-24 bg-white">
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-12 text-center">
-        <h2 className="text-3xl sm:text-4xl lg:text-[56px] font-bold tracking-tight text-foreground mb-16">
-          Trải nghiệm cá nhân hóa
-        </h2>
+    <section className="bg-slate-950 py-20 text-white">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-12">
+        <div className="relative flex h-80 items-center justify-center overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-6 lg:col-span-8 lg:h-96">
+          {availableOptions.map(({ color: colorObj, image }, idx) => {
+            const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
+            return (
+              <Image
+                key={colorName}
+                src={image}
+                alt={colorName}
+                fill
+                sizes="(max-width: 1024px) 100vw, 768px"
+                loading={idx === 0 ? 'eager' : 'lazy'}
+                className={`absolute inset-0 h-full w-full object-contain transition-all duration-500 ${selectedIndex === idx ? 'z-10 scale-100 opacity-100' : 'z-0 scale-95 opacity-0'}`}
+              />
+            )
+          })}
+          <span className="absolute bottom-4 left-6 z-20 text-xs text-white/40">
+            Màu đang xem: {selectedColorName}
+          </span>
+        </div>
 
-        <div className="flex flex-col items-center gap-12">
-          {/* Image Display */}
-          <div className="relative w-full max-w-4xl aspect-[16/9] md:aspect-[2/1] flex items-center justify-center">
+        <div className="space-y-6 lg:col-span-4">
+          <h2 className="text-2xl font-bold uppercase tracking-tight">Chọn màu sắc của bạn</h2>
+          <p className="text-sm leading-6 text-white/60">
+            {description || 'Cá nhân hóa chiếc xe theo phong cách của bạn.'}
+          </p>
+          <div className="flex flex-wrap gap-3 pt-3">
             {availableOptions.map(({ color: colorObj }, idx) => {
+              const isSelected = selectedIndex === idx
               const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
+              const swatchImg = typeof colorObj === 'object' ? colorObj.swatch : null
+              const hexCode = colorHex(colorName)
+
               return (
-                <Image
+                <button
                   key={colorName}
-                  src={availableOptions[idx].image}
-                  alt={colorName}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 896px"
-                  loading={idx === 0 ? 'eager' : 'lazy'}
-                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ease-in-out ${selectedIndex === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
-                    }`}
-                />
+                  type="button"
+                  onClick={() => setSelectedIndex(idx)}
+                  className={`relative h-11 w-11 rounded-full border-2 p-0.5 transition active:scale-95 ${isSelected ? 'border-brand-500 bg-brand-500/20' : 'border-white/20 hover:border-white/50'}`}
+                  title={colorName}
+                >
+                  {swatchImg ? (
+                    <Image src={swatchImg} alt={colorName} fill sizes="44px" className="rounded-full object-cover" />
+                  ) : (
+                    <span className="block h-full w-full rounded-full" style={{ background: colorBackground(colorName) || hexCode }} />
+                  )}
+                </button>
               )
             })}
           </div>
-
-          {/* Color Swatches */}
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {availableOptions.map(({ color: colorObj }, idx) => {
-                const isSelected = selectedIndex === idx
-                const colorName = typeof colorObj === 'string' ? colorObj : colorObj.name
-                const swatchImg = typeof colorObj === 'object' ? colorObj.swatch : null
-
-                const hexCode = colorHex(colorName)
-                const useDarkCheck = isLightColor(colorName, hexCode)
-
-                return (
-                  <button
-                    key={colorName}
-                    onClick={() => setSelectedIndex(idx)}
-                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 overflow-hidden shadow-sm`}
-                    style={{ background: swatchImg ? 'transparent' : colorBackground(colorName) }}
-                    title={colorName}
-                  >
-                    {swatchImg && (
-                      <Image
-                        src={swatchImg}
-                        alt={colorName}
-                        fill
-                        sizes="48px"
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    )}
-
-                    {/* Ring selection effect */}
-                    {isSelected && (
-                      <span className="absolute -inset-2 rounded-full border-2 border-foreground z-20" />
-                    )}
-
-                    {/* Checkmark */}
-                    {isSelected && (
-                      <Check size={20} className={`relative z-10 ${useDarkCheck ? 'text-black' : 'text-white drop-shadow-md'}`} />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            <p className="text-xl font-medium text-foreground">
-              {selectedColorName}
-            </p>
-          </div>
+          <p className="text-sm font-semibold text-white/70">{selectedColorName}</p>
         </div>
       </div>
     </section>

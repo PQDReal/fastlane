@@ -56,6 +56,7 @@ function request(): AdminAccessoryWriteRequest {
       name: 'Đen',
       originalPrice: 500000,
       salePrice: 450000,
+      stockQuantity: 12,
       isActive: true,
       optionValues: { color: 'black' },
       imageUrls: ['https://cdn.example.com/black-sku.webp'],
@@ -75,6 +76,7 @@ describe('parseAdminAccessoryWriteRequest', () => {
     expect(parsed.variants[0]).toMatchObject({
       originalPrice: 500000,
       salePrice: 450000,
+      stockQuantity: 12,
       optionValues: { color: 'black' },
     })
   })
@@ -150,6 +152,7 @@ describe('parseAdminAccessoryWriteRequest', () => {
       productImageUrls: ['https://cdn.example.com/black-sku.webp'],
       optionGroups: [{ drivesMedia: false, values: [{ imageUrls: [] }] }],
     })
+    expect(adminAccessoryRpcPayload(parsed).variants[0]).not.toHaveProperty('stockQuantity')
   })
 
   it('rejects duplicate, invalid-protocol and oversized SKU image lists', () => {
@@ -236,6 +239,7 @@ describe('adminAccessoryDraftToWriteRequest', () => {
         sku: 'ACC-BLACK',
         originalPrice: '500000',
         salePrice: '',
+        stockQuantity: '7',
         isActive: true,
         isIncluded: true,
         selections: { 'group-local': 'value-local' },
@@ -247,6 +251,7 @@ describe('adminAccessoryDraftToWriteRequest', () => {
 
     expect(payload.categoryAssignments).toEqual([{ categoryId: PRIMARY_ID, compatibilityMode: 'SELECTED_MODELS', modelIds: [MODEL_ID] }])
     expect(payload.variants[0].optionValues).toEqual({ color: 'black' })
+    expect(payload.variants[0].stockQuantity).toBe(7)
     expect(payload.optionGroups[0].values[0]).not.toHaveProperty('existingId')
   })
 })

@@ -1,45 +1,48 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import type { Metadata } from 'next'
+import { Mail, MessageCircle, Phone } from 'lucide-react'
+import { InfoSection, PublicInfoPage } from '@/components/public-info-page'
+
+export const metadata: Metadata = {
+  title: 'Liên hệ CSKH | FASTLANE',
+  description: 'Các kênh liên hệ chăm sóc khách hàng FASTLANE.',
+}
 
 export default function SupportPage() {
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl mb-6">
-        <Link href="/" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Trở về trang chủ
-        </Link>
-      </div>
-      <div className="mx-auto max-w-4xl bg-white p-8 md:p-12 rounded-2xl shadow-sm border border-slate-100">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-8">Liên hệ Chăm sóc khách hàng</h1>
-        <div className="prose prose-slate max-w-none">
-          <p className="lead text-lg text-slate-600 mb-8">
-            Đội ngũ CSKH của Fastlane luôn sẵn sàng lắng nghe và hỗ trợ bạn mọi lúc.
-          </p>
-          <div className="space-y-6 text-slate-700">
-            <section>
-              <h2 className="text-xl font-semibold text-slate-900 mb-3">Các kênh hỗ trợ</h2>
-              <ul className="list-disc pl-5 space-y-2">
-                <li><strong>Tổng đài tư vấn:</strong> 1900 1234 (Thời gian hoạt động: 8h - 22h hàng ngày)</li>
-                <li><strong>Email hỗ trợ:</strong> support@fastlane.vn</li>
-                <li><strong>Live Chat:</strong> Nhắn tin trực tiếp qua nút chat ở góc phải màn hình.</li>
-              </ul>
-            </section>
-            <section>
-              <h2 className="text-xl font-semibold text-slate-900 mb-3">Câu hỏi thường gặp (FAQ)</h2>
-              <p>
-                Trước khi liên hệ, bạn có thể tham khảo mục FAQ của chúng tôi. Tại đây tổng hợp giải đáp cho hơn 80% các câu hỏi thường gặp về dịch vụ, cách sử dụng ứng dụng và các thủ tục giấy tờ.
-              </p>
-            </section>
-            <section>
-              <h2 className="text-xl font-semibold text-slate-900 mb-3">Địa chỉ văn phòng</h2>
-              <p>
-                Tòa nhà Fastlane Tower, Số 1 Đường Hạnh Phúc, Quận 1, TP. Hồ Chí Minh.
-              </p>
-            </section>
-          </div>
+    <PublicInfoPage
+      eyebrow="Hỗ trợ"
+      title="Liên hệ chăm sóc khách hàng"
+      intro="Đội ngũ CSKH FASTLANE sẵn sàng hỗ trợ bạn về sản phẩm, đơn hàng, thanh toán và các dịch vụ sau bán."
+    >
+      <div className="grid gap-4 sm:grid-cols-3">
+        <a href="tel:1900232389" className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+          <Phone className="text-brand-700" size={24} />
+          <p className="mt-6 text-xs font-bold uppercase tracking-widest text-slate-500">Tổng đài</p>
+          <p className="mt-2 text-xl font-semibold text-slate-950">1900 xxxx</p>
+        </a>
+        <a href="mailto:support@fastlane.vn" className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+          <Mail className="text-brand-700" size={24} />
+          <p className="mt-6 text-xs font-bold uppercase tracking-widest text-slate-500">Email</p>
+          <p className="mt-2 break-all text-lg font-semibold text-slate-950">fastlane.support@gmail.com</p>
+        </a>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <MessageCircle className="text-brand-700" size={24} />
+          <p className="mt-6 text-xs font-bold uppercase tracking-widest text-slate-500">Thời gian hỗ trợ</p>
+          <p className="mt-2 text-lg font-semibold text-slate-950">24/7</p>
         </div>
       </div>
-    </div>
+      <div className="mt-12">
+        <InfoSection title="Khi liên hệ, bạn nên chuẩn bị">
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Mã đơn hàng hoặc mã giao dịch cần kiểm tra.</li>
+            <li>Số điện thoại hoặc email đã dùng khi đặt hàng.</li>
+            <li>Mô tả ngắn gọn sự cố và ảnh chụp màn hình nếu có.</li>
+          </ul>
+        </InfoSection>
+        <InfoSection title="Địa chỉ tiếp nhận">
+          <p>Trung tâm CSKH FASTLANE tiếp nhận yêu cầu trực tuyến qua tổng đài và email. Nhân viên sẽ phản hồi, phân loại và chuyển yêu cầu đến bộ phận phù hợp.</p>
+        </InfoSection>
+      </div>
+    </PublicInfoPage>
   )
 }
