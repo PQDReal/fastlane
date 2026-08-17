@@ -275,7 +275,8 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
 
   const carMarketing = specsObj.marketing || landingData[carRichData.name] || landingData['VF 8'] || { design: {}, technology: {}, safety: {} }
   const isVF6 = product.name === 'VF 6'
-  const depositHref = `/deposit?type=car&model=${encodeURIComponent(product.name)}`
+  const productDetailHref = `/cars/${encodeURIComponent(params.slug)}`
+  const depositHref = `/deposit?type=car&model=${encodeURIComponent(product.name)}&returnTo=${encodeURIComponent(productDetailHref)}`
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
 
   return (

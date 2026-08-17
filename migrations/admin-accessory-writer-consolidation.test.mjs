@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(new URL('./055_consolidate_admin_accessory_writer.sql', import.meta.url), 'utf8')
+  .replace(/\r\n?/g, '\n')
 
 function functionBody(name) {
   const start = sql.indexOf(`create or replace function public.${name}(`)

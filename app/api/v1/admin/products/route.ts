@@ -4,6 +4,7 @@ import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { toNamePrefixTsQuery } from '@/lib/catalog/search'
+import { isAdminSellableVehicleVariant } from '@/lib/admin-inventory'
 import {
   AdminAccessoryWriteValidationError,
   parseAdminAccessoryWriteRequest,
@@ -49,8 +50,10 @@ export async function GET(request: Request) {
         service_label_id
       ),
       variants:product_variants (
+        id,
         sku,
-        is_active
+        is_active,
+        inventory_items (on_hand_quantity)
       )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
@@ -69,16 +72,51 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  const productRows = data ?? []
+  const vehicleProductIds = productRows
+    .filter((item) => item.product_type === 'CAR' || item.product_type === 'BIKE')
+    .map((item) => item.id)
+  const validVehicleVariantIdsByProduct = new Map<string, Set<string>>()
+
+  if (vehicleProductIds.length > 0) {
+    const { data: vehicleRows, error: vehicleError } = await supabase
+      .from('vehicle_variants')
+      .select('product_id,product_variant_id,product_type,sku,variant_name,version,color')
+      .in('product_id', vehicleProductIds)
+
+    if (vehicleError) {
+      return NextResponse.json({ error: vehicleError.message }, { status: 500 })
+    }
+
+    for (const row of vehicleRows ?? []) {
+      if (!row.product_id || !isAdminSellableVehicleVariant(row)) continue
+      const variantIds = validVehicleVariantIdsByProduct.get(String(row.product_id)) ?? new Set<string>()
+      variantIds.add(String(row.product_variant_id))
+      validVehicleVariantIdsByProduct.set(String(row.product_id), variantIds)
+    }
+  }
+
   const total = count ?? 0
   return NextResponse.json({
-    data: (data ?? []).map((item) => {
-      const activeVariant = Array.isArray(item.variants)
-        ? item.variants.find((variant: { is_active?: boolean }) => variant.is_active === true) ?? item.variants[0]
-        : null
+    data: productRows.map((item) => {
+      const isVehicle = item.product_type === 'CAR' || item.product_type === 'BIKE'
+      const variants = Array.isArray(item.variants)
+        ? (isVehicle
+          ? item.variants.filter((variant: { id?: string }) => validVehicleVariantIdsByProduct.get(String(item.id))?.has(String(variant.id)))
+          : item.variants)
+        : []
+      const activeVariant = variants.find((variant: { is_active?: boolean }) => variant.is_active === true) ?? variants[0] ?? null
+      const inventoryQuantity = variants.reduce((total: number, variant: { inventory_items?: { on_hand_quantity?: number } | { on_hand_quantity?: number }[] | null }) => {
+            const inventory = Array.isArray(variant.inventory_items) ? variant.inventory_items[0] : variant.inventory_items
+            return total + Math.max(0, Number(inventory?.on_hand_quantity ?? 0) || 0)
+          }, 0)
+      const inventoryVariantCount = variants.length
       return {
         ...item,
         category: item.categories?.name || 'Chưa phân loại',
         sku: activeVariant?.sku,
+        inventory_quantity: inventoryQuantity,
+        inventory_variant_count: inventoryVariantCount,
       }
     }),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },

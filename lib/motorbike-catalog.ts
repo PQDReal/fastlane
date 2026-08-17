@@ -32,6 +32,8 @@ export type MotorbikeCatalogVariantRow = {
   sku: string
   price: number
   depositAmount: number
+  imageCarUrl: string
+  imageColorUrl: string
 }
 
 export type MotorbikeCatalogItem = {
@@ -134,7 +136,7 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
       productRows.map((row) => [versionName(row), {
         id: row.id,
         name: versionName(row),
-        sku: row.sku.replace(/-C\d{2}$/i, ''),
+        sku: text(record(record(row.specs).catalog).version_sku) || row.sku,
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
         order: orderOf(row, 'version_order'),
@@ -173,6 +175,8 @@ function mapRows(rows: VehicleVariantRow[]): MotorbikeCatalogItem[] {
         sku: row.sku,
         price: number(row.price),
         depositAmount: number(row.deposit_amount),
+        imageCarUrl: row.image_car_url,
+        imageColorUrl: row.image_color_url,
       })),
     }
   }).sort((left, right) => left.name.localeCompare(right.name, 'vi'))

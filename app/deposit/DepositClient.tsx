@@ -5,6 +5,10 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Header } from '../../components/header'
 import { Check, Battery, Zap, Ruler, ArrowRight, ChevronDown } from 'lucide-react'
 import { ToastMessage, ToastViewport } from '../../components/ui/toast'
+import {
+  OutOfStockVariantDialog,
+  type OutOfStockVariantNotice,
+} from '../../components/out-of-stock-variant-dialog'
 import { SearchableLocationSelect } from '../../components/ui/searchable-location-select'
 import {
   findDepositVehicle,
@@ -237,12 +241,14 @@ export function DepositClient({
   motorbikesData,
   specsData,
   initialCar,
+  initialReturnTo,
   initialVehicleType,
 }: {
   carsData: any[]
   motorbikesData: any[]
   specsData: any
   initialCar?: string
+  initialReturnTo?: string
   initialVehicleType: DepositVehicleType
 }) {
   const initialVehicles =
@@ -336,6 +342,7 @@ export function DepositClient({
   const [dbVariantsSourceKey, setDbVariantsSourceKey] = useState<string | null>(null)
   const [applyingPromotion, setApplyingPromotion] = useState(false)
   const [promotionSuccess, setPromotionSuccess] = useState<string | null>(null)
+  const [outOfStockNotice, setOutOfStockNotice] = useState<OutOfStockVariantNotice | null>(null)
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Date.now();
@@ -835,7 +842,19 @@ export function DepositClient({
         return
       }
       if (!exactInventoryRow?.product_variant_id || Number(exactInventoryRow.inventory?.on_hand_quantity ?? 0) <= 0) {
-        addToast({ kind: 'warning', title: 'Mẫu xe đã hết hàng', message: 'Màu hoặc phiên bản này hiện không còn tồn kho. Vui lòng chọn cấu hình khác.' })
+        const selectedVehicle = availableCars.find((vehicle) => vehicle.name === selectedCarId) || availableCars[0]
+        const fallbackDetailHref = selectedVehicle?.product_type === 'motorbike' && selectedVehicle?.slug
+          ? `/bikes/${encodeURIComponent(selectedVehicle.slug)}`
+          : typeof selectedVehicle?.url === 'string' && selectedVehicle.url.startsWith('/') && !selectedVehicle.url.startsWith('//')
+            ? selectedVehicle.url
+            : initialReturnTo || '/cars'
+        setOutOfStockNotice({
+          productType: vehicleType === 'motorbike' ? 'motorbike' : 'car',
+          productName: selectedVehicle?.name || selectedCarId,
+          versionName: selectedVariantName || selectedVariant,
+          colorName: selectedColor || 'Màu chưa chọn',
+          returnHref: fallbackDetailHref,
+        })
         return
       }
       goToStep(2)
@@ -991,21 +1010,20 @@ export function DepositClient({
   const canonicalColorRows = selectedVersionRows.length > 0
     ? selectedVersionRows
     : effectiveDbVariants
-  const colors = isMotorbike
-    ? currentCar.colors || []
-    : Array.from(new Map(canonicalColorRows
-        .filter((variant: any) => variant.color && variant.image_car_url)
-        .map((variant: any) => [variant.color, {
-          name: variant.color,
-          image: variant.image_car_url,
-          swatch: variant.image_color_url,
-          type: variant.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
-          priceAdjustment: Number(variant.color_price_adjustment || 0),
-        }])).values())
-      .sort((a: any, b: any) => {
-        const tier = Number(a.type === 'ADVANCED') - Number(b.type === 'ADVANCED')
-        return tier || a.name.localeCompare(b.name, 'vi')
-      })
+  const variantColors = Array.from(new Map(canonicalColorRows
+    .filter((variant: any) => variant.color)
+    .map((variant: any) => [variant.color, {
+      name: variant.color,
+      image: variant.image_car_url,
+      swatch: variant.image_color_url,
+      type: variant.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+      priceAdjustment: Number(variant.color_price_adjustment || 0),
+    }])).values())
+    .sort((a: any, b: any) => {
+      const tier = Number(a.type === 'ADVANCED') - Number(b.type === 'ADVANCED')
+      return tier || a.name.localeCompare(b.name, 'vi')
+    })
+  const colors = variantColors.length > 0 ? variantColors : currentCar.colors || []
   const variantSelectionKey = variants.join('|')
   const colorSelectionKey = colors.map((color: any) => color.name).join('|')
   const variantsPending = dbVariantsLoading || !hasCurrentDbVariants
@@ -1369,6 +1387,10 @@ export function DepositClient({
     }
   }, [interiorColorNames, selectedInteriorColor])
 
+  useEffect(() => {
+    setOutOfStockNotice(null)
+  }, [selectedCarId, selectedVariant, selectedColor, selectedInteriorColor])
+
   const maxPower =
     powetrain.maxPower || (isMotorbike ? 'Chưa cập nhật' : '201 hp/150 kW')
   const distance = isMotorbike
@@ -1382,6 +1404,10 @@ export function DepositClient({
   return (
     <div className="min-h-screen bg-white selection:bg-slate-900 selection:text-white">
       <ToastViewport toasts={toasts} onClose={id => setToasts(t => t.filter(x => x.id !== id))} />
+      <OutOfStockVariantDialog
+        notice={outOfStockNotice}
+        onClose={() => setOutOfStockNotice(null)}
+      />
       <Header />
       <div 
         className="flex flex-1 overflow-hidden flex-col lg:flex-row relative w-full pt-[74px]" 
@@ -2368,8 +2394,8 @@ export function DepositClient({
                      )}
                      <button 
                        onClick={handleNextStep}
-                       disabled={isSubmitting || (currentStep === 1 && vehicleInventoryUnavailable)}
-                       className={`flex items-center justify-center gap-1 sm:gap-2 bg-slate-900 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm tracking-wide sm:tracking-widest whitespace-nowrap shrink-0 transition-all uppercase ${isSubmitting || (currentStep === 1 && vehicleInventoryUnavailable) ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-800 hover:gap-3 hover:shadow-xl active:scale-95'}`}
+                       disabled={isSubmitting || (currentStep === 1 && dbVariantsLoading)}
+                       className={`flex items-center justify-center gap-1 sm:gap-2 bg-slate-900 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm tracking-wide sm:tracking-widest whitespace-nowrap shrink-0 transition-all uppercase ${isSubmitting || (currentStep === 1 && dbVariantsLoading) ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-800 hover:gap-3 hover:shadow-xl active:scale-95'}`}
                      >
                        {isSubmitting ? 'Đang xử lý...' : (currentStep === 1 || currentStep === 2 ? 'Tiếp tục' : 'Thanh toán đặt cọc')} {!isSubmitting && <ArrowRight className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />}
                      </button>

@@ -52,6 +52,16 @@ function stripColorFromSku(sku: unknown, color: unknown) {
     : raw.replace(/-C\d{2}-I\d{2}$/i, '')
 }
 
+function normalizeVersionSku(sku: unknown, color: unknown, interior: unknown) {
+  let result = text(sku)
+  for (const suffix of [slugPart(interior), slugPart(color)].filter(Boolean)) {
+    if (result.toUpperCase().endsWith(`-${suffix}`)) {
+      result = result.slice(0, -(suffix.length + 1))
+    }
+  }
+  return result.replace(/-C\d+(?:-I\d+)?$/i, '')
+}
+
 function vehicleInteriors(row: VehicleVariantRecord) {
   const columnInterior = text(row.interior_color)
   if (columnInterior) {
@@ -140,7 +150,9 @@ export function reconstructCarAdminConfiguration(input: {
       versions.set(identity, {
         id: linkedVariant?.id || baseVariant?.id || undefined,
         name: versionName,
-        sku: text(linkedVariant?.metadata?.base_sku)
+        sku: normalizeVersionSku(linkedVariant?.metadata?.base_sku, exterior, row.interior_color)
+          || text(linkedVariant?.metadata?.base_sku)
+          || normalizeVersionSku(baseVariant?.sku, exterior, row.interior_color)
           || text(baseVariant?.sku)
           || stripColorFromSku(row.sku ?? linkedVariant?.sku, exterior),
         price: Number(row.price ?? linkedVariant?.original_price ?? baseVariant?.original_price ?? 0),
@@ -203,7 +215,9 @@ export function reconstructCarAdminConfiguration(input: {
         versions.set(identity, {
           id: row.id || undefined,
           name: versionName,
-          sku: text(row.metadata?.base_sku) || stripColorFromSku(row.sku, exterior),
+          sku: normalizeVersionSku(row.metadata?.base_sku, exterior, interior)
+            || text(row.metadata?.base_sku)
+            || stripColorFromSku(row.sku, exterior),
           price: Number(row.original_price ?? 0),
           deposit_amount: Number(row.deposit_amount ?? 0),
           compatible_colors: [],

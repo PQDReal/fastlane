@@ -49,6 +49,8 @@ type AdminProduct = {
   created_at: string
   category: string
   sku?: string
+  inventory_quantity?: number
+  inventory_variant_count?: number
   specifications?: any
 }
 
@@ -376,11 +378,12 @@ export default function AdminProductsPage() {
 
         {/* Responsive list: reuse the minmax(0, ...) layout used by order lists. */}
         <div className="max-h-[calc(100vh-340px)] overflow-x-hidden overflow-y-auto">
-          <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(120px,.9fr)_minmax(112px,.9fr)_minmax(116px,.9fr)_minmax(88px,.55fr)] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:sticky xl:top-0 xl:z-10 xl:grid xl:gap-5">
+          <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(120px,.9fr)_minmax(100px,.75fr)_minmax(112px,.9fr)_minmax(116px,.9fr)_minmax(88px,.55fr)] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:sticky xl:top-0 xl:z-10 xl:grid xl:gap-5">
             <span>Sản phẩm</span>
             <span>Mã (SKU)</span>
             <span>Danh mục</span>
             <span>Giá</span>
+            <span>Tồn kho</span>
             <span>Trạng thái</span>
             <span>Ngày tạo</span>
             <span className="text-right">Thao tác</span>
@@ -392,7 +395,7 @@ export default function AdminProductsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
               </div>
             ) : products.map((product) => (
-              <div key={product.id} className="group grid w-full grid-cols-1 gap-4 px-5 py-4 text-sm transition-colors hover:bg-slate-50 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(120px,.9fr)_minmax(112px,.9fr)_minmax(116px,.9fr)_minmax(88px,.55fr)] xl:items-center xl:gap-5">
+              <div key={product.id} className="group grid w-full grid-cols-1 gap-4 px-5 py-4 text-sm transition-colors hover:bg-slate-50 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(120px,.9fr)_minmax(100px,.75fr)_minmax(112px,.9fr)_minmax(116px,.9fr)_minmax(88px,.55fr)] xl:items-center xl:gap-5">
                 <div className="min-w-0">
                   <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Sản phẩm</span>
                   <div className="flex min-w-0 items-center gap-3">
@@ -420,6 +423,14 @@ export default function AdminProductsPage() {
                 <div className="min-w-0">
                   <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Giá</span>
                   <p className="whitespace-nowrap font-semibold text-slate-900">{formatMoney(product.displayed_price)}</p>
+                </div>
+
+                <div className="min-w-0">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400 xl:hidden">Tồn kho</span>
+                  <p className={`whitespace-nowrap font-bold ${(product.inventory_quantity ?? 0) <= 0 ? 'text-red-600' : (product.inventory_quantity ?? 0) <= 5 ? 'text-amber-600' : 'text-emerald-700'}`}>
+                    {(product.inventory_quantity ?? 0).toLocaleString('vi-VN')} chiếc
+                  </p>
+                  <p className="text-[10px] text-slate-400">{product.inventory_variant_count ?? 0} biến thể</p>
                 </div>
 
                 <div className="min-w-0">

@@ -8,6 +8,16 @@ import { deleteRedisKey, deleteRedisKeysByPrefix } from '@/lib/redis'
 import { DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, MOTORBIKE_CATALOG_CACHE_KEY, MOTORBIKE_DETAIL_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructMotorbikeAdminConfiguration } from '@/lib/motorbike-admin-variants'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields } from '@/lib/vehicle-specifications'
+import {
+  buildMotorbikeVersionMedia,
+  findMotorbikeVersionMedia,
+  MAX_MOTORBIKE_DETAIL_IMAGES,
+  MAX_MOTORBIKE_VERSION_DETAIL_IMAGES,
+  normalizeMotorbikeDetailImages,
+  normalizeMotorbikeVersionMedia,
+} from '@/lib/motorbike-version-media'
+import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
+import { allocateVehicleVariantSkus, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -70,7 +80,7 @@ export async function GET(request: Request, context: Context) {
 
   const { data: vehicleVariants, error: vvError } = await supabase
     .from('vehicle_variants')
-    .select('product_variant_id,version,color,sku,price,deposit_amount')
+    .select('product_variant_id,version,color,sku,price,deposit_amount,image_car_url,image_color_url')
     .eq('product_id', productId)
   if (vvError) {
     return NextResponse.json({ error: `Lỗi tải cấu hình xe: ${vvError.message}` }, { status: 500 })
@@ -78,23 +88,29 @@ export async function GET(request: Request, context: Context) {
 
   // Reconstruct form state
   const specsObj = product.specifications || {}
+  const versionMedia = normalizeMotorbikeVersionMedia(specsObj.version_media)
   const image_urls = product.image_urls || []
   
   const listing_image_url = specsObj.catalog?.listing_image_url || image_urls[0] || ''
   const hero_image_url = specsObj.catalog?.hero_image_url || image_urls[1] || ''
-  const detail_image_urls = specsObj.detail_images || image_urls.slice(-3) || ['', '', '']
-  
-  // Pad detail images to ensure 3 items
-  while (detail_image_urls.length < 3) {
-    detail_image_urls.push('')
-  }
+  const legacyDetailImages = Array.isArray(specsObj.detail_images)
+    ? specsObj.detail_images
+    : image_urls.slice(-3)
+  const detail_image_urls = normalizeMotorbikeDetailImages(legacyDetailImages)
+  const colorDetails = (Array.isArray(specsObj.color_details) ? specsObj.color_details : []).map((color: any) => ({
+    ...color,
+    // Older records stored the only swatch copy on vehicle_variants. Hydrate it
+    // into the shared color record so the editor can migrate the product safely.
+    swatch: String(color.swatch ?? '').trim()
+      || String((vehicleVariants || []).find((variant: any) => variant.color === color.color_name)?.image_color_url ?? '').trim(),
+  }))
 
   const reconstructedVersions = reconstructMotorbikeAdminConfiguration({
     productVariants: productVariants || [],
     vehicleVariants: vehicleVariants || [],
     inventoryByVariantId,
     declaredVersions: specsObj.variants,
-    colors: specsObj.color_details || [],
+    colors: colorDetails,
     productName: product.name,
   })
 
@@ -113,8 +129,27 @@ export async function GET(request: Request, context: Context) {
       'Kích thước & Tiện ích',
       DEFAULT_MOTORBIKE_SPEC_FIELDS,
     ),
-    colors: specsObj.color_details || [],
-    versions: reconstructedVersions,
+    colors: colorDetails,
+    versions: reconstructedVersions.map((version) => {
+      const media = findMotorbikeVersionMedia(versionMedia, version)
+      const mediaByColor = Object.fromEntries(
+        (vehicleVariants || [])
+          .filter((variant: any) => variant.version === version.name)
+          .map((variant: any) => {
+            const fallbackColor = colorDetails.find((color: any) => color.color_name === variant.color)
+            return [variant.color, {
+              image_url: variant.image_car_url || fallbackColor?.image_url || '',
+              swatch: fallbackColor?.swatch || variant.image_color_url || '',
+            }]
+          }),
+      )
+      return {
+        ...version,
+        image_url: media?.image_url || '',
+        detail_image_urls: media?.detail_image_urls || [],
+        media_by_color: mediaByColor,
+      }
+    }),
     advanced_color_price: Number(product.advanced_color_price || 0),
     landing_page_blocks: specsObj.landing_page_blocks || [],
   }
@@ -148,7 +183,7 @@ export async function PATCH(request: Request, context: Context) {
     is_active = true,
     listing_image_url,
     hero_image_url,
-    detail_image_urls = [],
+    detail_image_urls: rawDetailImageUrls = [],
     specifications = {},
     specification_fields = undefined,
     colors = [],
@@ -156,6 +191,7 @@ export async function PATCH(request: Request, context: Context) {
     versions = [],
     landing_page_blocks = [],
   } = body
+  const detail_image_urls = normalizeMotorbikeDetailImages(rawDetailImageUrls)
 
   // Validation
   if (!name?.trim() || !slug?.trim()) {
@@ -169,6 +205,27 @@ export async function PATCH(request: Request, context: Context) {
   }
   if (versions.length === 0) {
     return NextResponse.json({ error: 'Vui lòng thêm ít nhất một phiên bản.' }, { status: 400 })
+  }
+  if (Array.isArray(rawDetailImageUrls) && rawDetailImageUrls.length > MAX_MOTORBIKE_DETAIL_IMAGES) {
+    return NextResponse.json({ error: `Thư viện ảnh chi tiết chỉ được có tối đa ${MAX_MOTORBIKE_DETAIL_IMAGES} ảnh.` }, { status: 400 })
+  }
+  const normalizedColorNames = colors.map((color: any) => String(color.color_name ?? '').trim().toLocaleLowerCase('vi'))
+  if (normalizedColorNames.some((colorName: string) => !colorName) || new Set(normalizedColorNames).size !== normalizedColorNames.length) {
+    return NextResponse.json({ error: 'Tên màu không được để trống hoặc trùng nhau.' }, { status: 400 })
+  }
+  if (colors.some((color: any) => !String(color.swatch ?? '').trim())) {
+    return NextResponse.json({ error: 'Mỗi màu phải có một swatch dùng chung.' }, { status: 400 })
+  }
+  const normalizedVersionNames = versions.map((version: any) => String(version.name ?? '').trim().toLocaleLowerCase('vi'))
+  const normalizedVersionSkus = versions.map((version: any) => String(version.sku ?? '').trim().toLocaleLowerCase())
+  if (normalizedVersionNames.some((versionName: string) => !versionName)
+    || normalizedVersionSkus.some((sku: string) => !sku)
+    || new Set(normalizedVersionNames).size !== normalizedVersionNames.length
+    || new Set(normalizedVersionSkus).size !== normalizedVersionSkus.length) {
+    return NextResponse.json({ error: 'Tên phiên bản và SKU gốc không được để trống hoặc trùng nhau.' }, { status: 400 })
+  }
+  if (versions.some((version: any) => Array.isArray(version.detail_image_urls) && version.detail_image_urls.length > MAX_MOTORBIKE_VERSION_DETAIL_IMAGES)) {
+    return NextResponse.json({ error: `Mỗi phiên bản chỉ được có tối đa ${MAX_MOTORBIKE_VERSION_DETAIL_IMAGES} ảnh chi tiết.` }, { status: 400 })
   }
 
   const colorNames = new Set(colors.map((color: any) => String(color.color_name)))
@@ -200,6 +257,13 @@ export async function PATCH(request: Request, context: Context) {
   if (sellableConfigurations.some(({ version, color }: any) => !Number.isFinite(priceForConfiguration(version, color)) || priceForConfiguration(version, color) <= 0)) {
     return NextResponse.json({ error: 'Giá bán của từng phiên bản phải lớn hơn 0.' }, { status: 400 })
   }
+  const colorMediaForConfigurations: MotorbikeVariantColorMedia[] = sellableConfigurations.map(({ version, color }: any) => (
+    resolveMotorbikeVariantColorMedia(version, color)
+  ))
+  if (colorMediaForConfigurations.some((media) => !media.swatch)) {
+    return NextResponse.json({ error: 'Mỗi tổ hợp phiên bản và màu phải có swatch dùng chung.' }, { status: 400 })
+  }
+  const versionMedia = buildMotorbikeVersionMedia(versions)
 
   const categoryId = '6dfde2e5-b9d5-755c-10db-19a7ce6c24b5'
 
@@ -207,14 +271,13 @@ export async function PATCH(request: Request, context: Context) {
   const priceFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
   const priceStr = versions.map((v: any) => `${v.name}: ${priceFormatter.format(v.price)}`).join(' / ')
 
-  const image_urls: string[] = [listing_image_url, hero_image_url]
-  colors.forEach((color: any) => {
-    image_urls.push(color.image_url)
-    image_urls.push(color.swatch)
-  })
-  detail_image_urls.forEach((url: string) => {
-    image_urls.push(url)
-  })
+  const image_urls = Array.from(new Set([
+    listing_image_url,
+    hero_image_url,
+    ...colorMediaForConfigurations.flatMap((media) => [media.image_url, media.swatch]),
+    ...versionMedia.flatMap((media) => [media.image_url, ...media.detail_image_urls]),
+    ...detail_image_urls,
+  ].filter(Boolean)))
 
   const formattedSpecs = {
     url: `https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-${slug}`,
@@ -239,18 +302,25 @@ export async function PATCH(request: Request, context: Context) {
       interior_images: [],
     },
     variants: versions.map((v: any) => v.name),
-    variant_compatibility: sellableConfigurations.map(({ version, color }: any) => ({
+    version_media: versionMedia,
+    variant_compatibility: sellableConfigurations.map(({ version, color }: any, rowIndex: number) => ({
       version: version.name,
       exterior_color: color.color_name,
+      image_url: colorMediaForConfigurations[rowIndex].image_url,
+      swatch: colorMediaForConfigurations[rowIndex].swatch,
     })),
     product_type: 'motorbike',
-    color_details: colors.map((c: any) => ({
-      swatch: c.swatch,
-      image_url: c.image_url,
-      color_name: c.color_name,
-      color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
-      price_adjustment: c.color_type === 'ADVANCED' ? advancedColorPrice : 0,
-    })),
+    color_details: colors.map((c: any) => {
+      const configurationIndex = sellableConfigurations.findIndex(({ color }: any) => color.color_name === c.color_name)
+      const fallbackMedia = configurationIndex >= 0 ? colorMediaForConfigurations[configurationIndex] : { image_url: '', swatch: '' }
+      return {
+        swatch: String(c.swatch ?? '').trim() || fallbackMedia.swatch,
+        image_url: fallbackMedia.image_url,
+        color_name: c.color_name,
+        color_type: c.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        price_adjustment: c.color_type === 'ADVANCED' ? advancedColorPrice : 0,
+      }
+    }),
     detail_images: detail_image_urls,
     representative_image: hero_image_url,
     landing_page_blocks,
@@ -281,17 +351,49 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   // 2. Fetch existing relations to preserve IDs and identify deletions
-  const { data: existingPV } = await supabase.from('product_variants').select('id, sku').eq('product_id', productId)
-  const pvMap = new Map(existingPV?.map((r) => [r.sku, r.id]) || [])
+  const { data: existingPV } = await supabase.from('product_variants').select('id, sku, metadata').eq('product_id', productId)
+  const productVariantById = new Map((existingPV || []).map((row: any) => [String(row.id), row]))
 
-  const { data: existingVV } = await supabase.from('vehicle_variants').select('id, sku').eq('product_id', productId)
-  const vvMap = new Map(existingVV?.map((r) => [r.sku, r.id]) || [])
+  const { data: existingVV } = await supabase
+    .from('vehicle_variants')
+    .select('id, sku, product_variant_id, version, color')
+    .eq('product_id', productId)
+  const vehicleVariantByConfiguration = new Map<string, any>()
+  for (const row of existingVV || []) {
+    const key = vehicleConfigurationKey({ version: row.version, color: row.color })
+    if (!vehicleVariantByConfiguration.has(key)) vehicleVariantByConfiguration.set(key, row)
+  }
 
   // 3. Form new rows
-  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem, colorIndex }: any) => {
-      const sku = `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}`
+  const assignments = sellableConfigurations.map(({ version, color }: any) => {
+    const existingVehicle = vehicleVariantByConfiguration.get(vehicleConfigurationKey({
+      version: version.name,
+      color: color.color_name,
+    }))
+    const existingProduct = existingVehicle?.product_variant_id
+      ? productVariantById.get(String(existingVehicle.product_variant_id))
+      : undefined
+    return { existingVehicle, existingProduct }
+  })
+  let allocatedSkus: string[]
+  try {
+    allocatedSkus = await allocateVehicleVariantSkus(
+      supabase,
+      'BIKE',
+      assignments.filter((item: { existingProduct?: { sku?: unknown } }) =>
+        !isCanonicalVehicleSku(item.existingProduct?.sku, 'BIKE')).length,
+    )
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe máy điện.' }, { status: 500 })
+  }
+  let allocatedSkuIndex = 0
+  const productVariantRows = sellableConfigurations.map(({ version, color: colorItem }: any, rowIndex: number) => {
+      const assignment = assignments[rowIndex]
+      const sku = isCanonicalVehicleSku(assignment.existingProduct?.sku, 'BIKE')
+        ? String(assignment.existingProduct?.sku).toUpperCase()
+        : allocatedSkus[allocatedSkuIndex++]
       return {
-        id: pvMap.get(sku) || randomUUID(),
+        id: assignment.existingProduct?.id || randomUUID(),
         product_id: productId,
         sku,
         name: `${version.name} - ${colorItem.color_name}`,
@@ -304,6 +406,10 @@ export async function PATCH(request: Request, context: Context) {
           base_sku: version.sku,
           version: version.name,
           color: colorItem.color_name,
+          color_image_url: colorMediaForConfigurations[rowIndex].image_url,
+          color_swatch_url: colorMediaForConfigurations[rowIndex].swatch,
+          version_image_url: findMotorbikeVersionMedia(versionMedia, version)?.image_url || null,
+          version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, version)?.detail_image_urls || [],
         },
         deposit_amount: version.deposit_amount,
       }
@@ -323,19 +429,24 @@ export async function PATCH(request: Request, context: Context) {
           color_order: colorIndex + 1,
           color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
           color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
+          variant_color_image_url: colorMediaForConfigurations[rowIndex].image_url,
+          variant_color_swatch_url: colorMediaForConfigurations[rowIndex].swatch,
           description,
           migrated_at: generatedAt,
           product_slug: slug,
           version_order: versionIndex + 1,
+          version_sku: originalVersion.sku,
           hero_image_url,
+          version_image_url: findMotorbikeVersionMedia(versionMedia, originalVersion)?.image_url || '',
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
+          version_detail_image_urls: findMotorbikeVersionMedia(versionMedia, originalVersion)?.detail_image_urls || [],
           listing_image_url,
         },
       }
 
       vehicleVariantRows.push({
-        id: vvMap.get(sku) || randomUUID(),
+        id: assignments[rowIndex].existingVehicle?.id || randomUUID(),
         product_id: productId,
         product_type: 'BIKE',
         product_name: name,
@@ -345,8 +456,10 @@ export async function PATCH(request: Request, context: Context) {
         sku,
         price: variantRow.original_price,
         color: colorItem.color_name,
-        image_car_url: colorItem.image_url,
-        image_color_url: colorItem.swatch,
+        color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
+        color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
+        image_car_url: colorMediaForConfigurations[rowIndex].image_url,
+        image_color_url: colorMediaForConfigurations[rowIndex].swatch,
         version: originalVersion.name,
         is_active: is_active,
         product_variant_id: variantRow.id,
@@ -354,19 +467,17 @@ export async function PATCH(request: Request, context: Context) {
   })
 
   // 4. Perform deletions
-  const newPvSkus = productVariantRows.map((r: any) => r.sku)
-  const existingPvSkus = existingPV?.map((r) => r.sku) || []
-  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s))
+  const newPvIds = new Set(productVariantRows.map((row: any) => String(row.id)))
+  const pvIdsToDelete = (existingPV || []).filter((row: any) => !newPvIds.has(String(row.id))).map((row: any) => row.id)
 
-  const newVvSkus = vehicleVariantRows.map((r) => r.sku)
-  const existingVvSkus = existingVV?.map((r) => r.sku) || []
-  const vvSkusToDelete = existingVvSkus.filter((s) => !newVvSkus.includes(s))
+  const newVvIds = new Set(vehicleVariantRows.map((row) => String(row.id)))
+  const vvIdsToDelete = (existingVV || []).filter((row: any) => !newVvIds.has(String(row.id))).map((row: any) => row.id)
 
-  if (vvSkusToDelete.length > 0) {
+  if (vvIdsToDelete.length > 0) {
     const { error: vvDelError } = await supabase
       .from('vehicle_variants')
       .delete()
-      .in('sku', vvSkusToDelete)
+      .in('id', vvIdsToDelete)
       .eq('product_id', productId)
     if (vvDelError) {
       return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
@@ -382,18 +493,14 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: `Lỗi lưu phiên bản sản phẩm: ${pvUpsertError.message}` }, { status: 500 })
   }
 
-  if (pvSkusToDelete.length > 0) {
-    const variantsToDelete = (existingPV || []).filter((row) => pvSkusToDelete.includes(row.sku))
-    const idsToDelete = variantsToDelete.map((row) => row.id)
-    if (idsToDelete.length > 0) {
-      await supabase.from('inventory_items').delete().in('variant_id', idsToDelete)
-      await supabase.from('cart_items').delete().in('variant_id', idsToDelete)
-      await supabase.from('product_media').delete().in('variant_id', idsToDelete)
-    }
+  if (pvIdsToDelete.length > 0) {
+    await supabase.from('inventory_items').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('cart_items').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('product_media').delete().in('variant_id', pvIdsToDelete)
     const { error: pvDelError } = await supabase
       .from('product_variants')
       .delete()
-      .in('sku', pvSkusToDelete)
+      .in('id', pvIdsToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
       return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })

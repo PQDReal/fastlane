@@ -2,8 +2,10 @@ import { notFound } from 'next/navigation'
 import { Header } from '../../../components/header'
 import { Footer } from '../../../components/footer'
 import Link from 'next/link'
-import { BikeColorSelector } from '../../../components/bike-color-selector'
+import { BikeVersionMediaGallery } from '../../../components/bike-version-media-gallery'
 import { getMotorbikeCatalogBySlug } from '../../../lib/motorbike-catalog'
+import { getSupabaseAdmin } from '../../../lib/supabase-admin'
+import { findMotorbikeVersionMedia, normalizeMotorbikeVersionMedia } from '../../../lib/motorbike-version-media'
 import { Button } from '../../../components/ui/button'
 import {
   BatteryCharging,
@@ -134,6 +136,15 @@ export default async function BikeDetailPage(
     notFound()
   }
 
+  const { data: mediaProduct } = await getSupabaseAdmin()
+    .from('products')
+    .select('specifications')
+    .eq('id', motorbike.productId)
+    .maybeSingle()
+  const storedVersionMedia = normalizeMotorbikeVersionMedia(
+    asObject(mediaProduct?.specifications).version_media,
+  )
+
   const product = {
     id: motorbike.productId,
     name: motorbike.name,
@@ -154,12 +165,27 @@ export default async function BikeDetailPage(
     src: motorbike.heroImageUrl,
     contain: motorbike.heroImageUrl === motorbike.listingImageUrl,
   }
-  const bikeColors = motorbike.colors.map((color) => ({
-    name: color.name,
-    swatch: color.swatchUrl || undefined,
-  }))
-  const colorImages = motorbike.colors.map((color) => color.imageUrl)
   const detailImages = motorbike.detailImageUrls
+  const versionMediaOptions = motorbike.versions.map((version) => {
+    const media = findMotorbikeVersionMedia(storedVersionMedia, version)
+    return {
+      name: version.name,
+      sku: version.sku,
+      price: version.price,
+      imageUrl: media?.image_url || '',
+      detailImageUrls: media?.detail_image_urls || [],
+    }
+  })
+  const versionColorOptions = motorbike.variantRows.map((variant) => {
+    const version = motorbike.versions.find((entry) => entry.name === variant.version)
+    return {
+      versionName: variant.version,
+      versionSku: version?.sku || variant.sku,
+      colorName: variant.color,
+      imageUrl: variant.imageCarUrl,
+      swatchUrl: variant.imageColorUrl,
+    }
+  })
 
   const specEntries =
     getSpecEntries(specifications)
@@ -299,7 +325,8 @@ export default async function BikeDetailPage(
         /^(?:https?:\/\/|\/)/i.test(value) &&
         /\.pdf(?:[?#].*)?$/i.test(value),
     ) ?? ''
-  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}`
+  const productDetailHref = `/bikes/${encodeURIComponent(product.slug)}`
+  const depositHref = `/deposit?type=motorbike&model=${encodeURIComponent(product.name)}&returnTo=${encodeURIComponent(productDetailHref)}`
   const testDriveHref = `/test-drive?productId=${encodeURIComponent(product.id)}`
   const estimatorHref = `/cost-estimator?vehicle=${encodeURIComponent(product.slug)}`
 
@@ -546,44 +573,6 @@ export default async function BikeDetailPage(
         </div>
       </section>
 
-      {motorbike.colors.length > 0 && (
-        <BikeColorSelector
-          colors={bikeColors}
-          images={colorImages}
-          description={description}
-        />
-      )}
-
-      {/* DESIGN SECTION */}
-      <section id="design" className="bg-slate-950 py-20 text-white">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="mb-12 text-center">
-            <h2 className="text-2xl font-black uppercase tracking-wider">Khám phá chi tiết</h2>
-            <p className="mt-2 text-xs text-white/50">Hình ảnh thực tế chi tiết của xe.</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {detailImages.slice(0, 20).map((url, index) => (
-              <div
-                key={`${url}-${index}`}
-                className="group relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-white/5 bg-slate-900"
-              >
-                <Image
-                  src={url}
-                  alt={`Chi tiết ${product.name} ${index + 1}`}
-                  fill
-                  sizes={index === 0 ? '(max-width: 768px) 100vw, 960px' : '(max-width: 768px) 100vw, 480px'}
-                  className="object-cover transition duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12">
-                  <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* TECHNOLOGY & SAFETY */}
       <section className="bg-muted py-32">
         <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-16 px-6 lg:grid-cols-2 lg:px-12">
@@ -694,6 +683,15 @@ export default async function BikeDetailPage(
       </section>
         </>
       )}
+
+      <BikeVersionMediaGallery
+        productName={product.name}
+        versions={versionMediaOptions}
+        colorVariants={versionColorOptions}
+        description={description}
+        fallbackImageUrl={heroImage.src}
+        fallbackDetailImageUrls={detailImages}
+      />
 
       {/* FULL SPECS */}
       <section
