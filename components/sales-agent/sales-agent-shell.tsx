@@ -434,30 +434,36 @@ export function SalesAgentShell() {
     return null
   }, [messages])
 
-  return <AnimatePresence>
-    {open && <>
+  return (
+    <>
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
-      
-      {/* Backdrop overlay (Mobile always / Desktop in expanded mode) */}
-      <motion.div
-        role="presentation"
-        aria-label="Đóng Sales Agent"
-        onClick={() => {
-          if (isExpanded) setIsExpanded(false)
-          else setOpen(false)
-        }}
-        className={`fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-[2px] transition-opacity duration-300 ${
-          isExpanded ? 'opacity-100' : 'opacity-100 md:hidden'
-        }`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: reduceMotion ? 0 : 0.2 }}
-      />
 
-      <motion.aside
-        role="dialog"
-        aria-label="Trợ lý mua xe FASTLANE"
+      {/* Main Dialog & Backdrop */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="sales-agent-backdrop"
+            role="presentation"
+            aria-label="Đóng Sales Agent"
+            onClick={() => {
+              if (isExpanded) setIsExpanded(false)
+              else setOpen(false)
+            }}
+            className={`fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-[2px] transition-opacity duration-300 ${
+              isExpanded ? 'opacity-100' : 'opacity-100 md:hidden'
+            }`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2 }}
+          />
+        )}
+
+        {open && (
+          <motion.aside
+            key="sales-agent-dialog"
+            role="dialog"
+            aria-label="Trợ lý mua xe FASTLANE"
         className={
           isExpanded
             ? 'fixed inset-2 sm:inset-0 m-auto z-[61] flex flex-col overflow-hidden bg-white shadow-2xl border border-slate-200/90 w-[calc(100vw-16px)] sm:w-[min(94vw,1152px)] h-[calc(100dvh-16px)] sm:h-[min(88vh,860px)] rounded-2xl sm:rounded-3xl'
@@ -817,15 +823,18 @@ export function SalesAgentShell() {
 
         </div>
       </motion.aside>
-    </>}
+    )}
+  </AnimatePresence>
 
+  {/* Floating Trigger */}
+  <AnimatePresence>
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
-        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+        initial={{ opacity: 1, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.8, y: 20 }}
-        transition={{ duration: reduceMotion ? 0 : 0.25, ease: 'easeOut' }}
+        exit={{ opacity: 0, scale: 0.85, y: 15 }}
+        transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed bottom-6 right-6 z-[55] flex items-center"
       >
         <button
@@ -854,4 +863,6 @@ export function SalesAgentShell() {
       </motion.div>
     )}
   </AnimatePresence>
+</>
+)
 }
