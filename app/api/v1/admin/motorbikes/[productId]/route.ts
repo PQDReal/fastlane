@@ -17,7 +17,7 @@ import {
   normalizeMotorbikeVersionMedia,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
-import { allocateVehicleVariantSkus, vehicleConfigurationKey } from '@/lib/vehicle-sku'
+import { allocateVehicleVariantSkus, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -134,7 +134,7 @@ export async function GET(request: Request, context: Context) {
       const media = findMotorbikeVersionMedia(versionMedia, version)
       const mediaByColor = Object.fromEntries(
         (vehicleVariants || [])
-          .filter((variant: any) => variant.sku?.replace(/-C\d{2}$/i, '') === version.sku || variant.version === version.name)
+          .filter((variant: any) => variant.version === version.name)
           .map((variant: any) => {
             const fallbackColor = colorDetails.find((color: any) => color.color_name === variant.color)
             return [variant.color, {
@@ -377,14 +377,21 @@ export async function PATCH(request: Request, context: Context) {
   })
   let allocatedSkus: string[]
   try {
-    allocatedSkus = await allocateVehicleVariantSkus(supabase, 'BIKE', assignments.filter((item: { existingProduct?: unknown }) => !item.existingProduct).length)
+    allocatedSkus = await allocateVehicleVariantSkus(
+      supabase,
+      'BIKE',
+      assignments.filter((item: { existingProduct?: { sku?: unknown } }) =>
+        !isCanonicalVehicleSku(item.existingProduct?.sku, 'BIKE')).length,
+    )
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe máy điện.' }, { status: 500 })
   }
   let allocatedSkuIndex = 0
   const productVariantRows = sellableConfigurations.map(({ version, color: colorItem }: any, rowIndex: number) => {
       const assignment = assignments[rowIndex]
-      const sku = assignment.existingProduct?.sku || allocatedSkus[allocatedSkuIndex++]
+      const sku = isCanonicalVehicleSku(assignment.existingProduct?.sku, 'BIKE')
+        ? String(assignment.existingProduct?.sku).toUpperCase()
+        : allocatedSkus[allocatedSkuIndex++]
       return {
         id: assignment.existingProduct?.id || randomUUID(),
         product_id: productId,

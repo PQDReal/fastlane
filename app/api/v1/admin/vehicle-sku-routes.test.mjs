@@ -17,12 +17,15 @@ describe('admin vehicle SKU write routes', () => {
     expect(routes.bikeCreate).not.toMatch(/sku:\s*`\$\{version\.sku\}-C/)
   })
 
-  it('matches edit rows by configuration and preserves existing variant IDs and SKUs', () => {
-    for (const route of [routes.carEdit, routes.bikeEdit]) {
+  it('matches edit rows by configuration, preserves IDs, and replaces any legacy SKU', () => {
+    for (const [route, type] of [[routes.carEdit, 'CAR'], [routes.bikeEdit, 'BIKE']]) {
       expect(route).toContain('vehicleConfigurationKey')
       expect(route).toContain('assignment.existingProduct?.sku')
       expect(route).toContain('assignment.existingProduct?.id')
+      expect(route).toContain(`isCanonicalVehicleSku(item.existingProduct?.sku, '${type}')`)
+      expect(route).toContain(`isCanonicalVehicleSku(assignment.existingProduct?.sku, '${type}')`)
       expect(route).not.toContain('buildCarVariantSku')
+      expect(route).not.toMatch(/sku\?\.replace\(\/-C/)
     }
   })
 })

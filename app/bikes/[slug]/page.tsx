@@ -180,7 +180,7 @@ export default async function BikeDetailPage(
     const version = motorbike.versions.find((entry) => entry.name === variant.version)
     return {
       versionName: variant.version,
-      versionSku: version?.sku || variant.sku.replace(/-C\d{2}$/i, ''),
+      versionSku: version?.sku || variant.sku,
       colorName: variant.color,
       imageUrl: variant.imageCarUrl,
       swatchUrl: variant.imageColorUrl,

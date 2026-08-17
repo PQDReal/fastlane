@@ -11,7 +11,7 @@ import { deleteRedisKeysByPrefix } from '@/lib/redis'
 import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructCarAdminConfiguration } from '@/lib/car-admin-variants'
 import { normalizeCarSkuBase } from '@/lib/car-sku'
-import { allocateVehicleVariantSkus, vehicleConfigurationKey } from '@/lib/vehicle-sku'
+import { allocateVehicleVariantSkus, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -663,14 +663,21 @@ export async function PATCH(request: Request, context: Context) {
   })
   let allocatedSkus: string[]
   try {
-    allocatedSkus = await allocateVehicleVariantSkus(supabase, 'CAR', assignments.filter((item: { existingProduct?: unknown }) => !item.existingProduct).length)
+    allocatedSkus = await allocateVehicleVariantSkus(
+      supabase,
+      'CAR',
+      assignments.filter((item: { existingProduct?: { sku?: unknown } }) =>
+        !isCanonicalVehicleSku(item.existingProduct?.sku, 'CAR')).length,
+    )
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe ô tô.' }, { status: 500 })
   }
   let allocatedSkuIndex = 0
   const productVariantRows = sellableConfigurations.map(({ version, color, interior }: any, rowIndex: number) => {
     const assignment = assignments[rowIndex]
-    const sku = assignment.existingProduct?.sku || allocatedSkus[allocatedSkuIndex++]
+    const sku = isCanonicalVehicleSku(assignment.existingProduct?.sku, 'CAR')
+      ? String(assignment.existingProduct?.sku).toUpperCase()
+      : allocatedSkus[allocatedSkuIndex++]
     return {
     id: assignment.existingProduct?.id || randomUUID(),
     product_id: productId,
