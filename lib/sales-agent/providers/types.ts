@@ -8,17 +8,22 @@ export const SALES_AGENT_PROVIDER_IDS = [
 
 export type SalesAgentProviderId = (typeof SALES_AGENT_PROVIDER_IDS)[number]
 
-export type SalesAgentProviderConfig = {
+export type SalesAgentProviderInstance = {
   id: string
   provider: SalesAgentProviderId
   displayName: string
   model: string
   baseUrl: string
   apiKeyEnv: string
+  customApiKeys?: string[]
+  priority?: number
   enabled: boolean
   isDefault: boolean
+  timeoutMs?: number
   updatedAt?: string
 }
+
+export type SalesAgentProviderConfig = SalesAgentProviderInstance
 
 export type SalesAgentProviderInput = {
   messages: Array<{

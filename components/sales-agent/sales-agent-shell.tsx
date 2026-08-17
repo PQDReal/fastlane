@@ -292,7 +292,7 @@ export function SalesAgentShell() {
     scrollToLatest()
   }, [messages, open, scrollToLatest])
 
-  if (!salesAgentUiEnabled) return null
+  if (!salesAgentUiEnabled || pathname?.startsWith('/admin')) return null
 
   async function send(messageOverride?: string, interactionResponse?: { interactionId: string; selectedOptionIds: string[]; freeText?: string; continuationToken: string }) {
     const message = (messageOverride ?? draft).trim()

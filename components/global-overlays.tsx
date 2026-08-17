@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { usePathname } from 'next/navigation'
 import { useAppStore } from '@/lib/store'
 import { SalesAgentShell } from '@/components/sales-agent/sales-agent-shell'
 
@@ -16,6 +17,8 @@ const LazyCartFlyAnimation = dynamic(
 
 export function GlobalOverlays() {
   const searchModalOpen = useAppStore((state) => state.searchModalOpen)
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
 
   return (
     <>
@@ -23,7 +26,7 @@ export function GlobalOverlays() {
       {/* Keep the animation mounted across route changes. An add-to-cart
           request may finish after the user has already opened /cart. */}
       <LazyCartFlyAnimation />
-      <SalesAgentShell />
+      {!isAdmin && <SalesAgentShell />}
     </>
   )
 }

@@ -67,13 +67,16 @@ export function isSalesAgentProviderId(value: unknown): value is SalesAgentProvi
 }
 
 export function normalizeProviderConfig(input: Partial<SalesAgentProviderConfig> & Pick<SalesAgentProviderConfig, 'provider'>): Omit<SalesAgentProviderConfig, 'id' | 'updatedAt'> {
-  const defaults = PROVIDER_DEFAULTS[input.provider]
+  const defaults = PROVIDER_DEFAULTS[input.provider] || DEFAULT_SALES_AGENT_PROVIDER
   return {
     ...defaults,
     displayName: typeof input.displayName === 'string' && input.displayName.trim() ? input.displayName.trim().slice(0, 80) : defaults.displayName,
     model: typeof input.model === 'string' && input.model.trim() ? input.model.trim().slice(0, 160) : defaults.model,
     baseUrl: normalizeBaseUrl(typeof input.baseUrl === 'string' && input.baseUrl.trim() ? input.baseUrl : defaults.baseUrl),
     apiKeyEnv: normalizeEnvName(typeof input.apiKeyEnv === 'string' && input.apiKeyEnv.trim() ? input.apiKeyEnv : defaults.apiKeyEnv),
+    customApiKeys: Array.isArray(input.customApiKeys) ? input.customApiKeys.filter((k) => typeof k === 'string' && k.length > 5) : [],
+    priority: typeof input.priority === 'number' ? Math.max(1, Math.min(99, input.priority)) : 1,
+    timeoutMs: typeof input.timeoutMs === 'number' ? Math.max(1000, Math.min(60000, input.timeoutMs)) : 5000,
     enabled: typeof input.enabled === 'boolean' ? input.enabled : defaults.enabled,
     isDefault: typeof input.isDefault === 'boolean' ? input.isDefault : defaults.isDefault,
     provider: input.provider,
