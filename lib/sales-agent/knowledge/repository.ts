@@ -67,6 +67,25 @@ const FALLBACK_SEEDED_DOCS: KnowledgeDocument[] = [
   },
 ]
 
+// Không để request tới Supabase giữ các luồng fallback vô thời hạn trong CI
+// hoặc môi trường local chưa cấu hình database. Khi quá thời gian, thao tác
+// sẽ đi vào nhánh fallback hiện có của repository.
+const KNOWLEDGE_DB_TIMEOUT_MS = 1_500
+
+async function withKnowledgeDbTimeout<T>(operation: PromiseLike<T>, timeoutMs = KNOWLEDGE_DB_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      Promise.resolve(operation),
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Knowledge database request timed out.')), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 function generateSlug(title: string): string {
   return title
     .toLowerCase()
@@ -131,7 +150,7 @@ export async function listKnowledgeDocuments(options?: ListDocumentsOptions): Pr
       query = query.range(options.offset, options.offset + (options.limit || 20) - 1)
     }
 
-    const { data, count, error } = await query
+    const { data, count, error } = await withKnowledgeDbTimeout(query)
     if (error || !data) {
       // Fallback in-memory filtering
       let filtered = [...FALLBACK_SEEDED_DOCS]
@@ -156,11 +175,11 @@ export async function listKnowledgeDocuments(options?: ListDocumentsOptions): Pr
 export async function getKnowledgeDocumentById(id: string): Promise<KnowledgeDocument | null> {
   try {
     const supabase = getSupabaseAdmin()
-    const { data, error } = await supabase
+    const { data, error } = await withKnowledgeDbTimeout(supabase
       .from('sales_agent_knowledge_documents')
       .select('*')
       .eq('id', id)
-      .single()
+      .single())
 
     if (error || !data) {
       return FALLBACK_SEEDED_DOCS.find((d) => d.id === id) ?? null
@@ -185,7 +204,7 @@ export async function createKnowledgeDocument(payload: {
 
   try {
     const supabase = getSupabaseAdmin()
-    const { data, error } = await supabase
+    const { data, error } = await withKnowledgeDbTimeout(supabase
       .from('sales_agent_knowledge_documents')
       .insert({
         slug,
@@ -200,7 +219,7 @@ export async function createKnowledgeDocument(payload: {
         updated_at: now,
       })
       .select('*')
-      .single()
+      .single())
 
     if (error || !data) {
       throw new Error(`Không thể tạo tài liệu: ${error?.message || 'Lỗi DB'}`)
@@ -245,12 +264,12 @@ export async function updateKnowledgeDocument(
 
   try {
     const supabase = getSupabaseAdmin()
-    const { data, error } = await supabase
+    const { data, error } = await withKnowledgeDbTimeout(supabase
       .from('sales_agent_knowledge_documents')
       .update(updates)
       .eq('id', id)
       .select('*')
-      .single()
+      .single())
 
     if (error || !data) {
       throw new Error(`Không thể cập nhật tài liệu: ${error?.message || 'Lỗi DB'}`)
@@ -275,10 +294,10 @@ export async function deleteKnowledgeDocument(id: string): Promise<boolean> {
   try {
     const supabase = getSupabaseAdmin()
     // ON DELETE CASCADE automatically purges all chunks in sales_agent_knowledge_chunks table
-    const { error } = await supabase
+    const { error } = await withKnowledgeDbTimeout(supabase
       .from('sales_agent_knowledge_documents')
       .delete()
-      .eq('id', id)
+      .eq('id', id))
 
     const index = FALLBACK_SEEDED_DOCS.findIndex((d) => d.id === id)
     if (index !== -1) FALLBACK_SEEDED_DOCS.splice(index, 1)
@@ -306,10 +325,10 @@ export async function publishKnowledgeDocument(id: string): Promise<{ document: 
     const supabase = getSupabaseAdmin()
 
     // 1. Delete previous chunks for this document to keep DB 100% clean
-    await supabase
+    await withKnowledgeDbTimeout(supabase
       .from('sales_agent_knowledge_chunks')
       .delete()
-      .eq('document_id', id)
+      .eq('document_id', id))
 
     // 2. Insert new chunks
     if (rawChunks.length > 0) {
@@ -324,11 +343,11 @@ export async function publishKnowledgeDocument(id: string): Promise<{ document: 
         created_at: now,
       }))
 
-      await supabase.from('sales_agent_knowledge_chunks').insert(chunksToInsert)
+      await withKnowledgeDbTimeout(supabase.from('sales_agent_knowledge_chunks').insert(chunksToInsert))
     }
 
     // 3. Update document status to PUBLISHED
-    const { data: updatedDoc, error } = await supabase
+    const { data: updatedDoc, error } = await withKnowledgeDbTimeout(supabase
       .from('sales_agent_knowledge_documents')
       .update({
         status: 'PUBLISHED',
@@ -338,7 +357,7 @@ export async function publishKnowledgeDocument(id: string): Promise<{ document: 
       })
       .eq('id', id)
       .select('*')
-      .single()
+      .single())
 
     if (error || !updatedDoc) {
       throw new Error(`Không thể xuất bản: ${error?.message || 'Lỗi DB'}`)
