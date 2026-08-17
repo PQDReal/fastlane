@@ -17,6 +17,7 @@ import type { CatalogServiceLabel } from '@/lib/catalog/service-labels'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import {
   ACCESSORY_CATALOG_SUMMARY_CACHE_KEY,
+  ACCESSORY_VEHICLE_CONTEXT_CACHE_KEY,
   accessoryProductCacheKey,
 } from '@/lib/cache-keys'
 import { readRedisJson, writeRedisJson } from '@/lib/redis'
@@ -229,27 +230,45 @@ async function loadActiveServiceLabels(): Promise<CatalogServiceLabel[]> {
   }))
 }
 
+const loadNextCachedAccessoryVehicleContext = unstable_cache(
+  async () => {
+    const { data, error } = await getSupabaseAdmin()
+      .from('catalog_collections')
+      .select('id,parent_id,slug,name,display_order,vehicle_model:vehicle_models(code,is_active)')
+      .eq('kind', 'MODEL')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true })
+    if (error) throw new Error(`Unable to list accessory vehicle context: ${error.message}`)
+    return (data ?? []).flatMap((row) => {
+      const vehicleModel = Array.isArray(row.vehicle_model) ? row.vehicle_model[0] : row.vehicle_model
+      if (!vehicleModel || vehicleModel.is_active === false) return []
+      return [{
+        id: String(row.id),
+        parentId: row.parent_id === null ? null : String(row.parent_id),
+        slug: String(row.slug),
+        name: String(row.name),
+        code: String(vehicleModel.code ?? row.slug),
+        displayOrder: Number(row.display_order) || 0,
+      }]
+    })
+  },
+  ['accessory-vehicle-context-v2'],
+  {
+    revalidate: 300,
+    tags: ['accessory-catalog'],
+  },
+)
+
 export async function listAccessoryVehicleContext(): Promise<AccessoryVehicleContext[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('catalog_collections')
-    .select('id,parent_id,slug,name,display_order,vehicle_model:vehicle_models(code,is_active)')
-    .eq('kind', 'MODEL')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
-    .order('name', { ascending: true })
-  if (error) throw new Error(`Unable to list accessory vehicle context: ${error.message}`)
-  return (data ?? []).flatMap((row) => {
-    const vehicleModel = Array.isArray(row.vehicle_model) ? row.vehicle_model[0] : row.vehicle_model
-    if (!vehicleModel || vehicleModel.is_active === false) return []
-    return [{
-      id: String(row.id),
-      parentId: row.parent_id === null ? null : String(row.parent_id),
-      slug: String(row.slug),
-      name: String(row.name),
-      code: String(vehicleModel.code ?? row.slug),
-      displayOrder: Number(row.display_order) || 0,
-    }]
-  })
+  const cached = await readRedisJson<AccessoryVehicleContext[]>(
+    ACCESSORY_VEHICLE_CONTEXT_CACHE_KEY,
+  )
+  if (cached) return cached
+
+  const context = await loadNextCachedAccessoryVehicleContext()
+  await writeRedisJson(ACCESSORY_VEHICLE_CONTEXT_CACHE_KEY, context, 300)
+  return context
 }
 
 const loadNextCachedAccessoryCatalogSummary = unstable_cache(

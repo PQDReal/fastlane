@@ -10,6 +10,8 @@ export const MOTORBIKE_CATALOG_CACHE_KEY = 'fastlane:motorbike-catalog:v2'
 export const MOTORBIKE_DETAIL_CACHE_PREFIX = 'fastlane:motorbike-detail:v1:'
 export const ACCESSORY_CATALOG_SUMMARY_CACHE_KEY =
   'fastlane:accessory-catalog-summary:v2'
+export const ACCESSORY_VEHICLE_CONTEXT_CACHE_KEY =
+  'fastlane:accessory-vehicle-context:v2'
 export const ACCESSORY_PRODUCT_CACHE_PREFIX = 'fastlane:accessory-product:v2:'
 export const CAR_CATALOG_CACHE_PREFIX = 'fastlane:car-catalog:v1:'
 export const CAR_DETAIL_CACHE_PREFIX = 'fastlane:car-detail:v1:'
