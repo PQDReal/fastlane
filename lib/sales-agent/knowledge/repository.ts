@@ -302,7 +302,9 @@ export async function deleteKnowledgeDocument(id: string): Promise<boolean> {
     const index = FALLBACK_SEEDED_DOCS.findIndex((d) => d.id === id)
     if (index !== -1) FALLBACK_SEEDED_DOCS.splice(index, 1)
 
-    return !error
+    // Khi DB không phản hồi hoặc trả lỗi, fallback vẫn có thể xóa tài liệu
+    // local đã tạo trong cùng luồng; kết quả nghiệp vụ lúc đó vẫn là thành công.
+    return !error || index !== -1
   } catch {
     const index = FALLBACK_SEEDED_DOCS.findIndex((d) => d.id === id)
     if (index !== -1) {
