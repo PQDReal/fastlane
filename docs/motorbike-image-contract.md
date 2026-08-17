@@ -1,34 +1,30 @@
 # Motorbike image contract
 
-Motorbike pages read their runtime image URLs from `public.products.image_urls`
-in Supabase. External image URLs must not be added to `lib/bike-images.ts`.
+Motorbike color media is owned by one sellable `version × color` combination.
+The canonical runtime source is the matching row in Supabase
+`vehicle_variants`:
 
-For every motorbike, store exactly this ordered JSON array:
+- `product_id` identifies the motorbike.
+- `version` and the base portion of `sku` identify the version.
+- `color` identifies the color available for that version.
+- `image_car_url` is the full-bike image for this exact combination.
+- `image_color_url` is the swatch for this exact combination.
 
-1. Listing image used by `/bikes` and search cards.
-2. Hero image used at the top of `/bikes/[slug]`.
-3. One pair per `specifications.color_details` entry, in the same order:
-   full-bike color image, then its swatch image.
-4. Exactly three detail images.
+Both image fields are required for every active combination. Different versions
+may therefore use different vehicle images and swatches for a color with the
+same display name.
 
-For `N` colors, the required array length is `2 + (N * 2) + 3`.
+The admin create/edit flow stores the same URLs in `product_variants.metadata`
+and `vehicle_variants.specs.catalog` as denormalized audit/fallback data, but
+public product and deposit pages read the canonical `vehicle_variants` fields.
 
-Example with two colors:
+`products.specifications.color_details` contains one representative pair per
+color and `products.image_urls` contains a de-duplicated product gallery. These
+fields remain for legacy consumers and old products; they do not define the
+media for every version. When an old product has no combination-specific media,
+the admin uses `color_details` as a migration fallback and writes the resolved
+URLs to each `vehicle_variants` row on the next save.
 
-```json
-[
-  "https://cdn.example/listing.webp",
-  "https://cdn.example/hero.webp",
-  "https://cdn.example/red-bike.webp",
-  "https://cdn.example/red-swatch.webp",
-  "https://cdn.example/white-bike.webp",
-  "https://cdn.example/white-swatch.webp",
-  "https://cdn.example/detail-1.webp",
-  "https://cdn.example/detail-2.webp",
-  "https://cdn.example/detail-3.webp"
-]
-```
-
-The parser rejects incomplete or shifted arrays instead of pairing a color
-label with the wrong vehicle image. Legacy gallery fields in
-`products.specifications` are only a compatibility fallback.
+Version representative images and galleries are separate from color media.
+They are stored in `products.specifications.version_media`, with at most 20
+detail images per version.

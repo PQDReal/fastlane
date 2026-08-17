@@ -14,11 +14,7 @@ import { loadPublishedTaxonomy } from './sync-catalog-taxonomy.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const REPLACE = process.argv.includes('--replace')
-const DATA_DIRECTORY = path.join(process.cwd(), 'public', 'data', 'by_type')
-
 const SOURCE_DEFINITIONS = [
-  { file: 'cars.json', categorySlug: 'o-to-dien', productType: 'VEHICLE', kind: 'car' },
-  { file: 'motorbikes.json', categorySlug: 'xe-may-dien', productType: 'VEHICLE', kind: 'motorbike' },
   { file: 'accessories.json', categorySlug: 'phu-kien', productType: 'ACCESSORY', kind: 'accessory' },
 ]
 
@@ -28,11 +24,6 @@ const GROUP_LABELS = {
   package: 'Phiên bản',
   version: 'Phiên bản',
   exterior_color: 'Màu ngoại thất',
-}
-
-const VEHICLE_SKU_PREFIX_OVERRIDES = {
-  vinfastvfmpv7: 'VFMPV7',
-  vinfastvf8theallnew2026: 'VF8ALLNEW',
 }
 
 const PRODUCTS_WITHOUT_MEDIA_ALLOWLIST = new Set([
@@ -93,62 +84,6 @@ function groupDisplayType(code) {
   return code === 'color' || code === 'exterior_color' ? 'SWATCH' : 'BUTTON'
 }
 
-function variantSku(productName, index) {
-  const productKey = compactKey(productName)
-  const prefix = VEHICLE_SKU_PREFIX_OVERRIDES[productKey] || productKey.toUpperCase()
-  return `VINFAST-${prefix}-${String(index + 1).padStart(2, '0')}`
-}
-
-function parseVehicleVariants(product) {
-  const fallback = firstMoney(product.price) ?? 0
-  const parsed = new Map()
-
-  for (const raw of Array.isArray(product.variants) ? product.variants : []) {
-    if (typeof raw !== 'string' || !raw.trim()) continue
-    const [rawName] = raw.split(':', 1)
-    const name = rawName
-      .replace(/\s*\((?:Giá ưu đãi|Giá niêm yết gốc)\)\s*/gi, ' ')
-      .trim() || 'Mặc định'
-    const prices = moneyValues(raw)
-    const current = parsed.get(name) || { name, originalPrice: null, salePrice: null }
-
-    if (/niêm yết gốc/i.test(raw)) {
-      current.originalPrice = prices[0] ?? current.originalPrice
-    } else if (/niêm yết\s*:/i.test(raw) && prices.length >= 2) {
-      current.salePrice = Math.min(prices[0], prices[1])
-      current.originalPrice = Math.max(prices[0], prices[1])
-    } else if (/ưu đãi/i.test(raw)) {
-      current.salePrice = prices[0] ?? current.salePrice
-    } else if (prices.length > 0) {
-      current.originalPrice = prices[0]
-    }
-    parsed.set(name, current)
-  }
-
-  if (parsed.size === 0) {
-    parsed.set('Mặc định', { name: 'Mặc định', originalPrice: fallback, salePrice: null })
-  }
-
-  return [...parsed.values()].map((variant, index) => {
-    const onlyPrice = variant.originalPrice ?? variant.salePrice ?? fallback
-    const originalPrice = variant.originalPrice && variant.salePrice
-      ? Math.max(variant.originalPrice, variant.salePrice)
-      : onlyPrice
-    const salePrice = variant.originalPrice && variant.salePrice && variant.salePrice < variant.originalPrice
-      ? variant.salePrice
-      : null
-    return {
-      sku: variantSku(product.name, index),
-      name: variant.name,
-      original_price: originalPrice,
-      sale_price: salePrice,
-      stock: 0,
-      attributes: { version: variant.name },
-      images: [],
-    }
-  })
-}
-
 function parseAccessoryVariants(product) {
   if (!Array.isArray(product.variants) || product.variants.length === 0) {
     throw new Error(`${product.name}: published accessory has no variants`)
@@ -188,71 +123,22 @@ function publishedProductMedia(source) {
     rows.push({ url, role, media_type: mediaType(url), display_order: order, metadata })
   }
 
-  if (source.kind === 'car' || source.kind === 'motorbike') {
-    const gallery = product.gallery && typeof product.gallery === 'object' ? product.gallery : {}
-    const groups = [
-      ['banner_images', 'HERO'],
-      ['exterior_images', 'EXTERIOR'],
-      ['interior_images', 'INTERIOR'],
-      ['tech_images', 'TECH'],
-    ]
-    let order = 0
-    for (const [key, role] of groups) {
-      for (const url of Array.isArray(gallery[key]) ? gallery[key] : []) {
-        add(url, role, order++, { galleryGroup: key })
-      }
-    }
-    for (const url of Array.isArray(product.images) ? product.images : []) add(url, 'GALLERY', order++)
-  } else {
-    const variantImages = new Set(source.variants.flatMap(variant => variant.images))
-    let order = 0
-    for (const url of Array.isArray(product.images) ? product.images : []) {
-      if (!variantImages.has(url)) add(url, 'GALLERY', order++)
-    }
+  const variantImages = new Set(source.variants.flatMap(variant => variant.images))
+  let order = 0
+  for (const url of Array.isArray(product.images) ? product.images : []) {
+    if (!variantImages.has(url)) add(url, 'GALLERY', order++)
   }
   return rows
-}
-
-function publishedColors(source) {
-  const product = source.data
-  if (source.kind === 'car') {
-    return (Array.isArray(product.colors) ? product.colors : []).map((color, index) => {
-      if (typeof color === 'string') return { name: color, image: null, swatch: null, index }
-      return { name: color.name, image: color.image || null, swatch: color.swatch || null, index }
-    }).filter(color => typeof color.name === 'string' && color.name.trim())
-  }
-
-  if (source.kind === 'motorbike') {
-    const details = new Map((Array.isArray(product.color_details) ? product.color_details : [])
-      .map(detail => [String(detail.color_name || detail.name || '').trim().toLocaleLowerCase('vi'), {
-        image: detail.image_url || detail.image || null,
-        swatch: detail.swatch || null,
-      }]))
-    return (Array.isArray(product.colors) ? product.colors : []).map((name, index) => {
-      const detail = details.get(String(name).trim().toLocaleLowerCase('vi'))
-      return {
-        name,
-        image: detail?.image || null,
-        swatch: detail?.swatch || null,
-        index,
-      }
-    }).filter(color => typeof color.name === 'string' && color.name.trim())
-  }
-  return []
 }
 
 function loadPublishedSources() {
   const sources = []
   const taxonomyPublication = loadPublishedTaxonomy()
   for (const definition of SOURCE_DEFINITIONS) {
-    const rows = definition.kind === 'accessory'
-      ? taxonomyPublication.products
-      : JSON.parse(fs.readFileSync(path.join(DATA_DIRECTORY, definition.file), 'utf8'))
+    const rows = taxonomyPublication.products
     if (!Array.isArray(rows)) throw new Error(`${definition.file}: expected an array`)
     for (const data of rows) {
-      const variants = definition.kind === 'accessory'
-        ? parseAccessoryVariants(data)
-        : parseVehicleVariants(data)
+      const variants = parseAccessoryVariants(data)
       sources.push({ ...definition, data, slug: slugify(data.name), variants })
     }
   }
@@ -312,7 +198,22 @@ async function loadCatalogState(supabase) {
     ),
     selectAll(supabase, 'inventory_items', 'variant_id', 'Load inventory'),
   ])
-  return { products, variants, groups, values, mappings, media, inventory }
+  // This command publishes accessories only. Scope every read used for matching,
+  // replacement and verification so it can never mutate or reject vehicle rows.
+  const productIds = new Set(products
+    .filter(product => String(product.product_type).toUpperCase() === 'ACCESSORY')
+    .map(product => product.id))
+  const accessoryVariants = variants.filter(variant => productIds.has(variant.product_id))
+  const variantIds = new Set(accessoryVariants.map(variant => variant.id))
+  return {
+    products: products.filter(product => productIds.has(product.id)),
+    variants: accessoryVariants,
+    groups: groups.filter(group => productIds.has(group.product_id)),
+    values: values.filter(value => productIds.has(value.product_id)),
+    mappings: mappings.filter(mapping => productIds.has(mapping.product_id)),
+    media: media.filter(row => productIds.has(row.product_id)),
+    inventory: inventory.filter(row => variantIds.has(row.variant_id)),
+  }
 }
 
 function relatedCategory(product) {
@@ -463,11 +364,6 @@ async function synchronizeNormalizedProduct(supabase, source, product, variants)
     }
   }
 
-  const colors = publishedColors(source)
-  if (colors.length > 0) {
-    groupValues.set('exterior_color', new Map(colors.map(color => [slugify(color.name), color.name])))
-  }
-
   const groupRows = [...groupValues.entries()].map(([code], index) => ({
     product_id: product.id,
     code,
@@ -486,13 +382,11 @@ async function synchronizeNormalizedProduct(supabase, source, product, variants)
     : []
   const groupByCode = new Map(insertedGroups.map(group => [group.code, group]))
 
-  const colorByCode = new Map(colors.map(color => [slugify(color.name), color]))
   const valueRows = []
   for (const [groupCode, values] of groupValues) {
     const group = groupByCode.get(groupCode)
     let order = 0
     for (const [code, name] of values) {
-      const color = groupCode === 'exterior_color' ? colorByCode.get(code) : null
       const accessoryColorVariant = groupCode === 'color'
         ? source.variants.find(variant => slugify(variant.attributes.color) === code)
         : null
@@ -501,9 +395,9 @@ async function synchronizeNormalizedProduct(supabase, source, product, variants)
         option_group_id: group.id,
         code,
         name,
-        swatch_url: color?.swatch || accessoryColorVariant?.images[0] || null,
+        swatch_url: accessoryColorVariant?.images[0] || null,
         display_order: order++,
-        metadata: color ? { sourceImage: color.image } : {},
+        metadata: {},
       })
     }
   }
@@ -545,68 +439,37 @@ async function synchronizeNormalizedProduct(supabase, source, product, variants)
     product_id: product.id,
     alt_text: source.data.name,
   }))
-  if (source.kind === 'accessory') {
-    for (const sourceVariant of source.variants) {
-      const variant = variantBySku.get(sourceVariant.sku)
+  for (const sourceVariant of source.variants) {
+    const variant = variantBySku.get(sourceVariant.sku)
+    sourceVariant.images.forEach((url, index) => mediaRows.push({
+      product_id: product.id,
+      variant_id: variant.id,
+      option_value_id: null,
+      role: index === 0 ? 'THUMBNAIL' : 'GALLERY',
+      media_type: mediaType(url),
+      url,
+      alt_text: `${source.data.name} - ${sourceVariant.name}`,
+      display_order: index,
+      metadata: { sourceSku: sourceVariant.sku },
+    }))
+
+    const colorName = sourceVariant.attributes.color
+    if (colorName) {
+      const colorGroup = groupByCode.get('color')
+      const colorValue = colorGroup
+        ? valueByGroupAndCode.get(`${colorGroup.id}:${slugify(colorName)}`)
+        : null
       sourceVariant.images.forEach((url, index) => mediaRows.push({
         product_id: product.id,
-        variant_id: variant.id,
-        option_value_id: null,
+        variant_id: null,
+        option_value_id: colorValue?.id || null,
         role: index === 0 ? 'THUMBNAIL' : 'GALLERY',
         media_type: mediaType(url),
         url,
-        alt_text: `${source.data.name} - ${sourceVariant.name}`,
+        alt_text: `${source.data.name} - ${colorName}`,
         display_order: index,
-        metadata: { sourceSku: sourceVariant.sku },
+        metadata: { sourceAttribute: 'color' },
       }))
-
-      const colorName = sourceVariant.attributes.color
-      if (colorName) {
-        const colorGroup = groupByCode.get('color')
-        const colorValue = colorGroup
-          ? valueByGroupAndCode.get(`${colorGroup.id}:${slugify(colorName)}`)
-          : null
-        sourceVariant.images.forEach((url, index) => mediaRows.push({
-          product_id: product.id,
-          variant_id: null,
-          option_value_id: colorValue?.id || null,
-          role: index === 0 ? 'THUMBNAIL' : 'GALLERY',
-          media_type: mediaType(url),
-          url,
-          alt_text: `${source.data.name} - ${colorName}`,
-          display_order: index,
-          metadata: { sourceAttribute: 'color' },
-        }))
-      }
-    }
-  } else {
-    const colorGroup = groupByCode.get('exterior_color')
-    for (const color of colors) {
-      const value = colorGroup
-        ? valueByGroupAndCode.get(`${colorGroup.id}:${slugify(color.name)}`)
-        : null
-      if (color.swatch) mediaRows.push({
-        product_id: product.id,
-        variant_id: null,
-        option_value_id: value?.id || null,
-        role: 'SWATCH',
-        media_type: 'IMAGE',
-        url: color.swatch,
-        alt_text: `${source.data.name} - ${color.name}`,
-        display_order: color.index,
-        metadata: { sourceAttribute: 'exterior_color' },
-      })
-      if (color.image) mediaRows.push({
-        product_id: product.id,
-        variant_id: null,
-        option_value_id: value?.id || null,
-        role: 'EXTERIOR',
-        media_type: mediaType(color.image),
-        url: color.image,
-        alt_text: `${source.data.name} - ${color.name}`,
-        display_order: color.index,
-        metadata: { sourceAttribute: 'exterior_color' },
-      })
     }
   }
 
@@ -760,7 +623,7 @@ async function main() {
       await checked(
         supabase.from('inventory_items').upsert({
           variant_id: variant.id,
-          on_hand_quantity: source.kind === 'accessory' ? expected.stock : 0,
+          on_hand_quantity: expected.stock,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'variant_id' }),
         `Upsert inventory ${expected.sku}`,
@@ -783,7 +646,7 @@ async function main() {
   assertVerification(finalVerification)
 }
 
-export { loadPublishedSources, main, variantSku }
+export { loadPublishedSources, main }
 
 const isMainModule = process.argv[1]
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href

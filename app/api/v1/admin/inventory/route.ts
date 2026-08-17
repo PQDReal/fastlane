@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { authorizeAdminInventoryRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { isAdminSellableVehicleVariant } from '@/lib/admin-inventory'
 
 type JoinedCategory = { name: string }
 type JoinedProduct = { id: string; name: string; product_type: string; is_active: boolean; categories: JoinedCategory | JoinedCategory[] | null }
@@ -14,6 +15,18 @@ type VariantRow = {
   is_active: boolean
   products: JoinedProduct | JoinedProduct[] | null
   inventory_items: JoinedInventory | JoinedInventory[]
+}
+type VehicleRow = {
+  product_id: string | null
+  product_variant_id: string | null
+  product_type: string | null
+  sku: string | null
+  variant_name: string | null
+  version: string | null
+  color: string | null
+  interior_color: string | null
+  specs?: { catalog?: { interior_color?: string | null } | null } | null
+  is_active: boolean
 }
 
 export async function GET(request: Request) {
@@ -37,13 +50,21 @@ export async function GET(request: Request) {
   // exclude them from the admin stock monitor. Accessories remain unchanged.
   const { data: vehicleRows, error: vehicleError } = await supabase
     .from('vehicle_variants')
-    .select('product_variant_id,product_type,sku,variant_name,version,color,is_active')
-    .eq('is_active', true)
+    .select('product_id,product_variant_id,product_type,sku,variant_name,version,color,interior_color,specs,is_active')
   if (vehicleError) return NextResponse.json({ error: vehicleError.message }, { status: 500 })
-  const validVehicleIds = new Set((vehicleRows ?? [])
-    .filter((row) => ['CAR', 'BIKE'].includes(String(row.product_type).toUpperCase()))
-    .filter((row) => row.product_variant_id && (row.sku || row.variant_name || row.version) && row.color)
+  const validVehicleRows = (vehicleRows ?? []) as VehicleRow[]
+  const variantProductById = new Map(((data ?? []) as unknown as VariantRow[]).map((variant) => {
+    const product = Array.isArray(variant.products) ? variant.products[0] : variant.products
+    return [variant.id, product?.id ?? null] as const
+  }))
+  const validVehicleIds = new Set(validVehicleRows
+    .filter((row) => isAdminSellableVehicleVariant(row)
+      && variantProductById.get(String(row.product_variant_id)) === row.product_id)
     .map((row) => String(row.product_variant_id)))
+  const vehicleByVariantId = new Map(validVehicleRows
+    .filter((row) => isAdminSellableVehicleVariant(row)
+      && variantProductById.get(String(row.product_variant_id)) === row.product_id)
+    .map((row) => [String(row.product_variant_id), row]))
 
   const items = ((data ?? []) as unknown as VariantRow[]).filter((variant) => {
     const product = Array.isArray(variant.products) ? variant.products[0] : variant.products
@@ -53,14 +74,26 @@ export async function GET(request: Request) {
     const product = Array.isArray(variant.products) ? variant.products[0] : variant.products
     const inventory = Array.isArray(variant.inventory_items) ? variant.inventory_items[0] : variant.inventory_items
     const category = Array.isArray(product?.categories) ? product.categories[0] : product?.categories
+    const vehicle = vehicleByVariantId.get(variant.id)
+    const interiorColor = vehicle?.interior_color?.trim()
+      || vehicle?.specs?.catalog?.interior_color?.trim()
+      || null
+    const inventoryKey = vehicle?.version && vehicle.color
+      ? JSON.stringify([vehicle.version, vehicle.color, interiorColor || ''])
+      : null
 
     return {
       variantId: variant.id,
+      productId: product?.id ?? null,
       sku: variant.sku,
       productName: product?.name ?? 'Chưa xác định',
-      variantName: variant.name,
+      variantName: vehicle?.variant_name || variant.name,
       productType: product?.product_type ?? 'UNKNOWN',
       categoryName: category?.name ?? null,
+      version: vehicle?.version ?? null,
+      color: vehicle?.color ?? null,
+      interiorColor,
+      inventoryKey,
       onHandQuantity: inventory?.on_hand_quantity ?? 0,
       updatedAt: inventory?.updated_at ?? null,
       variantIsActive: variant.is_active,

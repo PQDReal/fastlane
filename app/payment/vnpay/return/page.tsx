@@ -39,7 +39,7 @@ export default async function VnPayReturnPage({ searchParams }: {
             href={destination}
             className="rounded-xl bg-slate-950 px-5 py-3 text-white"
           >
-            {isVehicleOrder ? 'Xem đơn mua xe' : result.success ? 'Xem đơn hàng' : 'Thử thanh toán lại'}
+            {isVehicleOrder ? 'Xem đơn mua xe' : result.success ? 'Xem đơn hàng' : 'Xem lịch sử mua hàng'}
           </Link>
           <Link href="/" className="rounded-xl border px-5 py-3">Về trang chủ</Link>
         </div>

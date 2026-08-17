@@ -69,7 +69,8 @@ describe('VNPAY deposit callback ownership', () => {
 
     const result = await processVnPayCallback(params, { updatePayment: false })
 
-    expect(result.success).toBe(true)
+    expect(result.success).toBe(false)
+    expect(result.message).toContain('Đang chờ xác nhận')
     expect(result.orderKind).toBe('deposit')
     expect(db.rpc).not.toHaveBeenCalled()
   })

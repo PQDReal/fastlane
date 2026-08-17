@@ -10,6 +10,8 @@ import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
 import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructCarAdminConfiguration } from '@/lib/car-admin-variants'
+import { normalizeCarSkuBase } from '@/lib/car-sku'
+import { allocateVehicleVariantSkus, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -449,7 +451,7 @@ export async function PATCH(request: Request, context: Context) {
         if (!interiorNames.has(interiorName)) return []
         const colorIndex = colors.findIndex((color: any) => color.color_name === colorName)
         const interiorIndex = interiors.findIndex((interior: any) => interior.interior_name === interiorName)
-        return [{ version, versionIndex, color: colors[colorIndex], colorIndex, interior: interiors[interiorIndex], interiorIndex }]
+        return [{ version, versionIndex, color: colors[colorIndex], colorIndex, interior: interiors[interiorIndex], interiorIndex, interiorCount: selectedInteriors.length }]
       })
     })
   })
@@ -634,17 +636,50 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   // 2. Fetch existing relations to preserve IDs and identify deletions
-  const { data: existingPV } = await supabase.from('product_variants').select('id, sku').eq('product_id', productId)
-  const pvMap = new Map(existingPV?.map((r) => [r.sku, r.id]) || [])
+  const { data: existingPV } = await supabase.from('product_variants').select('id, sku, metadata').eq('product_id', productId)
+  const productVariantById = new Map((existingPV || []).map((row: any) => [String(row.id), row]))
 
-  const { data: existingVV } = await supabase.from('vehicle_variants').select('id, sku').eq('product_id', productId)
-  const vvMap = new Map(existingVV?.map((r) => [r.sku, r.id]) || [])
+  const { data: existingVV } = await supabase
+    .from('vehicle_variants')
+    .select('id, sku, product_variant_id, version, color, interior_color')
+    .eq('product_id', productId)
+  const vehicleVariantByConfiguration = new Map<string, any>()
+  for (const row of existingVV || []) {
+    const key = vehicleConfigurationKey({ version: row.version, color: row.color, interiorColor: row.interior_color })
+    if (!vehicleVariantByConfiguration.has(key)) vehicleVariantByConfiguration.set(key, row)
+  }
 
   // 3. Form new rows
-  const productVariantRows = sellableConfigurations.map(({ version, color, colorIndex, interior, interiorIndex }: any) => {
-    const sku = `${version.sku}-C${String(colorIndex + 1).padStart(2, '0')}-I${String(interiorIndex + 1).padStart(2, '0')}`
+  const assignments = sellableConfigurations.map(({ version, color, interior }: any) => {
+    const existingVehicle = vehicleVariantByConfiguration.get(vehicleConfigurationKey({
+      version: version.name,
+      color: color.color_name,
+      interiorColor: interior.interior_name,
+    }))
+    const existingProduct = existingVehicle?.product_variant_id
+      ? productVariantById.get(String(existingVehicle.product_variant_id))
+      : undefined
+    return { existingVehicle, existingProduct }
+  })
+  let allocatedSkus: string[]
+  try {
+    allocatedSkus = await allocateVehicleVariantSkus(
+      supabase,
+      'CAR',
+      assignments.filter((item: { existingProduct?: { sku?: unknown } }) =>
+        !isCanonicalVehicleSku(item.existingProduct?.sku, 'CAR')).length,
+    )
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Không thể cấp SKU xe ô tô.' }, { status: 500 })
+  }
+  let allocatedSkuIndex = 0
+  const productVariantRows = sellableConfigurations.map(({ version, color, interior }: any, rowIndex: number) => {
+    const assignment = assignments[rowIndex]
+    const sku = isCanonicalVehicleSku(assignment.existingProduct?.sku, 'CAR')
+      ? String(assignment.existingProduct?.sku).toUpperCase()
+      : allocatedSkus[allocatedSkuIndex++]
     return {
-    id: pvMap.get(sku) || randomUUID(),
+    id: assignment.existingProduct?.id || randomUUID(),
     product_id: productId,
     sku,
     name: `${version.name} - ${color.color_name} - ${interior.interior_name}`,
@@ -652,7 +687,7 @@ export async function PATCH(request: Request, context: Context) {
     sale_price: null,
     is_active: is_active,
     option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(color.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}&interior=${String(interior.interior_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    metadata: { source: 'admin_car_edit', base_sku: version.sku, version: version.name, color: color.color_name, interior_color: interior.interior_name },
+    metadata: { source: 'admin_car_edit', base_sku: normalizeCarSkuBase(version.sku, color.color_name, interior.interior_name), version: version.name, color: color.color_name, interior_color: interior.interior_name },
     deposit_amount: version.deposit_amount,
     }
   })
@@ -676,6 +711,7 @@ export async function PATCH(request: Request, context: Context) {
           migrated_at: generatedAt,
           product_slug: slug,
           version_order: versionIndex + 1,
+          version_sku: sourceVersion.sku,
           hero_image_url,
           original_price: Number(variantRow.original_price),
           detail_image_urls: detail_image_urls,
@@ -687,7 +723,7 @@ export async function PATCH(request: Request, context: Context) {
       }
 
       vehicleVariantRows.push({
-        id: vvMap.get(sku) || randomUUID(),
+        id: assignments[rowIndex].existingVehicle?.id || randomUUID(),
         product_id: productId,
         product_type: 'CAR',
         product_name: name,
@@ -702,43 +738,33 @@ export async function PATCH(request: Request, context: Context) {
         color_type: colorItem.color_type === 'ADVANCED' ? 'ADVANCED' : 'STANDARD',
         color_price_adjustment: colorItem.color_type === 'ADVANCED' ? advancedColorPrice : 0,
         version: sourceVersion.name,
+        interior_color: interiorItem.interior_name,
         is_active: is_active,
         product_variant_id: variantRow.id,
       })
   })
 
   // 4. Perform deletions
-  const newPvSkus = productVariantRows.map((r: any) => r.sku)
-  const existingPvSkus = existingPV?.map((r) => r.sku) || []
-  const pvSkusToDelete = existingPvSkus.filter((s) => !newPvSkus.includes(s))
+  const newPvIds = new Set(productVariantRows.map((row: any) => String(row.id)))
+  const pvIdsToDelete = (existingPV || []).filter((row: any) => !newPvIds.has(String(row.id))).map((row: any) => row.id)
 
-  if (pvSkusToDelete.length > 0) {
-    const { data: pvToDelete } = await supabase
-      .from('product_variants')
-      .select('id')
-      .in('sku', pvSkusToDelete)
-      .eq('product_id', productId)
-
-    const pvIdsToDelete = pvToDelete?.map((v: any) => v.id) || []
-
-    if (pvIdsToDelete.length > 0) {
-      await supabase.from('inventory_items').delete().in('variant_id', pvIdsToDelete)
-      await supabase.from('cart_items').delete().in('variant_id', pvIdsToDelete)
-      await supabase.from('product_media').delete().in('variant_id', pvIdsToDelete)
-      await supabase.from('vehicle_variants').delete().in('product_variant_id', pvIdsToDelete)
-    }
+  if (pvIdsToDelete.length > 0) {
+    await supabase.from('inventory_items').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('cart_items').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('product_media').delete().in('variant_id', pvIdsToDelete)
+    await supabase.from('vehicle_variants').delete().in('product_variant_id', pvIdsToDelete)
 
     const { error: pvDelError } = await supabase
       .from('product_variants')
       .delete()
-      .in('sku', pvSkusToDelete)
+      .in('id', pvIdsToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
       if (pvDelError.code === '23503') {
         const { error: pvUpdateError } = await supabase
           .from('product_variants')
           .update({ is_active: false })
-          .in('sku', pvSkusToDelete)
+          .in('id', pvIdsToDelete)
           .eq('product_id', productId)
         if (pvUpdateError) {
           return NextResponse.json({ error: `Lỗi vô hiệu hóa phiên bản cũ: ${pvUpdateError.message}` }, { status: 500 })
@@ -749,22 +775,21 @@ export async function PATCH(request: Request, context: Context) {
     }
   }
 
-  const newVvSkus = vehicleVariantRows.map((r) => r.sku)
-  const existingVvSkus = existingVV?.map((r) => r.sku) || []
-  const vvSkusToDelete = existingVvSkus.filter((s) => !newVvSkus.includes(s))
+  const newVvIds = new Set(vehicleVariantRows.map((row) => String(row.id)))
+  const vvIdsToDelete = (existingVV || []).filter((row: any) => !newVvIds.has(String(row.id))).map((row: any) => row.id)
 
-  if (vvSkusToDelete.length > 0) {
+  if (vvIdsToDelete.length > 0) {
     const { error: vvDelError } = await supabase
       .from('vehicle_variants')
       .delete()
-      .in('sku', vvSkusToDelete)
+      .in('id', vvIdsToDelete)
       .eq('product_id', productId)
     if (vvDelError) {
       if (vvDelError.code === '23503') {
         const { error: vvUpdateError } = await supabase
           .from('vehicle_variants')
           .update({ is_active: false })
-          .in('sku', vvSkusToDelete)
+          .in('id', vvIdsToDelete)
           .eq('product_id', productId)
         if (vvUpdateError) {
           return NextResponse.json({ error: `Lỗi vô hiệu hóa cấu hình xe cũ: ${vvUpdateError.message}` }, { status: 500 })

@@ -1,0 +1,180 @@
+import 'server-only'
+
+import { catalogCacheEngine } from '../cache/catalog-cache'
+import type {
+  EvidenceRecord,
+  GetProductDetailsInput,
+  ProductType,
+  ToolObservationRef,
+  ToolResult,
+} from '../contracts'
+import { salesAgentProductUrl } from '../navigation/paths'
+
+export type ProductDetailsSnapshot = {
+  productId: string
+  name: string
+  slug: string
+  productType: ProductType
+  thumbnailUrl: string | null
+  description: string | null
+  pricing: {
+    from: number | null
+    to: number | null
+    currency: 'VND'
+  }
+  specs: Record<string, { displayValue: string; rawValue: unknown; factRef: string }>
+  variants: Array<{
+    id: string
+    name: string
+    sku: string
+    price: number
+    isActive: boolean
+  }>
+  publication: {
+    isActive: boolean
+    url: string
+    sourceUpdatedAt: string | null
+  }
+}
+
+export type GetProductDetailsData = {
+  products: ProductDetailsSnapshot[]
+}
+
+export async function getProductDetailsRepository(
+  input: GetProductDetailsInput,
+  toolCallId: string = `call-details-${Date.now()}`,
+): Promise<ToolResult<GetProductDetailsData>> {
+  const readAt = new Date().toISOString()
+  const dataAsOf = readAt
+
+  const snapshot = await catalogCacheEngine.getSnapshotAsync()
+  const productRows = snapshot.products.filter((p) => input.productIds.includes(p.id))
+
+  const products: ProductDetailsSnapshot[] = []
+  const evidence: EvidenceRecord[] = []
+
+  for (const row of productRows) {
+    const pType = row.productType
+    const activeVariants = (row.variants ?? []).filter((v) => v.isActive)
+    let minPrice: number | null = row.displayedPrice ? Number(row.displayedPrice) : null
+    let maxPrice: number | null = minPrice
+
+    const variants: ProductDetailsSnapshot['variants'] = []
+    if (activeVariants.length > 0) {
+      const prices: number[] = []
+      for (const v of activeVariants) {
+        const p = v.salePrice != null ? Number(v.salePrice) : Number(v.originalPrice)
+        if (!isNaN(p) && p > 0) {
+          prices.push(p)
+          variants.push({
+            id: String(v.id),
+            name: v.name,
+            sku: v.sku,
+            price: p,
+            isActive: v.isActive,
+          })
+        }
+      }
+      if (prices.length > 0) {
+        minPrice = Math.min(...prices)
+        maxPrice = Math.max(...prices)
+      }
+    }
+
+    const facts: Array<{ factRef: string; factPath: string; valueHash: string }> = [
+      { factRef: `fact-price-${row.id}`, factPath: 'pricing.from', valueHash: String(minPrice) },
+      { factRef: `fact-name-${row.id}`, factPath: 'name', valueHash: row.name },
+      { factRef: `fact-slug-${row.id}`, factPath: 'slug', valueHash: row.slug },
+      { factRef: `fact-active-${row.id}`, factPath: 'publication.isActive', valueHash: 'true' },
+    ]
+
+    const specs: ProductDetailsSnapshot['specs'] = {}
+    const rawSpecs = (row.specifications && typeof row.specifications === 'object') ? row.specifications : {}
+    for (const [key, val] of Object.entries(rawSpecs)) {
+      const factRef = `fact-spec-${row.id}-${key}`
+      const displayVal = String(val)
+      specs[key] = {
+        displayValue: displayVal,
+        rawValue: val,
+        factRef,
+      }
+      facts.push({
+        factRef,
+        factPath: `specs.${key}`,
+        valueHash: displayVal,
+      })
+    }
+
+    const itemUrl = salesAgentProductUrl(pType as any, row.slug)
+    products.push({
+      productId: String(row.id),
+      name: row.name,
+      slug: row.slug,
+      productType: pType,
+      thumbnailUrl: row.thumbnailUrl || (Array.isArray(row.imageUrls) ? row.imageUrls[0] : null),
+      description: row.description,
+      pricing: {
+        from: minPrice,
+        to: maxPrice !== minPrice ? maxPrice : null,
+        currency: 'VND',
+      },
+      specs,
+      variants,
+      publication: {
+        isActive: true,
+        url: itemUrl,
+        sourceUpdatedAt: row.updatedAt,
+      },
+    })
+
+    evidence.push({
+      evidenceId: `ev-details-${row.id}-${readAt}`,
+      source: { system: 'SUPABASE', resource: 'products' },
+      entity: { kind: 'PRODUCT', id: String(row.id) },
+      facts,
+      readAt,
+      sourceUpdatedAt: row.updatedAt ?? undefined,
+    })
+  }
+
+  const observation: ToolObservationRef = {
+    observationId: `obs-${toolCallId}`,
+    toolCallId,
+    outcome: products.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+    issueCodes: products.length === 0 ? ['UNKNOWN_ENTITY_REFERENCE'] : [],
+    inputHash: JSON.stringify(input),
+    readAt,
+  }
+
+  if (products.length === 0) {
+    return {
+      schemaVersion: '2.0',
+      toolCallId,
+      tool: 'get_product_details',
+      readAt,
+      dataAsOf,
+      evidence: [],
+      observation,
+      issues: [{ code: 'UNKNOWN_ENTITY_REFERENCE', message: 'Không tìm thấy chi tiết sản phẩm.' }],
+      appliedBindings: [],
+      outcome: 'NO_MATCH',
+      data: { products: [] },
+    }
+  }
+
+  return {
+    schemaVersion: '2.0',
+    toolCallId,
+    tool: 'get_product_details',
+    readAt,
+    dataAsOf,
+    evidence,
+    observation,
+    issues: [],
+    appliedBindings: [],
+    outcome: 'SUCCESS',
+    completeness: products.length === input.productIds.length ? 'FULL' : 'PARTIAL',
+    data: { products },
+  }
+}

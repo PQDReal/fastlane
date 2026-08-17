@@ -76,21 +76,13 @@ function cleanFixture() {
 }
 
 describe('published catalog source', () => {
-  it('contains the reconciled 110 products and 276 canonical variants', () => {
+  it('syncs only the 83 accessory products and their 234 canonical variants', () => {
     const sources = loadPublishedSources()
 
-    expect(sources).toHaveLength(110)
-    expect(sources.reduce((count, source) => count + source.variants.length, 0)).toBe(276)
-    expect(sources.find(source => source.data.name === 'VinFast VF MPV 7')?.variants[0].sku)
-      .toBe('VINFAST-VFMPV7-01')
-    expect(sources.find(source => source.data.name === 'VinFast VF 8 The All-New 2026')?.variants[0].sku)
-      .toBe('VINFAST-VF8ALLNEW-01')
-    expect(sources.find(source => source.data.name === 'VF 9')?.variants.map(variant => variant.sku))
-      .toContain('VINFAST-VF9-03')
-    expect(sources.find(source => source.data.name === 'Viper')?.variants.map(variant => variant.sku))
-      .toContain('VINFAST-VIPER-02')
-    expect(sources.find(source => source.data.name === 'Flazz Max')?.variants.map(variant => variant.sku))
-      .toContain('VINFAST-FLAZZMAX-02')
+    expect(sources).toHaveLength(83)
+    expect(sources.reduce((count, source) => count + source.variants.length, 0)).toBe(234)
+    expect(sources.every(source => source.kind === 'accessory' && source.productType === 'ACCESSORY')).toBe(true)
+    expect(sources.some(source => ['VinFast VF MPV 7', 'Viper'].includes(source.data.name))).toBe(false)
   })
 
   it('keeps public-only motorbikes and has one master entry for every reconciled product', () => {
