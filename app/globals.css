@@ -194,3 +194,39 @@ body {
     opacity: 0.8;
   }
 }
+
+/* Fastlane sleek scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
+.horizontal-scroll-smooth {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar {
+  height: 4px;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar-track {
+  background: transparent;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}

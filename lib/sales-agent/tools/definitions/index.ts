@@ -1,0 +1,176 @@
+import 'server-only'
+
+import { browseCatalogRepository } from '../../catalog/browse'
+import { resolveCatalogEntitiesRepository } from '../../catalog/identity'
+import { getProductDetailsRepository } from '../../catalog/product-details'
+import { compareProductsRepository } from '../../catalog/comparison'
+import { getCurrentPromotionsRepository } from '../../catalog/promotions'
+import { discoverSalesAgentAccessories } from '../../catalog/accessories'
+import { searchKnowledgeRepository } from '../../knowledge/repository'
+import type {
+  BrowseCatalogInput,
+  DataToolName,
+  DiscoverAccessoriesInput,
+  EvidenceRecord,
+  FactPointer,
+  GetProductDetailsInput,
+  GetCurrentPromotionsInput,
+  ResolveCatalogEntitiesInput,
+  SearchKnowledgeInput,
+  ToolObservationRef,
+  ToolResult,
+} from '../../contracts'
+
+export async function executeDataTool(
+  name: DataToolName,
+  args: any,
+  toolCallId: string,
+): Promise<ToolResult> {
+  const readAt = new Date().toISOString()
+  const dataAsOf = readAt
+
+  try {
+    switch (name) {
+      case 'browse_catalog':
+        return await browseCatalogRepository(args as BrowseCatalogInput, toolCallId)
+
+      case 'resolve_catalog_entities':
+        return await resolveCatalogEntitiesRepository(args as ResolveCatalogEntitiesInput, toolCallId)
+
+      case 'get_product_details':
+        return await getProductDetailsRepository(args as GetProductDetailsInput, toolCallId)
+
+      case 'compare_products':
+        return await compareProductsRepository(args as any, toolCallId)
+
+      case 'get_current_promotions':
+        return await getCurrentPromotionsRepository(args as GetCurrentPromotionsInput, toolCallId)
+
+      case 'discover_accessories': {
+        const input = args as DiscoverAccessoriesInput
+        const vehicleId = input.mode.kind === 'FOR_PRODUCT' ? input.mode.productId : undefined
+        const res = await discoverSalesAgentAccessories({
+          vehicleProductId: vehicleId,
+          minPrice: input.price?.min,
+          maxPrice: input.price?.max,
+          limit: input.page?.limit ?? 6,
+        })
+
+        const evidence: EvidenceRecord[] = res.items.map((acc: any) => ({
+          evidenceId: `ev-acc-${acc.productId}-${readAt}`,
+          source: { system: 'SUPABASE', resource: 'accessories' },
+          entity: { kind: 'PRODUCT', id: acc.productId },
+          facts: [
+            { factRef: `fact-price-${acc.productId}`, factPath: 'price', valueHash: String(acc.price) },
+            { factRef: `fact-name-${acc.productId}`, factPath: 'name', valueHash: acc.name },
+          ],
+          readAt,
+          sourceUpdatedAt: acc.sourceUpdatedAt ?? undefined,
+        }))
+
+        const observation: ToolObservationRef = {
+          observationId: `obs-${toolCallId}`,
+          toolCallId,
+          outcome: res.items.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+          issueCodes: [],
+          inputHash: JSON.stringify(input),
+          readAt,
+        }
+
+        return {
+          schemaVersion: '2.0',
+          toolCallId,
+          tool: 'discover_accessories',
+          readAt,
+          dataAsOf,
+          evidence,
+          observation,
+          issues: [],
+          appliedBindings: [],
+          outcome: res.items.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+          completeness: 'FULL',
+          data: {
+            items: res.items,
+          },
+        }
+      }
+
+      case 'search_knowledge': {
+        const input = args as SearchKnowledgeInput
+        const searchResults = await searchKnowledgeRepository(input.query, input.topK ?? 4)
+
+        const evidence: EvidenceRecord[] = searchResults.map((k) => ({
+          evidenceId: `ev-kb-${k.chunkId}-${readAt}`,
+          source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
+          entity: { kind: 'KNOWLEDGE_SNIPPET', id: k.chunkId },
+          facts: [
+            { factRef: `fact-kb-title-${k.chunkId}`, factPath: 'title', valueHash: k.documentTitle },
+            { factRef: `fact-kb-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
+            { factRef: `fact-kb-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
+          ],
+          readAt,
+        }))
+
+        const observation: ToolObservationRef = {
+          observationId: `obs-${toolCallId}`,
+          toolCallId,
+          outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+          issueCodes: [],
+          inputHash: JSON.stringify(input),
+          readAt,
+        }
+
+        return {
+          schemaVersion: '2.0',
+          toolCallId,
+          tool: 'search_knowledge',
+          readAt,
+          dataAsOf,
+          evidence,
+          observation,
+          issues: [],
+          appliedBindings: [],
+          outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+          completeness: 'FULL',
+          data: {
+            snippets: searchResults.map((r) => ({
+              id: r.chunkId,
+              documentSlug: r.documentSlug,
+              title: `${r.documentTitle} - ${r.sectionTitle}`,
+              content: r.content,
+              category: r.category,
+            })),
+          },
+        }
+      }
+
+      default: {
+        const exhaustiveCheck: never = name
+        throw new Error(`Tool không được hỗ trợ: ${exhaustiveCheck}`)
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[DATA TOOL RESILIENCE] Tool ${name} encountered an error:`, err?.message || err)
+    const observation: ToolObservationRef = {
+      observationId: `obs-err-${toolCallId}`,
+      toolCallId,
+      outcome: 'UNAVAILABLE',
+      issueCodes: ['RESOURCE_UNAVAILABLE'],
+      inputHash: JSON.stringify(args),
+      readAt,
+    }
+    return {
+      schemaVersion: '2.0',
+      toolCallId,
+      tool: name,
+      readAt,
+      dataAsOf,
+      evidence: [],
+      observation,
+      issues: [{ code: 'RESOURCE_UNAVAILABLE', message: 'Dữ liệu tạm thời chưa phản hồi.' }],
+      appliedBindings: [],
+      outcome: 'UNAVAILABLE',
+      data: null,
+    }
+  }
+}
