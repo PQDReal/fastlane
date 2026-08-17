@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
@@ -8,6 +8,7 @@ import { getProductDetailsRepository } from '../catalog/product-details'
 import { composeTurnResponse } from '../response/composer'
 import { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
 import { EvidenceLedger } from '../orchestrator/ledgers/evidence'
+import { catalogCacheEngine } from '../cache/catalog-cache'
 
 vi.mock('@/lib/supabase-admin', () => {
   const mockProducts = [
@@ -96,6 +97,9 @@ vi.mock('@/lib/supabase-admin', () => {
 })
 
 describe('Canonical E2E Integration Evals', () => {
+  beforeEach(async () => {
+    await catalogCacheEngine.forceRefresh()
+  })
   it('Scenario 1: "Giá xe hiện tại" executes browse_catalog and yields active vehicles with prices', async () => {
     const browseRes = await browseCatalogRepository(
       {

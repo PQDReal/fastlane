@@ -1,8 +1,9 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowDown, ArrowUp, Bot, Check, Loader2, X } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ArrowDown, ArrowUp, Bot, Car, Check, CheckCircle2, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
@@ -230,6 +231,7 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
 export function SalesAgentShell() {
   const open = useSalesAgentStore((state) => state.open)
   const setOpen = useSalesAgentStore((state) => state.setOpen)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -244,15 +246,16 @@ export function SalesAgentShell() {
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
 
-  // Auto-expand textarea up to 5 lines (default 1 line)
+  // Auto-expand textarea smoothly up to 5 lines
   useEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
-    textarea.style.height = 'auto'
+    textarea.style.height = '38px'
     if (draft) {
-      // 1 line ~36px, 5 lines ~116px (20px line-height * 5 + 16px padding)
-      const newHeight = Math.min(textarea.scrollHeight, 116)
-      textarea.style.height = `${newHeight}px`
+      const scrollH = textarea.scrollHeight
+      if (scrollH > 38) {
+        textarea.style.height = `${Math.min(scrollH, 120)}px`
+      }
     }
   }, [draft])
 
@@ -263,6 +266,14 @@ export function SalesAgentShell() {
     autoScrollUntilRef.current = Date.now() + 250
     setShowScrollButton(false)
     list.scrollTop = list.scrollHeight
+  }, [])
+
+  const handleResetChat = useCallback(() => {
+    setSending(false)
+    setMessages([])
+    setDraft('')
+    setShowScrollButton(false)
+    conversationIdRef.current = undefined
   }, [])
 
   useEffect(() => {
@@ -402,178 +413,445 @@ export function SalesAgentShell() {
     void send(message, { interactionId: interaction.interactionId, selectedOptionIds: selection.selectedOptionIds, ...(selection.freeText ? { freeText: selection.freeText } : {}), continuationToken: interaction.continuationToken })
   }
 
+  // Extract latest products and comparison for the intelligence side panel in expanded mode
+  const latestProducts = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const block = messages[i].blocks?.find((b) => b.kind === 'PRODUCT_LIST')
+      if (block && 'items' in block && Array.isArray((block as any).items) && (block as any).items.length > 0) {
+        return (block as any).items
+      }
+    }
+    return []
+  }, [messages])
+
+  const latestComparison = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const block = messages[i].blocks?.find((b) => b.kind === 'COMPARISON_TABLE')
+      if (block && 'products' in block && Array.isArray((block as any).products) && (block as any).products.length > 0) {
+        return block as { kind: 'COMPARISON_TABLE'; criteria: string[]; products: any[] }
+      }
+    }
+    return null
+  }, [messages])
+
   return <AnimatePresence>
     {open && <>
       <ToastViewport toasts={toasts} onClose={(id) => setToasts((items) => items.filter((item) => item.id !== id))} />
-      <motion.button type="button" aria-label="Đóng Sales Agent" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-slate-950/30 backdrop-blur-[1px] md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18 }} />
-      <motion.aside role="dialog" aria-label="Trợ lý mua xe FASTLANE" className="fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[380px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}>
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-950 px-4 py-3 text-white">
-          <div className="flex min-w-0 items-center gap-2.5"><span className="rounded-lg bg-brand-500/20 p-2 text-brand-300"><Bot size={18} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold">Trợ lý mua xe</p><p className="truncate text-[11px] text-slate-400">Xe · phụ kiện · thủ tục</p></div></div>
-          <button type="button" onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400" aria-label="Đóng Sales Agent"><X size={18} /></button>
+      
+      {/* Backdrop overlay (Mobile always / Desktop in expanded mode) */}
+      <motion.div
+        role="presentation"
+        aria-label="Đóng Sales Agent"
+        onClick={() => {
+          if (isExpanded) setIsExpanded(false)
+          else setOpen(false)
+        }}
+        className={`fixed inset-0 z-[60] bg-slate-950/40 backdrop-blur-[2px] transition-opacity duration-300 ${
+          isExpanded ? 'opacity-100' : 'opacity-100 md:hidden'
+        }`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.2 }}
+      />
+
+      <motion.aside
+        role="dialog"
+        aria-label="Trợ lý mua xe FASTLANE"
+        className={
+          isExpanded
+            ? 'fixed inset-2 sm:inset-0 m-auto z-[61] flex flex-col overflow-hidden bg-white shadow-2xl border border-slate-200/90 w-[calc(100vw-16px)] sm:w-[min(94vw,1152px)] h-[calc(100dvh-16px)] sm:h-[min(88vh,860px)] rounded-2xl sm:rounded-3xl'
+            : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
+        }
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+      >
+        {/* Header Bar */}
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
+              <img
+                src="/sales-agent-bot.gif"
+                alt="Trợ lý AI FASTLANE"
+                className="h-full w-full object-cover"
+              />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">Trợ lý mua xe FASTLANE</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleResetChat}
+              className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
+              title="Làm mới cuộc trò chuyện"
+              aria-label="Làm mới cuộc trò chuyện"
+            >
+              <RotateCcw size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className="hidden sm:flex rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
+              title={isExpanded ? 'Thu nhỏ cửa sổ' : 'Mở rộng toàn màn hình'}
+              aria-label={isExpanded ? 'Thu nhỏ cửa sổ' : 'Mở rộng toàn màn hình'}
+            >
+              {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
+              aria-label="Đóng Sales Agent"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div
-          ref={listRef}
-          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/70 p-3 custom-scrollbar"
-          style={{ overflowAnchor: showScrollButton ? 'auto' : 'none' }}
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
-          onScroll={(event) => {
-            const nearBottom = isNearBottom(event.currentTarget)
-            if (nearBottom) {
-              followBottomRef.current = true
-              setShowScrollButton(false)
-              return
-            }
-            if (Date.now() <= autoScrollUntilRef.current) return
-            followBottomRef.current = false
-            setShowScrollButton(true)
-          }}
-          onWheel={(event) => {
-            const target = event.target instanceof Element ? event.target : null
-            if (target?.closest('[data-scrollable], .katex-display')) return
-            if (event.deltaY >= 0) return
-            if (event.currentTarget.scrollHeight - event.currentTarget.clientHeight <= 1) return
-            autoScrollUntilRef.current = 0
-            followBottomRef.current = false
-            setShowScrollButton(true)
-          }}
-          onTouchMove={(event) => {
-            const target = event.target instanceof Element ? event.target : null
-            if (target?.closest('[data-scrollable], .katex-display')) return
-            if (event.currentTarget.scrollHeight - event.currentTarget.clientHeight <= 1) return
-            autoScrollUntilRef.current = 0
-            followBottomRef.current = false
-            setShowScrollButton(true)
-          }}
-        >
-          <div ref={contentRef} className="min-w-0 space-y-3">
-          {!messages.length && <div className="min-w-0 space-y-2.5"><div className="py-2 text-sm leading-5 text-slate-700">Xin chào! Tôi có thể giúp bạn tìm xe, so sánh thông số, xem giá và chọn phụ kiện.</div><div className="flex flex-wrap gap-1.5">{SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" disabled={sending} onClick={() => void send(suggestion)} className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">{suggestion}</button>)}</div></div>}
-          {messages.map((item) => (
-            <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}>
-              <div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3 py-2.5 text-white' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-1'}`}>
-                {item.role === 'assistant' ? (
-                  <div className="space-y-2">
-                    {item.content ? (
-                      <MarkdownMessage content={item.content} streaming={item.pending} />
-                    ) : item.pending ? (
-                      <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
-                        <span className="relative flex h-2 w-2 shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
-                        </span>
-                        <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
-                        <span className="font-medium">{item.statusText || 'Đang phân tích câu hỏi & lập kế hoạch…'}</span>
+
+        {/* Main Content Area: Split 2 columns in Expanded Mode */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          
+          {/* Left Column: Chat Conversation */}
+          <div className={`flex flex-col h-full min-w-0 overflow-hidden ${isExpanded ? 'w-full lg:w-[58%] border-r border-slate-200/90' : 'w-full'}`}>
+            <div
+              ref={listRef}
+              className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/70 p-3 custom-scrollbar"
+              style={{ overflowAnchor: showScrollButton ? 'auto' : 'none' }}
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions text"
+              onScroll={(event) => {
+                const nearBottom = isNearBottom(event.currentTarget)
+                if (nearBottom) {
+                  followBottomRef.current = true
+                  setShowScrollButton(false)
+                  return
+                }
+                if (Date.now() <= autoScrollUntilRef.current) return
+                followBottomRef.current = false
+                setShowScrollButton(true)
+              }}
+              onWheel={(event) => {
+                const target = event.target instanceof Element ? event.target : null
+                if (target?.closest('[data-scrollable], .katex-display')) return
+                if (event.deltaY >= 0) return
+                if (event.currentTarget.scrollHeight - event.currentTarget.clientHeight <= 1) return
+                autoScrollUntilRef.current = 0
+                followBottomRef.current = false
+                setShowScrollButton(true)
+              }}
+              onTouchMove={(event) => {
+                const target = event.target instanceof Element ? event.target : null
+                if (target?.closest('[data-scrollable], .katex-display')) return
+                if (event.currentTarget.scrollHeight - event.currentTarget.clientHeight <= 1) return
+                autoScrollUntilRef.current = 0
+                followBottomRef.current = false
+                setShowScrollButton(true)
+              }}
+            >
+              <div ref={contentRef} className="min-w-0 space-y-3">
+              {!messages.length && (
+                <div className="min-w-0 space-y-3 rounded-2xl border border-brand-100 bg-linear-to-b from-brand-50/60 to-white p-3.5">
+                  <div className="flex items-center gap-2 text-brand-900 font-semibold text-xs">
+                    <Sparkles size={14} className="text-brand-600" />
+                    <span>Xin chào! Tôi là Trợ lý AI FASTLANE</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    Tôi sẵn sàng hỗ trợ bạn tìm dòng xe phù hợp, tra cứu giá niêm yết, dự toán chi phí trả góp và so sánh thông số kỹ thuật.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {SUGGESTIONS.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        disabled={sending}
+                        onClick={() => void send(suggestion)}
+                        className="rounded-full border border-brand-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-brand-700 transition hover:border-brand-400 hover:bg-brand-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {messages.map((item) => (
+                <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}>
+                  <div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3.5 py-2.5 text-white shadow-xs' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-1'}`}>
+                    {item.role === 'assistant' ? (
+                      <div className="space-y-2.5">
+                        {item.content ? (
+                          <MarkdownMessage content={item.content} streaming={item.pending} />
+                        ) : item.pending ? (
+                          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
+                            </span>
+                            <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
+                            <span className="font-medium">{item.statusText || 'Đang phân tích câu hỏi & lập kế hoạch…'}</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400">Không có câu trả lời.</p>
+                        )}
+
+                        {/* Rich Blocks */}
+                        {item.blocks?.map((block, idx) => {
+                          if (block.kind === 'PRODUCT_LIST') {
+                            return (
+                              <ProductCardBlock
+                                key={`block-${idx}`}
+                                title={block.title}
+                                items={block.items}
+                              />
+                            )
+                          }
+                          if (block.kind === 'COMPARISON_TABLE') {
+                            return (
+                              <ComparisonCardBlock
+                                key={`block-${idx}`}
+                                criteria={block.criteria}
+                                products={block.products}
+                              />
+                            )
+                          }
+                          return null
+                        })}
+
+                        {/* Action Buttons */}
+                        {item.actions && item.actions.length > 0 && (
+                          <ActionButtons actions={item.actions} />
+                        )}
+
+                        {/* Suggestion Chips */}
+                        {item.suggestions && item.suggestions.length > 0 && !item.pending && (
+                          <SuggestionChips
+                            suggestions={item.suggestions}
+                            disabled={sending}
+                            onSelect={(payload) => void send(payload)}
+                          />
+                        )}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-400">Không có câu trả lời.</p>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>
                     )}
 
-                    {/* Rich Blocks */}
-                    {item.blocks?.map((block, idx) => {
-                      if (block.kind === 'PRODUCT_LIST') {
-                        return (
-                          <ProductCardBlock
-                            key={`block-${idx}`}
-                            title={block.title}
-                            items={block.items}
-                          />
-                        )
-                      }
-                      if (block.kind === 'COMPARISON_TABLE') {
-                        return (
-                          <ComparisonCardBlock
-                            key={`block-${idx}`}
-                            criteria={block.criteria}
-                            products={block.products}
-                          />
-                        )
-                      }
-                      return null
-                    })}
-
-                    {/* Action Buttons */}
-                    {item.actions && item.actions.length > 0 && (
-                      <ActionButtons actions={item.actions} />
-                    )}
-
-                    {/* Suggestion Chips */}
-                    {item.suggestions && item.suggestions.length > 0 && !item.pending && (
-                      <SuggestionChips
-                        suggestions={item.suggestions}
+                    {item.interaction && (
+                      <ChoiceInteraction
+                        interaction={item.interaction}
+                        conversationId={conversationIdRef.current}
                         disabled={sending}
-                        onSelect={(payload) => void send(payload)}
+                        onSearchResult={(result, selectedOptionIds) => updateInteractionSearch(item.id, item.interaction!, result, selectedOptionIds)}
+                        onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)}
                       />
                     )}
                   </div>
-                ) : (
-                  <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>
-                )}
-
-                {item.interaction && (
-                  <ChoiceInteraction
-                    interaction={item.interaction}
-                    conversationId={conversationIdRef.current}
-                    disabled={sending}
-                    onSearchResult={(result, selectedOptionIds) => updateInteractionSearch(item.id, item.interaction!, result, selectedOptionIds)}
-                    onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)}
-                  />
-                )}
+                </div>
+              ))}
               </div>
             </div>
-          ))}
-          </div>
-        </div>
-        <div className="relative bg-slate-50/70 p-3 pt-1 pb-3">
-          {showScrollButton && (
-            <button
-              type="button"
-              onClick={scrollToLatest}
-              className="absolute -top-10 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:bg-slate-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              aria-label="Cuộn đến tin nhắn mới nhất"
-            >
-              <ArrowDown size={14} />
-            </button>
-          )}
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              void send()
-            }}
-            className="space-y-1.5"
-          >
-            <div className="relative rounded-2xl border border-slate-200/90 bg-white p-1.5 pl-3 transition duration-200 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:shadow-xs">
-              <textarea
-                ref={textareaRef}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value.slice(0, 2_000))}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault()
-                    void send()
-                  }
+
+            {/* Input Bar & Footer */}
+            <div className="relative bg-slate-50/90 p-3 pt-1.5 pb-3 shrink-0 border-t border-slate-200/60">
+              {showScrollButton && (
+                <button
+                  type="button"
+                  onClick={scrollToLatest}
+                  className="absolute -top-10 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:bg-slate-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                  aria-label="Cuộn đến tin nhắn mới nhất"
+                >
+                  <ArrowDown size={14} />
+                </button>
+              )}
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void send()
                 }}
-                disabled={sending}
-                rows={1}
-                placeholder={sending ? 'Đang trả lời…' : 'Nhập câu hỏi…'}
-                className="max-h-[116px] min-h-[36px] w-full resize-none border-0 bg-transparent py-2 pr-10 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-5 custom-scrollbar"
-                aria-label="Câu hỏi cho Sales Agent"
-              />
-              <button
-                type="submit"
-                disabled={!draft.trim() || sending}
-                className="absolute right-1.5 bottom-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-all duration-150 hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200/80 disabled:text-slate-400"
-                aria-label="Gửi câu hỏi"
+                className="space-y-1.5"
               >
-                <ArrowUp size={15} strokeWidth={2.5} />
-              </button>
+                <div className="flex items-end gap-2 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-xs transition duration-200 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
+                  <textarea
+                    ref={textareaRef}
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value.slice(0, 2_000))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault()
+                        void send()
+                      }
+                    }}
+                    disabled={sending}
+                    rows={1}
+                    placeholder={sending ? 'Trợ lý AI đang trả lời…' : 'Hỏi về xe điện, giá bán, trả góp...'}
+                    className="flex-1 min-h-[38px] max-h-[120px] resize-none border-0 bg-transparent px-2 py-2 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 leading-relaxed custom-scrollbar"
+                    aria-label="Câu hỏi cho Sales Agent"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!draft.trim() || sending}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-all hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300 cursor-pointer mb-0.5"
+                    aria-label="Gửi câu hỏi"
+                  >
+                    <ArrowUp size={16} strokeWidth={2.5} />
+                  </button>
+                </div>
+                <p className="px-2 pt-0.5 text-center text-[10.5px] text-slate-400 font-normal select-none leading-normal">
+                  Thông tin từ trợ lý AI mang tính tham khảo. Quý khách vui lòng đối chiếu thực tế hoặc liên hệ tư vấn viên FASTLANE.
+                </p>
+              </form>
             </div>
-            <p className="text-center text-[10px] text-slate-400 font-normal select-none">
-              Không gửi CCCD, OTP, thẻ ngân hàng hoặc mật khẩu.
-            </p>
-          </form>
+          </div>
+
+          {/* Right Column: Intelligence & Showcase Panel (Only shown in Expanded Mode on Desktop) */}
+          {isExpanded && (
+            <div className="hidden lg:flex flex-col h-full overflow-y-auto bg-slate-50/90 w-[42%] p-5 space-y-4 custom-scrollbar">
+              
+              {/* Header Showcase */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+                <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm mb-1.5">
+                  <Zap size={16} className="text-amber-500" />
+                  <span>Trung Tâm Hỗ Trợ Mua Xe FASTLANE</span>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Trực tiếp kết nối hệ thống dữ liệu giá bán, chính sách pin và kho xe mới nhất toàn quốc.
+                </p>
+              </div>
+
+              {/* Quick Vehicle Catalog Chips */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Car size={14} className="text-brand-600" />
+                    <span>Dòng xe đang quan tâm</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400">Bấm để hỏi nhanh</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: 'VF 3', query: 'Tư vấn xe VinFast VF 3' },
+                    { label: 'VF 5', query: 'Tư vấn xe VinFast VF 5' },
+                    { label: 'VF 6', query: 'Tư vấn xe VinFast VF 6' },
+                    { label: 'VF 7', query: 'Tư vấn xe VinFast VF 7' },
+                    { label: 'VF 8', query: 'Tư vấn xe VinFast VF 8' },
+                    { label: 'VF 9', query: 'Tư vấn xe VinFast VF 9' },
+                    { label: 'Evo 200', query: 'Tư vấn xe máy điện Evo 200' },
+                    { label: 'Feliz S', query: 'Tư vấn xe máy điện Feliz S' },
+                  ].map((car) => (
+                    <button
+                      key={car.label}
+                      type="button"
+                      disabled={sending}
+                      onClick={() => void send(car.query)}
+                      className="rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      {car.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Discussed Products Preview if available */}
+              {latestProducts.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-brand-600" />
+                      <span>Sản phẩm vừa đề cập</span>
+                    </span>
+                    <span className="text-[11px] font-medium text-brand-600">{latestProducts.length} mẫu</span>
+                  </div>
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                    {latestProducts.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/80 transition">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p>
+                          <p className="text-[11px] font-medium text-amber-700">
+                            {typeof p.price === 'number' && p.price > 0 ? `${p.price.toLocaleString('vi-VN')} VNĐ` : 'Liên hệ báo giá'}
+                          </p>
+                        </div>
+                        {p.url && (
+                          <a
+                            href={p.url}
+                            className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-slate-800 shrink-0"
+                          >
+                            <span>Xem</span>
+                            <ChevronRight size={12} />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Service Assurance & Hotlines */}
+              <div className="mt-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                  <ShieldCheck size={15} className="text-emerald-600" />
+                  <span>Chính sách bán hàng FASTLANE</span>
+                </div>
+                <ul className="text-[11px] text-slate-500 space-y-1.5">
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                    <span>Bảo hành chính hãng lên tới 10 năm hoặc 200.000 km</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                    <span>Hỗ trợ vay mua xe trả góp tới 80% giá trị xe</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                    <span>Cứu hộ pin 24/7 và hệ thống trạm sạc toàn quốc</span>
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+          )}
+
         </div>
       </motion.aside>
     </>}
+
+    {!open && (
+      <motion.div
+        key="sales-agent-floating-trigger"
+        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.8, y: 20 }}
+        transition={{ duration: reduceMotion ? 0 : 0.25, ease: 'easeOut' }}
+        className="fixed bottom-6 right-6 z-[55] flex items-center"
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Mở Trợ lý AI FASTLANE"
+          className="group relative flex items-center gap-2.5 rounded-2xl border border-amber-400/40 bg-slate-950/95 p-1.5 pr-3.5 text-white shadow-2xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:border-amber-400 hover:bg-slate-900 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 cursor-pointer"
+        >
+          {/* Squircle mascot container */}
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/50 bg-slate-900 shadow-md">
+            <img
+              src="/sales-agent-bot.gif"
+              alt="FASTLANE AI"
+              className="h-full w-full object-contain"
+            />
+          </span>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-bold tracking-tight text-white group-hover:text-amber-300 transition-colors">
+              Trợ lý AI
+            </p>
+            <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+              FASTLANE
+            </span>
+          </div>
+        </button>
+      </motion.div>
+    )}
   </AnimatePresence>
 }

@@ -1,9 +1,8 @@
 import 'server-only'
 
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { catalogCacheEngine } from '../cache/catalog-cache'
 import type {
   EvidenceRecord,
-  FactPointer,
   GetProductDetailsInput,
   ProductType,
   ToolObservationRef,
@@ -42,93 +41,30 @@ export type GetProductDetailsData = {
   products: ProductDetailsSnapshot[]
 }
 
-function mapDatabaseProductType(type: string): ProductType | null {
-  const upper = (type || '').toUpperCase()
-  if (upper === 'CAR' || upper === 'VEHICLE') return 'CAR'
-  if (upper === 'BIKE' || upper === 'MOTORBIKE') return 'BIKE'
-  if (upper === 'ACCESSORY') return 'ACCESSORY'
-  return null
-}
-
 export async function getProductDetailsRepository(
   input: GetProductDetailsInput,
   toolCallId: string = `call-details-${Date.now()}`,
 ): Promise<ToolResult<GetProductDetailsData>> {
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
-  const client = getSupabaseAdmin()
 
-  const { data: rows, error } = await client
-    .from('products')
-    .select(`
-      id,
-      name,
-      slug,
-      description,
-      product_type,
-      displayed_price,
-      image_urls,
-      thumbnail_url,
-      specifications,
-      is_active,
-      updated_at,
-      product_variants (
-        id,
-        name,
-        sku,
-        original_price,
-        sale_price,
-        is_active
-      ),
-      vehicle_variants (
-        id,
-        product_variant_id,
-        version,
-        color,
-        is_active
-      )
-    `)
-    .in('id', input.productIds)
-
-  if (error) {
-    const observation: ToolObservationRef = {
-      observationId: `obs-${toolCallId}`,
-      toolCallId,
-      outcome: 'UNAVAILABLE',
-      issueCodes: ['RESOURCE_UNAVAILABLE'],
-      inputHash: JSON.stringify(input),
-      readAt,
-    }
-    return {
-      schemaVersion: '2.0',
-      toolCallId,
-      tool: 'get_product_details',
-      readAt,
-      dataAsOf,
-      evidence: [],
-      observation,
-      issues: [{ code: 'RESOURCE_UNAVAILABLE', message: error.message }],
-      appliedBindings: [],
-      outcome: 'UNAVAILABLE',
-      data: null,
-    }
-  }
+  const snapshot = await catalogCacheEngine.getSnapshotAsync()
+  const productRows = snapshot.products.filter((p) => input.productIds.includes(p.id))
 
   const products: ProductDetailsSnapshot[] = []
   const evidence: EvidenceRecord[] = []
-  const productRows = (rows ?? []) as any[]
 
   for (const row of productRows) {
-    const pType = mapDatabaseProductType(row.product_type) || 'CAR'
-    const activeVariants = (row.product_variants ?? []).filter((v: any) => v.is_active)
-    let minPrice: number | null = row.displayed_price ? Number(row.displayed_price) : null
+    const pType = row.productType
+    const activeVariants = (row.variants ?? []).filter((v) => v.isActive)
+    let minPrice: number | null = row.displayedPrice ? Number(row.displayedPrice) : null
     let maxPrice: number | null = minPrice
 
     const variants: ProductDetailsSnapshot['variants'] = []
     if (activeVariants.length > 0) {
       const prices: number[] = []
       for (const v of activeVariants) {
-        const p = v.sale_price != null ? Number(v.sale_price) : Number(v.original_price)
+        const p = v.salePrice != null ? Number(v.salePrice) : Number(v.originalPrice)
         if (!isNaN(p) && p > 0) {
           prices.push(p)
           variants.push({
@@ -136,7 +72,7 @@ export async function getProductDetailsRepository(
             name: v.name,
             sku: v.sku,
             price: p,
-            isActive: v.is_active,
+            isActive: v.isActive,
           })
         }
       }
@@ -150,7 +86,7 @@ export async function getProductDetailsRepository(
       { factRef: `fact-price-${row.id}`, factPath: 'pricing.from', valueHash: String(minPrice) },
       { factRef: `fact-name-${row.id}`, factPath: 'name', valueHash: row.name },
       { factRef: `fact-slug-${row.id}`, factPath: 'slug', valueHash: row.slug },
-      { factRef: `fact-active-${row.id}`, factPath: 'publication.isActive', valueHash: String(row.is_active) },
+      { factRef: `fact-active-${row.id}`, factPath: 'publication.isActive', valueHash: 'true' },
     ]
 
     const specs: ProductDetailsSnapshot['specs'] = {}
@@ -176,7 +112,7 @@ export async function getProductDetailsRepository(
       name: row.name,
       slug: row.slug,
       productType: pType,
-      thumbnailUrl: row.thumbnail_url || (Array.isArray(row.image_urls) ? row.image_urls[0] : null),
+      thumbnailUrl: row.thumbnailUrl || (Array.isArray(row.imageUrls) ? row.imageUrls[0] : null),
       description: row.description,
       pricing: {
         from: minPrice,
@@ -186,9 +122,9 @@ export async function getProductDetailsRepository(
       specs,
       variants,
       publication: {
-        isActive: Boolean(row.is_active),
+        isActive: true,
         url: itemUrl,
-        sourceUpdatedAt: row.updated_at,
+        sourceUpdatedAt: row.updatedAt,
       },
     })
 
@@ -198,7 +134,7 @@ export async function getProductDetailsRepository(
       entity: { kind: 'PRODUCT', id: String(row.id) },
       facts,
       readAt,
-      sourceUpdatedAt: row.updated_at,
+      sourceUpdatedAt: row.updatedAt ?? undefined,
     })
   }
 

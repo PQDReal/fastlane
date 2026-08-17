@@ -1,10 +1,9 @@
 import 'server-only'
 
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { catalogCacheEngine } from '../cache/catalog-cache'
 import type {
   BrowseCatalogInput,
   EvidenceRecord,
-  FactPointer,
   ProductType,
   ToolObservationRef,
   ToolResult,
@@ -34,145 +33,50 @@ export type BrowseCatalogData = {
   nextCursor?: string
 }
 
-function mapDatabaseProductType(type: string): ProductType | null {
-  const upper = (type || '').toUpperCase()
-  if (upper === 'CAR' || upper === 'VEHICLE') return 'CAR'
-  if (upper === 'BIKE' || upper === 'MOTORBIKE') return 'BIKE'
-  if (upper === 'ACCESSORY') return 'ACCESSORY'
-  return null
-}
-
 export async function browseCatalogRepository(
   input: BrowseCatalogInput,
   toolCallId: string = `call-browse-${Date.now()}`,
 ): Promise<ToolResult<BrowseCatalogData, never, { items: [] }>> {
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
-  const client = getSupabaseAdmin()
 
   const limit = input.page?.limit ?? 10
-  const direction = input.sort?.direction === 'DESC' ? false : true
+  const isDesc = input.sort?.direction === 'DESC'
   const requestedTypes = (input.productTypes && input.productTypes.length > 0)
     ? input.productTypes
     : ['CAR', 'BIKE'] as ProductType[]
 
-  let rows: any[] = []
-  let hasMore = false
+  const snapshot = await catalogCacheEngine.getSnapshotAsync()
+  let filtered = snapshot.products.filter((p) => requestedTypes.includes(p.productType))
 
-  const PRODUCT_FIELDS = `
-    id,
-    name,
-    slug,
-    description,
-    product_type,
-    displayed_price,
-    image_urls,
-    thumbnail_url,
-    is_active,
-    updated_at,
-    product_variants (
-      id,
-      name,
-      sku,
-      original_price,
-      sale_price,
-      is_active
-    )
-  `
-
-  if (requestedTypes.length > 1 && (!input.sort?.field || input.sort.field === 'PRICE')) {
-    // Multi-type browse: Fetch representative active items from EACH requested category
-    const limitPerType = Math.max(5, Math.ceil(limit / requestedTypes.length))
-    const queries = requestedTypes.map((t) => {
-      const dbTypes = t === 'CAR' ? ['CAR', 'VEHICLE'] : t === 'BIKE' ? ['BIKE', 'MOTORBIKE'] : ['ACCESSORY']
-      let subQuery = client
-        .from('products')
-        .select(PRODUCT_FIELDS)
-        .eq('is_active', true)
-        .in('product_type', dbTypes)
-
-      if (input.price?.min !== undefined) subQuery = subQuery.gte('displayed_price', input.price.min)
-      if (input.price?.max !== undefined) subQuery = subQuery.lte('displayed_price', input.price.max)
-
-      return subQuery.order('displayed_price', { ascending: direction }).limit(limitPerType)
-    })
-
-    const results = await Promise.all(queries)
-    for (const res of results) {
-      if (res.data) rows.push(...res.data)
-    }
-  } else {
-    // Single-type browse or explicit custom field sort
-    let query = client
-      .from('products')
-      .select(PRODUCT_FIELDS)
-      .eq('is_active', true)
-
-    if (input.productTypes && input.productTypes.length > 0) {
-      const dbTypes = input.productTypes.flatMap((t) => {
-        if (t === 'CAR') return ['CAR', 'VEHICLE']
-        if (t === 'BIKE') return ['BIKE', 'MOTORBIKE']
-        return ['ACCESSORY']
-      })
-      query = query.in('product_type', dbTypes)
-    }
-
-    if (input.price?.min !== undefined) {
-      query = query.gte('displayed_price', input.price.min)
-    }
-    if (input.price?.max !== undefined) {
-      query = query.lte('displayed_price', input.price.max)
-    }
-
-    if (input.sort?.field === 'NAME') {
-      query = query.order('name', { ascending: direction })
-    } else if (input.sort?.field === 'UPDATED_AT') {
-      query = query.order('updated_at', { ascending: direction })
-    } else {
-      query = query.order('displayed_price', { ascending: direction })
-    }
-
-    query = query.limit(limit + 1)
-    const { data, error } = await query
-
-    if (error) {
-      const observation: ToolObservationRef = {
-        observationId: `obs-${toolCallId}`,
-        toolCallId,
-        outcome: 'UNAVAILABLE',
-        issueCodes: ['RESOURCE_UNAVAILABLE'],
-        inputHash: JSON.stringify(input),
-        readAt,
-      }
-      return {
-        schemaVersion: '2.0',
-        toolCallId,
-        tool: 'browse_catalog',
-        readAt,
-        dataAsOf,
-        evidence: [],
-        observation,
-        issues: [{ code: 'RESOURCE_UNAVAILABLE', message: `Database error: ${error.message}` }],
-        appliedBindings: [],
-        outcome: 'UNAVAILABLE',
-        data: null,
-      }
-    }
-
-    const fetched = (data ?? []) as any[]
-    hasMore = fetched.length > limit
-    rows = hasMore ? fetched.slice(0, limit) : fetched
+  if (input.price?.min !== undefined) {
+    filtered = filtered.filter((p) => (p.displayedPrice ?? 0) >= input.price!.min!)
   }
+  if (input.price?.max !== undefined) {
+    filtered = filtered.filter((p) => (p.displayedPrice ?? Infinity) <= input.price!.max!)
+  }
+
+  // Sort
+  if (input.sort?.field === 'NAME') {
+    filtered.sort((a, b) => isDesc ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name))
+  } else {
+    filtered.sort((a, b) => {
+      const pA = a.displayedPrice ?? 0
+      const pB = b.displayedPrice ?? 0
+      return isDesc ? pB - pA : pA - pB
+    })
+  }
+
+  const hasMore = filtered.length > limit
+  const rows = filtered.slice(0, limit)
 
   const items: CatalogBrowseItem[] = []
   const evidence: EvidenceRecord[] = []
 
   for (const row of rows) {
-    const pType = mapDatabaseProductType(row.product_type)
-    if (!pType) continue
-
-    const activeVariants = (row.product_variants ?? []).filter((v: any) => v.is_active)
-    let effectivePrice = row.displayed_price ? Number(row.displayed_price) : null
+    const pType = row.productType
+    const activeVariants = (row.variants ?? []).filter((v) => v.isActive)
+    let effectivePrice = row.displayedPrice ? Number(row.displayedPrice) : null
     let originalPrice: number | null = null
     let salePrice: number | null = null
     let minPrice = effectivePrice ?? Infinity
@@ -181,7 +85,7 @@ export async function browseCatalogRepository(
     if (activeVariants.length > 0) {
       const variantPrices: number[] = []
       for (const v of activeVariants) {
-        const p = v.sale_price != null ? Number(v.sale_price) : Number(v.original_price)
+        const p = v.salePrice != null ? Number(v.salePrice) : Number(v.originalPrice)
         if (!isNaN(p) && p > 0) {
           variantPrices.push(p)
           if (p < minPrice) minPrice = p
@@ -191,8 +95,8 @@ export async function browseCatalogRepository(
       if (variantPrices.length > 0) {
         effectivePrice = Math.min(...variantPrices)
         const primaryVariant = activeVariants[0]
-        originalPrice = primaryVariant.original_price != null ? Number(primaryVariant.original_price) : null
-        salePrice = primaryVariant.sale_price != null ? Number(primaryVariant.sale_price) : null
+        originalPrice = primaryVariant.originalPrice != null ? Number(primaryVariant.originalPrice) : null
+        salePrice = primaryVariant.salePrice != null ? Number(primaryVariant.salePrice) : null
       }
     }
 
@@ -206,7 +110,7 @@ export async function browseCatalogRepository(
       name: row.name,
       slug: row.slug,
       productType: pType,
-      thumbnailUrl: row.thumbnail_url || (Array.isArray(row.image_urls) ? row.image_urls[0] : null),
+      thumbnailUrl: row.thumbnailUrl || (Array.isArray(row.imageUrls) ? row.imageUrls[0] : null),
       price: effectivePrice,
       originalPrice,
       salePrice,
@@ -214,7 +118,7 @@ export async function browseCatalogRepository(
       summary: row.description,
       url: itemUrl,
       isActive: true,
-      sourceUpdatedAt: row.updated_at,
+      sourceUpdatedAt: row.updatedAt,
     }
     items.push(item)
 
@@ -229,7 +133,7 @@ export async function browseCatalogRepository(
         { factRef: `fact-slug-${row.id}`, factPath: 'slug', valueHash: row.slug },
       ],
       readAt,
-      sourceUpdatedAt: row.updated_at,
+      sourceUpdatedAt: row.updatedAt ?? undefined,
     })
   }
 

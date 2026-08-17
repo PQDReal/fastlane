@@ -1,8 +1,10 @@
 import 'server-only'
 
-import { generateText, isStepCount, tool, type ToolSet } from 'ai'
-import { getSalesAgentLanguageModel } from '../providers/registry'
-import { SALES_AGENT_PROMPT_MANIFEST } from '../prompt/manifest'
+import { isStepCount, streamText, tool, type ToolSet } from 'ai'
+import { getAvailableFallbackLanguageModels, getSalesAgentLanguageModel } from '../providers/registry'
+import { apiKeyPoolManager } from '../providers/key-pool'
+import { createSalesAgentLanguageModel, type SalesAgentLanguageModel } from '../providers/ai-sdk'
+import { getSalesAgentSystemPrompt } from '../prompt/manifest'
 import { executeDataTool } from '../tools/definitions'
 import {
   DEFAULT_RUN_BUDGET,
@@ -25,6 +27,7 @@ export type RunTurnOptions = {
   budget?: SalesAgentRunBudget
   selectedProvider?: string
   signal?: AbortSignal
+  onTextDelta?: (delta: string) => void
   onToolCall?: (toolName: string, callId: string) => void
   onToolResult?: (toolName: string, result: ToolResult) => void
 }
@@ -54,16 +57,15 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
 
   for (const [key, contract] of Object.entries(TOOL_CONTRACTS)) {
     const toolName = key as DataToolName
-    tools[toolName] = tool({
+    tools[key] = tool({
       description: contract.description,
       inputSchema: contract.inputSchema,
-      execute: async (args: any, context?: any) => {
-        const toolCallId = context?.toolCallId || `call-${Date.now()}`
-        toolCallsCount++
+      execute: async (input: any) => {
+        const toolCallId = `call-${toolName}-${Date.now()}-${++toolCallsCount}`
         options.onToolCall?.(toolName, toolCallId)
 
         // Apply bindings
-        const bindingRes = bindings.applyBindings(args)
+        const bindingRes = bindings.applyBindings(input)
         if (bindingRes.conflict) {
           const obsId = `obs-conflict-${toolCallId}`
           const obs = {
@@ -71,7 +73,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
             toolCallId,
             outcome: 'REJECTED' as const,
             issueCodes: ['CONSTRAINT_CONFLICT'],
-            inputHash: JSON.stringify(args),
+            inputHash: JSON.stringify(input),
             readAt: new Date().toISOString(),
           }
           evidence.recordObservation(obs)
@@ -149,21 +151,85 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     { role: 'user', content: userText },
   ]
 
-  const response = await generateText({
-    model: lm.model,
-    system: SALES_AGENT_PROMPT_MANIFEST.systemPrompt,
-    messages,
-    tools,
-    stopWhen: [isStepCount(budget.maxModelSteps)],
-    abortSignal: options.signal,
-    maxOutputTokens: budget.maxOutputTokens,
-    providerOptions: {
-      openai: {
-        reasoningEffort: (process.env.SALES_AGENT_OPENAI_REASONING_EFFORT as any) || 'low',
-        reasoningSummary: null,
-      },
-    },
-  })
+  // Multi-Provider & Multi-Key Failover Engine
+  const candidateModels: SalesAgentLanguageModel[] = [lm]
+  const fallbacks = await getAvailableFallbackLanguageModels(lm.provider)
+  candidateModels.push(...fallbacks)
+
+  let accumulatedText = ''
+  let steps: any[] = []
+  let finishReason = 'stop'
+  let generationSucceeded = false
+  let lastError: any = null
+
+  for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+    const activeModel = candidateModels[mIdx]
+    const availableKeys = apiKeyPoolManager.parseKeysFromEnv(activeModel.config.apiKeyEnv)
+    const maxKeyAttempts = Math.max(1, availableKeys.length)
+
+    for (let keyAttempt = 0; keyAttempt < maxKeyAttempts; keyAttempt++) {
+      try {
+        const currentModel = keyAttempt === 0
+          ? activeModel
+          : createSalesAgentLanguageModel(activeModel.config)
+
+        const streamResult = streamText({
+          model: currentModel.model,
+          system: getSalesAgentSystemPrompt(),
+          messages,
+          tools,
+          stopWhen: [isStepCount(budget.maxModelSteps)],
+          abortSignal: options.signal,
+          maxOutputTokens: budget.maxOutputTokens,
+          providerOptions: {
+            openai: {
+              reasoningEffort: (process.env.SALES_AGENT_OPENAI_REASONING_EFFORT as any) || 'none',
+              reasoningSummary: null,
+            },
+          },
+        })
+
+        let currentTurnText = ''
+        for await (const delta of streamResult.textStream) {
+          currentTurnText += delta
+          options.onTextDelta?.(delta)
+        }
+
+        accumulatedText = currentTurnText
+        const [resolvedSteps, resolvedFinishReason] = await Promise.all([
+          streamResult.steps,
+          streamResult.finishReason,
+        ])
+
+        steps = resolvedSteps || []
+        finishReason = resolvedFinishReason || 'stop'
+        apiKeyPoolManager.markKeySuccess(currentModel.provider, currentModel.usedApiKey)
+        generationSucceeded = true
+        break // Break key loop on success
+      } catch (err: any) {
+        lastError = err
+        const usedKey = activeModel.usedApiKey
+        apiKeyPoolManager.markKeyError(activeModel.provider, usedKey)
+        console.warn(`[ORCHESTRATOR] Generation failed with provider "${activeModel.provider}" (Key: ${usedKey.slice(0, 4)}...): ${err?.message || err}. Attempting failover...`)
+
+        // If tokens were already partially emitted, keep current stream
+        if (accumulatedText.length > 0) {
+          generationSucceeded = true
+          break
+        }
+      }
+    }
+
+    if (generationSucceeded) break // Break provider loop on success
+  }
+
+  if (!generationSucceeded) {
+    console.error('[ORCHESTRATOR] All primary and fallback language models failed:', lastError)
+    accumulatedText = accumulatedText || 'Dạ hiện tại hệ thống kết nối AI đang bận hoặc quá tải. Quý khách vui lòng thử lại sau giây lát hoặc liên hệ hotline FASTLANE để được hỗ trợ trực tiếp.'
+    if (options.onTextDelta && accumulatedText) {
+      options.onTextDelta(accumulatedText)
+    }
+  }
 
   // Extract fact pointers from current turn evidence ledger
   const allEvidence = evidence.getAllEvidence()
@@ -189,7 +255,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
 
   narrative.push({
     kind: 'ADVICE',
-    markdown: response.text || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.',
+    markdown: accumulatedText || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.',
     subjects: knownEntities.toKnownRefs(),
     support: currentTurnFactPointers.slice(0, 5),
   })
@@ -213,13 +279,13 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   }
 
   return {
-    text: response.text,
+    text: accumulatedText,
     responsePlan,
     knownEntities,
     bindings,
     evidence,
     toolCallsCount,
-    stepsCount: response.steps?.length ?? 1,
-    finishReason: response.finishReason,
+    stepsCount: steps?.length ?? 1,
+    finishReason: finishReason || 'stop',
   }
 }

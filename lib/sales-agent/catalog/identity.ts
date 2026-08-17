@@ -1,6 +1,4 @@
-import 'server-only'
-
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { catalogCacheEngine } from '../cache/catalog-cache'
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import type {
   EvidenceRecord,
@@ -36,52 +34,15 @@ export type ResolveCatalogEntitiesData = {
   resolutions: EntityResolution[]
 }
 
-function mapDatabaseProductType(type: string): ProductType | null {
-  const upper = (type || '').toUpperCase()
-  if (upper === 'CAR' || upper === 'VEHICLE') return 'CAR'
-  if (upper === 'BIKE' || upper === 'MOTORBIKE') return 'BIKE'
-  if (upper === 'ACCESSORY') return 'ACCESSORY'
-  return null
-}
-
 export async function resolveCatalogEntitiesRepository(
   input: ResolveCatalogEntitiesInput,
   toolCallId: string = `call-resolve-${Date.now()}`,
 ): Promise<ToolResult<ResolveCatalogEntitiesData>> {
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
-  const client = getSupabaseAdmin()
 
-  const { data: allProducts, error } = await client
-    .from('products')
-    .select('id, name, slug, product_type, is_active, updated_at')
-    .eq('is_active', true)
-
-  if (error) {
-    const observation: ToolObservationRef = {
-      observationId: `obs-${toolCallId}`,
-      toolCallId,
-      outcome: 'UNAVAILABLE',
-      issueCodes: ['RESOURCE_UNAVAILABLE'],
-      inputHash: JSON.stringify(input),
-      readAt,
-    }
-    return {
-      schemaVersion: '2.0',
-      toolCallId,
-      tool: 'resolve_catalog_entities',
-      readAt,
-      dataAsOf,
-      evidence: [],
-      observation,
-      issues: [{ code: 'RESOURCE_UNAVAILABLE', message: error.message }],
-      appliedBindings: [],
-      outcome: 'UNAVAILABLE',
-      data: null,
-    }
-  }
-
-  const products = (allProducts ?? []) as any[]
+  const snapshot = await catalogCacheEngine.getSnapshotAsync()
+  const products = snapshot.products
   const resolutions: EntityResolution[] = []
   const evidence: EvidenceRecord[] = []
   const issues: any[] = []
@@ -121,12 +82,12 @@ export async function resolveCatalogEntitiesRepository(
         const resolvedCandidates: ResolvedEntity[] = candidates.map((c) => ({
           id: String(c.id),
           kind: 'PRODUCT',
-          productType: mapDatabaseProductType(c.product_type) || 'CAR',
+          productType: c.productType,
           name: c.name,
           slug: c.slug,
-          url: salesAgentProductUrl((mapDatabaseProductType(c.product_type) || 'CAR') as any, c.slug),
+          url: salesAgentProductUrl(c.productType as any, c.slug),
           isActive: true,
-          sourceUpdatedAt: c.updated_at,
+          sourceUpdatedAt: c.updatedAt,
         }))
 
         resolutions.push({
@@ -147,7 +108,7 @@ export async function resolveCatalogEntitiesRepository(
     }
 
     if (exactMatch) {
-      const pType = mapDatabaseProductType(exactMatch.product_type) || 'CAR'
+      const pType = exactMatch.productType
       const resolvedEntity: ResolvedEntity = {
         id: String(exactMatch.id),
         kind: 'PRODUCT',
@@ -156,7 +117,7 @@ export async function resolveCatalogEntitiesRepository(
         slug: exactMatch.slug,
         url: salesAgentProductUrl(pType as any, exactMatch.slug),
         isActive: true,
-        sourceUpdatedAt: exactMatch.updated_at,
+        sourceUpdatedAt: exactMatch.updatedAt,
       }
 
       resolutions.push({
@@ -178,7 +139,7 @@ export async function resolveCatalogEntitiesRepository(
           { factRef: `fact-slug-${exactMatch.id}`, factPath: 'slug', valueHash: exactMatch.slug },
         ],
         readAt,
-        sourceUpdatedAt: exactMatch.updated_at,
+        sourceUpdatedAt: exactMatch.updatedAt ?? undefined,
       })
     } else {
       resolutions.push({

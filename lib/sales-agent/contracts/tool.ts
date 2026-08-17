@@ -217,7 +217,7 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
     inputSchema: discoverAccessoriesInputSchema,
   },
   search_knowledge: {
-    description: 'Tra cứu chính sách bảo hành, chính sách thuê/mua pin, trạm sạc và thủ tục mua bán xe điện FASTLANE.',
+    description: 'Tra cứu tài liệu tri thức, cẩm nang kỹ thuật, thông số xe, chính sách bảo hành, thuê/mua pin, trạm sạc và quy trình mua bán xe điện FASTLANE.',
     inputSchema: searchKnowledgeInputSchema,
   },
 }

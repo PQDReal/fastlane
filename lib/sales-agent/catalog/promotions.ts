@@ -35,14 +35,26 @@ export async function getCurrentPromotionsRepository(
   const dataAsOf = readAt
   const client = getSupabaseAdmin()
 
-  // Fastlane public promotions query
-  const now = new Date().toISOString()
-  const { data: rows, error } = await client
-    .from('promotions')
-    .select('*')
-    .eq('is_active', true)
-    .lte('valid_from', now)
-    .gte('valid_until', now)
+  let rows: any[] | null = null
+  try {
+    const now = new Date().toISOString()
+    const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: new Error('Promotions fetch timeout') }), 2500),
+    )
+    const fetchPromise = client
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .lte('valid_from', now)
+      .gte('valid_until', now)
+
+    const res = await Promise.race([fetchPromise, timeoutPromise])
+    if (res.data && Array.isArray(res.data)) {
+      rows = res.data
+    }
+  } catch (err) {
+    console.warn('[PROMOTIONS_REPO] Supabase promotions query failed, returning empty list:', err)
+  }
 
   // If promotions table is empty or error, fallback gracefully with empty list
   const promotions: PromotionSnapshot[] = (rows ?? []).map((row: any) => ({

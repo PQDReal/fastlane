@@ -242,8 +242,7 @@ export function Header() {
         </div>
 
         <div className={`flex shrink-0 items-center justify-end gap-3 transition-colors duration-500 xl:gap-5 ${headerSolid ? 'text-slate-600' : 'text-white'}`}>
-          <button aria-label="Mở trợ lý tìm kiếm" className="hover:opacity-70 transition-opacity" onClick={() => setSearchModalOpen(true)}><img src="/images/search-ai.png" alt="Tìm kiếm AI" className={`h-[23px] w-auto object-contain ${headerSolid ? 'brightness-0 opacity-70' : 'brightness-0 invert opacity-90'}`} /></button>
-          {salesAgentUiEnabled && <button aria-label="Mở Sales Agent" className="rounded-full p-1.5 transition hover:bg-black/5 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" onClick={() => setSalesAgentOpen(true)}><Bot size={22} strokeWidth={2} /></button>}
+          <button aria-label="Mở trợ lý tìm kiếm" className="hover:opacity-70 transition-opacity cursor-pointer" onClick={() => setSearchModalOpen(true)}><img src="/images/search-ai.png" alt="Tìm kiếm AI" className={`h-[23px] w-auto object-contain ${headerSolid ? 'brightness-0 opacity-70' : 'brightness-0 invert opacity-90'}`} /></button>
           {(!userSubject || isAdmin === false) && <Link
             aria-label="Giỏ hàng"
             href="/cart"

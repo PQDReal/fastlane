@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
 import { browseCatalogRepository } from './browse'
 import { resolveCatalogEntitiesRepository } from './identity'
 import { getProductDetailsRepository } from './product-details'
+import { catalogCacheEngine } from '../cache/catalog-cache'
 
 vi.mock('@/lib/supabase-admin', () => {
   const mockProducts = [
@@ -78,6 +79,9 @@ vi.mock('@/lib/supabase-admin', () => {
 })
 
 describe('Canonical Catalog Repositories', () => {
+  beforeEach(async () => {
+    await catalogCacheEngine.forceRefresh()
+  })
   it('browseCatalogRepository retrieves active items and computes effective variant prices', async () => {
     const res = await browseCatalogRepository(
       {

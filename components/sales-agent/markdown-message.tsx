@@ -38,8 +38,45 @@ function completeCodeFence(content: string, streaming: boolean) {
   return `${content}\n\`\`\``
 }
 
+function completeMarkdownTable(content: string, streaming: boolean) {
+  if (!streaming) return content
+
+  const lines = content.split('\n')
+  if (lines.length === 0) return content
+
+  const lastLine = lines[lines.length - 1].trim()
+  const tableLines: string[] = []
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim()
+    if (line.startsWith('|') || (line.includes('|') && line.endsWith('|'))) {
+      tableLines.unshift(line)
+    } else {
+      break
+    }
+  }
+
+  if (tableLines.length === 0) return content
+
+  // If only 1 table line exists (Header row) without delimiter, inject temporary delimiter
+  if (tableLines.length === 1) {
+    const headerLine = tableLines[0]
+    const rawCols = headerLine.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
+    const colCount = Math.max(1, rawCols.length || 2)
+    const delimiter = `\n| ${Array(colCount).fill('---').join(' | ')} |`
+    return `${content}${headerLine.endsWith('|') ? '' : ' |'}${delimiter}`
+  }
+
+  // If the last line is actively streaming without a trailing pipe, close the cell temporarily
+  if (lastLine.startsWith('|') && !lastLine.endsWith('|')) {
+    return `${content} |`
+  }
+
+  return content
+}
+
 export function MarkdownMessage({ content, streaming = false }: { content: string; streaming?: boolean }) {
-  const markdown = normalizeMathDelimiters(completeCodeFence(content, streaming))
+  const markdown = normalizeMathDelimiters(completeMarkdownTable(completeCodeFence(content, streaming), streaming))
 
   return (
     <div className="min-w-0 max-w-full [overflow-wrap:anywhere] [&_.katex-display]:my-2 [&_.katex-display]:box-content [&_.katex-display]:max-w-full [&_.katex-display]:overflow-x-auto [&_.katex-display]:py-3 [&_.katex-display]:[scrollbar-width:thin] [&_.katex-display>.katex]:min-w-max">
