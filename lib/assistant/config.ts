@@ -12,6 +12,7 @@ export const RECOMMENDATION_WORDS = new Set([
   'goi', 'y', 'phu', 'hop', 'nen', 'mua', 'tu', 'van', 'hon', 'lon', 'cao', 'it', 'nhat',
   'thap', 're', 'nho', 'dat', 'max', 'min', 'khoang', 'tam', 'nhanh', 'cham', 'xa', 'ngan',
   'pham', 'vi', 'quang', 'duong', 'hoat', 'dong', 'cong', 'suat', 'pin', 'dung', 'luong',
+  'tro', 'len', 'xuong', 'di', 'tang', 'giam', 'dan', 'asc', 'ascending', 'desc', 'descending',
 ])
 
 export const FAQ_WORDS = new Set([

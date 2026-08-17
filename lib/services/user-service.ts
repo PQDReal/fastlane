@@ -30,6 +30,26 @@ export type LocalUser = {
   updated_at: string
 }
 
+const LOCAL_USER_SELECT =
+  'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at'
+
+export async function findUserById(id: string): Promise<LocalUser | null> {
+  const normalizedId = id.trim()
+  if (!normalizedId) return null
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('users')
+    .select(LOCAL_USER_SELECT)
+    .eq('id', normalizedId)
+    .maybeSingle<LocalUser>()
+
+  if (error) {
+    throw new Error(`Unable to load local user by id: ${error.message}`)
+  }
+
+  return data
+}
+
 export async function findUserByAuth0Subject(
   subject: string,
 ): Promise<LocalUser | null> {
@@ -39,9 +59,7 @@ export async function findUserByAuth0Subject(
 
   const { data, error } = await getSupabaseAdmin()
     .from('users')
-    .select(
-      'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
-    )
+    .select(LOCAL_USER_SELECT)
     .eq('auth0_subject', normalizedSubject)
     .maybeSingle<LocalUser>()
 
@@ -58,9 +76,7 @@ export async function findUserByEmail(email: string): Promise<LocalUser | null> 
 
   const { data, error } = await getSupabaseAdmin()
     .from('users')
-    .select(
-      'id, auth0_subject, email, full_name, phone_number, role, status, email_verified, created_at, updated_at',
-    )
+    .select(LOCAL_USER_SELECT)
     .eq('email', normalizedEmail)
     .maybeSingle<LocalUser>()
 

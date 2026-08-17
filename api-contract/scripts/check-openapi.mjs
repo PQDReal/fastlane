@@ -64,6 +64,8 @@ const REQUIRED_OPERATIONS = new Map([
   ["/orders/{orderId}/mock-payment", ["post"]],
   ["/orders/{orderId}/mock-refund", ["post"]],
   ["/admin/dashboard/summary", ["get"]],
+  ["/admin/inventory/query", ["get"]],
+  ["/admin/inventory/filter-options", ["get"]],
   ["/admin/categories", ["get", "post"]],
   ["/admin/categories/{categoryId}", ["patch", "delete"]],
   ["/admin/products", ["get", "post"]],

@@ -222,6 +222,10 @@ paths:
     $ref: './paths/orders.yaml#/~1orders~1{orderId}~1mock-refund'
   /admin/dashboard/summary:
     $ref: './paths/admin-products.yaml#/~1admin~1dashboard~1summary'
+  /admin/inventory/query:
+    $ref: './paths/admin-inventory.yaml#/~1admin~1inventory~1query'
+  /admin/inventory/filter-options:
+    $ref: './paths/admin-inventory.yaml#/~1admin~1inventory~1filter-options'
   /admin/categories:
     $ref: './paths/admin-products.yaml#/~1admin~1categories'
   /admin/categories/{categoryId}:

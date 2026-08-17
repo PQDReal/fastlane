@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
+import { createServerTiming } from './lib/api/server-timing'
 import { auth0 } from './lib/auth0'
 import {
   DEPLOYMENT_BASIC_AUTH_COOKIE,
@@ -52,13 +53,40 @@ function clearSessionCookies(request: NextRequest, response: NextResponse) {
 }
 
 export async function middleware(request: NextRequest) {
+  const timedReadRoutes = new Set([
+    '/api/v1/admin/categories',
+    '/api/v1/admin/products',
+    '/api/v1/admin/inventory/query',
+    '/api/v1/admin/inventory/filter-options',
+    '/api/v1/users/me',
+  ])
+  const tracesRead = request.method === 'GET'
+    && timedReadRoutes.has(request.nextUrl.pathname)
+  const timing = tracesRead ? createServerTiming('middleware') : null
+  const finish = (response: NextResponse) => {
+    if (!timing) return response
+
+    const timedResponse = timing.attach(response)
+    const middlewareTiming = timedResponse.headers.get('Server-Timing') ?? ''
+    timedResponse.headers.set(
+      'X-Fastlane-Middleware-Timing',
+      middlewareTiming,
+    )
+    // A middleware Server-Timing header would overwrite the route handler's
+    // richer breakdown. Preserve middleware timing under its diagnostic header
+    // and let the final response own Server-Timing.
+    timedResponse.headers.delete('Server-Timing')
+    return timedResponse
+  }
+
   if (
     request.nextUrl.pathname === PREVIEW_AUTH_RETRY_PATH
     || request.nextUrl.pathname === BASIC_AUTH_SESSION_PATH
   ) {
-    return NextResponse.next()
+    return finish(NextResponse.next())
   }
 
+  const previewAuthStartedAt = performance.now()
   if (!isDeploymentBasicAuthExempt(request.nextUrl.pathname, request.method)) {
     const basicAuthConfig = readDeploymentBasicAuthConfig()
     const hasValidCookie = await hasValidDeploymentBasicAuthCookie(
@@ -66,13 +94,14 @@ export async function middleware(request: NextRequest) {
       basicAuthConfig,
     )
     if (basicAuthConfig.enabled && !hasValidCookie) {
+      timing?.measure('mw_preview_auth', previewAuthStartedAt)
       const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`
       const retryHref = `${PREVIEW_AUTH_RETRY_PATH}?returnTo=${encodeURIComponent(returnTo)}`
       const acceptsHtml = request.headers.get('accept')?.includes('text/html') === true
       if ((request.method === 'GET' || request.method === 'HEAD') && acceptsHtml) {
-        return NextResponse.redirect(new URL(retryHref, toPublicAppUrl(request.url, process.env, request.headers)))
+        return finish(NextResponse.redirect(new URL(retryHref, toPublicAppUrl(request.url, process.env, request.headers))))
       }
-      return NextResponse.json(
+      return finish(NextResponse.json(
         { error: { code: 'PREVIEW_AUTH_REQUIRED', message: 'Phiên truy cập môi trường đã hết hạn.' } },
         {
           status: 401,
@@ -81,15 +110,16 @@ export async function middleware(request: NextRequest) {
             [PREVIEW_AUTH_REQUIRED_HEADER]: PREVIEW_AUTH_REQUIRED_CODE,
           },
         },
-      )
+      ))
     }
   }
+  timing?.measure('mw_preview_auth', previewAuthStartedAt)
 
   if (request.nextUrl.pathname === PREVIEW_AUTH_STATUS_PATH) {
-    return new NextResponse(null, {
+    return finish(new NextResponse(null, {
       status: 204,
       headers: { 'cache-control': 'no-store' },
-    })
+    }))
   }
 
   const origin = request.headers.get('origin')
@@ -97,7 +127,7 @@ export async function middleware(request: NextRequest) {
   const isSwaggerOrigin = origin !== null && swaggerOrigins.has(origin)
 
   if (isApiRequest && isSwaggerOrigin && request.method === 'OPTIONS') {
-    return applyCorsHeaders(new NextResponse(null, { status: 204 }), origin)
+    return finish(applyCorsHeaders(new NextResponse(null, { status: 204 }), origin))
   }
 
   // Cart mutations authenticate in the route and in the RPC. Avoid a second
@@ -107,7 +137,12 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname,
     request.method,
   )
-  const session = isCartMutation ? null : await auth0.getSession(request)
+  const middlewareSessionStartedAt = performance.now()
+  // API handlers own authentication/authorization and read the encrypted
+  // session themselves. Reading it here as well doubles cookie/session work
+  // for every XHR without adding a security boundary.
+  const session = isCartMutation || isApiRequest ? null : await auth0.getSession(request)
+  timing?.measure('mw_session', middlewareSessionStartedAt)
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth/')
 
   if (
@@ -116,6 +151,7 @@ export async function middleware(request: NextRequest) {
     session.user.email_verified === true &&
     requiresLocalUserValidation(request.nextUrl.pathname)
   ) {
+    const localUserStartedAt = performance.now()
     try {
       const subjectUser = await findUserByAuth0Subject(session.user.sub)
       const localUser = subjectUser || (session.user.email ? await findUserByEmail(session.user.email) : null)
@@ -127,11 +163,13 @@ export async function middleware(request: NextRequest) {
           sameSite: 'lax', httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
         })
-        return response
+        timing?.measure('mw_user', localUserStartedAt)
+        return finish(response)
       }
     } catch (error) {
       console.error('Unable to validate authenticated local user:', error)
     }
+    timing?.measure('mw_user', localUserStartedAt)
   }
 
   if (
@@ -143,16 +181,24 @@ export async function middleware(request: NextRequest) {
     if (request.nextUrl.pathname === '/auth/popup-complete') {
       cleanup.searchParams.set('popup', '1')
     }
-    return NextResponse.redirect(cleanup)
+    return finish(NextResponse.redirect(cleanup))
   }
 
+  if (isApiRequest) {
+    const apiResponse = NextResponse.next()
+    timing?.measure('mw_api_passthrough', performance.now())
+    return finish(isSwaggerOrigin ? applyCorsHeaders(apiResponse, origin) : apiResponse)
+  }
+
+  const auth0MiddlewareStartedAt = performance.now()
   const response = await auth0.middleware(request)
+  timing?.measure('mw_auth0', auth0MiddlewareStartedAt)
 
   if (isApiRequest && isSwaggerOrigin) {
-    return applyCorsHeaders(response, origin)
+    return finish(applyCorsHeaders(response, origin))
   }
 
-  return response
+  return finish(response)
 }
 
 export const config = {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { createServerTiming, type ServerTimingRecorder } from '@/lib/api/server-timing'
 import { getCurrentUser } from '@/lib/auth/current-user'
 import { auth0 } from '@/lib/auth0'
 import { updateAuth0UsersByEmail } from '@/lib/auth0-management'
@@ -29,9 +30,9 @@ function errorResponse(status: number, code: string, message: string) {
   )
 }
 
-async function authenticatedUser() {
+async function authenticatedUser(timing?: ServerTimingRecorder) {
   try {
-    return await getCurrentUser()
+    return await getCurrentUser(timing)
   } catch (error) {
     console.error('Unable to load authenticated profile:', error)
     return null
@@ -39,12 +40,18 @@ async function authenticatedUser() {
 }
 
 export async function GET() {
-  const user = await authenticatedUser()
+  const timing = createServerTiming('route')
+  const authenticationStartedAt = performance.now()
+  const user = await authenticatedUser(timing)
+  timing.measure('authentication', authenticationStartedAt)
   if (!user) {
-    return errorResponse(401, 'AUTHENTICATION_REQUIRED', 'Authentication required')
+    return timing.attach(errorResponse(401, 'AUTHENTICATION_REQUIRED', 'Authentication required'))
   }
 
-  return NextResponse.json(responseData(user))
+  const transformStartedAt = performance.now()
+  const response = NextResponse.json(responseData(user))
+  timing.measure('transform', transformStartedAt)
+  return timing.attach(response)
 }
 
 export async function PATCH(request: Request) {

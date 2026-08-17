@@ -1,4 +1,4 @@
-export type AdminInventoryStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+export type AdminInventoryStatus = 'INACTIVE' | 'UNLINKED' | 'MISSING_INVENTORY' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
 export type AdminInventoryProductType = 'ALL' | 'CAR' | 'BIKE' | 'ACCESSORY'
 export type AdminInventoryActivity = 'ALL' | 'ACTIVE' | 'INACTIVE'
 
@@ -65,6 +65,15 @@ export function inventoryStatus(quantity: number): AdminInventoryStatus {
   if (quantity <= 0) return 'OUT_OF_STOCK'
   if (quantity <= LOW_STOCK_THRESHOLD) return 'LOW_STOCK'
   return 'IN_STOCK'
+}
+
+export function inventoryStatusLabel(status: AdminInventoryStatus) {
+  if (status === 'IN_STOCK') return 'Còn hàng'
+  if (status === 'LOW_STOCK') return 'Sắp hết'
+  if (status === 'OUT_OF_STOCK') return 'Hết hàng'
+  if (status === 'MISSING_INVENTORY') return 'Thiếu bản ghi tồn'
+  if (status === 'UNLINKED') return 'Chưa liên kết'
+  return 'Ngừng kinh doanh'
 }
 
 export function filterAdminInventoryItems<T extends AdminInventoryFilterItem>(items: T[], filters: AdminInventoryFilters) {

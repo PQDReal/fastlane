@@ -1,4 +1,5 @@
 import { ArrowRight, BatteryCharging, Leaf, MapPin, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { unstable_cache } from 'next/cache'
 import { Header, MotionDiv } from '../components/header'
 import { Button } from '../components/ui/button'
 import { Footer } from '../components/footer'
@@ -8,6 +9,7 @@ import {
 } from '../components/home-vehicle-experience'
 import { getSupabaseAdmin } from '../lib/supabase-admin'
 import { listMotorbikeCatalog } from '../lib/motorbike-catalog'
+import { getCarSpecsSummary, getProductImage } from '../lib/get-product-image'
 
 // Avoid Supabase connection failures on static prerendering.
 // Page content relies on DB query at request time.
@@ -38,16 +40,6 @@ function productType(product: any): 'CAR' | 'BIKE' | null {
 function firstText(value: unknown, fallback: string) {
   if ((typeof value !== 'string' && typeof value !== 'number') || !String(value).trim()) return fallback
   return String(value).trim()
-}
-
-function normalizeVehicleModel(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\bvinfast\b/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
 }
 
 function parseAppView(value: unknown): Record<string, unknown> {
@@ -93,7 +85,7 @@ function colorHex(name: string) {
   return '#b8b8b8'
 }
 
-export default async function Home() {
+async function loadHomeVehicles(): Promise<HomeVehicle[]> {
   const supabase = getSupabaseAdmin()
   const [carResult, motorbikeCatalog] = await Promise.all([
     supabase
@@ -135,45 +127,21 @@ export default async function Home() {
     (product: any) => productType(product) && Number(product.displayed_price) > 0,
   )
 
-  const fs = require('fs')
-  const path = require('path')
-  let masterCarSpecs: Record<string, any> = {}
-  let richCars: any[] = []
-  try {
-    const specsRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'master_car_specs.json'), 'utf8')
-    masterCarSpecs = JSON.parse(specsRaw)
-    const carsRaw = fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'by_type', 'cars.json'), 'utf8')
-    richCars = JSON.parse(carsRaw)
-  } catch (e) {
-    console.error('Failed to load vehicle specs for homepage', e)
-  }
-
-  const { getProductImage, getCarSpecsSummary } = require('../lib/get-product-image')
-  const homeVehicles: HomeVehicle[] = shuffleItems(activeProducts).map((product: any) => {
+  return activeProducts.map((product: any) => {
     const type = productType(product) as 'CAR' | 'BIKE'
     const productSpecifications = product.specifications || {}
-    const normalizedProductName = normalizeVehicleModel(product.name)
-    const richCar = richCars.find(
-      (car) => normalizeVehicleModel(car.name || '') === normalizedProductName,
-    )
-    const richCarVariant = richCar?.specs
-      ? (Object.values(richCar.specs)[0] as any)
+    const richCarVariant = productSpecifications.specs
+      ? (Object.values(productSpecifications.specs)[0] as any)
       : undefined
-    const masterCarRecord = Object.values(masterCarSpecs).find(
-      (car: any) => normalizeVehicleModel(car?.name || '') === normalizedProductName,
-    ) as any
-    const masterCarVariant = masterCarRecord?.variants
-      ? (Object.values(masterCarRecord.variants)[0] as any)
-      : undefined
-    const carSpecs = richCarVariant?.specs || masterCarVariant?.specs || {}
+    const carSpecs = richCarVariant?.specs || {}
     const carAppView = parseAppView(carSpecs.appView)
     const range = firstText(
       type === 'CAR'
         ? formatCarRange(
             carAppView.range ||
               carSpecs.powertrain?.distance ||
-              richCar?.range_text ||
-              richCar?.range_km,
+              productSpecifications.range_text ||
+              productSpecifications.range_km,
           )
         : productSpecifications['Quãng đường đi được mỗi lần sạc'],
       type === 'CAR' ? 'Đang cập nhật' : 'Đang cập nhật',
@@ -201,7 +169,7 @@ export default async function Home() {
       slug: product.slug,
       type,
       description:
-        getCarSpecsSummary(product.name) ||
+        getCarSpecsSummary(productSpecifications) ||
         product.description ||
         (type === 'BIKE'
           ? 'Linh hoạt trong phố, vận hành êm và không phát thải.'
@@ -221,6 +189,16 @@ export default async function Home() {
       testDriveHref: `/test-drive?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
     }
   })
+}
+
+const getCachedHomeVehicles = unstable_cache(
+  loadHomeVehicles,
+  ['home-vehicle-catalog-v1'],
+  { revalidate: 300, tags: ['vehicle-catalog', 'car-catalog', 'motorbike-catalog'] },
+)
+
+export default async function Home() {
+  const homeVehicles = shuffleItems(await getCachedHomeVehicles())
 
   return (
     <main><Header />

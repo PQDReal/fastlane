@@ -17,7 +17,7 @@ vi.mock('@/lib/auth0-management', () => ({
 }))
 vi.mock('@/lib/services/user-service', () => ({ updateUserProfile: mocks.updateUserProfile }))
 
-import { PATCH } from './route'
+import { GET, PATCH } from './route'
 
 const localUser = {
   id: 'user-1',
@@ -91,3 +91,23 @@ describe('PATCH /api/v1/users/me', () => {
       },
     )
   })})
+
+describe('GET /api/v1/users/me timing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.getCurrentUser.mockResolvedValue(localUser)
+  })
+
+  it('returns profile data with authentication and route timing', async () => {
+    const response = await GET()
+    const serverTiming = response.headers.get('server-timing') ?? ''
+
+    expect(response.status).toBe(200)
+    expect(mocks.getCurrentUser).toHaveBeenCalledWith(
+      expect.objectContaining({ measure: expect.any(Function) }),
+    )
+    expect(serverTiming).toMatch(/authentication;dur=\d+\.\d/)
+    expect(serverTiming).toMatch(/transform;dur=\d+\.\d/)
+    expect(serverTiming).toMatch(/route;dur=\d+\.\d/)
+  })
+})
