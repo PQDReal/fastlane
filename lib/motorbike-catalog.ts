@@ -250,6 +250,19 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   const supabase = getSupabaseAdmin()
   const publishedAggregate = await supabase.rpc('list_published_motorbike_catalog')
   if (!publishedAggregate.error) {
+    // Read model chứa các dòng catalog, còn product_variants vẫn là nguồn giá authority.
+    // Vì vậy phải tải cả hai nguồn trước khi dựng catalog.
+    const activeProducts = await supabase
+      .from('products')
+      .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
+      .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
+      .eq('is_active', true)
+
+    if (activeProducts.error) {
+      throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
+    }
+
+    const authorityPrices = buildAuthorityPriceMap((activeProducts.data ?? []) as ActiveProductRow[])
     const rows = ((publishedAggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
       (product.variants ?? []).map((variant) => ({
         ...variant,
@@ -258,7 +271,7 @@ async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
         specs: product.shared_specs,
       })),
     )
-    return mapRows(rows)
+    return mapRows(rows, authorityPrices)
   }
 
   // `vehicle_variants.is_active` describes a sellable colour/version row, while

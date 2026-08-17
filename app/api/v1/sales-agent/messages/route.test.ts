@@ -47,7 +47,7 @@ describe('Canonical Sales Agent message API', () => {
     })
   })
 
-  it('returns SSE metadata, turn_view, text delta and done events', async () => {
+  it('returns SSE metadata, turn_view and done events', async () => {
     const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
       method: 'POST',
       body: JSON.stringify({ message: 'Tư vấn VF 8', locale: 'vi-VN' }),
@@ -58,8 +58,7 @@ describe('Canonical Sales Agent message API', () => {
     const body = await response.text()
     expect(body).toContain('"type":"meta"')
     expect(body).toContain('"type":"turn_view"')
-    expect(body).toContain('"type":"text_delta"')
-    expect(body).toContain('VF 8 là dòng SUV điện')
+    expect(body).toContain('"markdown":"VF 8 là dòng SUV điện cỡ D cao cấp của VinFast."')
     expect(body).toContain('"type":"done"')
   })
 

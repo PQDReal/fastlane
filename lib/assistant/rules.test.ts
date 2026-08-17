@@ -3,6 +3,10 @@ import { classifySearchQuery, extractCatalogSearchQuery } from './rules'
 
 describe('assistant rule engine', () => {
   it('handles casual Vietnamese text', () => expect(classifySearchQuery('Xin chào').intent).toBe('casual'))
+  it('rejects unrelated words and budget-only questions', () => {
+    expect(classifySearchQuery('quần').intent).toBe('unsupported')
+    expect(classifySearchQuery('Mình có 200 ngàn, mình mua gì được').intent).toBe('unsupported')
+  })
   it('extracts motorbike budget without diacritics', () => {
     const result = classifySearchQuery('xe may duoi 20 trieu')
     expect(result.intent).toBe('recommendation')

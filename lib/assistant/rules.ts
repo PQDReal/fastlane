@@ -190,6 +190,12 @@ export function classifySearchQuery(input: string): RuleResult {
   const genderMatch = query.match(/\b(?:cho|danh cho|gioi tinh)\s+(nam(?:\s+gioi)?|nu(?:\s+gioi)?|unisex)\b/)
   if (genderMatch) filters.gender = genderMatch[1].replace(/\s+gioi$/, '')
 
+  // Không coi mọi từ bất kỳ là tên sản phẩm. Nếu câu không có loại sản phẩm,
+  // mã/tên mẫu xe đã biết hoặc từ khóa catalog rõ ràng, phải trả unsupported
+  // để tránh bịa danh sách cho các câu như "quần" hoặc chỉ nêu ngân sách cá nhân.
+  const hasKnownCatalogSignal = Boolean(filters.productType)
+    || /\b(vf\s*\d+|vinfast|amio|evo|feliz|kyo|motio|vento|theon|klara|ludo|impes)\b/.test(query)
+
   // -------------------------------------------------------------------------
   // Giai đoạn 5: Chọn chính xác một intent theo thứ tự ưu tiên đã xác lập.
   // -------------------------------------------------------------------------
@@ -199,6 +205,9 @@ export function classifySearchQuery(input: string): RuleResult {
   // bộ lọc/xếp hạng recommendation -> FAQ sản phẩm -> chỉ casual -> tìm kiếm.
   // Nếu đưa casual lên trước hai loại đầu, câu `xin chao, VF9 bao xa` sẽ dừng
   // tại lời chào và không bao giờ xử lý query catalog hợp lệ.
+  if (!hasKnownCatalogSignal && (filters.maxPrice || filters.minPrice || filters.sort || filters.sortBy || filters.color || filters.gender || /(phu hop|goi y|nen mua|tu van|ngan sach)/.test(query))) {
+    return { intent: 'unsupported', confidence: 0.95, normalizedQuery: query, catalogQuery, filters: {} }
+  }
   if (filters.maxPrice || filters.minPrice || filters.sort || filters.sortBy || filters.color || filters.gender || /(phu hop|goi y|nen mua|tu van|ngan sach)/.test(query)) {
     return { intent: 'recommendation', confidence: 0.9, normalizedQuery: query, catalogQuery: removeIntentWords(catalogQuery, RECOMMENDATION_WORDS), filters }
   }
@@ -208,7 +217,7 @@ export function classifySearchQuery(input: string): RuleResult {
   if (!filters.productType && isCasualOnlyQuery(query)) {
     return { intent: 'casual', confidence: 0.95, normalizedQuery: query, catalogQuery, filters }
   }
-  if (query.length >= 2) return { intent: 'product_search', confidence: 0.75, normalizedQuery: query, catalogQuery, filters }
+  if (query.length >= 2 && hasKnownCatalogSignal) return { intent: 'product_search', confidence: 0.75, normalizedQuery: query, catalogQuery, filters }
   return { intent: 'unsupported', confidence: 0.5, normalizedQuery: query, catalogQuery, filters }
 }
 
