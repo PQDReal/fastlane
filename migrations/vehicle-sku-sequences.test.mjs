@@ -7,7 +7,7 @@ describe('vehicle SKU sequence migration', () => {
   it('defines separate non-overlapping vehicle ranges and a service-role allocator', () => {
     expect(migration).toContain("v_prefix := 'CAR'")
     expect(migration).toContain("v_prefix := 'BIK'")
-    expect(migration).toContain("grant execute on function public.allocate_vehicle_variant_skus(text, integer)\n  to service_role")
+    expect(migration).toMatch(/grant execute on function public\.allocate_vehicle_variant_skus\(text, integer\)[\r\n\s]+to service_role/i)
     expect(migration).toContain("revoke all on sequence public.car_sku_sequence, public.bike_sku_sequence")
   })
 

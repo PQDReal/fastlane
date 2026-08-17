@@ -140,26 +140,17 @@ export function NavigationLoadingIndicator() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!isNavigating) return
-
-    const timeout = window.setTimeout(
-      () => setIsNavigating(false),
-      10000,
-    )
-    return () => window.clearTimeout(timeout)
-  }, [isNavigating])
-
   if (!isNavigating) return null
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label="Đang tải trang"
-      className="fixed bottom-6 right-6 z-[100] flex items-center gap-4 rounded-full border border-slate-900/10 bg-white/95 px-6 py-4 shadow-[0_16px_48px_rgba(15,23,42,0.2)] backdrop-blur-md"
-    >
-      <span className="navigation-loading-image relative flex h-11 w-[4.125rem] shrink-0 items-center justify-center overflow-hidden" aria-hidden="true">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-all">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Đang tải trang"
+        className="flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/90 px-5 py-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+      >
+        <span className="navigation-loading-image relative flex h-11 w-[4.125rem] shrink-0 items-center justify-center overflow-hidden" aria-hidden="true">
         <img
           src="/images/fastlane-loading.png"
           alt=""
@@ -191,12 +182,13 @@ export function NavigationLoadingIndicator() {
           />
         </svg>
       </span>
-      <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-900">
+      <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-100">
         Đang tải
       </span>
       <span className="sr-only">
         Vui lòng chờ trong khi trang mới được tải.
       </span>
+      </div>
     </div>
   )
 }
