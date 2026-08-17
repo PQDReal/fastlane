@@ -1,19 +1,20 @@
-﻿# FastLane
+# FastLane
 
 FastLane là ứng dụng thương mại điện tử và đặt lịch lái thử xe điện, xây dựng bằng Next.js 15 theo mô hình Backend for Frontend (BFF). Hệ thống sử dụng Auth0 để xác thực, Supabase làm cơ sở dữ liệu và OpenAPI để quản lý API contract.
 
 ## Chức năng hiện có
 
-- Trang chủ và danh mục ô tô điện, xe máy điện, phụ kiện.
-- So sánh các mẫu xe có trong database.
-- Đặt lịch lái thử theo mẫu xe và tự điền thông tin người dùng đã đăng nhập.
-- Không cho phép đặt lịch trong ngày hiện tại hoặc ngày đã qua.
-- Trang hồ sơ cho phép cập nhật họ tên và số điện thoại.
-- Đồng bộ người dùng Auth0 vào bảng `users` của Supabase sau khi đăng nhập.
-- Tự động chuyển tài khoản có role `ADMIN` đến `/admin`.
-- Dashboard quản trị, danh sách sản phẩm và quản lý yêu cầu lái thử.
-- Quản trị viên có thể lọc và chuyển trạng thái yêu cầu lái thử.
-- Swagger UI chạy bằng Docker service riêng.
+**Dành cho Customer (Khách hàng):**
+- Xem danh mục sản phẩm (ô tô điện, xe máy điện, phụ kiện) và so sánh các mẫu xe.
+- Đặt lịch lái thử và tự động điền trước thông tin.
+- Xem và cập nhật hồ sơ cá nhân (họ tên, số điện thoại).
+
+**Dành cho Admin (Quản trị viên):**
+- Dashboard tổng quan.
+- Quản lý danh sách sản phẩm.
+- Quản lý yêu cầu lái thử (xem, lọc, cập nhật trạng thái).
+
+*(Hệ thống tích hợp Auth0 đồng bộ Supabase và Swagger UI qua Docker)*
 
 ## Công nghệ
 
@@ -74,11 +75,8 @@ Copy-Item .env.example .env.local
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, chỉ dùng phía server |
 | `REDIS_URL` | Kết nối Redis; không khai báo thì ứng dụng tự dùng Supabase mà không cache phân tán |
 | `DEPOSIT_DRAFT_ENCRYPTION_KEY` | Khóa riêng tối thiểu 32 ký tự để mã hóa bản nháp đặt cọc trong Redis; nếu bỏ trống sẽ dẫn xuất khóa tách biệt từ `AUTH0_SECRET` |
-| `CRON_SECRET` | Token nội bộ bảo vệ tác vụ tự động hủy tài liệu đặt mua quá hạn xác nhận |
 
 Không commit `.env`, `.env.local`, client secret, service-role key hoặc access token.
-
-Tác vụ `.github/workflows/deposit-contract-expiry.yml` gọi endpoint xử lý quá hạn mỗi 5 phút. Trên repository triển khai, cấu hình hai GitHub Actions secret: `FASTLANE_APP_BASE_URL` là URL public của ứng dụng và `CONTRACT_EXPIRY_CRON_SECRET` trùng với `CRON_SECRET` ở runtime. Có thể chạy `workflow_dispatch` để kiểm tra cấu hình trước khi dựa vào lịch tự động.
 
 ## Chạy local
 
