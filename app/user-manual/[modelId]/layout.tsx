@@ -12,9 +12,10 @@ export default async function ModelManualLayout({
   params
 }: {
   children: React.ReactNode
-  params: { modelId: string }
+  params: Promise<{ modelId: string }>
 }) {
-  const decodedModelId = decodeURIComponent(params.modelId)
+  const { modelId } = await params;
+  const decodedModelId = decodeURIComponent(modelId)
   const models = await getManualModels()
   const model = models.find(m => m.id === decodedModelId)
   

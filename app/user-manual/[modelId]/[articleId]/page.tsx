@@ -11,9 +11,10 @@ export async function generateStaticParams({ params }: { params: { modelId: stri
   }))
 }
 
-export async function generateMetadata({ params }: { params: { modelId: string, articleId: string } }) {
-  const decodedModelId = decodeURIComponent(params.modelId)
-  const decodedArticleId = decodeURIComponent(params.articleId)
+export async function generateMetadata({ params }: { params: Promise<{ modelId: string, articleId: string }> }) {
+  const { modelId, articleId } = await params;
+  const decodedModelId = decodeURIComponent(modelId)
+  const decodedArticleId = decodeURIComponent(articleId)
   const article = await getManualArticle(decodedModelId, decodedArticleId)
   
   if (!article) return { title: 'Không tìm thấy - FASTLANE' }
@@ -27,10 +28,11 @@ export async function generateMetadata({ params }: { params: { modelId: string, 
 export default async function ManualArticlePage({
   params
 }: {
-  params: { modelId: string, articleId: string }
+  params: Promise<{ modelId: string, articleId: string }>
 }) {
-  const decodedModelId = decodeURIComponent(params.modelId)
-  const decodedArticleId = decodeURIComponent(params.articleId)
+  const { modelId, articleId } = await params;
+  const decodedModelId = decodeURIComponent(modelId)
+  const decodedArticleId = decodeURIComponent(articleId)
   
   const article = await getManualArticle(decodedModelId, decodedArticleId)
 

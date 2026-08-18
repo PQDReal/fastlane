@@ -10,13 +10,14 @@ export async function generateStaticParams() {
 export default async function ModelManualIndexPage({
   params
 }: {
-  params: { modelId: string }
+  params: Promise<{ modelId: string }>
 }) {
-  const decodedModelId = decodeURIComponent(params.modelId)
+  const { modelId } = await params;
+  const decodedModelId = decodeURIComponent(modelId)
   const firstArticleId = await getFirstArticleId(decodedModelId)
 
   if (firstArticleId) {
-    redirect(`/user-manual/${params.modelId}/${encodeURIComponent(firstArticleId)}`)
+    redirect(`/user-manual/${modelId}/${encodeURIComponent(firstArticleId)}`)
   }
 
   const models = await getManualModels()
