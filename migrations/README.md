@@ -88,6 +88,38 @@ The taxonomy v2 rollout is intentionally staged:
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 
+The unified admin inventory read-model rollout is staged separately:
+
+- `057_admin_inventory_read_model.sql` adds the shared normalized search text,
+  trigram and relationship indexes, and the service-role-only
+  `admin_inventory_base` view. The view exposes one row per
+  `product_variants` row, joins the optional vehicle configuration and
+  inventory row, and emits the stable statuses `INACTIVE`, `UNLINKED`,
+  `MISSING_INVENTORY`, `OUT_OF_STOCK`, `LOW_STOCK`, and `IN_STOCK`.
+- The additive `/api/v1/admin/inventory/query` contract reads cursor pages and
+  `/api/v1/admin/inventory/filter-options` reads stable metadata only when the
+  selected product type/product changes. The legacy
+  `/api/v1/admin/inventory` endpoint remains unchanged for existing consumers.
+- `058_admin_product_summary_rpc.sql` is the additive follow-up for databases
+  that already applied `057`. It installs
+  `get_admin_product_inventory_summary(uuid[])`, the bounded summary RPC for
+  `/admin/products`. It returns only one compact row per product, using the
+  same vehicle identity rule as the legacy product summary. Do not rerun `057`
+  to install this function. Apply `058` before this application version: the
+  products API no longer falls back to loading full variant tables.
+- `scripts/benchmark-admin-product-summary.sql` and
+  `scripts/run-admin-product-summary-benchmark.ps1` create a disposable large
+  PostgreSQL dataset, compare legacy/RPC results, and run `EXPLAIN ANALYZE` on
+  both the raw-row and aggregate paths.
+
+The public motorbike metadata rollout adds one follow-up migration:
+
+- `059_published_motorbike_catalog_rpc.sql` joins active `products` with active
+  `vehicle_variants` in one aggregate RPC. The application temporarily falls
+  back to the previous RPC plus publication lookup until `059` is applied.
+  Metadata is cached for five minutes and every admin vehicle write invalidates
+  the matching Next cache tags and Redis key.
+
 Rollback statements or guidance are included at the bottom of each migration
 and must be reviewed before use on an environment containing orders. Migration
 `004` intentionally retains validated checks on rollback because weakening

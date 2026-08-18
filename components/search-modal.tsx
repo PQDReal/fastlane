@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Bot, Loader2, Search, Send, X } from 'lucide-react'
+import { Loader2, Search, Send, X } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import Link from 'next/link'
 
@@ -100,10 +100,6 @@ export function SearchModal() {
       />
       <div className="relative w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all mx-4">
         <div className="border-b border-gray-100 px-4 py-4">
-          <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-            <Bot className="h-5 w-5 text-[#836100]" aria-hidden="true" />
-            <span>Xin chào! Mình có thể giúp bạn tìm xe và phụ kiện.</span>
-          </div>
           <form className="relative flex items-center" onSubmit={(event) => { event.preventDefault(); submitSearch() }}>
             <Search className="h-5 w-5 shrink-0 text-gray-400" />
             <input

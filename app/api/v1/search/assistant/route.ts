@@ -24,7 +24,7 @@ function faqFallbackMessage(query: string, products: Awaited<ReturnType<typeof r
   const topic = FAQ_FACT_TOPICS.find((item) => item.query.test(query))
   if (products.length !== 1) {
     return /(bao hanh|chinh sach)/.test(query)
-      ? 'Dữ liệu chính sách và bảo hành chưa được cập nhật trong catalog.'
+      ? 'Dữ liệu chính sách và bảo hành chưa được cập nhật.'
       : null
   }
   if (!topic) return null

@@ -29,13 +29,15 @@ type CarRow = {
   description: string | null
   displayed_price: number | string | null
   image_urls: string[] | null
+  range_text: string | null
+  seat_count: string | null
 }
 
 async function loadCarCatalogPage(page: number, pageSize: number): Promise<CarCatalogPage> {
   const start = (page - 1) * pageSize
   const result = await getSupabaseAdmin()
     .from('products')
-    .select('id,name,slug,description,displayed_price,image_urls,category:categories!inner(name)', { count: 'exact' })
+    .select('id,name,slug,description,displayed_price,image_urls,range_text:specifications->>range_text,seat_count:specifications->>seat_count,category:categories!inner(name)', { count: 'exact' })
     .eq('is_active', true)
     .eq('categories.name', 'Ô tô điện')
     .range(start, start + pageSize - 1)
@@ -48,7 +50,10 @@ async function loadCarCatalogPage(page: number, pageSize: number): Promise<CarCa
       id: row.id,
       name: row.name,
       slug: row.slug,
-      description: getCarSpecsSummary(row.name) || row.description || 'Xe ô tô điện VinFast',
+      description: getCarSpecsSummary({
+        range_text: row.range_text,
+        seat_count: row.seat_count,
+      }) || row.description || 'Xe ô tô điện VinFast',
       displayedPrice: Number(row.displayed_price) || 0,
       imageUrl: getProductImage(row.name, row.image_urls),
     }))

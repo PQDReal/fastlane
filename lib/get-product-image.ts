@@ -1,8 +1,3 @@
-import fs from 'fs'
-import path from 'path'
-
-let cachedData: any[] | null = null
-
 const OVERRIDE_IMAGES: Record<string, string> = {
   // The public vinfastauto.com PDP asset blocks server-side image proxying (403).
   // Use the equivalent official Shop CDN asset, which permits Next/Image requests.
@@ -57,72 +52,29 @@ export function getProductImage(productName: string, dbImageUrls: string[] | nul
     }
   }
 
-  // 1. Check local prioritized white images
-  const formattedName = productName.replace(/\s/g, '').toLowerCase() // "VF 9" -> "vf9"
-  const localImgPath = path.join(process.cwd(), 'public', 'images', `${formattedName}.png`)
-  if (fs.existsSync(localImgPath)) {
-    return `/images/${formattedName}.png`
-  }
-
-
-
-  if (!cachedData) {
-    try {
-      const dataDir = path.join(process.cwd(), 'public', 'data', 'by_type')
-      const cars = JSON.parse(fs.readFileSync(path.join(dataDir, 'cars.json'), 'utf8'))
-      cachedData = cars
-    } catch (e) {
-      console.error('Failed to load JSON data for product images:', e)
-      return fallback
-    }
-  }
-
-  const richData = (cachedData ?? []).find((item: any) => {
-    if (!item.name) return false;
-    return productName.includes(item.name) || item.name.includes(productName)
-  })
-
-  if (!richData) return fallback
-
-  const imgs = richData.gallery?.exterior_images || richData.images || []
-
-  const validImgs = imgs.filter((img: string) =>
-    !img.toLowerCase().includes('logo') &&
-    !img.toLowerCase().endsWith('.mp4') &&
-    !img.toLowerCase().endsWith('.svg') &&
-    !img.toLowerCase().includes('banner') &&
-    !img.toLowerCase().includes('tvc') &&
-    !img.toLowerCase().includes('360')
-  )
-
-  // Prefer PNGs as they are usually transparent cutouts (good for product cards)
-  const pngImage = validImgs.find((img: string) => img.toLowerCase().endsWith('.png') && !img.toLowerCase().includes('interior'))
-  return pngImage || validImgs[0] || fallback
+  // Product imagery is authored in Supabase. Do not read legacy JSON files on
+  // a request-path fallback; a missing image should be explicit and cheap.
+  return fallback
 }
 
-export function getCarSpecsSummary(productName: string): string | null {
-  if (!cachedData) {
-    try {
-      const dataDir = path.join(process.cwd(), 'public', 'data', 'by_type')
-      const cars = JSON.parse(fs.readFileSync(path.join(dataDir, 'cars.json'), 'utf8'))
-      cachedData = cars
-    } catch (e) {
-      return null
-    }
-  }
+function record(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, any>
+    : {}
+}
 
-  const car = (cachedData ?? []).find((item: any) => item.name && (item.name.includes(productName) || productName.includes(item.name)))
-  if (!car || !car.variants) return null
-
-  // Get the first variant's specs
-  const firstVariantKey = Object.keys(car.variants)[0]
-  if (!firstVariantKey) return null
-  
-  const specs = car.variants[firstVariantKey]?.specs
-  if (!specs) return null
-
-  const seats = specs.seats || specs.interior?.numberOfSeats
-  const distance = specs.powertrain?.distance || specs.range
+export function getCarSpecsSummary(specifications: unknown): string | null {
+  const root = record(specifications)
+  const firstVariant = record(Object.values(record(root.specs))[0])
+  const variantSpecs = record(firstVariant.specs)
+  const seats = root.seat_count
+    ?? root.seats
+    ?? variantSpecs.seats
+    ?? record(variantSpecs.interior).numberOfSeats
+  const distance = root.range_text
+    ?? root.range_km
+    ?? record(variantSpecs.powertrain).distance
+    ?? variantSpecs.range
   
   // Extract number from distance (e.g. "626 (WLTP)" -> "626")
   let cleanDistance = distance

@@ -1,6 +1,9 @@
 import 'server-only'
 
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
+import { MOTORBIKE_CATALOG_CACHE_KEY } from '@/lib/cache-keys'
+import { readRedisJson, writeRedisJson } from '@/lib/redis'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { DEFAULT_MOTORBIKE_SPEC_FIELDS, mergeVehicleSpecFields, normalizeMotorbikeSpecFields, type VehicleSpecField } from '@/lib/vehicle-specifications'
 import { normalizeMotorbikeVersionName } from '@/lib/motorbike-version'
@@ -245,6 +248,32 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
 
 async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
   const supabase = getSupabaseAdmin()
+  const publishedAggregate = await supabase.rpc('list_published_motorbike_catalog')
+  if (!publishedAggregate.error) {
+    // Read model chứa các dòng catalog, còn product_variants vẫn là nguồn giá authority.
+    // Vì vậy phải tải cả hai nguồn trước khi dựng catalog.
+    const activeProducts = await supabase
+      .from('products')
+      .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
+      .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
+      .eq('is_active', true)
+
+    if (activeProducts.error) {
+      throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
+    }
+
+    const authorityPrices = buildAuthorityPriceMap((activeProducts.data ?? []) as ActiveProductRow[])
+    const rows = ((publishedAggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
+      (product.variants ?? []).map((variant) => ({
+        ...variant,
+        product_id: product.product_id,
+        product_name: product.product_name,
+        specs: product.shared_specs,
+      })),
+    )
+    return mapRows(rows, authorityPrices)
+  }
+
   // `vehicle_variants.is_active` describes a sellable colour/version row, while
   // `products.is_active` is the publication state of the whole model. Check the
   // latter explicitly as well: legacy RPC rows can otherwise keep a draft model
@@ -302,9 +331,26 @@ export function toMotorbikeCatalogParityItem(item: Pick<MotorbikeCatalogItem, 'p
   }
 }
 
-// React cache only deduplicates calls within the current request. Do not persist
-// the catalog here: admin/backend edits must be visible after the next reload.
-export const listMotorbikeCatalog = cache(loadMotorbikeCatalog)
+function nextCachedMotorbikeCatalog() {
+  return unstable_cache(
+    loadMotorbikeCatalog,
+    ['motorbike-catalog-v3'],
+    { revalidate: 300, tags: ['vehicle-catalog', 'motorbike-catalog'] },
+  )()
+}
+
+async function distributedMotorbikeCatalog() {
+  const cached = await readRedisJson<MotorbikeCatalogItem[]>(MOTORBIKE_CATALOG_CACHE_KEY)
+  if (cached) return cached
+
+  const result = await nextCachedMotorbikeCatalog()
+  await writeRedisJson(MOTORBIKE_CATALOG_CACHE_KEY, result, 300)
+  return result
+}
+
+// Request-level deduplication wraps a short metadata cache. Every admin create,
+// update and delete path invalidates both the tag and Redis key.
+export const listMotorbikeCatalog = cache(distributedMotorbikeCatalog)
 
 export async function getMotorbikeCatalogBySlug(slug: string) {
   const items = await listMotorbikeCatalog()

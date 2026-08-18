@@ -30,6 +30,8 @@
 | `/api/v1/admin/customers` | GET, POST | `/admin/customers` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/customers/{customerId}` | PATCH, DELETE | `/admin/customers/{customerId}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/inventory` | GET | `/admin/inventory` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/inventory/query` | GET | `/admin/inventory/query` | MAPPED |
+| `/api/v1/admin/inventory/filter-options` | GET | `/admin/inventory/filter-options` | MAPPED |
 | `/api/v1/admin/monitoring/redis` | GET | `/admin/monitoring/redis` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/sentry` | GET | `/admin/monitoring/sentry` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/motorbikes` | POST | `/admin/motorbikes` | MISSING_IN_OPENAPI |
