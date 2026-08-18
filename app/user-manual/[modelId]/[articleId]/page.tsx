@@ -42,7 +42,7 @@ export default async function ManualArticlePage({
   // If they are relative, they might be broken unless we proxy or copy them.
   // The original images might be at `https://om.vinfastauto.com/vi_vn/...`
   // We'll just render the HTML as is, but if images are missing we'll know.
-  const contentHtml = article.content_html
+  const contentHtml = article.content_html || ''
 
   // Get search data (all articles for this model)
   const tree = await getManualTree(decodedModelId)
