@@ -67,6 +67,10 @@ export function NavigationLoadingIndicator() {
       const href = link.getAttribute('href')
       if (!href || href.startsWith('#')) return
 
+      if (link.dataset.noGlobalLoading === 'true') {
+        return
+      }
+
       if (link.dataset.fastlanePending === 'true') {
         event.preventDefault()
         event.stopPropagation()

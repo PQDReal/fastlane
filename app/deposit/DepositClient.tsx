@@ -825,17 +825,12 @@ export function DepositClient({
   const handleNextStep = async () => {
     if (currentStep === 1) {
       const selectedVariantName = selectedVariant.replace(`${currentCar.name} `, '')
-      const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase()
-      const variantMatches = (variant: any) => {
-        const selected = normalize(selectedVariantName)
-        const version = normalize(variant.version)
-        const variantName = normalize(variant.variant_name)
-        return (version && (version === selected || variantName === selected)) ||
-          (variantName && (variantName.includes(selected) || selected.includes(variantName)))
-      }
       const exactInventoryRow = dbVariants.find((variant) =>
-        variantMatches(variant) &&
-        normalize(variant.color) === normalize(selectedColor),
+        matchesDepositVehicleVariant(variant, {
+          vehicleVariant: selectedVariant,
+          exteriorColor: selectedColor,
+          interiorColor: selectedInteriorColor || undefined,
+        }),
       )
       if (dbVariantsLoading) {
         addToast({ kind: 'warning', title: 'Đang kiểm tra tồn kho', message: 'Vui lòng chờ hệ thống kiểm tra cấu hình xe.' })
