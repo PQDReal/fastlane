@@ -6,7 +6,7 @@ import { getProductDetailsRepository } from '../../catalog/product-details'
 import { compareProductsRepository } from '../../catalog/comparison'
 import { getCurrentPromotionsRepository } from '../../catalog/promotions'
 import { discoverSalesAgentAccessories } from '../../catalog/accessories'
-import { searchKnowledgeRepository } from '../../knowledge/repository'
+import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
 import type {
   BrowseCatalogInput,
   DataToolName,
@@ -17,6 +17,7 @@ import type {
   GetCurrentPromotionsInput,
   ResolveCatalogEntitiesInput,
   SearchKnowledgeInput,
+  SearchUserManualsInput,
   ToolObservationRef,
   ToolResult,
 } from '../../contracts'
@@ -143,6 +144,70 @@ export async function executeDataTool(
           },
         }
       }
+
+      case 'search_user_manuals': {
+        // Trigger Turbopack recompile
+        const input = args as SearchUserManualsInput
+        const searchResults = await searchUserManualRepository(input.query, input.modelSeries, input.year, input.topK ?? 3)
+
+        const evidence: EvidenceRecord[] = searchResults.map((k, index) => {
+          const lastUnderscore = k.articleId.lastIndexOf('_')
+          const parsedModelId = lastUnderscore > 0 ? k.articleId.substring(0, lastUnderscore) : ''
+          const parsedArticleId = lastUnderscore > 0 ? k.articleId.substring(lastUnderscore + 1) : k.articleId
+
+          const facts = [
+            { factRef: `fact-manual-title-${k.chunkId}`, factPath: 'title', valueHash: k.articleTitle },
+            { factRef: `fact-manual-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
+            { factRef: `fact-manual-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
+            { factRef: `fact-manual-articleId-${k.chunkId}`, factPath: 'article_id', valueHash: parsedArticleId },
+            { factRef: `fact-manual-modelId-${k.chunkId}`, factPath: 'model_id', valueHash: parsedModelId },
+          ]
+          if (k.imageUrl && index === 0) {
+            facts.push({ factRef: `fact-manual-image-${k.chunkId}`, factPath: 'image_url', valueHash: k.imageUrl })
+          }
+          return {
+            evidenceId: `ev-manual-${k.chunkId}-${readAt}`,
+            source: { system: 'SUPABASE', resource: 'manual_article_chunks' },
+            entity: { kind: 'KNOWLEDGE_SNIPPET', id: k.chunkId },
+            facts,
+            readAt,
+          }
+        })
+
+        const observation: ToolObservationRef = {
+          observationId: `obs-${toolCallId}`,
+          toolCallId,
+          outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+          issueCodes: [],
+          inputHash: JSON.stringify(input),
+          readAt,
+        }
+
+        return {
+          schemaVersion: '2.0',
+          toolCallId,
+          tool: 'search_user_manuals',
+          readAt,
+          dataAsOf,
+          evidence,
+          observation,
+          issues: [],
+          appliedBindings: [],
+          outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
+          completeness: 'FULL',
+          data: {
+            snippets: searchResults.map((r) => ({
+              id: r.chunkId,
+              articleId: r.articleId,
+              modelId: `${input.modelSeries}_${input.year}`,
+              title: `${r.articleTitle} - ${r.sectionTitle}`,
+              content: r.content,
+              imageUrl: r.imageUrl,
+            })),
+          },
+        }
+      }
+
 
       default: {
         const exhaustiveCheck: never = name

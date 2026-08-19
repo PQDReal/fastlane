@@ -62,6 +62,7 @@
     "@supabase/supabase-js": "^2.110.8",
     "@types/nodemailer": "^8.0.1",
     "ai": "7.0.64",
+    "cheerio": "^1.2.0",
     "class-variance-authority": "latest",
     "cloudinary": "^2.10.0",
     "clsx": "latest",

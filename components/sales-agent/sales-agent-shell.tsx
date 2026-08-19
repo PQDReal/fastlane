@@ -10,6 +10,8 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
 import { ProductCardBlock } from './product-card-block'
 import { ComparisonCardBlock } from './comparison-card-block'
+import { ManualImageBlock } from './manual-image-block'
+import { ManualReaderPanel } from './manual-reader-panel'
 import { SuggestionChips } from './suggestion-chips'
 import { ActionButtons } from './action-buttons'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
@@ -246,6 +248,72 @@ export function SalesAgentShell() {
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
 
+  const SESSION_STORAGE_KEY = 'fastlane_sales_agent_session'
+  const SESSION_EXPIRY_MS = 5 * 60 * 1000
+
+  // Restore session on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (saved) {
+        const data = JSON.parse(saved)
+        if (Date.now() - data.lastActiveAt < SESSION_EXPIRY_MS) {
+          setMessages(data.messages)
+          conversationIdRef.current = data.conversationId
+        } else {
+          sessionStorage.removeItem(SESSION_STORAGE_KEY)
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load chat session', e)
+    }
+  }, [])
+
+  // Save session when messages update
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        messages,
+        conversationId: conversationIdRef.current,
+        lastActiveAt: Date.now()
+      }))
+    }
+  }, [messages])
+
+  const [dismissedManualArticle, setDismissedManualArticle] = useState<string | null>(null)
+
+  // Find the latest user manual context to display in the right pane
+  const latestManualContext = useMemo(() => {
+    // Search from newest to oldest message
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant') {
+        const refBlock = msg.blocks?.find(b => b.kind === 'MANUAL_REFERENCE')
+        if (refBlock && 'articleId' in refBlock && 'modelId' in refBlock) {
+          return { modelId: String(refBlock.modelId), articleId: String(refBlock.articleId) }
+        }
+        
+        if (msg.content) {
+          const match = msg.content.match(/\/user-manual\/([^\/]+)\/([^\)\s"']+)/);
+          if (match) {
+            return { modelId: decodeURIComponent(match[1]), articleId: match[2] };
+          }
+        }
+      }
+    }
+    return null;
+  }, [messages])
+
+  // Decide whether to show manual right pane
+  const showManualPanel = latestManualContext && dismissedManualArticle !== latestManualContext.articleId
+
+  // Auto-expand panel when manual is referenced
+  useEffect(() => {
+    if (showManualPanel) {
+      setIsExpanded(true)
+    }
+  }, [showManualPanel])
+
   // Auto-expand textarea smoothly up to 5 lines
   useEffect(() => {
     const textarea = textareaRef.current
@@ -274,6 +342,7 @@ export function SalesAgentShell() {
     setDraft('')
     setShowScrollButton(false)
     conversationIdRef.current = undefined
+    sessionStorage.removeItem('fastlane_sales_agent_session')
   }, [])
 
   useEffect(() => {
@@ -626,6 +695,15 @@ export function SalesAgentShell() {
                               />
                             )
                           }
+                          if (block.kind === 'MANUAL_IMAGE') {
+                            return (
+                              <ManualImageBlock
+                                key={`block-${idx}`}
+                                imageUrl={block.imageUrl}
+                                caption={block.caption}
+                              />
+                            )
+                          }
                           return null
                         })}
 
@@ -718,8 +796,18 @@ export function SalesAgentShell() {
           {isExpanded && (
             <div className="hidden lg:flex flex-col h-full overflow-y-auto bg-slate-50/90 w-[42%] p-5 space-y-4 custom-scrollbar">
               
-              {/* Header Showcase */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              {showManualPanel ? (
+                <div className="flex-1 h-full min-h-0">
+                  <ManualReaderPanel 
+                    modelId={latestManualContext.modelId} 
+                    articleId={latestManualContext.articleId} 
+                    onClose={() => setDismissedManualArticle(latestManualContext.articleId)}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Header Showcase */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
                 <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm mb-1.5">
                   <Zap size={16} className="text-amber-500" />
                   <span>Trung Tâm Hỗ Trợ Mua Xe FASTLANE</span>
@@ -817,6 +905,8 @@ export function SalesAgentShell() {
                   </li>
                 </ul>
               </div>
+            </>
+          )}
 
             </div>
           )}
