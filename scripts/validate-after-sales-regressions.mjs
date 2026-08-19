@@ -103,6 +103,56 @@ rejectFact('temporal interval must not inherit distance policy from counterpart'
   && fact.unit === 'year'
   && fact.distancePolicy === 'limited')
 
+// New semantic invariants from expert review
+expectFact('VF 8 and VF 8 The All New co-exist without dropping plain VF 8', fact =>
+  fact.model === 'VF 8'
+  && fact.subject === 'vehicle'
+  && fact.valueNumeric === 10
+  && fact.unit === 'year')
+expectFact('VF 8 The All New exists as separate entity', fact =>
+  fact.model === 'VF 8 The All New'
+  && fact.subject === 'vehicle'
+  && fact.valueNumeric === 7
+  && fact.unit === 'year')
+
+expectFact('VF 3 accessory unlimited distance', fact =>
+  fact.model === 'VF 3'
+  && fact.subject === 'accessory'
+  && fact.distancePolicy === 'unlimited')
+expectFact('Minio Green 12V battery unlimited distance', fact =>
+  fact.model === 'VF Minio Green'
+  && fact.subject === 'battery_12v'
+  && fact.distancePolicy === 'unlimited')
+
+expectFact('VF 7 emergency safety wait time model specific', fact =>
+  fact.model === 'VF 7'
+  && fact.factType === 'emergency_safety_wait_time'
+  && fact.valueNumeric === 5)
+
+const factGroupSubjects = new Map()
+for (const fact of facts) {
+  if (!factGroupSubjects.has(fact.factGroupId)) factGroupSubjects.set(fact.factGroupId, new Set())
+  factGroupSubjects.get(fact.factGroupId).add(fact.subject)
+}
+for (const [groupId, subjects] of factGroupSubjects) {
+  if (subjects.size > 1) {
+    failures.push(`fact group ${groupId} crosses subjects: ${[...subjects].join(', ')}`)
+  }
+}
+
+const intervalGroupScopes = new Map()
+for (const fact of facts) {
+  if (fact.intervalGroupId) {
+    if (!intervalGroupScopes.has(fact.intervalGroupId)) intervalGroupScopes.set(fact.intervalGroupId, new Set())
+    intervalGroupScopes.get(fact.intervalGroupId).add(`${fact.subject}|${fact.applicability}`)
+  }
+}
+for (const [intervalId, scopes] of intervalGroupScopes) {
+  if (scopes.size > 1) {
+    failures.push(`interval group ${intervalId} crosses scopes: ${[...scopes].join(', ')}`)
+  }
+}
+
 const usageGroups = new Map()
 for (const fact of facts.filter(item => item.serviceType === 'warranty')) {
   const key = [fact.vehicleType, fact.powertrain, fact.model || 'all_models', fact.subject, fact.applicability, fact.action, fact.factType, fact.valueNumeric, fact.unit, fact.distancePolicy, fact.qualifier || ''].join('|')
@@ -126,7 +176,7 @@ if (pdfProvenances.some(provenance => !Number.isInteger(provenance.pdfPage) || p
 const report = {
   validatorVersion: 'after-sales-regressions-v1',
   checkedAt: new Date().toISOString(),
-  assertions: 17,
+  assertions: 22,
   facts: facts.length,
   pdfProvenances: pdfProvenances.length,
   failures,

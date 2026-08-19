@@ -20,9 +20,8 @@ const allowedApplicabilities = new Set(['general', 'original_vehicle', 'original
 const allowedPowertrains = new Set(['all', 'petrol', 'electric'])
 const allowedDistancePolicies = new Set(['not_stated', 'limited', 'unlimited'])
 const allowedIntervalRelations = new Set(['or'])
-const allowedFactSemanticFlags = new Set(['SOURCE_SCOPE_CONFLICT', 'ACTION_BINDING_AMBIGUOUS'])
+const allowedFactSemanticFlags = new Set(['SOURCE_SCOPE_CONFLICT', 'ACTION_BINDING_AMBIGUOUS', 'INCOMPLETE_ALTERNATIVE_TRIGGER', 'UNRESOLVED_MODEL_ALIAS'])
 const allowedGroupSemanticFlags = new Set(['MULTI_ACTION_CLAUSE'])
-const allowedOrigins = new Set(['snapshot_page_text', 'asset_text_extraction', 'asset_ocr', 'manifest_transcription'])
 const controlledFactTypes = new Set(data.controlledFactTypes || [])
 const manifestSources = new Map((manifest.sources || []).map(source => [source.id, source]))
 const extractedSources = new Map((extracted.records || []).map(source => [source.sourceId, source]))
@@ -79,6 +78,8 @@ if (!Array.isArray(data.facts)) errors.push('facts must be an array')
 
 const factIds = new Set()
 const canonicalKeys = new Set()
+const factGroupBySubject = new Map()
+const intervalGroupByApplicability = new Map()
 
 for (const fact of data.facts || []) {
   const factId = fact.factId || 'unknown'
@@ -90,6 +91,16 @@ for (const fact of data.facts || []) {
   factIds.add(factId)
   if (canonicalKeys.has(fact.canonicalKey)) errors.push(`${factId}: duplicate canonicalKey`)
   canonicalKeys.add(fact.canonicalKey)
+
+  // Track group subjects and interval group scopes
+  if (fact.factGroupId) {
+    if (!factGroupBySubject.has(fact.factGroupId)) factGroupBySubject.set(fact.factGroupId, new Set())
+    factGroupBySubject.get(fact.factGroupId).add(fact.subject)
+  }
+  if (fact.intervalGroupId) {
+    if (!intervalGroupByApplicability.has(fact.intervalGroupId)) intervalGroupByApplicability.set(fact.intervalGroupId, new Set())
+    intervalGroupByApplicability.get(fact.intervalGroupId).add(`${fact.subject}|${fact.applicability}`)
+  }
 
   if (fact.canonicalKey !== expectedCanonicalKey(fact)) errors.push(`${factId}: canonicalKey does not match fact fields`)
   if (!controlledFactTypes.has(fact.factType)) errors.push(`${factId}: uncontrolled factType ${fact.factType}`)
@@ -178,6 +189,7 @@ for (const fact of data.facts || []) {
     if (provenanceKeys.has(identity)) provenanceError(factId, 'duplicate provenance evidence')
     provenanceKeys.add(identity)
 
+    const allowedOrigins = new Set(['snapshot_page_text', 'asset_text_extraction', 'asset_ocr', 'manifest_transcription'])
     if (!allowedOrigins.has(provenance.origin)) provenanceError(factId, `invalid provenance origin ${provenance.origin}`)
     if (!manifestSources.has(provenance.sourceId)) provenanceError(factId, `provenance sourceId not found: ${provenance.sourceId}`)
     if (!isOfficialUrl(provenance.sourceUrl)) provenanceError(factId, 'provenance source URL is not official')
@@ -249,6 +261,20 @@ for (const fact of data.facts || []) {
   if (fact.confidence < 0.7) warnings.push(`${factId}: low confidence ${fact.confidence}`)
   if (fact.factType.startsWith('vehicle_warranty_') && !fact.model) warnings.push(`${factId}: vehicle warranty has no model`)
   if (fact.provenances.every(item => item.origin === 'asset_ocr')) warnings.push(`${factId}: fact is supported only by OCR`)
+}
+
+// Enforce FACT_GROUP_CROSS_SUBJECT = 0
+for (const [groupId, subjects] of factGroupBySubject) {
+  if (subjects.size > 1) {
+    errors.push(`FACT_GROUP_CROSS_SUBJECT: group ${groupId} contains multiple subjects: ${[...subjects].join(', ')}`)
+  }
+}
+
+// Enforce INTERVAL_GROUP_CROSS_APPLICABILITY = 0
+for (const [intervalId, scopes] of intervalGroupByApplicability) {
+  if (scopes.size > 1) {
+    errors.push(`INTERVAL_GROUP_CROSS_APPLICABILITY: interval group ${intervalId} contains multiple scopes: ${[...scopes].join(', ')}`)
+  }
 }
 
 for (const finding of detectSemanticConflicts(data.facts || [])) {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "sourceSystem": "VINFAST_OFFICIAL",
-  "generatedAt": "2026-08-19T06:02:17.758Z",
+  "generatedAt": "2026-08-19T08:24:10.352Z",
   "purpose": "external_review_cache",
   "publicationPolicy": "official_sources_only; admin_review_required; not_publication_approved",
   "notes": [
@@ -1192,7 +1192,7 @@
     }
   ],
   "parserVersion": "after-sales-assets-v2",
-  "parsedAt": "2026-08-19T06:02:18.091Z",
+  "parsedAt": "2026-08-19T08:24:10.769Z",
   "parserMethod": "source_scoped_url_label_context_rules",
   "summary": {
     "assets": 52,

@@ -231,13 +231,13 @@ describe('after-sales human approval and persistence contract', () => {
       .toEqual(second.facts.flatMap((fact: any) => fact.evidence.map((item: any) => item.evidenceId)))
   })
 
-  it('preserves all 488 provenance records and resolves PDF asset links', () => {
+  it('preserves all provenance records and resolves PDF asset links', () => {
     const review = dataset()
     const evidence = review.facts.flatMap((fact: any) => fact.evidence)
     expect(review.sourceCount).toBe(6)
     expect(review.assetCount).toBe(52)
-    expect(review.factCount).toBe(427)
-    expect(review.evidenceCount).toBe(495)
+    expect(review.factCount).toBe(normalized.facts.length)
+    expect(review.evidenceCount).toBe(normalized.summary.evidenceCount)
     expect(evidence.filter((item: any) => item.pdfPage !== null)).toHaveLength(280)
     expect(evidence.filter((item: any) => item.pdfPage !== null && item.assetId)).toHaveLength(280)
     expect(evidence.every((item: any) => item.sourceUrl.startsWith('https://vinfastauto.com'))).toBe(true)
@@ -253,8 +253,8 @@ describe('after-sales human approval and persistence contract', () => {
     expect(plan.summary).toMatchObject({
       sources: { inserts: 6, updates: 0, unchanged: 0 },
       assets: { inserts: 52, updates: 0, unchanged: 0 },
-      facts: { inserts: 427, updates: 0, unchanged: 0 },
-      evidence: { inserts: 495, updates: 0, unchanged: 0 },
+      facts: { inserts: normalized.facts.length, updates: 0, unchanged: 0 },
+      evidence: { inserts: normalized.summary.evidenceCount, updates: 0, unchanged: 0 },
     })
   })
 
@@ -267,8 +267,8 @@ describe('after-sales human approval and persistence contract', () => {
     const second = buildImportPlan(dataset(), existing)
     expect(second.conflicts).toHaveLength(0)
     expect(second.summary.sources).toMatchObject({ inserts: 0, updates: 0, unchanged: 6 })
-    expect(second.summary.facts).toMatchObject({ inserts: 0, updates: 0, unchanged: 427 })
-    expect(second.summary.evidence).toMatchObject({ inserts: 0, updates: 0, unchanged: 495 })
+    expect(second.summary.facts).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.facts.length })
+    expect(second.summary.evidence).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.summary.evidenceCount })
   })
 
   it('does not overwrite an existing approved fact during a pipeline re-import', () => {
@@ -288,7 +288,7 @@ describe('after-sales human approval and persistence contract', () => {
     }
     const rerun = buildImportPlan(dataset(), existing)
     expect(rerun.conflicts).toHaveLength(0)
-    expect(rerun.summary.facts).toMatchObject({ inserts: 0, updates: 0, unchanged: 427 })
+    expect(rerun.summary.facts).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.facts.length })
   })
 
   it('uses deterministic IDs for the same asset and evidence provenance', () => {

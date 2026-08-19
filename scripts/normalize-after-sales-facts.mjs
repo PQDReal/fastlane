@@ -123,7 +123,7 @@ function normalizeModel(raw) {
 }
 
 function modelsFrom(text, url = '') {
-  const haystack = `${text || ''} ${url || ''}`
+  const haystack = `${text || ''} ${url || ''}`.replace(/[_\-/]+/g, ' ')
   const patterns = [
     /\bVF\s*8\s+The\s+All\s+New\b/giu,
     /\bL(?:ạc|ac)\s+H(?:ồng|ong)\s+900\s*LX\b/giu,
@@ -137,11 +137,20 @@ function modelsFrom(text, url = '') {
     /\bVF\s*e34\b/giu,
     /\bVF\s*[3-9]\b/giu,
   ]
+
+  let workingHaystack = haystack
   const models = new Set()
+
   for (const pattern of patterns) {
-    for (const match of haystack.matchAll(pattern)) models.add(normalizeModel(match[0]))
+    const matches = [...workingHaystack.matchAll(pattern)]
+    for (const match of matches) {
+      models.add(normalizeModel(match[0]))
+      const start = match.index
+      const len = match[0].length
+      workingHaystack = workingHaystack.slice(0, start) + ' '.repeat(len) + workingHaystack.slice(start + len)
+    }
   }
-  if (models.has('VF 8 The All New')) models.delete('VF 8')
+
   return [...models]
 }
 
@@ -309,7 +318,7 @@ function applicabilityFrom(source, statement, precedingText, evidenceContext, su
 }
 
 function explicitVehicleTypeFrom(text) {
-  const context = String(text || '')
+  const context = String(text || '').replace(/[_\-/]+/g, ' ')
   const motorbikeMatches = [...context.matchAll(/xe máy điện|xe máy|motorbike|scooter/giu)]
   const carMatches = [...context.matchAll(/ô tô|xe ô tô|xe xăng|xe điện|VF\s*(?:e34|[3-9])|Fadil|Lux|President/giu)]
   const motorbikeIndex = motorbikeMatches.at(-1)?.index ?? -1
@@ -327,7 +336,7 @@ function vehicleTypeFrom(source, statement, precedingText, models) {
 }
 
 function explicitPowertrainFrom(text) {
-  const context = String(text || '')
+  const context = String(text || '').replace(/[_\-/]+/g, ' ')
   const electricMatches = [...context.matchAll(/ô\s*tô\s*điện|xe\s+máy\s+điện|xe\s+điện|động\s+cơ\s+điện|electric/giu)]
   const petrolMatches = [...context.matchAll(/ô\s*tô\s+xăng|xe\s+xăng|động\s+cơ\s+xăng|petrol|gasoline/giu)]
   const electricIndex = electricMatches.at(-1)?.index ?? -1
@@ -336,23 +345,29 @@ function explicitPowertrainFrom(text) {
   return electricIndex > petrolIndex ? 'electric' : 'petrol'
 }
 
-function powertrainFrom(source, statement) {
-  const explicit = explicitPowertrainFrom(statement)
+function powertrainFrom(source, statement, asset = null) {
+  const explicit = explicitPowertrainFrom(`${statement} ${asset?.label || ''} ${asset?.url || ''}`)
   if (explicit !== 'all') return explicit
   return source.powertrain || 'all'
 }
 
-function distancePolicyFrom(statement, unit, clause = null, excerpt = '') {
-  const context = String(clause?.clause || statement || excerpt || '')
-  if (/không\s+giới\s+hạn\s+(?:quãng\s+đường|số\s+km|km)/iu.test(context)) return 'unlimited'
-  if (unit === 'km' || /\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?)/iu.test(context)) return 'limited'
+function distancePolicyFrom(statement, unit, clause = null, excerpt = '', evidenceContext = '') {
+  const broadContext = `${clause?.clause || ''} ${statement || ''} ${excerpt || ''} ${evidenceContext || ''}`
+  if (/không\s*giới\s*hạn[\s|]+(?:quãng\s*đường(?:\s*sử\s*dụng)?|số\s*km|km)|\bkhông\s*giới\s*hạn\s*km\b|\bunlimited\s*km\b/iu.test(broadContext)) {
+    return 'unlimited'
+  }
+  if (unit === 'km' || /\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?)/iu.test(clause?.clause || '')) {
+    return 'limited'
+  }
   return 'not_stated'
 }
 
-function intervalGroupDistancePolicyFrom(statement, intervalRelation) {
+function intervalGroupDistancePolicyFrom(statement, intervalRelation, excerpt = '') {
   if (!intervalRelation) return null
-  const context = String(statement || '')
-  if (/không\s+giới\s+hạn\s+(?:quãng\s+đường|số\s+km|km)/iu.test(context)) return 'unlimited'
+  const context = `${statement || ''} ${excerpt || ''}`
+  if (/không\s*giới\s*hạn[\s|]+(?:quãng\s*đường(?:\s*sử\s*dụng)?|số\s*km|km)|\bkhông\s*giới\s*hạn\s*km\b|\bunlimited\s*km\b/iu.test(context)) {
+    return 'unlimited'
+  }
   if (/\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?)/iu.test(context)) return 'limited'
   return 'not_stated'
 }
@@ -463,8 +478,12 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
   if (unit === 'percent' && valueNumeric > 100) return []
   const clause = decomposeSemanticClause(statement, matchedValue)
 
-  const detectedModels = modelsFrom(statement, `${asset?.label || ''} ${asset?.url || ''}`)
+  // Detect models from statement AND asset metadata without collapsing
+  const statementModels = modelsFrom(statement)
+  const assetModels = modelsFrom('', `${asset?.label || ''} ${asset?.url || ''}`)
+  const detectedModels = statementModels.length ? statementModels : assetModels
   const models = detectedModels.length ? detectedModels : [null]
+
   const vehicleType = vehicleTypeFrom(source, statement, precedingText, detectedModels)
   const explicitVehicleType = explicitVehicleTypeFrom(statement)
   const semanticFlags = [...clause.flags]
@@ -476,12 +495,25 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
   const applicability = applicabilityFrom(source, statement, precedingText, evidenceContext, subject)
   if (applicability === 'general_accessories_non_fixed') usageCondition = 'general'
   const action = actionFrom(source, statement, factType, clause.actionHint, subject)
-  const groupSeed = [source.sourceId, origin, asset?.contentHash || source.contentHash || source.sourceUrl, pdfPage || '', statement].join('|')
+
+  // Seed factGroupId with occurrence physical location AND subject so it NEVER crosses subjects
+  const groupSeed = [
+    source.sourceId,
+    origin,
+    asset?.contentHash || source.contentHash || source.sourceUrl,
+    pdfPage || '',
+    evidenceWindow.index.sourceStart,
+    evidenceWindow.index.sourceEnd,
+    subject,
+  ].join('|')
   const factGroupId = `af_group_${sha1(groupSeed, 16)}`
+
+  // Seed intervalGroupId with exact semantic scope so it NEVER crosses applicability or subject
+  const intervalGroupDistancePolicy = intervalGroupDistancePolicyFrom(statement, clause.intervalRelation, excerpt)
   const intervalGroupId = clause.intervalRelation
-    ? `af_interval_${sha1([factGroupId, action, clause.intervalRelation].join('|'), 16)}`
+    ? `af_interval_${sha1([factGroupId, subject, applicability, usageCondition, action, models[0] || 'all_models', clause.intervalRelation].join('|'), 16)}`
     : null
-  const intervalGroupDistancePolicy = intervalGroupDistancePolicyFrom(statement, clause.intervalRelation)
+
   const extractionMethod = origin === 'snapshot_page_text' ? 'browser_inner_text' : asset?.extraction?.method || null
   const provenance = {
     origin,
@@ -495,8 +527,11 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
     extractionMethod,
     extractionConfidence: asset?.extraction?.confidence ?? null,
     excerpt,
+    headingPath: evidenceWindow.headingPath || [],
     contextIndex: evidenceWindow.index,
   }
+
+  const distancePolicy = distancePolicyFrom(statement, unit, clause, excerpt, evidenceContext)
 
   return models.map(model => ({
     factGroupId,
@@ -517,8 +552,8 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
     intervalRelation: clause.intervalRelation,
     intervalGroupId,
     intervalGroupDistancePolicy,
-    powertrain: powertrainFrom(source, statement),
-    distancePolicy: distancePolicyFrom(statement, unit, clause, excerpt),
+    powertrain: powertrainFrom(source, statement, asset),
+    distancePolicy,
     confidence,
     reviewStatus: semanticFlags.length || origin === 'asset_ocr' || (factType.startsWith('vehicle_') && !model) ? 'needs_review' : 'pending',
     semanticFlags,
@@ -576,7 +611,7 @@ function curatedCandidates() {
       for (const rawModel of transcribed.vehicleModels || []) {
         const model = normalizeModel(rawModel)
         const excerpt = `${model}: ${text}`
-        const factGroupId = `af_group_${sha1([source.sourceId, 'manifest_transcription', text].join('|'), 16)}`
+        const factGroupId = `af_group_${sha1([source.sourceId, 'manifest_transcription', text, model].join('|'), 16)}`
         candidates.push({
           factGroupId,
           sourceId: source.sourceId,
@@ -615,6 +650,7 @@ function curatedCandidates() {
             extractionMethod: 'manual_transcription',
             extractionConfidence: null,
             excerpt,
+            headingPath: ['Chính sách bảo hành'],
           }],
         })
       }
@@ -637,6 +673,21 @@ function canonicalKey(fact) {
     fact.unit,
     fact.distancePolicy || 'not_stated',
     fact.qualifier || '',
+  ].join('|')
+}
+
+function semanticCoreKey(fact) {
+  return [
+    fact.vehicleType || '',
+    fact.powertrain || 'all',
+    fact.model || 'all_models',
+    fact.subject,
+    fact.usageCondition,
+    fact.applicability,
+    fact.action,
+    fact.factType,
+    fact.valueNumeric,
+    fact.unit,
   ].join('|')
 }
 
@@ -714,6 +765,29 @@ for (const candidate of rawCandidates) {
   usageAliasesMerged++
 }
 
+// Subsumption: merge under-specified candidates into richer explicit candidates
+const explicitCores = new Map()
+for (const candidate of rawCandidates) {
+  const core = semanticCoreKey(candidate)
+  const isExplicit = Boolean(candidate.qualifier || (candidate.distancePolicy === 'unlimited'))
+  if (isExplicit) {
+    if (!explicitCores.has(core)) explicitCores.set(core, [])
+    explicitCores.get(core).push(candidate)
+  }
+}
+
+for (const candidate of rawCandidates) {
+  const core = semanticCoreKey(candidate)
+  const explicits = explicitCores.get(core)
+  if (explicits && explicits.length > 0) {
+    const target = explicits[0]
+    if (!candidate.qualifier && target.qualifier) candidate.qualifier = target.qualifier
+    if (candidate.distancePolicy === 'not_stated' && target.distancePolicy === 'unlimited') {
+      candidate.distancePolicy = 'unlimited'
+    }
+  }
+}
+
 const aggregated = new Map()
 for (const candidate of rawCandidates) {
   const key = canonicalKey(candidate)
@@ -731,9 +805,6 @@ for (const candidate of rawCandidates) {
   }
   existing.sourceIds = [...new Set([...existing.sourceIds, candidate.sourceId])]
   existing.sourceIds.sort((a, b) => a.localeCompare(b))
-  if (String(candidate.factGroupId).localeCompare(String(existing.factGroupId)) < 0) {
-    existing.factGroupId = candidate.factGroupId
-  }
   if (String(candidate.sourceId).localeCompare(String(existing.sourceId)) < 0) {
     existing.sourceId = candidate.sourceId
   }
@@ -751,10 +822,10 @@ for (const candidate of rawCandidates) {
   existing.groupSemanticFlags = [...new Set([...(existing.groupSemanticFlags || []), ...(candidate.groupSemanticFlags || [])])]
   existing.groupSemanticFlags.sort()
   if (!existing.intervalRelation && candidate.intervalRelation) existing.intervalRelation = candidate.intervalRelation
-  const intervalGroupIds = [existing.intervalGroupId, candidate.intervalGroupId].filter(Boolean).sort()
-  existing.intervalGroupId = intervalGroupIds[0] || null
-  const intervalGroupPolicies = [existing.intervalGroupDistancePolicy, candidate.intervalGroupDistancePolicy].filter(Boolean).sort()
-  existing.intervalGroupDistancePolicy = intervalGroupPolicies[0] || null
+  if (!existing.intervalGroupId && candidate.intervalGroupId) existing.intervalGroupId = candidate.intervalGroupId
+  if (!existing.intervalGroupDistancePolicy && candidate.intervalGroupDistancePolicy) {
+    existing.intervalGroupDistancePolicy = candidate.intervalGroupDistancePolicy
+  }
   if (candidate.reviewStatus === 'pending_admin_review') existing.reviewStatus = 'pending_admin_review'
   if (candidate.reviewStatus === 'needs_review') existing.reviewStatus = 'needs_review'
 }

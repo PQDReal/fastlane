@@ -96,6 +96,27 @@ function wordSafeEnd(text, end, upperBound) {
   return candidates.length ? Math.max(...candidates) : end
 }
 
+const HEADING_PATTERNS = [
+  /bảo\s+hành\s+(?:phụ\s+kiện|phụ\s+tùng|pin|ắc\s*[-–—]?\s*quy|sơn|gỉ\s+sét|các\s+bộ\s+phận\s+treo|lốp|xe\s+mới|ô\s+tô)/iu,
+  /thời\s+hạn\s+bảo\s+hành/iu,
+  /(?:quy\s+định|chính\s+sách|điều\s+kiện)\s+bảo\s+hành/iu,
+  /hạng\s+mục\s+bảo\s+dưỡng/iu,
+  /cứu\s+hộ/iu,
+]
+
+export function extractHeadingPath(text, index) {
+  const before = text.slice(Math.max(0, index - 2000), index)
+  const lines = before.split(/\n+/).map(l => l.trim()).filter(Boolean)
+  const headings = []
+  for (const line of lines) {
+    if (line.length > 120) continue
+    if (HEADING_PATTERNS.some(p => p.test(line)) || /^(?:[I|V|X]+|\d+|[A-Z])[.)]\s+/i.test(line) || /:\s*$/.test(line)) {
+      headings.push(clean(line.replace(/:\s*$/, '')))
+    }
+  }
+  return headings.slice(-2)
+}
+
 /** Keep evidence within the current sentence/paragraph; never borrow a later block. */
 export function buildEvidenceContext(text, index, matchLength, {
   maxChars = DEFAULT_MAX_CHARS,
@@ -121,9 +142,12 @@ export function buildEvidenceContext(text, index, matchLength, {
     excerptEnd = wordSafeEnd(value, excerptEnd, sentence.end)
   }
 
+  const headings = extractHeadingPath(value, index)
+
   return {
     excerpt: renderContext(value.slice(excerptStart, excerptEnd)),
     statement,
+    headingPath: headings,
     index: {
       version: 'after-sales-evidence-context-v1',
       boundaryType: startBoundary.type,
@@ -138,6 +162,7 @@ export function buildEvidenceContext(text, index, matchLength, {
       lineBreaksAreBoundaries,
       clipped,
       crossedFutureBoundary: false,
+      headingPath: headings,
     },
   }
 }

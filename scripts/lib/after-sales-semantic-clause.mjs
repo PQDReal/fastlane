@@ -8,6 +8,7 @@ const ACTIONS = [
 
 const CONNECTORS = /\s+(hoặc|hay|và|đồng thời|sau đó)\s+/giu
 const THRESHOLD_SIGNAL = /\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?|năm|years?|tháng|months?|ngày|days?|phút|minutes?)\b|hàng\s+(?:năm|tháng|ngày)|mỗi\s+(?:lần|\d)|sau\s+mỗi\s+\d/iu
+const EVENT_TRIGGER_SIGNAL = /dựa\s+vào\s+cảnh\s+báo|cảnh\s+báo\s+mức\s+dầu|sau\s+mỗi\s+lần\s+đổ\s+xăng|trước\s+khi\s+chạy|màn\s+hình\s+hiển\s+thị/iu
 
 export function detectActionHint(text) {
   for (const [action, pattern] of ACTIONS) if (pattern.test(String(text || ''))) return action
@@ -32,7 +33,9 @@ export function decomposeSemanticClause(statement, rawValue) {
       actionConflict: false,
       qualifierHint: null,
       intervalRelation: null,
+      nonNumericAlternativeTriggers: [],
       flags: [],
+      groupSemanticFlags: [],
     }
   }
 
@@ -63,19 +66,34 @@ export function decomposeSemanticClause(statement, rawValue) {
   const nextActionConflict = Boolean(nextAction && actionHint && nextAction !== actionHint)
     && ['hoặc', 'hay', 'và', 'đồng thời', 'sau đó'].includes(nextConnector)
   const actionConflict = previousActionConflict || nextActionConflict
+  
   const previousThresholdAlternative = ['hoặc', 'hay'].includes(connector)
-    && THRESHOLD_SIGNAL.test(previousLocalClause)
+    && (THRESHOLD_SIGNAL.test(previousLocalClause) || EVENT_TRIGGER_SIGNAL.test(previousLocalClause))
     && !previousActionConflict
   const nextThresholdAlternative = ['hoặc', 'hay'].includes(nextConnector)
-    && THRESHOLD_SIGNAL.test(nextClause)
+    && (THRESHOLD_SIGNAL.test(nextClause) || EVENT_TRIGGER_SIGNAL.test(nextClause))
     && !nextActionConflict
   const sameActionThreshold = previousThresholdAlternative || nextThresholdAlternative
+  
   const detectedActions = ACTIONS
     .filter(([, pattern]) => pattern.test(text))
     .map(([action]) => action)
   const groupSemanticFlags = detectedActions.length > 1 ? ['MULTI_ACTION_CLAUSE'] : []
   const actionBindingAmbiguous = Boolean(detectedActions.length > 1 && !explicitAction && !inheritedAction && actionHint)
-  const flags = actionBindingAmbiguous ? ['ACTION_BINDING_AMBIGUOUS'] : []
+  const flags = []
+  if (actionBindingAmbiguous) flags.push('ACTION_BINDING_AMBIGUOUS')
+
+  const nonNumericAlternativeTriggers = []
+  if (EVENT_TRIGGER_SIGNAL.test(previousLocalClause) || EVENT_TRIGGER_SIGNAL.test(previousClause)) {
+    const match = (previousLocalClause || previousClause).match(EVENT_TRIGGER_SIGNAL)
+    if (match) nonNumericAlternativeTriggers.push(match[0])
+    flags.push('INCOMPLETE_ALTERNATIVE_TRIGGER')
+  }
+  if (EVENT_TRIGGER_SIGNAL.test(nextClause)) {
+    const match = nextClause.match(EVENT_TRIGGER_SIGNAL)
+    if (match) nonNumericAlternativeTriggers.push(match[0])
+    flags.push('INCOMPLETE_ALTERNATIVE_TRIGGER')
+  }
 
   return {
     clause,
@@ -84,11 +102,10 @@ export function decomposeSemanticClause(statement, rawValue) {
     inheritedAction,
     actionHint,
     actionConflict,
-    // "hoặc/hay" only establishes alternative triggers. It must not be
-    // promoted to "whichever comes first" unless the source says so.
     qualifierHint: null,
     intervalRelation: sameActionThreshold ? 'or' : null,
+    nonNumericAlternativeTriggers: [...new Set(nonNumericAlternativeTriggers)],
     groupSemanticFlags,
-    flags,
+    flags: [...new Set(flags)],
   }
 }
