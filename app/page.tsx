@@ -13,7 +13,7 @@ import { getCarSpecsSummary, getProductImage } from '../lib/get-product-image'
 
 // Avoid Supabase connection failures on static prerendering.
 // Page content relies on DB query at request time.
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 function shuffleItems<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
