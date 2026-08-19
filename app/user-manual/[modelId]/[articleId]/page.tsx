@@ -3,15 +3,17 @@ import { notFound } from 'next/navigation'
 import './manual.css' // We'll add some styles here
 import { ArticleContent } from './article-content'
 
-export async function generateStaticParams({ params }: { params: { modelId: string } }) {
+export async function generateStaticParams(props: { params: any }) {
+  const params = await props.params;
   const decodedModelId = decodeURIComponent(params.modelId)
   const tree = await getManualTree(decodedModelId)
-  return tree.map(article => ({
+  return tree.map((article: any) => ({
     articleId: article.id
   }))
 }
 
-export async function generateMetadata({ params }: { params: { modelId: string, articleId: string } }) {
+export async function generateMetadata(props: { params: Promise<{ modelId: string, articleId: string }> }) {
+  const params = await props.params;
   const decodedModelId = decodeURIComponent(params.modelId)
   const decodedArticleId = decodeURIComponent(params.articleId)
   const article = await getManualArticle(decodedModelId, decodedArticleId)
@@ -24,11 +26,12 @@ export async function generateMetadata({ params }: { params: { modelId: string, 
   }
 }
 
-export default async function ManualArticlePage({
-  params
-}: {
-  params: { modelId: string, articleId: string }
-}) {
+export default async function ManualArticlePage(
+  props: {
+    params: Promise<{ modelId: string, articleId: string }>
+  }
+) {
+  const params = await props.params;
   const decodedModelId = decodeURIComponent(params.modelId)
   const decodedArticleId = decodeURIComponent(params.articleId)
   

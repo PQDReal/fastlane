@@ -7,13 +7,14 @@ export async function generateStaticParams() {
   return models.map(m => ({ modelId: m.id }))
 }
 
-export default async function ModelManualLayout({
-  children,
-  params
-}: {
-  children: React.ReactNode
-  params: { modelId: string }
-}) {
+export default async function ModelManualLayout(
+  props: {
+    children: React.ReactNode
+    params: Promise<{ modelId: string }>
+  }
+) {
+  const params = await props.params;
+  const { children } = props;
   const decodedModelId = decodeURIComponent(params.modelId)
   const models = await getManualModels()
   const model = models.find(m => m.id === decodedModelId)
