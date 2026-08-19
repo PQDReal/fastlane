@@ -2,6 +2,8 @@ import { getManualModels } from '@/lib/api/manuals-server'
 import { ManualHero } from './manual-hero'
 import { VehicleCatalog } from './vehicle-catalog'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UserManualPage() {
   const dbModels = await getManualModels()
   
