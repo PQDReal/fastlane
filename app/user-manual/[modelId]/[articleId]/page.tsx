@@ -4,12 +4,18 @@ import './manual.css' // We'll add some styles here
 import { ArticleContent } from './article-content'
 
 export async function generateStaticParams(props: { params: any }) {
-  const params = await props.params;
-  const decodedModelId = decodeURIComponent(params.modelId)
-  const tree = await getManualTree(decodedModelId)
-  return tree.map((article: any) => ({
-    articleId: article.id
-  }))
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
+  try {
+    const params = await props.params;
+    const decodedModelId = decodeURIComponent(params.modelId)
+    const tree = await getManualTree(decodedModelId)
+    return tree.map((article: any) => ({
+      articleId: article.id
+    }))
+  } catch (error) {
+    console.error('Failed to generate static params:', error)
+    return []
+  }
 }
 
 export async function generateMetadata(props: { params: Promise<{ modelId: string, articleId: string }> }) {

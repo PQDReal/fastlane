@@ -3,8 +3,14 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 export async function generateStaticParams() {
-  const models = await getManualModels()
-  return models.map(m => ({ modelId: m.id }))
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
+  try {
+    const models = await getManualModels()
+    return models.map(m => ({ modelId: m.id }))
+  } catch (error) {
+    console.error('Failed to generate static params:', error)
+    return []
+  }
 }
 
 export default async function ModelManualIndexPage(
