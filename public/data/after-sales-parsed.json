@@ -1,0 +1,1210 @@
+{
+  "schemaVersion": 2,
+  "sourceSystem": "VINFAST_OFFICIAL",
+  "generatedAt": "2026-08-19T06:02:17.758Z",
+  "purpose": "external_review_cache",
+  "publicationPolicy": "official_sources_only; admin_review_required; not_publication_approved",
+  "notes": [
+    "Only explicit table/chart/spec image paths become OCR candidates. Known hero, service, and component images remain metadata-only."
+  ],
+  "sourceManifest": [
+    {
+      "id": "vinfast-after-sales-hub",
+      "serviceType": "after-sales-hub",
+      "vehicleType": "all",
+      "scope": {
+        "vehicleTypes": [
+          "car",
+          "motorbike",
+          "bus"
+        ],
+        "models": [],
+        "modelScope": "navigation_hub_only"
+      },
+      "url": "https://vinfastauto.com/vn_vi",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang hub dịch vụ hậu mãi; chỉ lấy trang hub và bốn link chữ chính sách/bảo dưỡng/sửa chữa/cứu hộ. Bỏ qua các nút ảnh và tài liệu hướng dẫn."
+    },
+    {
+      "id": "vinfast-warranty-car",
+      "serviceType": "warranty",
+      "vehicleType": "car",
+      "scope": {
+        "vehicleTypes": [
+          "car"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "url": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang có tiêu đề Chính sách bảo hành, thời hạn theo dòng xe, điều kiện sử dụng và liên kết sổ bảo hành."
+    },
+    {
+      "id": "vinfast-maintenance-car",
+      "serviceType": "maintenance",
+      "vehicleType": "all",
+      "scope": {
+        "vehicleTypes": [
+          "car",
+          "motorbike"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "url": "https://vinfastauto.com/vn_vi/bao-duong-xe-vinfast-dinh-ky",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang mô tả các hạng mục và lịch bảo dưỡng định kỳ cho ô tô, xe máy điện và hướng dẫn đặt lịch."
+    },
+    {
+      "id": "vinfast-repair-car",
+      "serviceType": "repair",
+      "vehicleType": "car",
+      "scope": {
+        "vehicleTypes": [
+          "car"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "url": "https://vinfastauto.com/vn_vi/dich-vu-sua-chua-oto",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang Dịch vụ sửa chữa chính thức đã được Browserbase snapshot HTTP 200; chỉ giữ nội dung và ảnh thuộc vùng dịch vụ sửa chữa, không nhận PDF sổ bảo hành từ popup dùng chung."
+    },
+    {
+      "id": "vinfast-rescue-car",
+      "serviceType": "rescue",
+      "vehicleType": "car",
+      "scope": {
+        "vehicleTypes": [
+          "car"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "url": "https://vinfastauto.com/vn_vi/thong-tin-cuu-ho-oto",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang thông tin cứu hộ ô tô chính thức; cần xác minh hotline và phạm vi hỗ trợ trước khi publish."
+    },
+    {
+      "id": "vinfast-service-workshops",
+      "serviceType": "service-center",
+      "vehicleType": "all",
+      "scope": {
+        "vehicleTypes": [
+          "car",
+          "motorbike",
+          "bus",
+          "charging_station"
+        ],
+        "models": [],
+        "modelScope": "location_dependent"
+      },
+      "url": "https://vinfastauto.com/vn_vi/tim-kiem-showroom-tram-sac",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang tra cứu xưởng dịch vụ chính thức đã được Browserbase snapshot HTTP 200; dữ liệu vị trí phụ thuộc thao tác tìm kiếm nên source này được lưu metadata/text-only."
+    }
+  ],
+  "transcribedFacts": [
+    {
+      "sourceId": "vinfast-warranty-car",
+      "factType": "warranty-term",
+      "vehicleType": "car",
+      "vehicleModels": [
+        "Fadil",
+        "Lux A 2.0",
+        "Lux SA 2.0",
+        "President",
+        "VF 8",
+        "VF 9",
+        "Lạc Hồng 900LX"
+      ],
+      "standardUse": "10 năm hoặc 200.000 km",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "reviewStatus": "pending_admin_review"
+    },
+    {
+      "sourceId": "vinfast-warranty-car",
+      "factType": "warranty-term",
+      "vehicleType": "car",
+      "vehicleModels": [
+        "VF 3",
+        "VF 5",
+        "VF 6",
+        "VF 7",
+        "VF e34",
+        "VF Minio Green",
+        "VF Nerio Green",
+        "VF Herio Green",
+        "VF MPV7",
+        "VF Limo Green",
+        "VF 8 The All New"
+      ],
+      "standardUse": "7 năm hoặc 160.000 km",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "reviewStatus": "pending_admin_review"
+    },
+    {
+      "sourceId": "vinfast-warranty-car",
+      "factType": "warranty-term",
+      "vehicleType": "car",
+      "vehicleModels": [
+        "VF EC Van"
+      ],
+      "standardUse": "5 năm hoặc 130.000 km",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "reviewStatus": "pending_admin_review"
+    }
+  ],
+  "records": [
+    {
+      "snapshotId": "vinfast-after-sales-hub-2026-08-18T09-51-45-486Z",
+      "sourceId": "vinfast-after-sales-hub",
+      "sourceUrl": "https://vinfastauto.com/vn_vi",
+      "serviceType": "after-sales-hub",
+      "vehicleType": "all",
+      "scope": {
+        "vehicleTypes": [
+          "car",
+          "motorbike",
+          "bus"
+        ],
+        "models": [],
+        "modelScope": "navigation_hub_only"
+      },
+      "finalUrl": "https://vinfastauto.com/vn_vi",
+      "capturedAt": "2026-08-18T09:51:45.486Z",
+      "captureMethod": "browserbase_playwright",
+      "httpStatus": 200,
+      "contentType": "text/html",
+      "title": "VinFast - Website chính thức tại Việt Nam",
+      "text": "Giới thiệu\nÔ tô\nXe máy điện\nPhụ kiện xe\nDịch vụ hậu mãi\nPin và trạm sạc\nLưu trữ năng lượng\nTÀI KHOẢN\nĐĂNG KÝ LÁI THỬ\n Đăng nhập / Đăng ký\nDòng xe\nE-SUV\nSố chỗ ngồi\n6-7 chỗ\nQuãng đường lên tới\n626 km\nGiá bán từ\n1.280.600.000 VNĐ*\n1.348.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nMiniCar\nSố chỗ ngồi\n4 chỗ\nQuãng đường\n210 km (NEDC)\nGiá bán từ\n178.600.000 VNĐ*\n188.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nD-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n480-500 km\nGiá bán từ\n854.050.000 VNĐ*\n899.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nMPV\nSố chỗ ngồi\n7 chỗ\nQuãng đường lên tới\n450 km (NEDC)\nGiá bán từ\n712.500.000 VNĐ*\n750.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nVAN\nSố chỗ ngồi\n2 chỗ\nQuãng đường lên tới\n175 km (NEDC)\nGiá bán từ\n254.600.000 VNĐ*\n268.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nMiniCar\nSố chỗ ngồi\n4 chỗ\nQuãng đường lên tới\n210 km (NEDC)\nGiá bán từ\n178.600.000 VNĐ*\n188.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nA-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n326 km (NEDC)\nGiá bán từ\n427.500.000 VNĐ*\n450.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nB-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n318,6 km (NEDC)\nGiá từ\n668.000.000 VNĐ\nXEM CHI TIẾT\nDòng xe\nMPV\nSố chỗ ngồi\n7 chỗ\nQuãng đường lên tới\n450 km (NEDC)\nGiá bán từ\n664.050.000 VNĐ*\n699.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nMiniCar\nSố chỗ ngồi\n4 chỗ\nQuãng đường lên tới\n210 km (NEDC)\nGiá bán từ\n270.750.000 VNĐ*\n285.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nA-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n326,4 km (NEDC)\nGiá bán từ\n471.200.000 VNĐ*\n496.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nB-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n485 km (NEDC)\nGiá bán từ\n613.700.000 VNĐ*\n646.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nC-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n500,5 km (NEDC)\nGiá bán từ\n703.000.000 VNĐ*\n740.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nD-SUV\nSố chỗ ngồi\n5 chỗ\nQuãng đường lên tới\n562 km (NEDC)\nGiá bán từ\n853.100.000 VNĐ*\n898.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nE-SUV\nSố chỗ ngồi\n6-7 chỗ\nQuãng đường lên tới\n626 km\nGiá bán từ\n1.280.600.000 VNĐ*\n1.348.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\nDòng xe\nMiniCar\nSố chỗ ngồi\n4 chỗ\nQuãng đường\n210 km (NEDC)\nGiá bán từ\n178.600.000 VNĐ*\n188.000.000 VNĐ\nĐẶT CỌC\nXEM CHI TIẾT\n(*) Mức giá ưu đãi mang tính chất tham khảo. Chương trình áp dụng theo điều khoản & điều kiện.\nTốc độ tối đa\n70 km/h\nQuãng đường 1 lần sạc\n~160 km/lần sạc\nCông suất tối đa\n3000 W\nGiá từ\n30.000.000 VNĐ\nMUA XE\nXEM CHI TIẾT\nPhụ kiện xe\nXEM THÊM\nMô Hình Xe VinFast VF 3\n2.074.000 VNĐ\nPin & Trạm sạc ô tô điện\nVới phương châm luôn đặt lợi ích Khách hàng lên hàng đầu, VinFast áp dụng chính sách cho thuê pin độc đáo, ưu việt và khác biệt với tất cả các mô hình cho thuê pin từ trước tới nay trên thế giới.\nXEM CHI TIẾT\nPin & Trạm sạc xe máy điện\nVới phương châm luôn đặt lợi ích Khách hàng lên hàng đầu, VinFast áp dụng chính sách cho thuê pin độc đáo, ưu việt và khác biệt với tất cả các mô hình cho thuê pin từ trước tới nay trên thế giới.\nXEM CHI TIẾT\nThiết bị sạc di động\nVinFast cung cấp đa dạng giải pháp sạc để đáp ứng nhu cầu sử dụng của khách hàng một cách thuận tiện nhất.\nXEM CHI TIẾT\nBảo hành & Dịch vụ\nVinFast đã đầu tư nghiêm túc và bài bản để phát triển hệ thống Showroom, Nhà phân phối và xưởng dịch vụ rộng khắp, đáp ứng tối đa nhu cầu của Khách hàng.\nĐẶT LỊCH BẢO DƯỠNG\nCHÍNH SÁCH\nMãnh liệt Tinh thần Việt Nam - Vì Tương lai Xanh\nChiến dịch Mãnh liệt Tinh thần Việt Nam - Vì Tương lai Xanh là lời khẳng định mạnh mẽ của VinFast trong hành trình thúc đẩy cuộc cách mạng xe điện và kiến tạo một tương lai bền vững. Chiến dịch không chỉ thể hiện tinh thần tiên phong của thương hiệu Việt trên bản đồ xe điện toàn cầu mà còn kêu gọi cộng đồng cùng chung tay chuyển đổi xanh, góp phần xây dựng một Việt Nam phát triển vững bền, nơi giao thông không chỉ hiện đại mà còn thân thiện với môi trường.\nXEM CHI TIẾT\nShowroom & Trạm sạc\nTÌM HIỂU THÊM\nCộng đồng VinFast Toàn cầu\nTÌM HIỂU THÊM\n\nĐăng ký nhận thông tin\n\nĐăng ký nhận thông tin chương trình khuyến mãi, dịch vụ VinFast.\n\nBằng cách đăng ký, Quý khách xác nhận đã đọc, hiểu và đồng ý với Chính sách Quyền riêng tư của VinFast.\n\nCông ty TNHH Kinh doanh Thương mại và Dịch vụ VinFast\n\nMST/MSDN: 0108926276 do Sở KHĐT TP Hà Nội cấp lần đầu ngày 01/10/2019 và các lần thay đổi tiếp theo.\nĐịa chỉ trụ sở chính: Số 7, Đường Bằng Lăng 1, Khu đô thị Vinhomes Riverside, Phường Phúc Lợi, Thành phố Hà Nội, Việt Nam.\nNgười đại diện theo pháp luật: Nguyễn Mai Hoa.\nChức vụ: Chủ tịch Hội đồng thành viên.\nHệ sinh thái\nVinhomes\nVinmec\nVinpearl\nVinFast. All rights reserved.\n© Copyright 2025\n\nVỀ VINFAST\n\nVỀ VINGROUP\n\nTIN TỨC\n\nSHOWROOM & ĐẠI LÝ\n\nĐIỀU KHOẢN CHÍNH SÁCH\n\nDỊCH VỤ KHÁCH HÀNG\n 1900 23 23 89 - Nhánh 1\n support.vn@vinfastauto.com\nSPEAK-UP HOTLINE\n https://vinfast.ethicspoint.com/\n v.speakup@vinfast.vn\nKết nối với VinFast",
+      "assets": [],
+      "extractionScope": "metadata_only",
+      "captureWarnings": [],
+      "contentValidation": null,
+      "contentHash": "sha256:48cec25aa70988b7ff208ec48bf00e8c9765d09d81fdc4ae5dae226243380cf6",
+      "availability": "available",
+      "accuracy": "source_verified",
+      "reviewStatus": "pending_admin_review",
+      "parserVersion": null,
+      "acquisitionFailures": []
+    },
+    {
+      "snapshotId": "vinfast-warranty-car-2026-08-18T09-50-38-286Z",
+      "sourceId": "vinfast-warranty-car",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "serviceType": "warranty",
+      "vehicleType": "car",
+      "scope": {
+        "vehicleTypes": [
+          "car"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "finalUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "capturedAt": "2026-08-18T09:50:38.286Z",
+      "captureMethod": "browserbase_playwright",
+      "httpStatus": 200,
+      "contentType": "text/html",
+      "title": "Chính sách bảo hành Ô tô VinFast | VinFast",
+      "text": "Chính sách bảo hành\n\nVững vàng lăn bánh trên mọi hành trình với chính sách bảo hành dài lâu từ VinFast - bảo vệ trọn vẹn quyền lợi và mang đến sự an tâm cho Quý khách.\n\nSỔ BẢO HÀNH Ô TÔ\nPhạm vi bảo hành\nThời hạn bảo hành\nPhụ tùng xe mới bảo hành giới hạn\nBảo hành phụ tùng\nBảo hành phụ kiện\nCác hạng mục không thuộc phạm vi bảo hành\nCâu hỏi thường gặp\nThông tin hỗ trợ\nSỔ BẢO HÀNH Ô TÔ\nHƯỚNG DẪN SỬ DỤNG Ô TÔ\nPhạm vi bảo hành\nBảo hành áp dụng cho các hư hỏng do lỗi phần mềm, lỗi chất lượng của linh kiện hoặc lỗi lắp ráp của VinFast với điều kiện sản phẩm được sử dụng và bảo dưỡng đúng cách, ngoại trừ các hạng mục không thuộc phạm vi bảo hành.\nPhụ tùng thay thế trong bảo hành là những chi tiết, linh kiện chính hãng nhỏ nhất được VinFast cung cấp.\nBảo hành có hiệu lực trên toàn lãnh thổ Việt Nam, chỉ được áp dụng và thực hiện tại các Xưởng dịch vụ và Nhà phân phối ủy quyền của VinFast.\nCông việc bảo hành được thực hiện miễn phí theo các điều khoản và điều kiện bảo hành.\n\nVinFast không có trách nhiệm thu hồi và thay thế sản phẩm khác cho khách hàng nếu việc sửa chữa bảo hành có thể khắc phục được lỗi chất lượng, lỗi vật liệu hay lỗi lắp ráp của nhà sản xuất.\n\nThời hạn bảo hành Ô tô\n\nVinFast đã chuyển đổi Sổ Bảo Hành sang hình thức điện tử. Tại thời điểm bàn giao xe, Đại lý phân phối sẽ tư vấn, hướng dẫn Khách hàng xác nhận Sổ Bảo Hành điện tử và cách thức tra cứu, sử dụng.\n\nĐối với xe được sử dụng ở điều kiện sử dụng tiêu chuẩn\nĐối với xe đang hoặc đã từng được sử dụng cho hoạt động dịch vụ thương mại*\n\n(*)Dịch vụ thương mại là đối tượng khách hàng kinh doanh, bao gồm nhưng không giới hạn, đang hoặc đã từng sử dụng xe làm taxi, xe sử dụng cho dịch vụ chở khách, kể cả các dịch vụ như Grab, Be hay tương tự, xe cho thuê, xe đưa đón, xe giao hàng.\n\nĐối với xe đã từng được sử dụng cho mục đích dịch vụ thương mại, chính sách bảo hành áp dụng cho xe sử dụng cho mục đích dịch vụ thương mại sẽ tiếp tục được duy trì và áp dụng kể cả trong trường hợp chuyển nhượng xe.\n\nPhụ tùng được thay thế theo chính sách bảo hành xe có thời hạn bảo hành bằng thời hạn bảo hành còn lại của xe; hoặc thời hạn bảo hành còn lại của phụ tùng được thay thế đó (trong trường hợp phụ tùng có thời hạn bảo hành riêng).\n\nSỔ BẢO HÀNH Ô TÔ\nHƯỚNG DẪN SỬ DỤNG Ô TÔ\nPhụ tùng xe mới bảo hành giới hạn\nPin cao áp\n\nPin cao áp mua theo xe mới, sử dụng tiêu chuẩn:\n\nVF 8, VF 9, Lạc Hồng 900 LX: 10 năm hoặc 200.000 km tùy theo điều kiện nào đến trước.\nVF 3, VF 5, VF 6, VF 7, VF Minio Green, VF Herio Green, VF MPV7, VF e34, VF Nerio Green, VF Limo Green, VF 8 The All New: 8 năm hoặc 160.000 km tùy điều kiện nào đến trước.\nVF EC Van: 7 năm hoặc 160.000 km tùy điều kiện nào đến trước.\n\nPin cao áp mua theo xe mới, xe đang hoặc đã từng sử dụng cho mục đích dịch vụ thương mại:\n\nVF 3, VF 7, VF 8, VF 9, VF 8 The All New: 3 năm hoặc 100.000 km tùy điều kiện nào đến trước.\n\nĐối với xe đã từng được sử dụng cho mục đích dịch vụ thương mại, chính sách bảo hành pin áp dụng cho xe sử dụng cho mục đích dịch vụ thương mại sẽ tiếp tục được duy trì và áp dụng kể cả trong trường hợp chuyển nhượng xe cho chủ sở hữu mới hoặc xe không còn được sử dụng cho mục đích dịch vụ thương mại.\n\nẮc - quy\n\nÔ tô xăng: 1 năm hoặc 20.000 km tùy thuộc điều kiện nào đến trước.\n\nÔ tô điện: 1 năm (không giới hạn quãng đường sử dụng).\n\nGỉ sét\n\nĐiều kiện sử dụng tiêu chuẩn:\n\nÁp dụng cho VF 8, VF 9, Lạc Hồng 900 LX: bảo hành 10 năm không giới hạn số km với tấm kim loại bị xuyên thủng trong điều kiện hoạt động bình thường do lỗi nguyên vật liệu hoặc lỗi lắp ráp.\nÁp dụng cho VF 3, VF 5, VF 6, VF 7, VF Minio Green, VF Herio Green, VF MPV7, VF e34, VF Nerio Green, VF Limo Green, VF 8 The All New: bảo hành 7 năm không giới hạn số km.\nÁp dụng cho VF EC Van: bảo hành 5 năm không giới hạn số km.\n\nSử dụng cho dịch vụ thương mại: 3 năm hoặc 100.000 km tùy điều kiện nào đến trước áp dụng cho VF 3, VF 7, VF 8, VF 9, VF 8 The All New.\n\nSơn ngoại thất\n\nĐiều kiện sử dụng tiêu chuẩn:\n\nÁp dụng cho VF 8, VF 9, Lạc Hồng 900 LX: bảo hành 10 năm không giới hạn số km.\nÁp dụng cho VF 3, VF 5, VF 6, VF7, VF Minio Green, VF Herio Green, VF MPV7, VF e34, VF Nerio Green, VF Limo Green, VF 8 The All New: bảo hành 7 năm không giới hạn số km.\nÁp dụng cho VF EC Van: bảo hành 5 năm không giới hạn số km.\n\nSử dụng cho dịch vụ thương mại: 3 năm hoặc 100.000 km tùy điều kiện nào đến trước áp dụng cho VF 3, VF 7, VF 8, VF 9, VF 8 The All New.\n\nCác bộ phận treo\n\nSử dụng trong điều kiện tiêu chuẩn: Các bộ phận treo (Bộ giảm xóc, Thanh ổn định, Cụm liên kết trên, Cánh tay điều khiển dưới, Khớp bi, Lắp thanh chống trên) được bảo hành 5 năm hoặc 130.000 km tùy điều kiện nào đến trước.\n\nSử dụng cho mục đích dịch vụ thương mại: Áp dụng cho VF 3, VF 7, VF 8, VF 9, VF 8 The All New, thời hạn bảo hành là 3 năm hoặc 100.000 km.\n\nLốp xe\n\nLốp được trang bị theo xe (bao gồm cả lốp dự phòng nếu có) được bảo hành đối với các khuyết tật, hư hỏng do lỗi nguyên vật liệu hoặc lỗi trong quá trình sản xuất, lưu kho của nhà sản xuất lốp được tính kể từ ngày kích hoạt bảo hành xe. Chi tiết bảo hành đối với từng loại sản phẩm như sau:\n\nÔ tô xăng: 5 năm (không giới hạn quãng đường sử dụng).\n\nÔ tô điện: Bảo hành bởi nhà sản xuất lốp xe.\n\nNếu nhà sản xuất lốp cung cấp dịch vụ bảo hành tại thị trường Việt Nam, lốp xe sẽ được bảo hành hành theo chính sách riêng của nhà sản xuất lốp xe.\n\nNhững hạng mục, hư hỏng không thuộc bảo hành lốp:\n\nHư hỏng do lốp xe bị phá hoại, tai nạn hoặc va chạm.\nHư hỏng do lốp bị lạm dụng trong quá trình sử dụng.\nHư hỏng do lốp không được bảo dưỡng hoặc vận hành với áp suất lốp không tiêu chuẩn.\nLốp là chi tiết hao mòn theo thời gian và quãng đường sử dụng, các hao mòn này không thuộc phạm vi bảo hành.\nCác hư hỏng được đánh giá không ảnh hưởng đến chất lượng, hiệu suất hoặc chức năng của lốp.\nSử dụng lốp sai so với mục đích khuyến nghị của nhà sản xuất.\nLốp đã được sửa chữa, thay đổi, đắp hoặc dán lại.\nHư hỏng do ảnh hưởng từ các yếu tố bên ngoài như tình trạng của đường hoặc các bề mặt tiếp xúc khác, những yếu tố khác như hóa chất, ô nhiễm, mưa axit, mưa đá, cát, không khí, muối, đá, hỏa hoạn, thiên tai, v.v...\nCác vấn đề phát sinh khác mà không thể chứng minh được là có trực tiếp hay gián tiếp liên quan đến vấn đề chất lượng lốp như chi phí cho việc không sử dụng xe, tiêu tốn thời gian, nhiên liệu, điện thoại, chỗ ở hoặc các phát sinh khác.\nBảo hành phụ tùng\n\nBảo hành phụ tùng thay thế chính hãng\n\nPhụ tùng thay thế cho xe của khách hàng trong quá trình sửa chữa tại Xưởng dịch vụ/ Đại lý phân phối của VinFast do khách hàng chịu chi phí, sẽ có thời hạn bảo hành như sau:\n\nPhụ tùng (không bao gồm Ắc Quy 12V và Pin cao áp):\nÔ tô xăng: Fadil, Lux A, Lux SA, President: 12 tháng hoặc 20.000 km tùy thuộc điều kiện nào đến trước từ ngày hoàn thành sửa chữa.\nÔ tô điện: 2 năm hoặc 40.000 km tùy theo điều kiện nào đến trước tính từ ngày mua.\n\nPhụ tùng mua nhưng không được thay thế tại XDV/ NPP của VinFast sẽ không được bảo hành theo chính sách.\n\nĐể nhận được chế độ bảo hành phụ tùng, khách hàng có trách nhiệm lưu trữ hồ sơ (lệnh sửa chữa, hóa đơn, v.v.) cho những lần thay thế phụ tùng.\n\nQuý khách hàng vui lòng tham khảo tại Sổ bảo hành để biết thêm các thông tin bảo hành chi tiết.\n\nPin cao áp:\n\nPin do khách hàng mua và được lắp đặt lên xe tại XDV/ĐLPP của VinFast sau thời điểm giao xe có thời hạn bảo hành là 4 năm hoặc 80.000 km tùy theo điều kiện nào đến trước kể từ ngày mua.\n\nẮc quy 12V:\nÔ tô xăng: 1 năm hoặc 20.000 km tùy thuộc điều kiện nào đến trước.\nÔ tô điện: 1 năm (không giới hạn quãng đường sử dụng).\nBảo hành phụ kiện\n\nPhụ kiện (Không bao gồm Móc kéo xe (bao gồm điện), Bậc lên xuống xe, Giá đỡ hành lý) được bảo hành 2 năm không giới hạn số km kể từ ngày mua:\n\nCác phụ kiện bao gồm móc kéo xe (bao gồm điện), bậc lên xuống xe và giá đỡ hành lý:\n\nSử dụng trong điều kiện tiêu chuẩn: có thời hạn bảo hành là 5 năm không giới hạn số km kể từ ngày mua.\n\nSử dụng cho mục đích dịch vụ thương mại: có thời hạn bảo hành là 3 năm không giới hạn số km kể từ ngày mua, áp dụng cho VF 3, VF 7, VF 8, VF 9, VF 8 The All New.\n\nThời hạn bảo hành áp dụng cho các phụ kiện chính hãng không yêu cầu lắp đặt cố định trên xe (nếu có) như:\n\nBộ sạc di động, bộ dụng cụ sửa chữa lốp, thảm sàn, tấm rèm trần, xích lốp, giá ngăn hành lý, biển tam giác cảnh báo và áo khoác phản quang... là 2 năm không giới hạn số km kể từ ngày mua.\n\nPhụ kiện được thay thế theo bảo hành phụ kiện có thời hạn bảo hành bằng thời hạn bảo hành còn lại của phụ kiện.\n\nĐể nhận được bảo hành phụ kiện VinFast, khách hàng có trách nhiệm lưu giữ hồ sơ lắp đặt, quyết toán và hóa đơn cho các phụ kiện đó.\n\nCác hạng mục không thuộc phạm vi bảo hành\n\nQuý khách vui lòng tham khảo các hạng mục không thuộc phạm vi bảo hành để đảm bảo quyền lợi khi sử dụng dịch vụ.\n\nHư hỏng do nguyên nhân của việc sửa chữa, điều chỉnh, đấu nối phụ kiện không chính hãng, hoán cải trái phép so với thiết kế ban đầu như thay đổi công suất, thay đổi cấu trúc, v.v..\nHư hỏng xảy ra có nguyên nhân do sử dụng sai chức năng và lạm dụng xe như: Lái xe trong điều kiện khắc nghiệt như đua xe, chạy xe trên đường gồ ghề, chở quá tải, sử dụng và bảo quản không theo chỉ dẫn trong sách hướng dẫn sử dụng.\nGỉ sét thông thường, bạc màu sơn, cao su lão hóa, dầu mỡ bị biến chất, hao mòn tự nhiên và giảm giá trị theo thời gian.\nNhững hiện tượng xảy ra mà VinFast đánh giá không ảnh hưởng đến chất lượng và sự hoạt động của xe như tiếng ồn, rung động nhỏ và vết thấm dầu, v.v..\nHư hỏng gây ra bởi các yếu tố nằm ngoài kiểm soát của nhà sản xuất bao gồm hỏa hoạn, động đất, bão, lũ lụt, các thiên tai khác và những thiệt hại do các loài động vật gây ra.\nHư hỏng do tai nạn hoặc sử dụng xe trong điều kiện ngập nước, hư hỏng gây ra bởi ngoại vật như đất, cát, sỏi, đá, vật cứng sắc nhọn, v.v. tác động vào xe trong quá trình vận hành.\nHư hỏng bề mặt gây ra bởi các yếu tố ngoài kiểm soát như: Tàn thuốc lá, hóa chất, phân động vật, nhựa cây, muối, mưa axit và các yếu tố tương tự khác.\nCác chi tiết hư hỏng do hao mòn tự nhiên như má phanh, đĩa phanh, thanh gạt nước kèm/không kèm cao su, pin điều khiển, cầu chì, v.v.; vật tư nằm trong danh mục thay thế định kỳ như các loại dầu, mỡ, dung dịch, chất phụ gia, các loại lọc, v.v..\nHư hỏng do việc không tuân thủ lịch bảo dưỡng định kỳ hoặc bảo dưỡng, sửa chữa không đúng theo hướng dẫn của nhà sản xuất.\nBảo hành sẽ không được áp dụng cho các dịch vụ làm sạch, kiểm tra, điều chỉnh và các hạng mục bảo dưỡng định kỳ.\nThay đổi chỉ số km trên đồng hồ công tơ mét dẫn đến không xác định được chính xác thời hạn bảo hành, các trường hợp gạch xóa, cậy phá hoặc làm mất trạng thái nguyên bản các phụ tùng dẫn tới việc không xác định được phụ tùng có được trang bị nguyên bản trên xe.\nNhững hư hỏng kéo theo do việc chậm trễ đưa xe đến NPP/XDV kiểm tra sửa chữa khi phát hiện xe có hư hỏng.\nHư hỏng xảy ra trong thời hạn bảo hành nhưng báo cáo sau khi thời hạn bảo hành hết hiệu lực do chậm trễ của người sử dụng.\nTrong phạm vi pháp luật cho phép, VinFast từ chối bất cứ trách nhiệm nào cho các tổn thất hoặc các chi phí phát sinh khác liên quan tới bảo hành xe như phí điện thoại, phí ăn ở, thuê phương tiện khác, đi lại và thiệt hại kinh doanh hoặc tiêu tốn thời gian.\nĐể đảm bảo quyền lợi bảo hành đối với xe của khách hàng, vui lòng xem nội dung chi tiết trong cuốn Sổ bảo hành đi kèm theo xe.\n\nThông tin chi tiết được quy định trong Sổ bảo hành đi kèm sản phẩm.\n\nCâu hỏi thường gặp\nChính sách bảo hành mới có áp dụng cho các xe khách hàng đã mua trước đó không?\n\nChính sách bảo hành mới sẽ áp dụng cho các xe khách hàng mua kể từ Ngày hiệu lực của chính sách đó. Các xe mua trước Ngày hiệu lực thì áp dụng chính sách bảo hành có hiệu lực tại thời điểm khách hàng mua\n\nPin chai có được bảo hành không?\nPhụ tùng khách hàng mua tại Đại lý phân phối của VinFast nhưng mang ra xưởng dịch vụ ngoài thay thế có được bảo hành không?\nXe ngập nước có được bảo hành không?\nThông tin hỗ trợ\nDỊCH VỤ KHÁCH HÀNG\n1900 23 23 89 - Nhánh 1\nsupport.vn@vinfastauto.com\nSPEAK-UP HOTLINE\nhttps://vinfast.ethicspoint.com/\nv.speakup@vinfast.vn\nTÀI LIỆU LIÊN QUAN\nTRA CỨU TÀI LIỆU\nHƯỚNG DẪN",
+      "assets": [
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/hero-warranty-v2.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "hero_or_banner_photo",
+            "confidence": "high",
+            "signals": [
+              "decorative_terms"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-duration.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-new-parts-pin.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-new-parts-acquy.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-new-parts-gyset.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-new-parts-son.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-new-parts-treo.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-new-parts-lop.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-parts-phutung-oto.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "vehicle_terms",
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-parts-pincaoap-oto.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "vehicle_terms",
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-parts-acquy12v-oto.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "vehicle_terms",
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/icon-vehicle-accessory.png",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "decorative_asset",
+            "contentRole": "presentation_icon",
+            "confidence": "high",
+            "signals": [
+              "icon_or_ui_asset"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/icon-accessory-general-new.png",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "decorative_asset",
+            "contentRole": "presentation_icon",
+            "confidence": "high",
+            "signals": [
+              "icon_or_ui_asset"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/icon-warranty-warning-new.png",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "decorative_asset",
+            "contentRole": "presentation_icon",
+            "confidence": "high",
+            "signals": [
+              "icon_or_ui_asset"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-warranty/warranty-exclusion.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250618_vf3_vn_vi_1.5_svc69000164aa.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF 3",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250618_vf5_vn_vn_2.2_svc73000155aa.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF 5",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250618_vf6_vn_vi_1.5_svc70001295aa.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF 6",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/brochure/260309_VF8_VN_1.6.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF 8",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/brochure/260309_VF9_VN_VI_2.0.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF 9",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250924_wb_lh-900lx_vn_vi_v1.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành Lạc Hồng 900 LX",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/251108_WB_Mgreen_VN_VI_2.0.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành Minio Green",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250618_nerio-green_vn_vi_1.1_svc20000368aa.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành Nerio Green",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250618_herio_vn_vn_1.2_svc73000217aa.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành Herio Green",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/250618_wb_limogreen_vn_vi_1.0.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành Limo Green",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/260115_ecvan-wb_vn_vi_v2.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF EC VAN",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/So%20bao%20Hanh%20-%20Fadil%20(FINAL)_1644573657.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành Fadil",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/So%20bao%20Hanh%20-%20LUX%20A%20(FINAL)_1644573676.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành LUX A2.0",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/So%20bao%20Hanh%20-%20LUX%20SA%20(FINAL)_1644573699.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành LUX SA 2.0",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/So%20bao%20Hanh%20-%20PRESIDENT%20(FINAL)_1644573719.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành President V8",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/260325_wb_mpv7_vn_vi_1.0.pdf",
+          "type": "pdf",
+          "label": "Sổ bảo hành VF MPV 7",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "structured_policy_source",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "warranty"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        }
+      ],
+      "extractionScope": ".dvhm-revamp-page",
+      "captureWarnings": [],
+      "contentValidation": null,
+      "contentHash": "sha256:382b21143c01c628f4dfe9479a5c73e9e3d8cc2bd1c984b1ff474158cdb58dbb",
+      "availability": "available",
+      "accuracy": "source_verified",
+      "reviewStatus": "pending_admin_review",
+      "parserVersion": null,
+      "acquisitionFailures": []
+    },
+    {
+      "snapshotId": "vinfast-maintenance-car-2026-08-18T09-49-38-521Z",
+      "sourceId": "vinfast-maintenance-car",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/bao-duong-xe-vinfast-dinh-ky",
+      "serviceType": "maintenance",
+      "vehicleType": "all",
+      "scope": {
+        "vehicleTypes": [
+          "car",
+          "motorbike"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "finalUrl": "https://vinfastauto.com/vn_vi/bao-duong-xe-vinfast-dinh-ky",
+      "capturedAt": "2026-08-18T09:49:38.521Z",
+      "captureMethod": "browserbase_playwright",
+      "httpStatus": 200,
+      "contentType": "text/html",
+      "title": "Các hạng mục bảo dưỡng xe ô tô VinFast",
+      "text": "Giới thiệu\nÔ tô\nXe máy điện\nPhụ kiện xe\nDịch vụ hậu mãi\nPin và trạm sạc\nLưu trữ năng lượng\nTÀI KHOẢN\nĐĂNG KÝ LÁI THỬ\n Đăng nhập / Đăng ký\nTrang chủ\nTin tức\nCộng đồng\nCác hạng mục bảo dưỡng xe ô tô VinFast\nSau một thời gian hoạt động, xe máy và ô tô cần được bảo dưỡng định kỳ để duy trì hiệu suất hoạt động đồng thời sớm phát hiện các hư hỏng để thay thế, sửa chữa kịp thời. Với hệ thống Xưởng dịch vụ hiện đại phủ rộng khắp cả nước, tư vấn các hạng mục bảo dưỡng xe ô tô VinFast định kỳ chi tiết, chuyên nghiệp, mang đến cho khách hàng sự hài lòng và yên tâm tuyệt đối.\nMục lục\nĐóng\n1. Các hạng mục bảo dưỡng xe ô tô VinFast \n1.1. Bảo dưỡng xe ô tô xăng VinFast\n1.2. Bảo dưỡng xe ô tô điện VinFast\n2. Các bộ phận cần bảo dưỡng định kỳ trên xe máy điện VinFast\n3. Bảo dưỡng xe điện VinFast ở đâu?\n4. Chi phí bảo dưỡng xe VinFast\n\nNắm rõ các hạng mục bảo dưỡng xe ô tô VinFast định kỳ giúp xe vận hành trơn tru, tiết kiệm nhiên liệu và nâng cao tuổi thọ, từ đó tiết kiệm chi phí và thời gian. Tùy từng dòng xe, VinFast khuyến cáo khách hàng chủ động bảo dưỡng xe VinFast theo 1 chu kỳ nhất định quy định bằng thời gian sử dụng hay quãng đường di chuyển.\n\nBảo dưỡng xe định kỳ giúp xe vận hành trơn tru và bền bỉ hơn\n1. Các hạng mục bảo dưỡng xe ô tô VinFast \n\nMỗi hãng xe sẽ có những quy định bảo dưỡng ô tô định kỳ cụ thể, chủ phương tiện nên tham khảo sách hướng dẫn sử dụng để biết thêm chi tiết. Dưới đây là các hạng mục bảo dưỡng xe ô tô VinFast định kỳ đáng quan tâm:\n\n1.1. Bảo dưỡng xe ô tô xăng VinFast\n\nVới xe xăng, VinFast đưa ra khuyến cáo bảo dưỡng lần đầu tiên cho từng dòng xe khác nhau cũng như các mốc bảo dưỡng xe ô tô định kỳ theo số km và thời gian. Cụ thể:\n\nXe VinFast Fadil: sau 15.000km hoặc sau 12 tháng;\nXe VinFast Lux A2.0, Lux SA2.0 và President: sau 8.000km hoặc sau 12 tháng vận hành;\n\nMột số hạng mục quan trọng chủ xe nên chủ động kiểm tra bao gồm:\n\nDầu động cơ và bộ lọc dầu động cơ: \n\nViệc thường xuyên kiểm tra lọc nhớt và thay nhớt đảm bảo động cơ hoạt động trơn tru, hiệu quả, tiết kiệm nhiên liệu, đồng thời giảm ma sát giữa các chi tiết máy. Các dòng xe VinFast được khuyến cáo nên thay dầu động cơ mỗi năm 1 lần hoặc dựa vào cảnh báo mức dầu trên màn hình hiển thị.  \n\nBộ lọc không khí: \n\nBộ lọc trên xe VinFast Fadil được khuyến cáo thay thế sau mỗi 15.000km di chuyển hoặc sau 1 năm sử dụng xe (tùy điều kiện nào đến trước). Trong trường hợp thường xuyên di chuyển ở khu vực có mật độ giao thông cao, chất lượng không khí thấp, chủ xe cần thay thế bộ lọc không khí sớm hơn khuyến cáo trên. Đối với xe Xe VinFast Lux A2.0, VinFast Lux SA2.0 và VinFast President, lọc gió điều hòa cần được thay mới sau 16.000km di chuyển hoặc 2 năm dùng xe. \n\nMá phanh: \n\nKhông có quy định cụ thể về thời gian phải thay má phanh ô tô, người lái dựa vào kinh nghiệm, thói quen để phán đoán. Thông thường, VinFast khuyến cáo khách hàng nên kiểm tra má phanh định kỳ hàng năm. Xe cần bảo dưỡng thường xuyên hơn nếu hoạt động trong những điều kiện khắc nghiệt, bụi bặm, chạy không tải liên tục, thường xuyên vận hành ở tốc độ thấp trong giao thông dừng - đi để kịp thời phát hiện và sửa chữa nếu có hư hỏng. \n\nLốp xe: \n\nKhi quan sát thấy các gờ và rãnh trên lốp xe bị mòn, không còn độ bám đường, chủ xe nên thay mới để đảm bảo an toàn khi di chuyển. Người điều khiển xe cần được kiểm tra tình trạng lốp trước khi chạy hay kiểm tra áp suất lốp sau mỗi lần đổ xăng, hoặc ít nhất 1 lần 1 tháng bằng dụng cụ đo áp suất lốp. Chủ xe có thể tham khảo khuyến cáo của VinFast về bảo dưỡng lốp xe:                 \n\nVinFast Fadil: Thực hiện đảo lốp sau mỗi 12.000km. \nVinFast Lux A2.0, VinFast Lux SA2.0 và President: lốp cần được kiểm tra định kỳ tại các mốc 12 tháng, 24 tháng và 36 tháng.\nKiểm tra lốp xe định kỳ giúp đảm bảo an toàn vận hành, tăng tuổi thọ cho xe\n\nNgoài ra, khi thực hiện bảo dưỡng định kỳ, tùy từng dòng xe mà kỹ thuật viên sẽ thực hiện kiểm tra thêm những hạng mục sau:\n\n♦  VinFast Fadil \n\nHệ thống kiểm soát khí xả: Tấm lọc gió, Bugi ô tô, Bộ hấp thụ khí xả và đường ống hơi; \nHệ thống điều khiển động cơ: Đai truyền động, Ống và đường nối hệ thống làm mát, Dung dịch làm mát động cơ, Đường dẫn và đường nối nhiên liệu \nKhung gầm và thân xe: Ống xả ô tô & giá đỡ, Dầu phanh, Đường phanh và đường nối, Dầu hộp số sàn, Hộp số biến thiên vô cấp, Bulong và đai ốc khung gầm, Góc đặt bánh xe, Vô lăng và các đăng lái, Cao su chụp bụi trục láp, Dây an toàn, khóa cài & bộ neo, Khó bôi trơn, bản lề & lẫy cài nắp capo\n\n♦  VinFast Lux A2.0, Lux SA2.0 và President\n\nĐộng cơ: Hệ thống sưởi và làm mát, Dung dịch làm mát động cơ, Ống & đường nối hệ thống làm mát, Đường dẫn và đường nối nhiên liệu, Đai truyền động, Xích cam (đối với VinFast Lux A2.0, VinFast Lux SA2.0)\nHệ thống khởi động: Ắc quy ô tô, Bugi\nHệ thống kiểm soát khí và nhiên liệu: Lọc gió động cơ, Lọc nhiên liệu, Bộ hấp thụ khí xả & đường ống hơi\nKhung gầm & thân xe: Bổ sung Gas điều hòa, Ống xả và giá đỡ, Nắp bình nhiên liệu & kết nối đường nhiên liệu, Dầu phanh, Phanh và đường ống nối, Khớp cầu, cao su chắn bụi trục láp, Giảm xóc trước và sau, Giảm xóc trước và sau, Dầu trợ lực lái, Dầu hộp số tự động, Dầu vi sai trước, Dầu vi sai sau, Đèn, còi, gạt nước kính chắn gió và nước rửa kính, Dây an toàn, khóa cài & bộ neo. \n1.2. Bảo dưỡng xe ô tô điện VinFast\n\nVinFast khuyến cáo nên bảo dưỡng lần đầu với ô tô điện VF e34 sau 12 tháng hoặc 12.000 km sử dụng (tuỳ điều kiện đến trước). Các bộ chính được kiểm tra trong quá trình bảo dưỡng gồm:\n\nPin ô tô điện:\n\nKỹ thuật viên sẽ kiểm tra các đầu nối sạc, cụm dây cắm,... để đảm bảo pin hoạt động tốt và khả năng tiếp nhận sạc tốt, tránh tình trạng chai pin. Nếu khả năng sạc - xả của pin dưới 70%, pin ô tô điện VinFast sẽ được thay mới cho khách hàng. \n\nHệ thống phanh ô tô: \n\nCần thường xuyên kiểm tra hệ thống phanh tái sinh để đảm bảo tạo ra năng lượng ổn định đồng thời giảm tốc xe hiệu quả trong những tình huống cần thiết. Xe VF e34 nên thay mới dầu phanh sau 24.000km hoặc 24 tháng vận hành (tùy điều kiện nào đến trước). \n\nLọc gió điều hòa: \n\nHệ thống lọc gió điều hòa xe hơi có vai trò hỗ trợ ngăn cản khói bụi và các thành phần ô nhiễm khác tồn tại trong không khí. Ô tô điện VF e34 cần được thay thế lọc gió điều hòa hàng năm hoặc sau mỗi 12.000km (tùy điều kiện nào đến trước). Đồng thời, hệ thống điều hòa sẽ cần bảo dưỡng sau mỗi 60.000km hoạt động. \n\nKiểm tra và bổ sung chất làm mát pin: \n\nNhiệt độ pin có tầm quan trọng đối với cơ chế vận hành của hơi điện, vì vậy pin Lithium-ion là bộ phận cần được kiểm tra và bảo dưỡng kỹ càng. Ô tô điện nếu không được đảm bảo về khả năng làm mát có thể dẫn đến hiện tượng cháy nổ rất nguy hiểm. Nước làm mát pin/ động cơ điện VF e34 được khuyến cáo kiểm tra hàng năm hoặc sau mỗi 12.000km di chuyển và thay mới sau 120 tháng. \n\nPin bộ T-box: \n\nPin bộ T-box cần được thay mới sau 72 tháng sử dụng hoặc sau 72.000km hoạt động của xe. \n\nPin chìa khóa điều khiển: \n\nSau khi xe di chuyển mỗi 24.000km hoặc 24 tháng, pin chìa khóa điều khiển cần được thay thế để đảm bảo các chức năng điều khiển trên xe ô tô được hoạt động trơn tru. \n\nNgoài các hạng mục trên, người dùng nên định kỳ bảo dưỡng xe ô tô hàng năm một số các chi tiết khác như sau: \n\nLốp (áp suất lốp, độ mòn, đảo và cân bằng lốp) \nMá phanh và đĩa phanh \nĐường ống, nối hệ thống phanh \nBộ dẫn động (động cơ điện và hộp số) \nHệ thống treo \nTrục truyền động\nKhớp cầu \nThước lái và khớp nối cầu\nĐường ống làm mát \nPin\nDây cáp của hệ thống điện áp cao \nCổng sạc \nẮc quy 12V\nGạt nước rửa kính/ Rửa kính\nBảo dưỡng xe ô tô điện VinFast nên được thực hiện sau 12 tháng hoặc sau vận hành 12.000 km\n2. Các bộ phận cần bảo dưỡng định kỳ trên xe máy điện VinFast\n\nXe máy điện VinFast sử dụng động cơ điện với hệ truyền động đơn giản, hạn chế các chi tiết phức tạp, do vậy giảm thiểu ma sát giữa các bộ phận trong quá trình vận hành. \n\nBảo dưỡng xe máy điện VinFast đơn giản và tiết kiệm chi phí hơn xe chạy nhiên liệu xăng\n\nTrên thực tế, thời gian bảo dưỡng định kỳ của xe máy điện tùy thuộc vào từng động cơ, phụ kiện. Tuy nhiên với khí hậu và đường sá tại Việt Nam, người dùng xe máy điện VinFast nên thực hiện bảo dưỡng sau 1.000km/lần với những hạng mục như: \n\nHệ thống phanh: Phanh trước, phanh sau, tay phanh của xe máy điện VinFast cần được kiểm tra sau 1.000 km. Trong trường hợp rãnh má phanh biến mất, chủ xe cần mang phương tiện đến Showroom hoặc Nhà phân phối ủy quyền của VinFast để thay thế. Bên cạnh đó, tay phanh cũng cần được bôi trơn sau mỗi 6 tháng hoạt động hay mỗi 5.000km di chuyển.\nDầu phanh: Kiểm tra dầu phanh, không để tụt xuống mức dưới dấu chỉ thị của mắt kiểm tra trên bình dầu phanh, hạn chế tình trạng mất phanh khi xe đang vận hành. Xe máy điện VinFast được khuyến cáo nên kiểm tra mức dầu phanh 6 tháng 1 lần hoặc sau 1.000km di chuyển, tùy điều kiện nào đến trước.\nGiảm xóc: Kiểm tra định kỳ hàng tháng, tránh các hiện tượng chảy dầu, giảm xóc bị mòn gây ra tiếng ồn khi di chuyển.\nBánh xe: Kiểm tra hàng tháng lực siết bánh xe tránh tình trạng các chi tiết liên quan đến trục bánh xe bị lỏng lẻo ảnh hưởng đến quá trình di chuyển, đặc biệt là tại những địa hình xấu.\nLốp xe: Các mẫu xe điện hiện đại của VinFast đều được trang bị lốp không săm. Tuy nhiên chủ xe máy điện VinFast cần kiểm tra lốp định kỳ 6 tháng 1 lần do lốp vẫn có khả năng bị lão hóa ngay cả khi phương tiện không được sử dụng trong thời gian dài.\nMâm vành đúc, vành xe: Theo dõi thường xuyên để đảm bảo vành xe cân bằng, không gây cản trở và nguy hiểm cho người điều khiển. Nếu phát hiện có vết nứt, chủ xe cần mang phương tiện đến xưởng dịch vụ VinFast để thay, tuyệt đối không tự ý thay thế bộ phận này.\nẮc quy Lithium-ion: Kiểm tra cổng kết nối ắc quy và hình dạng bên ngoài 6 tháng 1 lần theo khuyến cáo của VinFast để đảm bảo tuổi thọ cho pin và cải thiện phạm vi di chuyển.\n\nBên cạnh những chi tiết cần kiểm tra và thay thế trên, trong quá trình bảo dưỡng xe máy điện VinFast cần được kiểm tra với tần suất 6 tháng/ lần cho những hạng mục như sau: đèn/ còi/ hiển thị đồng hồ, vỏ bọc, tay gas, chân chống cạnh/ chân chống đứng, cổ phốt, động cơ. Ngoài ra, xe cần được bôi trơn cơ cấu khóa yên xe cần, chân chống cạnh/ chân chống đứng sau mỗi 5.000km sử dụng và cổ phốt sau mỗi 20.000km. \n\n>>> Tham khảo thêm: Nguyên tắc và chi phí bảo dưỡng xe máy điện VinFast\n\n3. Bảo dưỡng xe điện VinFast ở đâu?\n\nVới hệ thống Xưởng dịch vụ, Nhà phân phối khắp cả nước, VinFast mang đến dịch vụ chăm sóc tốt nhất cho khách hàng. Đây chính là những địa chỉ tin cậy có máy móc hiện đại, đội ngũ kỹ thuật viên trình độ cao và thái độ tận tình để luôn đảm bảo chất lượng bảo dưỡng xe máy điện và ô tô VinFast cho từng khách hàng. Đặc biệt, chi phí bảo dưỡng, giá phụ tùng thay thế được công khai minh bạch để đảm bảo quyền lợi tốt nhất cho khách hàng. \n\nĐội ngũ kỹ thuật viên chuyên nghiệp của xưởng dịch vụ VinFast\n\nHiện nay, thay vì cần trực tiếp đến các xưởng dịch vụ, khách hàng có thể lựa chọn dịch vụ bảo dưỡng lưu động Mobile Service, nhân viên kỹ thuật của VinFast sẽ đến trực tiếp địa chỉ được cung cấp và thực hiện bảo dưỡng xe theo yêu cầu. Khách hàng trải nghiệm dịch vụ này chỉ phải thanh toán chi phí theo bảng giá niêm yết tại xưởng dịch vụ và không có thêm chi phí phát sinh. \n\nĐối với xe máy điện, dịch vụ Mobile Service được áp dụng trên toàn quốc. Trong khi đó nếu khách hàng sử dụng ô tô, VinFast áp dụng dịch vụ này tại 5 thành phố lớn gồm Hà Nội, TP. Hồ Chí Minh, Hải Phòng, Đà Nẵng và Cần Thơ.\n\nKhách hàng sở hữu xe VinFast có thể đặt lịch sửa chữa và bảo dưỡng xe lưu động tại nhà\n\nĐể rút ngắn thời gian chờ đợi và sửa chữa khi bảo dưỡng và xưởng dịch vụ chuẩn bị phụ tùng - vật tư đầy đủ, khách hàng có thể đặt lịch bảo dưỡng xe VinFast online chỉ với 5 bước đơn giản:\n\nĐặt lịch bảo dưỡng xe VinFast online nhanh chóng và thuận tiện cho khách hàng\nBước 1: Khách hàng truy cập trang công cụ \"Đặt lịch bảo dưỡng\" trên website https://shop.vinfastauto.com/vn_vi/dat-lich-bao-duong.html, https://vinfastauto.com/vn_vi/thong-tin-bao-hanh hoặc https://vinfastauto.com/vn_vi/dich-vu-bao-duong chọn “Đăng ký lịch bảo dưỡng”.\nBước 2: Tiến hành “Đăng nhập”. Nếu khách hàng chưa tạo tài khoản trước đó có thể bấm chọn “Đăng ký” để tạo tài khoản.\nBước 3:  Đặt lịch bảo dưỡng.\nBước 4: Điền đầy đủ thông tin và bấm chọn “Đăng ký lịch hẹn”.\nBước 5: Xưởng dịch vụ VinFast sẽ gửi thông báo xác nhận tới khách hàng sau khi nhận thông tin đăng ký.\n4. Chi phí bảo dưỡng xe VinFast\n\nNhững hạng mục, chi phí bảo dưỡng xe VinFast được tính theo bảng giá niêm yết. Khách hàng có thể hoàn toàn yên tâm sử dụng dịch vụ mà không cần lo về tình trạng “thổi giá” như một số trung tâm bảo dưỡng xe khác trên thị trường.\n\nCác phụ tùng thay thế chính hãng VinFast đều được niêm yết giá\n\nHiện tại hệ thống Xưởng dịch vụ của VinFast đã có mặt trên khắp 63 tỉnh thành. Với sự chu đáo và thái độ chuyên nghiệp của đội ngũ nhân viên và kỹ thuật viên cùng chất lượng và chi phí minh bạch từ trung tâm dịch vụ, khách hàng có thể yên tâm thực hiện các hạng mục bảo dưỡng xe ô tô VinFast. \n\nKhách hàng có thể đặt mua xe máy điện hoặc đặt cọc xe điện VinFast VF 8, VF 9 và VF e34 ngay hôm nay để có cơ hội sở hữu các sản phẩm ô tô, xe máy điện chất lượng vượt trội và trải nghiệm dịch vụ ưu việt của VinFast với chi phí tiết kiệm. \n\nĐể có thêm thông tin hoặc cần hỗ trợ tư vấn về sản phẩm của VinFast, vui lòng liên hệ với chúng tôi: \n\nTổng đài tư vấn: 1900 23 23 89\nEmail chăm sóc khách hàng: support.vn@vinfastauto.com\n\n>>> Tìm hiểu thêm:\n\n5 loại linh kiện không nên bỏ qua khi bảo dưỡng ô tô điện\nCó cần bảo dưỡng xe điện định kỳ không?\n 30/04/2022\nChia sẻ bài viết này\nTin tức liên quan\nLƯU Ý SỬ DỤNG ĐỐI VỚI PIN CELL LFP/GOTION\nLƯU Ý DI CHUYỂN AN TOÀN KHI MƯA BÃO\nCông bố thông tin Dự án Tổ hợp sản xuất ô tô - xe máy điện VinFast\nVINFAST TẶNG 50 ĐIỂM VPOINT CHO MỖI LỊCH HẸN TỚI XƯỞNG DỊCH VỤ ĐẶT TRƯỚC THÀNH CÔNG QUA ỨNG DỤNG VINFAST\n\nCông ty TNHH Kinh doanh Thương mại và Dịch vụ VinFast\n\nMST/MSDN: 0108926276 do Sở KHĐT TP Hà Nội cấp lần đầu ngày 01/10/2019 và các lần thay đổi tiếp theo.\nĐịa chỉ trụ sở chính: Số 7, Đường Bằng Lăng 1, Khu đô thị Vinhomes Riverside, Phường Phúc Lợi, Thành phố Hà Nội, Việt Nam.\nNgười đại diện theo pháp luật: Nguyễn Mai Hoa.\nChức vụ: Chủ tịch Hội đồng thành viên.\nHệ sinh thái\nVinhomes\nVinmec\nVinpearl\nVinFast. All rights reserved.\n© Copyright 2025\n\nVỀ VINFAST\n\nVỀ VINGROUP\n\nTIN TỨC\n\nSHOWROOM & ĐẠI LÝ\n\nĐIỀU KHOẢN CHÍNH SÁCH\n\nDỊCH VỤ KHÁCH HÀNG\n 1900 23 23 89 - Nhánh 1\n support.vn@vinfastauto.com\nSPEAK-UP HOTLINE\n https://vinfast.ethicspoint.com/\n v.speakup@vinfast.vn\nKết nối với VinFast",
+      "assets": [],
+      "extractionScope": "metadata_only",
+      "captureWarnings": [],
+      "contentValidation": null,
+      "contentHash": "sha256:e00768eac1c7d2ab0eb3c8356debae30605860d435ff10f6fb41850d3af51dae",
+      "availability": "available",
+      "accuracy": "source_verified",
+      "reviewStatus": "pending_admin_review",
+      "parserVersion": null,
+      "acquisitionFailures": []
+    },
+    {
+      "snapshotId": "vinfast-repair-car-2026-08-18T09-50-57-373Z",
+      "sourceId": "vinfast-repair-car",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/dich-vu-sua-chua-oto",
+      "serviceType": "repair",
+      "vehicleType": "car",
+      "scope": {
+        "vehicleTypes": [
+          "car"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "finalUrl": "https://vinfastauto.com/vn_vi/dich-vu-sua-chua-oto",
+      "capturedAt": "2026-08-18T09:50:57.373Z",
+      "captureMethod": "browserbase_playwright",
+      "httpStatus": 200,
+      "contentType": "text/html",
+      "title": "Dịch vụ sửa chữa Ô tô VinFast | VinFast",
+      "text": "Dịch vụ sửa chữa\nĐẶT LỊCH SỬA CHỮA\nQuy trình dịch vụ sửa chữa\nPhân loại dịch vụ sửa chữa\nCam kết thời gian sửa chữa\nPhụ tùng chính hãng\nThông tin hỗ trợ\nĐẶT LỊCH SỬA CHỮA\nQuy trình dịch vụ sửa chữa\n\nChuyên nghiệp và chu đáo với 5 bước\n\nBƯỚC 1\nĐặt hẹn sửa chữa\nBƯỚC 2\nTiếp nhận và tư vấn\nBƯỚC 3\nSửa chữa\nBƯỚC 4\nBàn giao xe\nBƯỚC 5\nChăm sóc sau\nsửa chữa\n\nTặng 50 điểm VPoint cho Khách hàng đặt lịch trước qua App/Website và đến làm dịch vụ đúng hẹn (trong vòng 30 phút).\n\nĐẶT LỊCH SỬA CHỮA\nPhân loại dịch vụ sửa chữa\nDịch vụ Sửa chữa chung VinFast\n\nVinFast cung cấp dịch vụ sửa chữa chuyên nghiệp với trang thiết bị đáp ứng tiêu chuẩn kỹ thuật khắt khe và đội ngũ kỹ thuật viên được đào tạo bài bản:\n\nChẩn đoán chính xác, sửa chữa hiệu quả, đảm bảo xe luôn vận hành an toàn và ổn định.\nPhụ tùng chính hãng, sẵn có, chất lượng cao.\nTrang thiết bị nhập khẩu từ Ý, Đức, Nhật, … đáp ứng tiêu chuẩn kỹ thuật khắt khe.\nQuản lý lịch sử xe toàn quốc, chăm sóc Khách hàng đồng bộ tại mọi đại lý.\nKỹ thuật viên VinFast được đào tạo trực tiếp tại nhà máy, đảm bảo tay nghề và chuyên môn cao.\nDịch vụ Sửa chữa Đồng sơn\n\nVinFast mang đến dịch vụ Sửa chữa đồng sơn hiện đại, đạt chuẩn nhà máy với công nghệ tiên tiến hàng đầu từ Ý, Nhật, Đức.\n\nSửa chữa hư hỏng nhẹ\n\nThiết bị hiện đại giúp rút ngắn thời gian, hạn chế biến dạng và giữ nguyên kết cấu vỏ xe.\n\nHư hỏng nặng (chưa ảnh hưởng khung gầm)\n\nDùng máy hàn Mig và máy hàn điểm hàn bấm đồng bộ với nhà máy, đảm bảo thẩm mỹ và độ bền.\n\nSửa chữa khung gầm\n\nỨng dụng bộ nắn khung hiện đại, thước đo điện tử 3D, phục hồi chính xác theo thông số gốc từ nhà sản xuất.\n\nSơn xe\nQuy trình sơn khép kín, đảm bảo độ chính xác và độ bền màu tối ưu. Công nghệ sơn sấy hiện đại giúp lớp sơn khô đều, bám chắc và đạt chất lượng hoàn thiện cao cấp.\nDùng sơn gốc nước thân thiện môi trường, màu sắc trung thực.\nTrang bị hệ thống thiết bị cao cấp, hỗ trợ kiểm tra độ mịn, độ đều màu và độ dày lớp sơn một cách chính xác. Mọi quy trình đều được kiểm soát nghiêm ngặt nhằm đảm bảo chất lượng hoàn thiện đồng đều và đạt chuẩn thẩm mỹ cao nhất.\nHệ thống hút bụi trung tâm tự động đạt chuẩn môi trường Châu Âu.\nCân chỉnh góc đặt bánh xe/Cân bằng động\n\nSau một thời gian sử dụng, hoặc sau khi xe gặp va chạm và thực hiện sửa chữa/thay thế các linh kiện thuộc hệ thống gầm, xe có thể bị sai lệch góc đặt bánh, gây mòn lốp không đều, rung vô lăng, lệch lái.\n\nNên kiểm tra khi:\n\nXe lệch lái, rung tay lái, lốp mòn không đều.\nVô lăng lệch trục, không trả về sau khi rẽ.\nSau va chạm mạnh hoặc thay thế linh kiện hệ thống treo.\n\nKhuyến nghị: Kiểm tra định kỳ để đảm bảo độ bền và an toàn.\n\nCam kết thời gian sửa chữa\n\nChính sách cam kết thời gian sửa chữa\n\nVinFast cam kết minh bạch và đúng hẹn trong thời gian sửa chữa, nhằm nâng cao trải nghiệm và sự hài lòng của Khách hàng.\n\nHỗ trợ 500.000 VNĐ/ngày (đã gồm VAT) cho thời gian sửa chữa vượt quá cam kết.\nTrường hợp sửa chữa động cơ, sửa chữa PDU/POD, khách hàng được tặng thẻ taxi GSM 500.000 VND/xe/ngày trong thời gian chờ sửa chữa.\nTrường hợp sửa chữa pin: khách hàng sẽ được hỗ trợ mượn pin và không hỗ trợ tài chính. Nếu không có pin cho mượn, khách hàng sẽ được tặng thẻ taxi GSM 500.000 VND/xe/ngày.\nVới khách hàng biển vàng cá nhân: không áp dụng mượn xe trong thời gian sửa chữa động cơ/ PDU, pin. Thay thế bằng tặng thẻ GSM như trên.\n\nÁp dụng cho: Tất cả Khách hàng sở hữu ô tô điện và ô tô xăng VinFast.\n\nKhông áp dụng: vào các ngày nghỉ lễ, Tết theo quy định Nhà nước.\n\nLưu ý: Nếu được cung cấp xe mượn, Khách hàng tự chi trả chi phí cầu đường, phạt vi phạm… (nếu có).\n\nPhụ tùng chính hãng\n\nKiểm soát chất lượng nghiêm ngặt: Áp dụng quy trình đánh giá PPAP** trên hầu hết linh kiện, giúp đảm bảo độ chính xác, độ bền và an toàn.\n\nĐối tác công nghệ toàn cầu – Tiêu chuẩn ngành ô tô: VinFast hợp tác với các thương hiệu uy tín toàn cầu như Bosch, ZF, CATL, Continental... Ưu tiên đối tác đạt được những chứng chỉ khắt khe của ngành ô tô như IATF 16949 và ISO 14001.\n\n(**) PPAP là quy trình chuẩn ngành ô tô toàn cầu, được AIAG – Tổ chức hàng đầu ngành ô tô tại Mỹ thiết lập và ban hành, nhằm phê duyệt linh kiện trước khi đưa vào sản xuất hàng loạt.\n\nSỔ BẢO HÀNH Ô TÔ\nHƯỚNG DẪN SỬ DỤNG Ô TÔ\nThông tin hỗ trợ\nDỊCH VỤ KHÁCH HÀNG\n1900 23 23 89 - Nhánh 1\nsupport.vn@vinfastauto.com\nSPEAK-UP HOTLINE\nhttps://vinfast.ethicspoint.com/\nv.speakup@vinfast.vn\nTÀI LIỆU LIÊN QUAN\nTRA CỨU TÀI LIỆU\nHƯỚNG DẪN",
+      "assets": [
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-shared/hero-repair-v2.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "hero_or_banner_photo",
+            "confidence": "high",
+            "signals": [
+              "decorative_terms",
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-general.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-dongson.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-light.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-heavy-damage.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-frame.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-paint.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-slide-wheel-alignment.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-repair/repair-commitment-v2.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        }
+      ],
+      "extractionScope": ".dvhm-revamp-page",
+      "captureWarnings": [],
+      "contentValidation": null,
+      "contentHash": "sha256:2ff3a7f15579ce2f3943ab7c7806ea74caf006a327f025107d62a92f5b6d06c7",
+      "availability": "available",
+      "accuracy": "pending_manual_review",
+      "reviewStatus": "pending_admin_review",
+      "parserVersion": null,
+      "acquisitionFailures": []
+    },
+    {
+      "snapshotId": "vinfast-rescue-car-2026-08-18T09-51-18-137Z",
+      "sourceId": "vinfast-rescue-car",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/thong-tin-cuu-ho-oto",
+      "serviceType": "rescue",
+      "vehicleType": "car",
+      "scope": {
+        "vehicleTypes": [
+          "car"
+        ],
+        "models": [],
+        "modelScope": "all_models_pending_review"
+      },
+      "finalUrl": "https://vinfastauto.com/vn_vi/thong-tin-cuu-ho-oto",
+      "capturedAt": "2026-08-18T09:51:18.137Z",
+      "captureMethod": "browserbase_playwright",
+      "httpStatus": 200,
+      "contentType": "text/html",
+      "title": "Thông tin cứu hộ ô tô | VinFast",
+      "text": "Thông tin cứu hộ\nThông tin cứu hộ\nHướng dẫn ứng phó khẩn cấp\nThông tin hỗ trợ\nThông tin cứu hộ\nCứu hộ 24/7:\nDịch vụ cứu hộ 24/7 dành riêng cho xe ô tô VinFast, được triển khai tại các thị trường nơi VinFast cung cấp dịch vụ. Trong suốt thời gian bảo hành, xe sẽ được cứu hộ miễn phí với các dịch vụ (*) như sau:\nDịch vụ hỗ trợ trên đường\nDịch vụ kéo xe về Xưởng dịch vụ ủy quyền gần nhất của VinFast. Trường hợp xe hết năng lượng: kéo xe về trạm sạc gần nhất hoặc nhà khách hàng (tùy điều kiện nào gần hơn).\nDịch vụ áp dụng cho chủ sở hữu hoặc tài xế được ủy quyền sử dụng xe VinFast.\nCách liên hệ cứu hộ:\nGọi tổng đài cứu hộ: 1900 23 23 89.\nChọn \"Cứu hộ\" trên màn hình trung tâm xe hoặc trong ứng dụng VinFast.\nNhấn nút SOS trong trường hợp khẩn cấp (tính năng được trang bị trên một số dòng xe, vui lòng tham khảo hướng dẫn sử dụng để biết chi tiết).\n\n(*): Vui lòng liên hệ tổng đài cứu hộ 1900 23 23 89 để biết thêm thông tin chi tiết về \"Phạm vi công việc cứu hộ\" và \"Các điều khoản loại trừ\".\n\nHỗ trợ khẩn cấp (eCall)*\n\nAn tâm mọi hành trình – Chạm nút SOS, VinFast luôn sẵn sàng.\n\nVinFast triển khai hệ thống eCall thông minh, giúp Khách hàng tại Việt Nam kết nối nhanh với Trung tâm Hỗ trợ khẩn cấp khi xảy ra sự cố:\n\nPhản hồi ngay lập tức khi nhận tín hiệu từ nút SOS trong xe. Nếu cuộc gọi eCall nhỡ, bộ phận CSKH sẽ chủ động liên hệ lại trong 15 phút.\nChuyển tiếp yêu cầu cứu hộ đến đơn vị điều phối cứu hộ trong vòng 10 phút sau xác minh.\nĐơn vị cứu hộ hoặc Xưởng dịch vụ bắt đầu di chuyển đến hiện trường trong 15 phút kể từ khi nhận yêu cầu.\n\n(*) Áp dụng đối với một số dòng xe.\n\nHướng dẫn ứng phó khẩn cấp\n\nQuý khách hàng tự chi trả chi phí cầu đường, phạt vi phạm… (nếu có). Quý khách vui lòng tham khảo thông tin chi tiết về Hướng dẫn Ứng phó Khẩn cấp theo từng dòng xe trong phần nội dung bên dưới.\n\nHƯỚNG DẪN ỨNG PHÓ KHẨN CẤP\nVF 3\nVF 5\nVF 6\nVF 7\nVF 8\nVF 9\nVF e34\nLimo Green và VF Limo\nThông tin hỗ trợ\nDỊCH VỤ KHÁCH HÀNG\n1900 23 23 89 - Nhánh 1\nsupport.vn@vinfastauto.com\nSPEAK-UP HOTLINE\nhttps://vinfast.ethicspoint.com/\nv.speakup@vinfast.vn\nTÀI LIỆU LIÊN QUAN\nTRA CỨU TÀI LIỆU\nHƯỚNG DẪN",
+      "assets": [
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-rescue/hero-rescue-mobile-v2.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "hero_or_banner_photo",
+            "confidence": "high",
+            "signals": [
+              "decorative_terms"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-rescue/hero-rescue.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "hero_or_banner_photo",
+            "confidence": "high",
+            "signals": [
+              "decorative_terms"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-rescue/rescue-slide-cuuho247.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/statics/images/aftersale-rescue/rescue-slide-ecall.jpg",
+          "type": "image",
+          "label": null,
+          "classification": {
+            "dataType": "vehicle_or_service_photo",
+            "contentRole": "service_or_component_illustration",
+            "confidence": "high",
+            "signals": [
+              "known_service_photo_path"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "metadata_only"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VF3-ERG_VN_V4.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VF5_FRG_VI_1690188008.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VinFast_VF6_SUV_2023_Electric_VN_ERG%20Manual_Final_1704537687.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VinFast_VF7_SUV_2023_5d_Electric_VN_v1_1709620845.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VF8_FRG_VI_1690188048.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VF9_FRG_VI_1690188066.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/VFe34_FRG_VI_1703302928.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        },
+        {
+          "url": "https://static-cms-prod.vinfastauto.com/Limo7%20LHD-VI_V1.pdf",
+          "type": "pdf",
+          "label": "",
+          "classification": {
+            "dataType": "policy_document",
+            "contentRole": "emergency_response_document",
+            "confidence": "high",
+            "signals": [
+              "official_pdf_link",
+              "rescue"
+            ],
+            "needsReview": false,
+            "extractionPolicy": "pdf_text_layer"
+          }
+        }
+      ],
+      "extractionScope": ".dvhm-revamp-page",
+      "captureWarnings": [],
+      "contentValidation": null,
+      "contentHash": "sha256:a1ce59dfe0294feed0b354a33b9d475d598199802176aabad472b82e6983f224",
+      "availability": "available",
+      "accuracy": "source_verified",
+      "reviewStatus": "pending_admin_review",
+      "parserVersion": null,
+      "acquisitionFailures": []
+    },
+    {
+      "snapshotId": "vinfast-service-workshops-2026-08-19T03-23-23-211Z",
+      "sourceId": "vinfast-service-workshops",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/tim-kiem-showroom-tram-sac",
+      "serviceType": "service-center",
+      "vehicleType": "all",
+      "scope": {
+        "vehicleTypes": [
+          "car",
+          "motorbike",
+          "bus",
+          "charging_station"
+        ],
+        "models": [],
+        "modelScope": "location_dependent"
+      },
+      "finalUrl": "https://vinfastauto.com/vn_vi/tim-kiem-showroom-tram-sac",
+      "capturedAt": "2026-08-19T03:23:23.211Z",
+      "captureMethod": "browserless_playwright",
+      "httpStatus": 200,
+      "contentType": "text/html",
+      "title": "Hệ thống Showroom & Trạm sạc | VinFast",
+      "text": "Giới thiệu\nÔ tô\nXe máy điện\nPhụ kiện xe\nDịch vụ hậu mãi\nPin và trạm sạc\nLưu trữ năng lượng\nTÀI KHOẢN\nĐĂNG KÝ LÁI THỬ\n Đăng nhập / Đăng ký\nHệ thống Showroom và Trạm sạc\nKhu vực tìm kiếm\nTỉnh thành\nPhường xã\nTìm theo nhu cầu\n\nCông ty TNHH Kinh doanh Thương mại và Dịch vụ VinFast\n\nMST/MSDN: 0108926276 do Sở KHĐT TP Hà Nội cấp lần đầu ngày 01/10/2019 và các lần thay đổi tiếp theo.\nĐịa chỉ trụ sở chính: Số 7, Đường Bằng Lăng 1, Khu đô thị Vinhomes Riverside, Phường Phúc Lợi, Thành phố Hà Nội, Việt Nam.\nNgười đại diện theo pháp luật: Nguyễn Mai Hoa.\nChức vụ: Chủ tịch Hội đồng thành viên.\nHệ sinh thái\nVinhomes\nVinmec\nVinpearl\nVinFast. All rights reserved.\n© Copyright 2025\n\nVỀ VINFAST\n\nVỀ VINGROUP\n\nTIN TỨC\n\nSHOWROOM & ĐẠI LÝ\n\nĐIỀU KHOẢN CHÍNH SÁCH\n\nDỊCH VỤ KHÁCH HÀNG\n1900 23 23 89 - Nhánh 1\n support.vn@vinfastauto.com\nSPEAK-UP HOTLINE\nhttps://vinfast.ethicspoint.com/\n v.speakup@vinfast.vn\nKết nối với VinFast",
+      "assets": [],
+      "extractionScope": "metadata_only",
+      "captureWarnings": [],
+      "contentValidation": {
+        "validator": "service-workshop-v1",
+        "status": "passed",
+        "expectedMarkers": [
+          "showroom_heading",
+          "search_region",
+          "province_selector"
+        ],
+        "textLength": 941
+      },
+      "contentHash": "sha256:5f21ea9ad63ad3b85fe64d1a436fb6e5e9e2d55f6083aedc268f8de97367fba6",
+      "availability": "available",
+      "accuracy": "source_verified",
+      "reviewStatus": "pending_admin_review",
+      "parserVersion": null,
+      "acquisitionFailures": [
+        {
+          "provider": "http",
+          "code": "ACCESS_DENIED",
+          "status": 403,
+          "retryable": false,
+          "message": "HTTP 403",
+          "attempts": 1
+        }
+      ]
+    }
+  ],
+  "parserVersion": "after-sales-assets-v2",
+  "parsedAt": "2026-08-19T06:02:18.091Z",
+  "parserMethod": "source_scoped_url_label_context_rules",
+  "summary": {
+    "assets": 52,
+    "byDataType": {
+      "vehicle_or_service_photo": 25,
+      "decorative_asset": 3,
+      "policy_document": 24
+    },
+    "extractionCandidates": {
+      "pdfText": 24,
+      "imageOcr": 0,
+      "metadataOnly": 28
+    }
+  }
+}

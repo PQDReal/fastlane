@@ -462,7 +462,12 @@ export function DepositClient({
         if (!controller.signal.aborted) setLocationsLoading(false)
       })
 
-    fetch('/data/showroomcar.json')
+    // Dữ liệu showroom phụ thuộc loại xe đang đặt cọc. Giữ nguyên bộ lọc
+    // tỉnh/phường hiện tại; chỉ thay nguồn showroom tương ứng với loại xe.
+    const showroomDataPath = vehicleType === 'motorbike'
+      ? '/data/showroomescooter.json'
+      : '/data/showroomcar.json'
+    fetch(showroomDataPath)
       .then(res => res.json())
       .then(data => {
         if (data && data.data) {
@@ -472,7 +477,7 @@ export function DepositClient({
       .catch(console.error)
 
     return () => controller.abort()
-  }, [])
+  }, [vehicleType])
 
   useEffect(() => {
     const controller = new AbortController()

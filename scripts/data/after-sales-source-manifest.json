@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 2,
+  "sourceSystem": "VINFAST_OFFICIAL",
+  "acquisitionMode": "CURATED_BROWSER_VERIFIED",
+  "verifiedAt": "2026-08-18",
+  "notes": [
+    "Direct server-side fetch can receive HTTP 403 from vinfastauto.com; the acquisition worker uses isolated Browserbase sessions as the verified fallback.",
+    "The pipeline stores browser-captured HTML text and source-scoped official assets; manually transcribed facts remain separately identified in provenance.",
+    "Admin review is required before any CMS publication."
+  ],
+  "sources": [
+    {
+      "id": "vinfast-after-sales-hub",
+      "serviceType": "after-sales-hub",
+      "vehicleType": "all",
+      "scope": { "vehicleTypes": ["car", "motorbike", "bus"], "models": [], "modelScope": "navigation_hub_only" },
+      "url": "https://vinfastauto.com/vn_vi",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang hub dịch vụ hậu mãi; chỉ lấy trang hub và bốn link chữ chính sách/bảo dưỡng/sửa chữa/cứu hộ. Bỏ qua các nút ảnh và tài liệu hướng dẫn."
+    },
+    {
+      "id": "vinfast-warranty-car",
+      "serviceType": "warranty",
+      "vehicleType": "car",
+      "scope": { "vehicleTypes": ["car"], "models": [], "modelScope": "all_models_pending_review" },
+      "url": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang có tiêu đề Chính sách bảo hành, thời hạn theo dòng xe, điều kiện sử dụng và liên kết sổ bảo hành."
+    },
+    {
+      "id": "vinfast-maintenance-car",
+      "serviceType": "maintenance",
+      "vehicleType": "all",
+      "scope": { "vehicleTypes": ["car", "motorbike"], "models": [], "modelScope": "all_models_pending_review" },
+      "url": "https://vinfastauto.com/vn_vi/bao-duong-xe-vinfast-dinh-ky",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang mô tả các hạng mục và lịch bảo dưỡng định kỳ cho ô tô, xe máy điện và hướng dẫn đặt lịch."
+    },
+    {
+      "id": "vinfast-repair-car",
+      "serviceType": "repair",
+      "vehicleType": "car",
+      "scope": { "vehicleTypes": ["car"], "models": [], "modelScope": "all_models_pending_review" },
+      "url": "https://vinfastauto.com/vn_vi/dich-vu-sua-chua-oto",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang Dịch vụ sửa chữa chính thức đã được Browserbase snapshot HTTP 200; chỉ giữ nội dung và ảnh thuộc vùng dịch vụ sửa chữa, không nhận PDF sổ bảo hành từ popup dùng chung."
+    },
+    {
+      "id": "vinfast-rescue-car",
+      "serviceType": "rescue",
+      "vehicleType": "car",
+      "scope": { "vehicleTypes": ["car"], "models": [], "modelScope": "all_models_pending_review" },
+      "url": "https://vinfastauto.com/vn_vi/thong-tin-cuu-ho-oto",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang thông tin cứu hộ ô tô chính thức; cần xác minh hotline và phạm vi hỗ trợ trước khi publish."
+    },
+    {
+      "id": "vinfast-service-workshops",
+      "serviceType": "service-center",
+      "vehicleType": "all",
+      "scope": { "vehicleTypes": ["car", "motorbike", "bus", "charging_station"], "models": [], "modelScope": "location_dependent" },
+      "url": "https://vinfastauto.com/vn_vi/tim-kiem-showroom-tram-sac",
+      "availability": "browser_verified",
+      "relevancy": "high",
+      "accuracy": "source_verified",
+      "evidence": "Trang tra cứu xưởng dịch vụ chính thức đã được Browserbase snapshot HTTP 200; dữ liệu vị trí phụ thuộc thao tác tìm kiếm nên source này được lưu metadata/text-only."
+    }
+  ],
+  "transcribedFacts": [
+    {
+      "sourceId": "vinfast-warranty-car",
+      "factType": "warranty-term",
+      "vehicleType": "car",
+      "vehicleModels": ["Fadil", "Lux A 2.0", "Lux SA 2.0", "President", "VF 8", "VF 9", "Lạc Hồng 900LX"],
+      "standardUse": "10 năm hoặc 200.000 km",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "reviewStatus": "pending_admin_review"
+    },
+    {
+      "sourceId": "vinfast-warranty-car",
+      "factType": "warranty-term",
+      "vehicleType": "car",
+      "vehicleModels": ["VF 3", "VF 5", "VF 6", "VF 7", "VF e34", "VF Minio Green", "VF Nerio Green", "VF Herio Green", "VF MPV7", "VF Limo Green", "VF 8 The All New"],
+      "standardUse": "7 năm hoặc 160.000 km",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "reviewStatus": "pending_admin_review"
+    },
+    {
+      "sourceId": "vinfast-warranty-car",
+      "factType": "warranty-term",
+      "vehicleType": "car",
+      "vehicleModels": ["VF EC Van"],
+      "standardUse": "5 năm hoặc 130.000 km",
+      "sourceUrl": "https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto",
+      "reviewStatus": "pending_admin_review"
+    }
+  ]
+}
