@@ -531,6 +531,7 @@ export function SalesAgentShell() {
         {open && (
           <motion.aside
             key="sales-agent-dialog"
+            layout
             role="dialog"
             aria-label="Trợ lý mua xe FASTLANE"
         className={
@@ -538,10 +539,14 @@ export function SalesAgentShell() {
             ? 'fixed inset-2 sm:inset-0 m-auto z-[61] flex flex-col overflow-hidden bg-white shadow-2xl border border-slate-200/90 w-[calc(100vw-16px)] sm:w-[min(94vw,1152px)] h-[calc(100dvh-16px)] sm:h-[min(88vh,860px)] rounded-2xl sm:rounded-3xl'
             : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
         }
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+        style={{ transformOrigin: isExpanded ? 'center' : 'calc(100% - 32px) calc(100% - 32px)' }}
+        initial={{ opacity: 0, scale: 0.85, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: 20 }}
+        transition={{ 
+          default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
+          layout: { type: 'spring', bounce: 0, duration: 0.25 }
+        }}
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0">
@@ -592,7 +597,7 @@ export function SalesAgentShell() {
         <div className="flex flex-1 min-h-0 overflow-hidden">
           
           {/* Left Column: Chat Conversation */}
-          <div className={`flex flex-col h-full min-w-0 overflow-hidden ${isExpanded ? 'w-full lg:w-[58%] border-r border-slate-200/90' : 'w-full'}`}>
+          <motion.div layout className={`flex flex-col h-full min-w-0 overflow-hidden ${isExpanded ? 'w-full lg:w-[58%] border-r border-slate-200/90' : 'w-full'}`}>
             <div
               ref={listRef}
               className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/70 p-3 custom-scrollbar"
@@ -790,11 +795,19 @@ export function SalesAgentShell() {
                 </p>
               </form>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Column: Intelligence & Showcase Panel (Only shown in Expanded Mode on Desktop) */}
+          <AnimatePresence>
           {isExpanded && (
-            <div className="hidden lg:flex flex-col h-full overflow-y-auto bg-slate-50/90 w-[42%] p-5 space-y-4 custom-scrollbar">
+            <motion.div
+              layout
+              initial={{ opacity: 0, width: 0, paddingLeft: 0, paddingRight: 0 }}
+              animate={{ opacity: 1, width: '42%', paddingLeft: 20, paddingRight: 20 }}
+              exit={{ opacity: 0, width: 0, paddingLeft: 0, paddingRight: 0 }}
+              className="hidden lg:flex flex-col h-full overflow-y-auto bg-slate-50/90 space-y-4 custom-scrollbar"
+            >
+              <div className="w-full min-w-[300px] py-5 space-y-4">
               
               {showManualPanel ? (
                 <div className="flex-1 h-full min-h-0">
@@ -908,8 +921,10 @@ export function SalesAgentShell() {
             </>
           )}
 
-            </div>
+              </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
         </div>
       </motion.aside>
