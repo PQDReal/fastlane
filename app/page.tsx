@@ -13,7 +13,7 @@ import { getCarSpecsSummary, getProductImage } from '../lib/get-product-image'
 
 // Avoid Supabase connection failures on static prerendering.
 // Page content relies on DB query at request time.
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 function shuffleItems<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -86,109 +86,117 @@ function colorHex(name: string) {
 }
 
 async function loadHomeVehicles(): Promise<HomeVehicle[]> {
-  const supabase = getSupabaseAdmin()
-  const [carResult, motorbikeCatalog] = await Promise.all([
-    supabase
-      .from('products')
-      .select(`
-          id,
-          name,
-          slug,
-          product_type,
-          description,
-          displayed_price,
-          specifications,
-          image_urls,
-          category:categories(name)
-        `)
-      .eq('is_active', true)
-      .in('product_type', ['CAR', 'VEHICLE'])
-      .limit(48),
-    listMotorbikeCatalog(),
-  ])
+  try {
+    const supabase = getSupabaseAdmin()
+    const [carResult, motorbikeCatalog] = await Promise.all([
+      supabase
+        .from('products')
+        .select(`
+            id,
+            name,
+            slug,
+            product_type,
+            description,
+            displayed_price,
+            specifications,
+            image_urls,
+            category:categories(name)
+          `)
+        .eq('is_active', true)
+        .in('product_type', ['CAR', 'VEHICLE'])
+        .limit(48),
+      listMotorbikeCatalog(),
+    ])
 
-  const rawProducts = [
-    ...(carResult.data ?? []),
-    ...motorbikeCatalog.map((motorbike) => ({
-      id: motorbike.productId,
-      name: motorbike.name,
-      slug: motorbike.slug,
-      product_type: 'BIKE',
-      description: motorbike.description,
-      displayed_price: motorbike.displayedPrice,
-      specifications: motorbike.specifications,
-      image_urls: [motorbike.listingImageUrl],
-      colors: motorbike.colors.map((color) => color.name),
-      category: { name: 'Xe máy điện' },
-    })),
-  ]
+    const rawProducts = [
+      ...(carResult.data ?? []),
+      ...motorbikeCatalog.map((motorbike) => ({
+        id: motorbike.productId,
+        name: motorbike.name,
+        slug: motorbike.slug,
+        product_type: 'BIKE',
+        description: motorbike.description,
+        displayed_price: motorbike.displayedPrice,
+        specifications: motorbike.specifications,
+        image_urls: [motorbike.listingImageUrl],
+        colors: motorbike.colors.map((color) => color.name),
+        category: { name: 'Xe máy điện' },
+      })),
+    ]
 
-  const activeProducts = (rawProducts || []).filter(
-    (product: any) => productType(product) && Number(product.displayed_price) > 0,
-  )
-
-  return activeProducts.map((product: any) => {
-    const type = productType(product) as 'CAR' | 'BIKE'
-    const productSpecifications = product.specifications || {}
-    const richCarVariant = productSpecifications.specs
-      ? (Object.values(productSpecifications.specs)[0] as any)
-      : undefined
-    const carSpecs = richCarVariant?.specs || {}
-    const carAppView = parseAppView(carSpecs.appView)
-    const range = firstText(
-      type === 'CAR'
-        ? formatCarRange(
-            carAppView.range ||
-              carSpecs.powertrain?.distance ||
-              productSpecifications.range_text ||
-              productSpecifications.range_km,
-          )
-        : productSpecifications['Quãng đường đi được mỗi lần sạc'],
-      type === 'CAR' ? 'Đang cập nhật' : 'Đang cập nhật',
+    const activeProducts = (rawProducts || []).filter(
+      (product: any) => productType(product) && Number(product.displayed_price) > 0,
     )
-    const power = firstText(
-      type === 'CAR'
-        ? formatCarPower(carAppView.maxPower || carSpecs.powertrain?.maxPower)
-        : productSpecifications['Công suất tối đa'] || productSpecifications['Công suất danh định'],
-      'Đang cập nhật',
-    )
-    const thirdMetric =
-      type === 'CAR'
-        ? firstText(carSpecs.powertrain?.drivetrain, 'Thuần điện')
-        : firstText(productSpecifications['Tốc độ tối đa'], 'Đang cập nhật')
-    const colorNames = type === 'BIKE' && Array.isArray(product.colors)
-      ? product.colors
-      : firstText(productSpecifications['Màu sắc'], '')
-          .split(/[;,]/)
-          .map((item) => item.trim())
-          .filter(Boolean)
 
-    return {
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      type,
-      description:
-        getCarSpecsSummary(productSpecifications) ||
-        product.description ||
-        (type === 'BIKE'
-          ? 'Linh hoạt trong phố, vận hành êm và không phát thải.'
-          : 'Không gian hiện đại, công nghệ thông minh và trải nghiệm thuần điện.'),
-      image: type === 'BIKE'
-        ? product.image_urls[0]
-        : getProductImage(product.name, product.image_urls),
-      price: Number(product.displayed_price) || 0,
-      range,
-      power,
-      thirdMetric,
-      thirdMetricLabel: type === 'CAR' ? 'Dẫn động' : 'Tốc độ tối đa',
-      colors: colorNames.map(colorHex),
-      href: productHref(product),
-      depositHref: `/deposit?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
-      estimatorHref: `/cost-estimator?model=${encodeURIComponent(product.name)}`,
-      testDriveHref: `/test-drive?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
+    return activeProducts.map((product: any) => {
+      const type = productType(product) as 'CAR' | 'BIKE'
+      const productSpecifications = product.specifications || {}
+      const richCarVariant = productSpecifications.specs
+        ? (Object.values(productSpecifications.specs)[0] as any)
+        : undefined
+      const carSpecs = richCarVariant?.specs || {}
+      const carAppView = parseAppView(carSpecs.appView)
+      const range = firstText(
+        type === 'CAR'
+          ? formatCarRange(
+              carAppView.range ||
+                carSpecs.powertrain?.distance ||
+                productSpecifications.range_text ||
+                productSpecifications.range_km,
+            )
+          : productSpecifications['Quãng đường đi được mỗi lần sạc'],
+        type === 'CAR' ? 'Đang cập nhật' : 'Đang cập nhật',
+      )
+      const power = firstText(
+        type === 'CAR'
+          ? formatCarPower(carAppView.maxPower || carSpecs.powertrain?.maxPower)
+          : productSpecifications['Công suất tối đa'] || productSpecifications['Công suất danh định'],
+        'Đang cập nhật',
+      )
+      const thirdMetric =
+        type === 'CAR'
+          ? firstText(carSpecs.powertrain?.drivetrain, 'Thuần điện')
+          : firstText(productSpecifications['Tốc độ tối đa'], 'Đang cập nhật')
+      const colorNames = type === 'BIKE' && Array.isArray(product.colors)
+        ? product.colors
+        : firstText(productSpecifications['Màu sắc'], '')
+            .split(/[;,]/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        type,
+        description:
+          getCarSpecsSummary(productSpecifications) ||
+          product.description ||
+          (type === 'BIKE'
+            ? 'Linh hoạt trong phố, vận hành êm và không phát thải.'
+            : 'Không gian hiện đại, công nghệ thông minh và trải nghiệm thuần điện.'),
+        image: type === 'BIKE'
+          ? product.image_urls[0]
+          : getProductImage(product.name, product.image_urls),
+        price: Number(product.displayed_price) || 0,
+        range,
+        power,
+        thirdMetric,
+        thirdMetricLabel: type === 'CAR' ? 'Dẫn động' : 'Tốc độ tối đa',
+        colors: colorNames.map(colorHex),
+        href: productHref(product),
+        depositHref: `/deposit?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
+        estimatorHref: `/cost-estimator?model=${encodeURIComponent(product.name)}`,
+        testDriveHref: `/test-drive?type=${type === 'CAR' ? 'car' : 'motorbike'}&model=${encodeURIComponent(product.name)}`,
+      }
+    })
+  } catch (error) {
+    if (process.env.npm_lifecycle_event === 'build' || !process.env.NODE_ENV || process.env.NODE_ENV !== 'production') {
+      console.warn('⚠️  Home vehicles fetch failed during build. Returning empty list.', error)
+      return []
     }
-  })
+    throw error
+  }
 }
 
 const getCachedHomeVehicles = unstable_cache(

@@ -34,36 +34,44 @@ type CarRow = {
 }
 
 async function loadCarCatalogPage(page: number, pageSize: number): Promise<CarCatalogPage> {
-  const start = (page - 1) * pageSize
-  const result = await getSupabaseAdmin()
-    .from('products')
-    .select('id,name,slug,description,displayed_price,image_urls,range_text:specifications->>range_text,seat_count:specifications->>seat_count,category:categories!inner(name)', { count: 'exact' })
-    .eq('is_active', true)
-    .eq('categories.name', 'Ô tô điện')
-    .range(start, start + pageSize - 1)
+  try {
+    const start = (page - 1) * pageSize
+    const result = await getSupabaseAdmin()
+      .from('products')
+      .select('id,name,slug,description,displayed_price,image_urls,range_text:specifications->>range_text,seat_count:specifications->>seat_count,category:categories!inner(name)', { count: 'exact' })
+      .eq('is_active', true)
+      .eq('categories.name', 'Ô tô điện')
+      .range(start, start + pageSize - 1)
 
-  if (result.error) throw new Error(`Không thể tải danh mục ô tô: ${result.error.message}`)
+    if (result.error) throw new Error(`Không thể tải danh mục ô tô: ${result.error.message}`)
 
-  const rows = (result.data ?? []) as unknown as CarRow[]
-  const items = rows
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      description: getCarSpecsSummary({
-        range_text: row.range_text,
-        seat_count: row.seat_count,
-      }) || row.description || 'Xe ô tô điện VinFast',
-      displayedPrice: Number(row.displayed_price) || 0,
-      imageUrl: getProductImage(row.name, row.image_urls),
-    }))
-    .sort((left, right) => {
-      const leftNumber = Number.parseInt(left.name.match(/\d+/)?.[0] || '0', 10)
-      const rightNumber = Number.parseInt(right.name.match(/\d+/)?.[0] || '0', 10)
-      return leftNumber - rightNumber || left.name.localeCompare(right.name, 'vi')
-    })
+    const rows = (result.data ?? []) as unknown as CarRow[]
+    const items = rows
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: getCarSpecsSummary({
+          range_text: row.range_text,
+          seat_count: row.seat_count,
+        }) || row.description || 'Xe ô tô điện VinFast',
+        displayedPrice: Number(row.displayed_price) || 0,
+        imageUrl: getProductImage(row.name, row.image_urls),
+      }))
+      .sort((left, right) => {
+        const leftNumber = Number.parseInt(left.name.match(/\d+/)?.[0] || '0', 10)
+        const rightNumber = Number.parseInt(right.name.match(/\d+/)?.[0] || '0', 10)
+        return leftNumber - rightNumber || left.name.localeCompare(right.name, 'vi')
+      })
 
-  return { items, total: result.count ?? 0 }
+    return { items, total: result.count ?? 0 }
+  } catch (error) {
+    if (process.env.npm_lifecycle_event === 'build' || !process.env.NODE_ENV || process.env.NODE_ENV !== 'production') {
+      console.warn('⚠️  Car catalog fetch failed during build. Returning empty catalog.', error)
+      return { items: [], total: 0 }
+    }
+    throw error
+  }
 }
 
 function nextCachedCarCatalogPage(page: number, pageSize: number) {

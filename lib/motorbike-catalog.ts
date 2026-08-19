@@ -247,79 +247,87 @@ function mapRows(rows: VehicleVariantRow[], authorityPrices = new Map<string, nu
 }
 
 async function loadMotorbikeCatalog(): Promise<MotorbikeCatalogItem[]> {
-  const supabase = getSupabaseAdmin()
-  const publishedAggregate = await supabase.rpc('list_published_motorbike_catalog')
-  if (!publishedAggregate.error) {
-    // Read model chứa các dòng catalog, còn product_variants vẫn là nguồn giá authority.
-    // Vì vậy phải tải cả hai nguồn trước khi dựng catalog.
-    const activeProducts = await supabase
-      .from('products')
-      .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
-      .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
-      .eq('is_active', true)
+  try {
+    const supabase = getSupabaseAdmin()
+    const publishedAggregate = await supabase.rpc('list_published_motorbike_catalog')
+    if (!publishedAggregate.error) {
+      // Read model chứa các dòng catalog, còn product_variants vẫn là nguồn giá authority.
+      // Vì vậy phải tải cả hai nguồn trước khi dựng catalog.
+      const activeProducts = await supabase
+        .from('products')
+        .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
+        .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
+        .eq('is_active', true)
+
+      if (activeProducts.error) {
+        throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
+      }
+
+      const authorityPrices = buildAuthorityPriceMap((activeProducts.data ?? []) as ActiveProductRow[])
+      const rows = ((publishedAggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
+        (product.variants ?? []).map((variant) => ({
+          ...variant,
+          product_id: product.product_id,
+          product_name: product.product_name,
+          specs: product.shared_specs,
+        })),
+      )
+      return mapRows(rows, authorityPrices)
+    }
+
+    // `vehicle_variants.is_active` describes a sellable colour/version row, while
+    // `products.is_active` is the publication state of the whole model. Check the
+    // latter explicitly as well: legacy RPC rows can otherwise keep a draft model
+    // visible in /bikes and lead users to a 404 detail page.
+    const [aggregate, activeProducts] = await Promise.all([
+      supabase.rpc('list_active_motorbike_catalog'),
+      supabase
+        .from('products')
+        .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
+        .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
+        .eq('is_active', true),
+    ])
 
     if (activeProducts.error) {
       throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
     }
+    const activeProductRows = (activeProducts.data ?? []) as ActiveProductRow[]
+    const activeProductIds = new Set(activeProductRows.map((product) => product.id))
+    const authorityPrices = buildAuthorityPriceMap(activeProductRows)
 
-    const authorityPrices = buildAuthorityPriceMap((activeProducts.data ?? []) as ActiveProductRow[])
-    const rows = ((publishedAggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
-      (product.variants ?? []).map((variant) => ({
-        ...variant,
-        product_id: product.product_id,
-        product_name: product.product_name,
-        specs: product.shared_specs,
-      })),
-    )
-    return mapRows(rows, authorityPrices)
-  }
+    if (!aggregate.error) {
+      const rows = ((aggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
+        activeProductIds.has(product.product_id) ? (product.variants ?? []).map((variant) => ({
+          ...variant,
+          product_id: product.product_id,
+          product_name: product.product_name,
+          specs: product.shared_specs,
+        })) : [],
+      )
+      return mapRows(rows, authorityPrices)
+    }
 
-  // `vehicle_variants.is_active` describes a sellable colour/version row, while
-  // `products.is_active` is the publication state of the whole model. Check the
-  // latter explicitly as well: legacy RPC rows can otherwise keep a draft model
-  // visible in /bikes and lead users to a 404 detail page.
-  const [aggregate, activeProducts] = await Promise.all([
-    supabase.rpc('list_active_motorbike_catalog'),
-    supabase
-      .from('products')
-      .select('id,product_variants(id,sku,original_price,sale_price,is_active)')
+    const { data, error } = await supabase
+      .from('vehicle_variants')
+      .select('id,product_id,product_variant_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
       .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
-      .eq('is_active', true),
-  ])
+      .eq('is_active', true)
 
-  if (activeProducts.error) {
-    throw new Error(`Unable to load active motorbike products: ${activeProducts.error.message}`)
+    if (error) {
+      throw new Error(
+        `Unable to load motorbike vehicle variants: ${error.message}; `
+        + `catalog read model: ${aggregate.error.message}`,
+      )
+    }
+
+    return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)), authorityPrices)
+  } catch (error) {
+    if (process.env.npm_lifecycle_event === 'build' || !process.env.NODE_ENV || process.env.NODE_ENV !== 'production') {
+      console.warn('⚠️  Motorbike catalog fetch failed during build. Returning empty catalog.', error)
+      return []
+    }
+    throw error
   }
-  const activeProductRows = (activeProducts.data ?? []) as ActiveProductRow[]
-  const activeProductIds = new Set(activeProductRows.map((product) => product.id))
-  const authorityPrices = buildAuthorityPriceMap(activeProductRows)
-
-  if (!aggregate.error) {
-    const rows = ((aggregate.data ?? []) as MotorbikeCatalogReadRow[]).flatMap((product) =>
-      activeProductIds.has(product.product_id) ? (product.variants ?? []).map((variant) => ({
-        ...variant,
-        product_id: product.product_id,
-        product_name: product.product_name,
-        specs: product.shared_specs,
-      })) : [],
-    )
-    return mapRows(rows, authorityPrices)
-  }
-
-  const { data, error } = await supabase
-    .from('vehicle_variants')
-    .select('id,product_id,product_variant_id,product_name,deposit_amount,specs,variant_name,sku,price,color,image_car_url,image_color_url,version,is_active')
-    .in('product_type', MOTORBIKE_CATALOG_PRODUCT_TYPE_VALUES)
-    .eq('is_active', true)
-
-  if (error) {
-    throw new Error(
-      `Unable to load motorbike vehicle variants: ${error.message}; `
-      + `catalog read model: ${aggregate.error.message}`,
-    )
-  }
-
-  return mapRows(((data ?? []) as VehicleVariantRow[]).filter((row) => activeProductIds.has(row.product_id)), authorityPrices)
 }
 
 export function toMotorbikeCatalogParityItem(item: Pick<MotorbikeCatalogItem, 'productId' | 'name' | 'displayedPrice'>): VehicleCatalogParityItem {

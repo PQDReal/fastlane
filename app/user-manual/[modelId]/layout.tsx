@@ -3,19 +3,23 @@ import { ManualSidebar } from './manual-sidebar'
 import { notFound } from 'next/navigation'
 
 export async function generateStaticParams() {
-  const models = await getManualModels()
-  return models.map((m) => ({ modelId: m.id }))
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
+  try {
+    const models = await getManualModels()
+    return models.map((m) => ({ modelId: m.id }))
+  } catch (error) {
+    console.error('Failed to generate static params in layout:', error)
+    return []
+  }
 }
 
-export default async function ModelManualLayout({
-  children,
-  params,
-}: {
+export default async function ModelManualLayout(props: {
   children: React.ReactNode
   params: Promise<{ modelId: string }>
 }) {
-  const { modelId } = await params
-  const decodedModelId = decodeURIComponent(modelId)
+  const params = await props.params
+  const { children } = props
+  const decodedModelId = decodeURIComponent(params.modelId)
   const models = await getManualModels()
   const model = models.find((m) => m.id === decodedModelId)
 

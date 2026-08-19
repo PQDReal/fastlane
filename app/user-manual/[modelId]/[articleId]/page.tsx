@@ -3,26 +3,27 @@ import { notFound } from 'next/navigation'
 import './manual.css'
 import { ArticleContent } from './article-content'
 
-export async function generateStaticParams({
-  params,
-}: {
-  params: { modelId: string }
-}) {
-  const decodedModelId = decodeURIComponent(params.modelId)
-  const tree = await getManualTree(decodedModelId)
-  return tree.map((article) => ({
-    articleId: article.id,
-  }))
+export async function generateStaticParams(props: { params: any }) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
+  try {
+    const params = await props.params
+    const decodedModelId = decodeURIComponent(params.modelId)
+    const tree = await getManualTree(decodedModelId)
+    return tree.map((article: any) => ({
+      articleId: article.id,
+    }))
+  } catch (error) {
+    console.error('Failed to generate static params:', error)
+    return []
+  }
 }
 
-export async function generateMetadata({
-  params,
-}: {
+export async function generateMetadata(props: {
   params: Promise<{ modelId: string; articleId: string }>
 }) {
-  const { modelId, articleId } = await params
-  const decodedModelId = decodeURIComponent(modelId)
-  const decodedArticleId = decodeURIComponent(articleId)
+  const params = await props.params
+  const decodedModelId = decodeURIComponent(params.modelId)
+  const decodedArticleId = decodeURIComponent(params.articleId)
   const article = await getManualArticle(decodedModelId, decodedArticleId)
 
   if (!article) return { title: 'Không tìm thấy - FASTLANE' }
@@ -33,14 +34,12 @@ export async function generateMetadata({
   }
 }
 
-export default async function ManualArticlePage({
-  params,
-}: {
+export default async function ManualArticlePage(props: {
   params: Promise<{ modelId: string; articleId: string }>
 }) {
-  const { modelId, articleId } = await params
-  const decodedModelId = decodeURIComponent(modelId)
-  const decodedArticleId = decodeURIComponent(articleId)
+  const params = await props.params
+  const decodedModelId = decodeURIComponent(params.modelId)
+  const decodedArticleId = decodeURIComponent(params.articleId)
 
   const article = await getManualArticle(decodedModelId, decodedArticleId)
 
