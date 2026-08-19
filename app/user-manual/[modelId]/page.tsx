@@ -7,11 +7,12 @@ export async function generateStaticParams() {
   return models.map(m => ({ modelId: m.id }))
 }
 
-export default async function ModelManualIndexPage({
-  params
-}: {
-  params: { modelId: string }
-}) {
+export default async function ModelManualIndexPage(
+  props: {
+    params: Promise<{ modelId: string }>
+  }
+) {
+  const params = await props.params;
   const decodedModelId = decodeURIComponent(params.modelId)
   const firstArticleId = await getFirstArticleId(decodedModelId)
 
