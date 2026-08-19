@@ -9,7 +9,7 @@ import { Button } from '../../../components/ui/button'
 import { Check, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 const SPEC_TRANSLATIONS: Record<string, string> = {
   // Powertrain specs

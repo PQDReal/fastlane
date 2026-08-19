@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Pagination } from '../../components/pagination'
 import { listCarCatalogPage } from '../../lib/car-catalog'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 export default async function CarsPage(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const searchParams = await props.searchParams
