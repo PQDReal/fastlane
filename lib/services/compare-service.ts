@@ -15,6 +15,7 @@ export type ComparableVariant = {
   sku: string
   originalPrice: number
   salePrice: number | null
+  version: string | null
 }
 
 export type ComparableVehicle = {
@@ -36,7 +37,7 @@ type ProductRow = {
   displayed_price: number | null
   specifications: unknown
   categories: { name: string } | { name: string }[] | null
-  product_variants: { id: string; name: string; sku: string; original_price: number; sale_price: number | null }[] | null
+  product_variants: { id: string; name: string; sku: string; original_price: number; sale_price: number | null; vehicle_variants: { version: string }[] | null }[] | null
 }
 
 const COMPARABLE_CATEGORIES = new Set(['Ô tô điện', 'Xe máy điện'])
@@ -50,7 +51,7 @@ async function loadComparableVehicles(): Promise<ComparableVehicle[]> {
   const [carResult, motorbikes] = await Promise.all([
     getSupabaseAdmin()
       .from('products')
-      .select(`id,name,slug,image_urls,displayed_price,specifications,categories(name),product_variants(id,name,sku,original_price,sale_price)`)
+      .select(`id,name,slug,image_urls,displayed_price,specifications,categories(name),product_variants(id,name,sku,original_price,sale_price,vehicle_variants(version))`)
       .eq('is_active', true)
       .in('product_type', ['CAR', 'VEHICLE'])
       .eq('product_variants.is_active', true)
@@ -80,6 +81,7 @@ async function loadComparableVehicles(): Promise<ComparableVehicle[]> {
           sku: variant.sku,
           originalPrice: variant.original_price,
           salePrice: variant.sale_price,
+          version: (variant.vehicle_variants && variant.vehicle_variants.length > 0) ? variant.vehicle_variants[0].version : null,
         })),
       }
     })
@@ -99,6 +101,7 @@ async function loadComparableVehicles(): Promise<ComparableVehicle[]> {
       sku: variant.sku,
       originalPrice: variant.price,
       salePrice: null,
+      version: variant.name,
     })),
   }))
 

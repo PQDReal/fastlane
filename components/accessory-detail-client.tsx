@@ -734,8 +734,7 @@ export function AccessoryDetailClient({
           <section className="mt-16 border-t border-slate-200 pt-12" aria-labelledby="related-heading">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Cùng ngữ cảnh</p>
-                <h2 id="related-heading" className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                <h2 id="related-heading" className="text-3xl font-bold tracking-tight text-slate-950">
                   {selectedVehicle ? `Khám phá thêm cho ${selectedVehicle}` : 'Phụ kiện liên quan'}
                 </h2>
               </div>
