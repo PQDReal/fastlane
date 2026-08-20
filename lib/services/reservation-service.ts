@@ -2,6 +2,7 @@ import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { sendTestDriveConfirmationEmail } from '@/lib/mailer'
+import { notifyAdminTestDriveCreated } from '@/lib/notifications/server'
 export type CreateTestDriveReservationInput = {
   customerId: string | null
   productId: string
@@ -141,6 +142,16 @@ export async function createTestDriveReservation(
       console.error('Failed to send test drive confirmation email (non-blocking):', err);
     });
   }
+
+  await notifyAdminTestDriveCreated({
+    id: data.id,
+    referenceNumber: data.reference_number,
+    fullName: data.full_name,
+    productName: data.product_name_snapshot,
+    scheduledAt: data.scheduled_at,
+  }).catch((err) => {
+    console.error('Failed to send admin test drive notification (non-blocking):', err)
+  })
 
   return {
     id: data.id,

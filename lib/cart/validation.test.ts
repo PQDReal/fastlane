@@ -61,8 +61,16 @@ describe('cart request validation', () => {
     }
   })
 
-  it('enforces quantity boundaries', () => {
-    for (const quantity of [0, 100, 1.5]) {
+  it('accepts quantities above the previous 99-item ceiling', () => {
+    expect(parseAddCartItemRequest({ variantId, quantity: 100 })).toEqual({
+      variantId,
+      quantity: 100,
+    })
+    expect(parseUpdateCartItemRequest({ quantity: 100 })).toEqual({ quantity: 100 })
+  })
+
+  it('rejects non-positive or fractional quantities', () => {
+    for (const quantity of [0, -1, 1.5]) {
       expect(() => parseUpdateCartItemRequest({ quantity })).toThrowError(
         ApiRouteError,
       )

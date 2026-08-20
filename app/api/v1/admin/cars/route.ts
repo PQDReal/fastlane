@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { deleteRedisKeysByPrefix } from '@/lib/redis'
 import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { normalizeCarSkuBase } from '@/lib/car-sku'
-import { allocateVehicleVariantSkus } from '@/lib/vehicle-sku'
+import { allocateVehicleVariantSkus, buildVehicleOptionSignature } from '@/lib/vehicle-sku'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -326,7 +326,7 @@ export async function POST(request: Request) {
     original_price: priceForConfiguration(version, color),
     sale_price: null,
     is_active: is_active,
-    option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(color.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}&interior=${String(interior.interior_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    option_signature: buildVehicleOptionSignature({ version: version.name, versionSku: version.sku, color: color.color_name, interiorColor: interior.interior_name }),
     metadata: {
       source: 'admin_car_creation',
       base_sku: normalizeCarSkuBase(version.sku, color.color_name, interior.interior_name),

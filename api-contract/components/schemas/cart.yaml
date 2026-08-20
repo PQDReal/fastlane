@@ -7,13 +7,13 @@ AddCartItemRequest:
       quantity: 1
   properties:
     variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
-    quantity: { type: integer, minimum: 1, maximum: 99 }
+    quantity: { type: integer, minimum: 1 }
 UpdateCartItemRequest:
   type: object
   additionalProperties: false
   required: [quantity]
   properties:
-    quantity: { type: integer, minimum: 1, maximum: 99 }
+    quantity: { type: integer, minimum: 1 }
 ApplyPromotionRequest:
   type: object
   additionalProperties: false

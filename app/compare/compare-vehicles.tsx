@@ -56,11 +56,39 @@ export function CompareVehicles({ vehicles, loadError = false }: Props) {
     })
   }
 
+  function getUniqueVersions(vehicle: ComparableVehicle) {
+    const map = new Map<string, number>()
+    const isSuffix = (full: string, part: string) => full === part || full.endsWith(` ${part}`)
+
+    vehicle.variants.forEach((v) => {
+      const baseName = (v.version || v.name.split(' - ')[0] || v.name).trim()
+      const currentPrice = v.salePrice ?? v.originalPrice
+      
+      let finalKey = baseName
+      for (const key of map.keys()) {
+        if (isSuffix(key, baseName) || isSuffix(baseName, key)) {
+          finalKey = key.length < baseName.length ? key : baseName
+          if (finalKey !== key) {
+            const oldPrice = map.get(key)!
+            map.delete(key)
+            map.set(finalKey, oldPrice)
+          }
+          break
+        }
+      }
+
+      if (!map.has(finalKey) || currentPrice < map.get(finalKey)!) {
+        map.set(finalKey, currentPrice)
+      }
+    })
+    return Array.from(map.entries())
+  }
+
   const rows: [string, (vehicle: ComparableVehicle) => string][] = [
     ['Phân loại', (vehicle) => vehicle.category],
     ['Giá từ', (vehicle) => price(vehicle.displayedPrice)],
-    ['Phiên bản', (vehicle) => vehicle.variants.map((variant) => variant.name).join(', ') || NO_DATA],
-    ['Giá từng phiên bản', (vehicle) => vehicle.variants.map((variant) => `${variant.name}: ${price(variant.salePrice ?? variant.originalPrice)}`).join(' • ') || NO_DATA],
+    ['Phiên bản', (vehicle) => getUniqueVersions(vehicle).map(([name]) => name).join(', ') || NO_DATA],
+    ['Giá từng phiên bản', (vehicle) => getUniqueVersions(vehicle).map(([name, p]) => `${name}: ${price(p)}`).join(' • ') || NO_DATA],
   ]
   const comparisonRow = (label: string, value: (vehicle: ComparableVehicle) => string, index: number) => <div key={label} className={`grid grid-cols-[190px_repeat(3,minmax(240px,1fr))] gap-5 border-b border-muted py-5 ${index % 2 ? 'bg-muted/20' : ''}`}><div className="pl-4 text-xs font-bold uppercase tracking-wider text-foreground">{label}</div>{Array.from({ length: MAX }, (_, slot) => <div key={slot} className="whitespace-normal px-3 text-center text-sm text-foreground">{selected[slot] ? value(selected[slot]) : '—'}</div>)}</div>
 
