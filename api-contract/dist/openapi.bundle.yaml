@@ -803,6 +803,172 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /admin/inventory/query:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: queryAdminInventory
+      x-prd-references:
+        - US-A04
+        - FR-ADMN-04
+        - BR-05
+      summary: Query inventory with normalized filters and cursor pagination
+      description: |
+        New additive inventory query contract backed by the admin inventory read model.
+        The legacy /api/v1/admin/inventory response remains unchanged while the admin
+        screen migrates to this endpoint. Search is accent-insensitive and cursor is opaque.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - inventory:manage
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 160
+        - name: productType
+          in: query
+          schema:
+            type: string
+            enum:
+              - ALL
+              - CAR
+              - BIKE
+              - ACCESSORY
+            default: ALL
+        - name: productId
+          in: query
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Uuid'
+              - type: 'null'
+        - name: variant
+          in: query
+          schema:
+            type: string
+            maxLength: 160
+        - name: color
+          in: query
+          schema:
+            type: string
+            maxLength: 160
+        - name: interiorColor
+          in: query
+          schema:
+            type: string
+            maxLength: 160
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - ALL
+              - INACTIVE
+              - UNLINKED
+              - MISSING_INVENTORY
+              - OUT_OF_STOCK
+              - LOW_STOCK
+              - IN_STOCK
+            default: ALL
+        - name: activity
+          in: query
+          schema:
+            type: string
+            enum:
+              - ALL
+              - ACTIVE
+              - INACTIVE
+            default: ALL
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          description: Opaque cursor returned by the previous response.
+          schema:
+            type: string
+            maxLength: 4096
+        - name: includeFilterOptions
+          in: query
+          description: Defaults to true for backward compatibility. The admin screen sets false and loads stable filter metadata separately.
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Cursor-paginated inventory query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInventoryQueryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /admin/inventory/filter-options:
+    get:
+      tags:
+        - Admin Catalog
+      operationId: getAdminInventoryFilterOptions
+      x-prd-references:
+        - US-A04
+        - FR-ADMN-04
+        - BR-05
+      summary: Load inventory filter metadata independently from cursor pages
+      description: Called only when product type or product changes, so cursor and status changes do not repeat the metadata RPC.
+      security:
+        - bearerAuth: []
+      x-required-roles:
+        - admin
+      x-required-permissions:
+        - inventory:manage
+      parameters:
+        - name: productType
+          in: query
+          schema:
+            type: string
+            enum:
+              - ALL
+              - CAR
+              - BIKE
+              - ACCESSORY
+            default: ALL
+        - name: productId
+          in: query
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Uuid'
+              - type: 'null'
+      responses:
+        '200':
+          description: Product, variant and color options for inventory filters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminInventoryFilterOptionsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /admin/categories:
     get:
       tags:
@@ -5389,7 +5555,6 @@ components:
         quantity:
           type: integer
           minimum: 1
-          maximum: 99
     UpdateCartItemRequest:
       type: object
       additionalProperties: false
@@ -5399,7 +5564,6 @@ components:
         quantity:
           type: integer
           minimum: 1
-          maximum: 99
     ApplyPromotionRequest:
       type: object
       additionalProperties: false
@@ -6097,6 +6261,259 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/DashboardSummary'
+    AdminInventoryStatus:
+      type: string
+      enum:
+        - INACTIVE
+        - UNLINKED
+        - MISSING_INVENTORY
+        - OUT_OF_STOCK
+        - LOW_STOCK
+        - IN_STOCK
+    AdminInventoryItem:
+      type: object
+      additionalProperties: false
+      required:
+        - variantId
+        - productId
+        - sku
+        - productName
+        - variantName
+        - productType
+        - categoryName
+        - version
+        - color
+        - interiorColor
+        - inventoryKey
+        - onHandQuantity
+        - updatedAt
+        - variantIsActive
+        - productIsActive
+        - isActive
+        - inventoryStatus
+        - isSellable
+        - hasInventoryRow
+      properties:
+        variantId:
+          $ref: '#/components/schemas/Uuid'
+        productId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        sku:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        productName:
+          type: string
+        variantName:
+          type: string
+        productType:
+          type: string
+        categoryName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        version:
+          oneOf:
+            - type: string
+            - type: 'null'
+        color:
+          oneOf:
+            - type: string
+            - type: 'null'
+        interiorColor:
+          oneOf:
+            - type: string
+            - type: 'null'
+        inventoryKey:
+          oneOf:
+            - type: string
+            - type: 'null'
+        onHandQuantity:
+          type: integer
+          minimum: 0
+        updatedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        variantIsActive:
+          type: boolean
+        productIsActive:
+          type: boolean
+        isActive:
+          type: boolean
+        inventoryStatus:
+          $ref: '#/components/schemas/AdminInventoryStatus'
+        isSellable:
+          type: boolean
+        hasInventoryRow:
+          type: boolean
+    AdminInventoryStatusCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - INACTIVE
+        - UNLINKED
+        - MISSING_INVENTORY
+        - OUT_OF_STOCK
+        - LOW_STOCK
+        - IN_STOCK
+      properties:
+        INACTIVE:
+          type: integer
+          minimum: 0
+        UNLINKED:
+          type: integer
+          minimum: 0
+        MISSING_INVENTORY:
+          type: integer
+          minimum: 0
+        OUT_OF_STOCK:
+          type: integer
+          minimum: 0
+        LOW_STOCK:
+          type: integer
+          minimum: 0
+        IN_STOCK:
+          type: integer
+          minimum: 0
+    AdminInventorySummary:
+      type: object
+      additionalProperties: false
+      required:
+        - totalRows
+        - totalQuantity
+        - statusCounts
+      properties:
+        totalRows:
+          type: integer
+          minimum: 0
+        totalQuantity:
+          type: integer
+          minimum: 0
+        statusCounts:
+          $ref: '#/components/schemas/AdminInventoryStatusCounts'
+    AdminInventoryFilterProduct:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - productType
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        productType:
+          type: string
+    AdminInventoryFilterValue:
+      type: object
+      additionalProperties: false
+      required:
+        - value
+        - label
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+    AdminInventoryFilterOptions:
+      type: object
+      additionalProperties: false
+      required:
+        - typeCounts
+        - products
+        - variants
+        - colors
+        - interiorColors
+      properties:
+        typeCounts:
+          type: object
+          additionalProperties: false
+          required:
+            - ALL
+            - CAR
+            - BIKE
+            - ACCESSORY
+          properties:
+            ALL:
+              type: integer
+              minimum: 0
+            CAR:
+              type: integer
+              minimum: 0
+            BIKE:
+              type: integer
+              minimum: 0
+            ACCESSORY:
+              type: integer
+              minimum: 0
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInventoryFilterProduct'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInventoryFilterValue'
+        colors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInventoryFilterValue'
+        interiorColors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInventoryFilterValue'
+    AdminInventoryQueryData:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+        - hasMore
+        - limit
+        - summary
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminInventoryItem'
+        nextCursor:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+        hasMore:
+          type: boolean
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        summary:
+          $ref: '#/components/schemas/AdminInventorySummary'
+        filterOptions:
+          $ref: '#/components/schemas/AdminInventoryFilterOptions'
+    AdminInventoryQueryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminInventoryQueryData'
+    AdminInventoryFilterOptionsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminInventoryFilterOptions'
     CategoryCreateRequest:
       type: object
       additionalProperties: false

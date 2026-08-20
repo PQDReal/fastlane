@@ -281,6 +281,8 @@ export function AccessoryDetailClient({
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const [mediaDirection, setMediaDirection] = useState(0)
   const [quantity, setQuantity] = useState(1)
+  const [quantityInput, setQuantityInput] = useState('1')
+  const [quantityTouched, setQuantityTouched] = useState(false)
   const [submittingAction, setSubmittingAction] = useState<'cart' | 'checkout' | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const submitting = submittingAction !== null
@@ -324,6 +326,8 @@ export function AccessoryDetailClient({
     setSelectedMediaIndex(0)
     setMediaDirection(0)
     setQuantity(1)
+    setQuantityInput('1')
+    setQuantityTouched(false)
     setFeedback(null)
   }
 
@@ -331,7 +335,7 @@ export function AccessoryDetailClient({
     destination: 'cart' | 'checkout',
     sourceElement?: HTMLButtonElement,
   ) => {
-    if (previewMode || !selectedVariant || !inStock || submitting) return
+    if (previewMode || !selectedVariant || !inStock || quantityError || submitting) return
     const animationId = destination === 'cart' && sourceElement
       ? prepareCartAnimation(sourceElement)
       : ''
@@ -406,7 +410,15 @@ export function AccessoryDetailClient({
     && selectedVariant?.salePrice !== undefined
     && selectedVariant.salePrice < selectedVariant.originalPrice,
   )
-  const maximumQuantity = Math.min(99, selectedVariant?.availableQuantity ?? 0)
+  const maximumQuantity = selectedVariant?.availableQuantity ?? 0
+  const quantityError = selectedVariant && quantityTouched
+    ? !/^\d+$/.test(quantityInput) || quantity < 1
+      ? 'Số lượng phải là số nguyên lớn hơn 0.'
+      : quantity > maximumQuantity
+        ? `Số lượng không được vượt quá tồn kho (${selectedVariant.availableQuantity}).`
+        : null
+    : null
+  const quantityValid = !quantityError && quantity >= 1 && quantity <= maximumQuantity
   const fitment = accessoryFitmentStatus(product, selectedVehicle, vehicleContext)
   const categoryLabels = accessoryCategoryLabels(product)
   const canPurchase = fitment !== 'incompatible'
@@ -622,22 +634,48 @@ export function AccessoryDetailClient({
                       type="button"
                       aria-label="Giảm số lượng"
                       disabled={!inStock || quantity <= 1}
-                      onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                      onClick={() => {
+                        const next = Math.max(1, quantity - 1)
+                        setQuantity(next)
+                        setQuantityInput(String(next))
+                        setQuantityTouched(true)
+                      }}
                       className="flex h-10 w-9 items-center justify-center text-slate-500 transition hover:bg-slate-50 disabled:opacity-30"
                     >
                       <Minus size={15} />
                     </button>
-                    <span className="w-10 text-center text-sm font-bold tabular-nums text-slate-900">{quantity}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={Math.max(1, maximumQuantity)}
+                      step={1}
+                      inputMode="numeric"
+                      aria-label="Số lượng"
+                      value={quantityInput}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setQuantityInput(value)
+                        setQuantityTouched(true)
+                        setQuantity(/^\d+$/.test(value) ? Number(value) : 0)
+                      }}
+                      className={`h-10 w-14 border-x border-slate-300 bg-white text-center text-sm font-bold tabular-nums text-slate-900 outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 ${quantityError ? 'border-red-400 bg-red-50 text-red-700' : ''}`}
+                    />
                     <button
                       type="button"
                       aria-label="Tăng số lượng"
                       disabled={!inStock || quantity >= maximumQuantity}
-                      onClick={() => setQuantity((current) => Math.min(maximumQuantity, current + 1))}
+                      onClick={() => {
+                        const next = Math.min(maximumQuantity, quantity + 1)
+                        setQuantity(next)
+                        setQuantityInput(String(next))
+                        setQuantityTouched(true)
+                      }}
                       className="flex h-10 w-9 items-center justify-center text-slate-500 transition hover:bg-slate-50 disabled:opacity-30"
                     >
                       <Plus size={15} />
                     </button>
                   </div>
+                  {quantityError && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{quantityError}</p>}
                 </div>
                 <div className="pb-1 text-right">
                   <p className={`text-sm font-bold ${inStock ? 'text-emerald-700' : 'text-red-600'}`}>
@@ -655,7 +693,7 @@ export function AccessoryDetailClient({
                 <button
                   type="button"
                   onClick={handleBuyNow}
-                  disabled={previewMode || !selectedVariant || !inStock || !canPurchase || submitting}
+                  disabled={previewMode || !selectedVariant || !inStock || !canPurchase || !quantityValid || submitting}
                   className="flex min-h-12 w-full items-center justify-center rounded-sm bg-brand-600 px-5 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {submittingAction === 'checkout' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
@@ -664,7 +702,7 @@ export function AccessoryDetailClient({
                 <button
                   type="button"
                   onClick={handleAdd}
-                  disabled={previewMode || !selectedVariant || !inStock || !canPurchase || submitting}
+                  disabled={previewMode || !selectedVariant || !inStock || !canPurchase || !quantityValid || submitting}
                   className="flex min-h-12 w-full items-center justify-center gap-2 rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:border-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   {submittingAction === 'cart' ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
