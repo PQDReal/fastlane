@@ -466,7 +466,7 @@ export async function PATCH(request: Request, context: Context) {
       })
   })
 
-  // 4. Perform deletions
+  // 4. Retire omitted configurations without deleting historical rows
   const newPvIds = new Set(productVariantRows.map((row: any) => String(row.id)))
   const pvIdsToDelete = (existingPV || []).filter((row: any) => !newPvIds.has(String(row.id))).map((row: any) => row.id)
 
@@ -476,11 +476,24 @@ export async function PATCH(request: Request, context: Context) {
   if (vvIdsToDelete.length > 0) {
     const { error: vvDelError } = await supabase
       .from('vehicle_variants')
-      .delete()
+      .update({ is_active: false })
       .in('id', vvIdsToDelete)
       .eq('product_id', productId)
     if (vvDelError) {
       return NextResponse.json({ error: `Lỗi xóa cấu hình xe cũ: ${vvDelError.message}` }, { status: 500 })
+    }
+  }
+
+  // Keep historical product variants available to reservations before
+  // upserting the new active configuration set.
+  if (pvIdsToDelete.length > 0) {
+    const { error: pvRetireError } = await supabase
+      .from('product_variants')
+      .update({ is_active: false })
+      .in('id', pvIdsToDelete)
+      .eq('product_id', productId)
+    if (pvRetireError) {
+      return NextResponse.json({ error: `Lá»—i vÃ´ hiá»‡u hÃ³a phiÃªn báº£n cÅ©: ${pvRetireError.message}` }, { status: 500 })
     }
   }
 
@@ -494,16 +507,26 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   if (pvIdsToDelete.length > 0) {
-    await supabase.from('inventory_items').delete().in('variant_id', pvIdsToDelete)
-    await supabase.from('cart_items').delete().in('variant_id', pvIdsToDelete)
-    await supabase.from('product_media').delete().in('variant_id', pvIdsToDelete)
     const { error: pvDelError } = await supabase
       .from('product_variants')
-      .delete()
+      .update({ is_active: false })
       .in('id', pvIdsToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
+      if (pvDelError.code === '23503') {
+        // Test-drive reservations keep a foreign-key reference to historical
+        // variants. Retire those variants instead of deleting them.
+        const { error: pvUpdateError } = await supabase
+          .from('product_variants')
+          .update({ is_active: false })
+          .in('id', pvIdsToDelete)
+          .eq('product_id', productId)
+        if (pvUpdateError) {
+          return NextResponse.json({ error: `Lá»—i vÃ´ hiá»‡u hÃ³a phiÃªn báº£n cÅ©: ${pvUpdateError.message}` }, { status: 500 })
+        }
+      } else {
       return NextResponse.json({ error: `Lỗi xóa phiên bản cũ: ${pvDelError.message}` }, { status: 500 })
+      }
     }
   }
 
