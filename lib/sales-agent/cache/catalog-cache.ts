@@ -145,12 +145,14 @@ function compileDynamicSummaryPrompt(
   return [
     '## BẢNG THÔNG SỐ VÀ DANH MỤC TÓM TẮT CHÍNH XÁC (TỰ ĐỘNG CẬP NHẬT TỪ CACHE HỆ THỐNG):',
     '',
-    '### 1. Bảng thông số Ô tô điện VinFast chính hãng:',
+    '### 1. Bảng thông số Ô tô điện VinFast chính hãng (Slash Route: `/cars/[slug]`):',
+    `Danh sách Slash Routes: ${cars.map(c => `\`[${c.name}](/cars/${c.slug})\``).join(', ')}`,
     '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Chỗ, Pin kWh, Quãng đường km, Công suất, Sạc nhanh, Bảo hành) |',
     '| :--- | :--- | :--- |',
     carLines.length > 0 ? carLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
     '',
-    '### 2. Bảng thông số Xe máy điện VinFast chính hãng:',
+    '### 2. Bảng thông số Xe máy điện VinFast chính hãng (Slash Route: `/bikes/[slug]`):',
+    `Danh sách Slash Routes: ${bikes.map(b => `\`[${b.name}](/bikes/${b.slug})\``).join(', ')}`,
     '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Loại Pin, Quãng đường km, Tốc độ tối đa km/h, Cốp, Bảo hành) |',
     '| :--- | :--- | :--- |',
     bikeLines.length > 0 ? bikeLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
@@ -178,7 +180,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-3',
     name: 'VinFast VF 3',
-    slug: 'vinfast-vf-3',
+    slug: 'vf-3',
     description: 'Mini-SUV điện thông minh, linh hoạt cho đô thị.',
     productType: 'CAR',
     displayedPrice: 240000000,
@@ -202,7 +204,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-5',
     name: 'VinFast VF 5 Plus',
-    slug: 'vinfast-vf-5-plus',
+    slug: 'vf-5',
     description: 'SUV đô thị cỡ A năng động, tối ưu chi phí vận hành.',
     productType: 'CAR',
     displayedPrice: 468000000,
@@ -226,7 +228,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-6',
     name: 'VinFast VF 6',
-    slug: 'vinfast-vf-6',
+    slug: 'vf-6',
     description: 'Crossover hạng B thời thượng, tiện nghi cho gia đình trẻ.',
     productType: 'CAR',
     displayedPrice: 675000000,
@@ -250,7 +252,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-7',
     name: 'VinFast VF 7',
-    slug: 'vinfast-vf-7',
+    slug: 'vf-7',
     description: 'SUV điện cỡ C phong cách vũ trụ phi đối xứng, vận hành vượt trội.',
     productType: 'CAR',
     displayedPrice: 850000000,
@@ -274,7 +276,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-8',
     name: 'VinFast VF 8',
-    slug: 'vinfast-vf-8',
+    slug: 'vf-8',
     description: 'SUV điện phân khúc D đẳng cấp quốc tế, trang bị ADAS cao cấp.',
     productType: 'CAR',
     displayedPrice: 1090000000,
@@ -298,7 +300,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-9',
     name: 'VinFast VF 9',
-    slug: 'vinfast-vf-9',
+    slug: 'vf-9',
     description: 'SUV điện full-size phân khúc E hạng sang, 7 chỗ hoặc 6 chỗ cơ trưởng.',
     productType: 'CAR',
     displayedPrice: 1984000000,
@@ -322,7 +324,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-evo-200',
     name: 'VinFast Evo 200',
-    slug: 'vinfast-evo-200',
+    slug: 'evo-200',
     description: 'Xe máy điện quốc dân đi xa tới 205 km/lần sạc.',
     productType: 'BIKE',
     displayedPrice: 18000000,
@@ -343,7 +345,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-feliz-s',
     name: 'VinFast Feliz S',
-    slug: 'vinfast-feliz-s',
+    slug: 'feliz-s',
     description: 'Xe máy điện thanh lịch, động cơ 3000W mạnh mẽ, cốp rộng 25L.',
     productType: 'BIKE',
     displayedPrice: 27000000,
@@ -364,7 +366,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-klara-s',
     name: 'VinFast Klara S',
-    slug: 'vinfast-klara-s',
+    slug: 'klara-s',
     description: 'Xe máy điện thanh lịch, cốp rộng, pin LFP bền bỉ.',
     productType: 'BIKE',
     displayedPrice: 35000000,

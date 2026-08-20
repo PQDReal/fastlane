@@ -19,7 +19,6 @@ async function main() {
   const { data: articles, error } = await supabase
     .from('manual_articles')
     .select('id, title, model_id')
-    .ilike('model_id', '%VF 3%')
     .order('created_at', { ascending: false })
 
   if (error || !articles) {

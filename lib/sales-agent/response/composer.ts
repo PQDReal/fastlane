@@ -158,11 +158,8 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const imageFacts = allFacts.filter((f) => f.factPath === 'image_url' && f.valueHash)
   
   if (imageFacts.length > 0) {
-    // Only show the FIRST (highest scoring) image to avoid cluttering the chat with multiple images
-    blocks.push({
-      kind: 'MANUAL_IMAGE',
-      imageUrl: imageFacts[0].valueHash,
-    })
+    // We NO LONGER auto-push the first image. The AI is now instructed to use Markdown `![alt](url)`
+    // to render the most relevant image based on context.
   }
 
   // 2.6 Extract User Manual Article References from Evidence

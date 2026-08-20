@@ -4,10 +4,24 @@ import { embedMany } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import * as cheerio from 'cheerio'
+import fs from 'fs'
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 })
+
+// Load URL mapping for images
+let urlMap: Record<string, string> = {}
+try {
+  const assetsData = JSON.parse(fs.readFileSync('D:\\data vinfast\\vinfast-om\\data\\normalized\\assets.json', 'utf8'))
+  for (const asset of assetsData) {
+    if (asset.relativePath && asset.source_url) {
+      urlMap[asset.relativePath] = asset.source_url
+    }
+  }
+} catch (err) {
+  console.warn('Could not load assets.json mapping')
+}
 
 export type ManualRawChunk = {
   chunkIndex: number
@@ -50,14 +64,31 @@ function parseManualHtml(html: string): ManualRawChunk[] {
     const tag = el.tagName.toLowerCase()
     const $el = $(el)
 
-    if (/^h[1-6]$/.test(tag)) {
+    const isHeading =
+      /^h[1-6]$/.test(tag) ||
+      $el.hasClass('Detail-Heading') ||
+      $el.hasClass('Sub-Section') ||
+      $el.hasClass('Sub-Sub-Heading')
+
+    if (isHeading) {
       flushChunk()
       currentSectionTitle = $el.text().trim()
     } else if (tag === 'img') {
       // Only keep main images which are wrapped in <p class="Image"> in VinFast manuals
       if ($el.parent().hasClass('Image')) {
-        flushChunk()
-        currentImageUrl = $el.attr('src')
+        const rawSrc = $el.attr('src')
+        if (rawSrc) {
+          if (!currentImageUrl) {
+            if (urlMap[rawSrc]) {
+              currentImageUrl = urlMap[rawSrc]
+            } else if (rawSrc.startsWith('/')) {
+              currentImageUrl = `https://om.vinfastauto.com${rawSrc}`
+            } else {
+              currentImageUrl = rawSrc
+            }
+          }
+          flushChunk()
+        }
       }
     } else if (tag === 'table') {
       // Extract table rows as annotations

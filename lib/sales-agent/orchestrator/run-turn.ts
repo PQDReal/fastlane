@@ -253,9 +253,30 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })
   }
 
+  let parsedSuggestions: any[] = []
+  let finalMarkdown = accumulatedText || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.'
+  
+  // Parse embedded JSON suggestion intents if the LLM output them at the end of the text
+  const lastBracketIndex = finalMarkdown.lastIndexOf('[')
+  const lastCloseBracketIndex = finalMarkdown.lastIndexOf(']')
+  if (lastBracketIndex !== -1 && lastCloseBracketIndex > lastBracketIndex) {
+    const possibleJson = finalMarkdown.substring(lastBracketIndex, lastCloseBracketIndex + 1)
+    if (possibleJson.includes('"label"') && possibleJson.includes('"intent"')) {
+      try {
+        const parsed = JSON.parse(possibleJson)
+        if (Array.isArray(parsed) && parsed.every(p => p.label && p.intent)) {
+          parsedSuggestions = parsed
+          finalMarkdown = finalMarkdown.substring(0, lastBracketIndex).trim()
+        }
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+    }
+  }
+
   narrative.push({
     kind: 'ADVICE',
-    markdown: accumulatedText || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.',
+    markdown: finalMarkdown,
     subjects: knownEntities.toKnownRefs(),
     support: currentTurnFactPointers.slice(0, 5),
   })
@@ -274,7 +295,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     outcome: negativeObservations.length > 0 && currentTurnFactPointers.length === 0 ? 'DEGRADED' : 'ANSWER',
     narrative,
     views: [],
-    suggestionIntents: [],
+    suggestionIntents: parsedSuggestions,
     actionIntents: [],
   }
 

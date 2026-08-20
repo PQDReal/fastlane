@@ -162,7 +162,7 @@ export async function executeDataTool(
             { factRef: `fact-manual-articleId-${k.chunkId}`, factPath: 'article_id', valueHash: parsedArticleId },
             { factRef: `fact-manual-modelId-${k.chunkId}`, factPath: 'model_id', valueHash: parsedModelId },
           ]
-          if (k.imageUrl && index === 0) {
+          if (k.imageUrl) {
             facts.push({ factRef: `fact-manual-image-${k.chunkId}`, factPath: 'image_url', valueHash: k.imageUrl })
           }
           return {

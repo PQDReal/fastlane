@@ -335,13 +335,7 @@ export function SalesAgentShell() {
   // Decide whether to show manual right pane
   const showManualPanel = latestManualContext && dismissedManualArticle !== latestManualContext.articleId
 
-  // Auto-expand panel when manual is referenced
-  useEffect(() => {
-    if (showManualPanel) {
-      setIsExpanded(true)
-    }
-  }, [showManualPanel])
-
+  // Auto-expand panel when manual is referenced has been removed per user request
   // Auto-expand textarea smoothly up to 5 lines
   useEffect(() => {
     const textarea = textareaRef.current

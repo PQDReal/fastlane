@@ -5,6 +5,8 @@ import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
+import Link from 'next/link'
+import { ManualImageBlock } from './manual-image-block'
 
 function safeInternalHref(href?: string) {
   if (!href) return null
@@ -89,7 +91,7 @@ export function MarkdownMessage({ content, streaming = false }: { content: strin
         h2: ({ node: _node, ...props }) => <h3 className="mb-1.5 mt-3 text-[15px] font-semibold text-slate-900 first:mt-0" {...props} />,
         h3: ({ node: _node, ...props }) => <h4 className="mb-1 mt-2.5 text-sm font-semibold text-slate-900 first:mt-0" {...props} />,
         h4: ({ node: _node, ...props }) => <h5 className="mb-1 mt-2 text-sm font-medium text-slate-900 first:mt-0" {...props} />,
-        p: ({ node: _node, ...props }) => <p className="my-1.5 text-sm leading-[1.375rem] text-slate-700 first:mt-0 last:mb-0" {...props} />,
+        p: ({ node: _node, ...props }) => <div className="my-1.5 text-sm leading-[1.375rem] text-slate-700 first:mt-0 last:mb-0" {...props} />,
         strong: ({ node: _node, ...props }) => <strong className="font-semibold text-slate-900" {...props} />,
         ul: ({ node: _node, ...props }) => <ul className="my-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700" {...props} />,
         ol: ({ node: _node, ...props }) => <ol className="my-1.5 list-decimal space-y-1 pl-5 text-sm text-slate-700" {...props} />,
@@ -112,9 +114,11 @@ export function MarkdownMessage({ content, streaming = false }: { content: strin
         a: ({ node: _node, href, children, ...props }) => {
           const safeHref = safeInternalHref(href)
           if (!safeHref) return <span className="font-medium text-slate-700 underline decoration-dotted" title="Liên kết chưa được xác minh">{children}</span>
-          return <a href={safeHref} className="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800" {...props}>{children}</a>
+          // Use Next.js Link for client-side navigation to prevent full page reloads
+          // which might unexpectedly trigger middleware auth redirects on some environments
+          return <Link href={safeHref} className="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800" {...props}>{children}</Link>
         },
-        img: ({ node: _node, alt }) => alt ? <span className="text-xs italic text-slate-500">[Hình ảnh: {alt}]</span> : null,
+        img: ({ node: _node, alt, src }) => src ? <ManualImageBlock imageUrl={String(src)} caption={alt ? String(alt) : undefined} /> : null,
         }}
       >
         {markdown}

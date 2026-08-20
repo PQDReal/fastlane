@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "start:standalone": "node .next/standalone/server.js",
     "test": "vitest run",
     "test:sales-agent-evals": "vitest run lib/sales-agent/evals/corpus.test.ts lib/sales-agent/architecture.test.ts",
