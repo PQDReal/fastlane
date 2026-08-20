@@ -67,6 +67,10 @@ export function NavigationLoadingIndicator() {
       const href = link.getAttribute('href')
       if (!href || href.startsWith('#')) return
 
+      if (link.dataset.noGlobalLoading === 'true') {
+        return
+      }
+
       if (link.dataset.fastlanePending === 'true') {
         event.preventDefault()
         event.stopPropagation()
@@ -144,50 +148,55 @@ export function NavigationLoadingIndicator() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-all">
-      <div
-        role="status"
-        aria-live="polite"
-        aria-label="Đang tải trang"
-        className="flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/90 px-5 py-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-      >
-        <span className="navigation-loading-image relative flex h-11 w-[4.125rem] shrink-0 items-center justify-center overflow-hidden" aria-hidden="true">
-        <img
-          src="/images/fastlane-loading.png"
-          alt=""
-          className="h-9 w-[3.375rem] translate-x-[9px] object-contain"
-        />
-        <svg
-          viewBox="0 0 72 48"
-          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      <div className="relative overflow-hidden rounded-full p-[1.5px] shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
+        <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] max-w-none -translate-x-1/2 -translate-y-1/2">
+          <div className="h-full w-full animate-[spin_2.5s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_80%,#fbbf24_96%,white_100%)]" />
+        </div>
+        <div
+          role="status"
+          aria-live="polite"
+          aria-label="Đang tải trang"
+          className="relative flex items-center gap-3 rounded-full bg-slate-950 px-5 py-2.5"
         >
-          <path
-            d="M11 45c5.3-1.1 8.5-4.2 9.8-9.4L27.2 10c.8-3.3 3.1-5 6.8-5h19.4c5.4 0 10.3-1.4 17.6-4"
-            pathLength="100"
-            fill="none"
-            stroke="#9b7200"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2.8"
-            className="navigation-speed-trace"
+          <span className="navigation-loading-image relative flex h-11 w-[4.125rem] shrink-0 items-center justify-center overflow-hidden" aria-hidden="true">
+          <img
+            src="/images/fastlane-loading.png"
+            alt=""
+            className="h-9 w-[3.375rem] translate-x-[9px] object-contain"
           />
-          <path
-            d="M8 42.2c4.7-1 7.4-3.6 8.6-8.2L22.9 8.4C24.3 2.8 28 .2 34.1.2h18.7c5.7 0 11.2-1.4 18.8-4.1"
-            pathLength="100"
-            fill="none"
-            stroke="#d8a313"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.35"
-            className="navigation-speed-trace navigation-speed-trace-secondary"
-          />
-        </svg>
-      </span>
-      <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-100">
-        Đang tải
-      </span>
-      <span className="sr-only">
-        Vui lòng chờ trong khi trang mới được tải.
-      </span>
+          <svg
+            viewBox="0 0 72 48"
+            className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+          >
+            <path
+              d="M11 45c5.3-1.1 8.5-4.2 9.8-9.4L27.2 10c.8-3.3 3.1-5 6.8-5h19.4c5.4 0 10.3-1.4 17.6-4"
+              pathLength="100"
+              fill="none"
+              stroke="#9b7200"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.8"
+              className="navigation-speed-trace"
+            />
+            <path
+              d="M8 42.2c4.7-1 7.4-3.6 8.6-8.2L22.9 8.4C24.3 2.8 28 .2 34.1.2h18.7c5.7 0 11.2-1.4 18.8-4.1"
+              pathLength="100"
+              fill="none"
+              stroke="#d8a313"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.35"
+              className="navigation-speed-trace navigation-speed-trace-secondary"
+            />
+          </svg>
+        </span>
+        <span className="pr-1 text-[13px] font-bold uppercase tracking-[0.2em] text-slate-100">
+          Đang tải
+        </span>
+        <span className="sr-only">
+          Vui lòng chờ trong khi trang mới được tải.
+        </span>
+        </div>
       </div>
     </div>
   )
