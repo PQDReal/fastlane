@@ -11,8 +11,15 @@ export function salesAgentCatalogUrl(productType: SalesAgentNavigableProductType
 }
 
 export function salesAgentProductUrl(productType: SalesAgentNavigableProductType, slug: string) {
-  const normalizedSlug = slug.trim()
+  let normalizedSlug = slug.trim()
   if (!normalizedSlug) return PRODUCT_PREFIXES[productType]
+  
+  // Prevent 404s by stripping vinfast- prefix if it was hallucinated or improperly passed
+  // Only apply to CARs as bikes still use the vinfast- prefix
+  if (productType === 'CAR') {
+    normalizedSlug = normalizedSlug.replace(/^vinfast-/i, '')
+  }
+  
   return `${PRODUCT_PREFIXES[productType]}/${encodeURIComponent(normalizedSlug)}`
 }
 

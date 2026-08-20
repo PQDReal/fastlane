@@ -258,7 +258,7 @@ export default function NewCarPage() {
 
   // 2. Load the current-tab session snapshot on mount
   useEffect(() => {
-    const saved = sessionStorage.getItem(STORAGE_KEY)
+    const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
@@ -274,13 +274,13 @@ export default function NewCarPage() {
   // 3. Save the current-tab session snapshot on change
   useEffect(() => {
     if (form !== initialFormState) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form])
 
   // Restore draft
   const handleRestoreDraft = () => {
-    const saved = sessionStorage.getItem(STORAGE_KEY)
+    const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         setForm(JSON.parse(saved))
@@ -294,14 +294,14 @@ export default function NewCarPage() {
 
   // Reject draft / Start fresh
   const handleDiscardDraft = () => {
-    sessionStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(STORAGE_KEY)
     setShowRestorePrompt(false)
     notify('warning', 'Bỏ qua bản nháp', 'Bắt đầu điền thông tin mới.')
   }
 
   // Cancel action
   const handleCancel = () => {
-    const saved = sessionStorage.getItem(STORAGE_KEY)
+    const saved = localStorage.getItem(STORAGE_KEY)
     if (!saved) {
       router.push('/admin/products')
       return
@@ -320,7 +320,7 @@ export default function NewCarPage() {
           variant: 'danger',
           onClick: () => {
             setToasts((current) => current.filter((item) => item.id !== toastId))
-            sessionStorage.removeItem(STORAGE_KEY)
+            localStorage.removeItem(STORAGE_KEY)
             notify('success', 'Đã hủy tạo mới', 'Bản nháp lưu tạm đã được dọn sạch.')
             setTimeout(() => {
               router.push('/admin/products')
@@ -724,7 +724,7 @@ export default function NewCarPage() {
       }
 
       notify('success', 'Lưu sản phẩm thành công', 'Xe ô tô điện đã được thêm vào hệ thống.')
-      sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
       setTimeout(() => {
         router.push('/admin/products')
       }, 1000)
