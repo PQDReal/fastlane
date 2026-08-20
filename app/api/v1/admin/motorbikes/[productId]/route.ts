@@ -17,7 +17,7 @@ import {
   normalizeMotorbikeVersionMedia,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
-import { allocateVehicleVariantSkus, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
+import { allocateVehicleVariantSkus, buildVehicleOptionSignature, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -400,7 +400,7 @@ export async function PATCH(request: Request, context: Context) {
         original_price: priceForConfiguration(version, colorItem),
         sale_price: null,
         is_active: is_active,
-        option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        option_signature: buildVehicleOptionSignature({ version: version.name, versionSku: version.sku, color: colorItem.color_name }),
         metadata: {
           source: 'admin_motorbike_edit',
           base_sku: version.sku,

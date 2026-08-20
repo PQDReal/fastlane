@@ -26,6 +26,27 @@ function configurationPart(value: unknown) {
     .replace(/\s+/g, ' ')
 }
 
+/** Build a collision-safe signature for one selectable vehicle configuration. */
+function optionSignaturePart(value: unknown) {
+  const normalized = text(value).normalize('NFC').toLocaleLowerCase('vi-VN')
+  return encodeURIComponent(normalized || 'unknown')
+}
+
+export function buildVehicleOptionSignature(input: {
+  version: unknown
+  versionSku?: unknown
+  color: unknown
+  interiorColor?: unknown
+}) {
+  return [
+    `version=${optionSignaturePart(input.versionSku || input.version)}`,
+    `color=${optionSignaturePart(input.color)}`,
+    input.interiorColor !== undefined
+      ? `interior=${optionSignaturePart(input.interiorColor)}`
+      : null,
+  ].filter(Boolean).join('&')
+}
+
 /** Same opaque 3-letter + 8-digit shape used by accessory SKUs. */
 export function formatVehicleSku(productType: VehicleSkuProductType, sequenceValue: number) {
   const rule = VEHICLE_SKU_RULES[productType]

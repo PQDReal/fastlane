@@ -188,16 +188,6 @@ export default async function CarDetailPage(props: { params: Promise<{ slug: str
     || product.image_urls?.[0] 
     || '/images/vf8.png'
 
-  if (product.name === 'VF 3') {
-    bannerImg = carRichData.gallery?.exterior_images?.[1] || bannerImg
-  } else if (product.name === 'VF 5' || product.slug === 'vf-5') {
-    bannerImg = 'https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8239f7a0/reserves/VF5/2025/hero.webp'
-  } else if (product.slug === 'vf-8-all-new' || product.name.toLowerCase().includes('vf 8 the all')) {
-    bannerImg = 'https://vinfastauto.com/themes/porto/img/vf8-new-product/hero-banner.svg'
-  } else if (product.name.includes('MPV')) {
-    bannerImg = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_01.webp'
-  }
-
   let logoImg = specsObj.logo_image_url || specsObj.logo_image || [...exteriorImgs, ...interiorImgs, ...(specsObj.gallery?.all_images || carRichData.gallery?.all_images || [])].find((img: string) => img.toLowerCase().includes('logo') || img.toLowerCase().endsWith('.svg'))
   
   if (product.name === 'VF 2') {
