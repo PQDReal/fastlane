@@ -15,7 +15,7 @@ import {
   normalizeMotorbikeDetailImages,
 } from '@/lib/motorbike-version-media'
 import { resolveMotorbikeVariantColorMedia, type MotorbikeVariantColorMedia } from '@/lib/motorbike-variant-color-media'
-import { allocateVehicleVariantSkus } from '@/lib/vehicle-sku'
+import { allocateVehicleVariantSkus, buildVehicleOptionSignature } from '@/lib/vehicle-sku'
 
 function handleAuthorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -254,7 +254,7 @@ export async function POST(request: Request) {
       original_price: priceForConfiguration(version, colorItem),
       sale_price: null,
       is_active: isActive,
-      option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(colorItem.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      option_signature: buildVehicleOptionSignature({ version: version.name, versionSku: version.sku, color: colorItem.color_name }),
       metadata: {
         source: 'admin_motorbike_creation',
         base_sku: version.sku,
