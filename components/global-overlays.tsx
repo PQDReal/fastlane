@@ -19,6 +19,7 @@ export function GlobalOverlays() {
   const searchModalOpen = useAppStore((state) => state.searchModalOpen)
   const pathname = usePathname()
   const isAdmin = pathname?.startsWith('/admin')
+  const isAuthRoute = pathname?.startsWith('/auth/')
 
   return (
     <>
@@ -26,7 +27,7 @@ export function GlobalOverlays() {
       {/* Keep the animation mounted across route changes. An add-to-cart
           request may finish after the user has already opened /cart. */}
       <LazyCartFlyAnimation />
-      {!isAdmin && <SalesAgentShell />}
+      {!isAdmin && !isAuthRoute && <SalesAgentShell />}
     </>
   )
 }

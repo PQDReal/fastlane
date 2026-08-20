@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   allocateVehicleVariantSkus,
+  buildVehicleOptionSignature,
   formatVehicleSku,
   isCanonicalVehicleSku,
   vehicleConfigurationKey,
@@ -20,6 +21,15 @@ describe('vehicle SKU contract', () => {
   it('normalizes configuration identities without depending on SKU wording', () => {
     expect(vehicleConfigurationKey({ version: 'Ti\u00eau chu\u1ea9n', color: '\u0110\u1ecf T\u01b0\u01a1i' })).toBe('tieu chuan\u001fdo tuoi\u001f')
     expect(vehicleConfigurationKey({ version: ' tieu  chuan ', color: 'do tuoi' })).toBe('tieu chuan\u001fdo tuoi\u001f')
+  })
+
+  it('keeps Vietnamese option names distinct in database signatures', () => {
+    const red = buildVehicleOptionSignature({ version: 'VF 0', versionSku: 'VF0', color: 'Đỏ', interiorColor: 'Nội thất đen' })
+    const black = buildVehicleOptionSignature({ version: 'VF 0', versionSku: 'VF0', color: 'Đen', interiorColor: 'Nội thất đen' })
+
+    expect(red).not.toBe(black)
+    expect(red).toContain('color=%C4%91%E1%BB%8F')
+    expect(black).toContain('color=%C4%91en')
   })
 
   it('accepts only a complete, unique allocation from the database', async () => {
