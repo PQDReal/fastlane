@@ -60,7 +60,7 @@ describe('contract OTP route boundaries', () => {
 
   it('uses the shared Fastlane header for the signed-contract email', () => {
     expect(signedMailerSource).toContain("const subject = 'Fastlane | Hợp đồng đã ký thành công'")
-    expect(signedMailerSource).toContain('fastlane-logo-name.png')
+    expect(signedMailerSource).toContain('res.cloudinary.com/dawbec7mw/image/upload/v1787196680/fastlane/vmeey4jjnztproaj22ax.png')
     expect(signedMailerSource).toContain('alt="FASTLANE"')
     expect(signedMailerSource).toContain('Hợp đồng đã ký thành công')
     expect(signedMailerSource).toContain("productName.replace(/vinfast/gi, '')")
