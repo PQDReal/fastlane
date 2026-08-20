@@ -385,7 +385,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         aria-label={`Tăng số lượng ${item.name}`}
-                        disabled={Boolean(cartPendingItemIds[item.id]) || item.quantity >= item.availableQuantity || item.quantity >= 99}
+                        disabled={Boolean(cartPendingItemIds[item.id]) || item.quantity >= item.availableQuantity}
                         onClick={() => void changeQuantity(item.id, item.quantity + 1)}
                         className="grid h-9 w-9 place-items-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >

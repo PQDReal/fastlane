@@ -101,12 +101,13 @@ export async function markAllCustomerNotificationsRead(customerId: string) {
   if (error) throw new Error(`Unable to update notifications: ${error.message}`)
 }
 type AdminNotificationRow = Omit<NotificationRow, 'notification_type' | 'order_type' | 'current_status'> & {
-  notification_type: 'ORDER_CREATED' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'DEPOSIT_CREATED' | 'DEPOSIT_PAID' | 'DEPOSIT_CANCELLED'
+  notification_type: 'ORDER_CREATED' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'DEPOSIT_CREATED' | 'DEPOSIT_PAID' | 'DEPOSIT_CANCELLED' | 'TEST_DRIVE_CREATED'
 }
 
 const mapAdminNotification = (row: AdminNotificationRow): CustomerNotification => ({
   id: row.id, type: row.notification_type, title: localizeNotificationText(row.title), message: localizeNotificationText(row.message),
-  orderType: 'ACCESSORY', orderId: row.order_id, orderNumber: row.order_number,
+  orderType: row.notification_type === 'TEST_DRIVE_CREATED' ? 'TEST_DRIVE' : 'ACCESSORY',
+  orderId: row.order_id, orderNumber: row.order_number,
   currentStatus: '', actionUrl: row.action_url, readAt: row.read_at, createdAt: row.created_at,
 })
 
@@ -151,6 +152,30 @@ export async function notifyAdminCustomerCancelledDeposit(order: { id: string; o
     event_key: `DEPOSIT_CANCELLED:${order.id}`, notification_type: 'DEPOSIT_CANCELLED',
     title: 'Khách hàng đã hủy đơn đặt cọc', message: `Khách hàng vừa hủy đơn đặt cọc ${order.orderNumber}.`,
     order_id: order.id, order_number: order.orderNumber, action_url: '/admin/orders',
+  }, { onConflict: 'event_key', ignoreDuplicates: true })
+  if (result.error) throw result.error
+}
+
+export async function notifyAdminTestDriveCreated(reservation: {
+  id: string
+  referenceNumber: string
+  fullName: string
+  productName: string
+  scheduledAt: string
+}) {
+  const scheduledAt = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(new Date(reservation.scheduledAt))
+  const result = await getSupabaseAdmin().from('admin_notifications').upsert({
+    event_key: `TEST_DRIVE_CREATED:${reservation.id}`,
+    notification_type: 'TEST_DRIVE_CREATED',
+    title: 'Có lịch lái thử mới',
+    message: `${reservation.fullName} đã đăng ký lái thử ${reservation.productName} vào ${scheduledAt}.`,
+    order_id: reservation.id,
+    order_number: reservation.referenceNumber,
+    action_url: '/admin/test-drive',
   }, { onConflict: 'event_key', ignoreDuplicates: true })
   if (result.error) throw result.error
 }

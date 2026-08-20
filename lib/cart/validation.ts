@@ -32,8 +32,8 @@ export function parseAddCartItemRequest(body: unknown): AddCartItemRequest {
   if (typeof variantId !== 'string' || !UUID_PATTERN.test(variantId)) {
     validationError('variantId', 'variantId must be a UUID.')
   }
-  if (!Number.isInteger(quantity) || Number(quantity) < 1 || Number(quantity) > 99) {
-    validationError('quantity', 'quantity must be an integer from 1 to 99.')
+  if (!Number.isInteger(quantity) || Number(quantity) < 1) {
+    validationError('quantity', 'quantity must be a positive integer.')
   }
   if (
     selected !== undefined
@@ -62,8 +62,8 @@ export function parseUpdateCartItemRequest(
   body: unknown,
 ): UpdateCartItemRequest {
   if (!isRecord(body)) validationError('$', 'Request body must be an object.')
-  if (!Number.isInteger(body.quantity) || Number(body.quantity) < 1 || Number(body.quantity) > 99) {
-    validationError('quantity', 'quantity must be an integer from 1 to 99.')
+  if (!Number.isInteger(body.quantity) || Number(body.quantity) < 1) {
+    validationError('quantity', 'quantity must be a positive integer.')
   }
 
   return { quantity: Number(body.quantity) }

@@ -392,7 +392,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   updateQuantity: async (id, quantity) => {
     const item = get().cartItems.find((cartItem) => cartItem.id === id)
-    if (!item || quantity < 1 || quantity > 99 || quantity > item.availableQuantity) {
+    if (!item || quantity < 1 || quantity > item.availableQuantity) {
       return {
         ok: false,
         code: 'VALIDATION_ERROR',

@@ -16,6 +16,19 @@ export type SlowTransaction = LatencySummary & {
   statusCode: number | null
 }
 
+export type MonitoringTrendPoint = {
+  timestamp: number
+  p50Ms: number | null
+  p95Ms: number | null
+  p99Ms: number | null
+}
+
+export type MonitoringTrend = {
+  points: MonitoringTrendPoint[]
+  previousPoints: MonitoringTrendPoint[]
+  intervalSeconds: number | null
+}
+
 export type MonitoringIssue = {
   id: string
   shortId: string
@@ -39,7 +52,11 @@ export type SentryMonitoringData = {
   error?: string
   warnings: string[]
   frontend: LatencySummary
+  frontendPrevious: LatencySummary | null
+  frontendTrend: MonitoringTrend
   backend: LatencySummary
+  backendPrevious: LatencySummary | null
+  backendTrend: MonitoringTrend
   slowFrontend: SlowTransaction[]
   slowBackend: SlowTransaction[]
   issues: { unresolved: number; recent: MonitoringIssue[] }

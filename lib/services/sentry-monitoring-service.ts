@@ -1,9 +1,11 @@
 import 'server-only'
 
-import type { LatencySummary, MonitoringIssue, MonitoringPeriod, SentryMonitoringData, SlowTransaction } from '@/lib/monitoring/sentry-types'
+import type { LatencySummary, MonitoringIssue, MonitoringPeriod, MonitoringTrend, MonitoringTrendPoint, SentryMonitoringData, SlowTransaction } from '@/lib/monitoring/sentry-types'
 
-const CACHE_TTL_SECONDS = 120
+const CACHE_TTL_SECONDS = 60
 const EMPTY_SUMMARY: LatencySummary = { requestCount: 0, avgMs: null, p50Ms: null, p95Ms: null, p99Ms: null, failureRate: null }
+const PERIOD_SECONDS: Record<MonitoringPeriod, number> = { '1h': 60 * 60, '24h': 24 * 60 * 60, '7d': 7 * 24 * 60 * 60, '14d': 14 * 24 * 60 * 60 }
+const TREND_INTERVAL_SECONDS: Record<MonitoringPeriod, number> = { '1h': 5 * 60, '24h': 60 * 60, '7d': 6 * 60 * 60, '14d': 12 * 60 * 60 }
 const cache = new Map<string, { expiresAt: number; value: SentryMonitoringData }>()
 
 type JsonRecord = Record<string, unknown>
@@ -31,6 +33,58 @@ function parseSummary(payload: unknown): LatencySummary {
     p95Ms: metric(row, 'p95(span.duration)', 'p95()'),
     p99Ms: metric(row, 'p99(span.duration)', 'p99()'),
     failureRate: metric(row, 'failure_rate()', 'failure_rate'),
+  }
+}
+
+function emptyTrend(): MonitoringTrend {
+  return { points: [], previousPoints: [], intervalSeconds: null }
+}
+
+type TimeSeriesValue = { timestamp?: unknown; value?: unknown }
+type TimeSeriesRow = { values?: TimeSeriesValue[]; meta?: { interval?: unknown } }
+
+function parseTrendSeries(payload: unknown) {
+  const rows = ((payload as { timeSeries?: TimeSeriesRow[] })?.timeSeries ?? [])
+  const parseValues = (row: TimeSeriesRow | undefined): Array<{ timestamp: number; value: number | null }> =>
+    (row?.values ?? []).flatMap((point) => {
+      const timestamp = numberValue(point.timestamp)
+      if (timestamp === null) return []
+      return [{ timestamp, value: numberValue(point.value) }]
+    })
+
+  return {
+    current: parseValues(rows[0]),
+    previous: parseValues(rows[1]),
+    intervalSeconds: numberValue(rows[0]?.meta?.interval),
+  }
+}
+
+function combineTrendSeries(
+  payloads: Array<{ metric: 'p50Ms' | 'p95Ms' | 'p99Ms'; payload: unknown }>,
+): MonitoringTrend {
+  const current = new Map<number, MonitoringTrendPoint>()
+  const previous = new Map<number, MonitoringTrendPoint>()
+  let intervalSeconds: number | null = null
+
+  payloads.forEach(({ metric: metricName, payload }) => {
+    const series = parseTrendSeries(payload)
+    intervalSeconds ??= series.intervalSeconds
+    series.current.forEach(({ timestamp, value }) => {
+      const point = current.get(timestamp) ?? { timestamp, p50Ms: null, p95Ms: null, p99Ms: null }
+      point[metricName] = value
+      current.set(timestamp, point)
+    })
+    series.previous.forEach(({ timestamp, value }) => {
+      const point = previous.get(timestamp) ?? { timestamp, p50Ms: null, p95Ms: null, p99Ms: null }
+      point[metricName] = value
+      previous.set(timestamp, point)
+    })
+  })
+
+  return {
+    points: [...current.values()].sort((a, b) => a.timestamp - b.timestamp),
+    previousPoints: [...previous.values()].sort((a, b) => a.timestamp - b.timestamp),
+    intervalSeconds,
   }
 }
 
@@ -77,7 +131,11 @@ function baseData(period: MonitoringPeriod, environment: string): SentryMonitori
     dashboardUrl: null,
     warnings: [],
     frontend: { ...EMPTY_SUMMARY },
+    frontendPrevious: null,
+    frontendTrend: emptyTrend(),
     backend: { ...EMPTY_SUMMARY },
+    backendPrevious: null,
+    backendTrend: emptyTrend(),
     slowFrontend: [],
     slowBackend: [],
     issues: { unresolved: 0, recent: [] },
@@ -124,12 +182,22 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
       return { ...result, error: `Không thể kiểm tra environment Sentry: ${safeMessage(error)}` }
     }
 
-    const explore = (query: string, grouped = false, perPage = 8) => {
+    const explore = (
+      query: string,
+      grouped = false,
+      perPage = 8,
+      timeRange?: { start: string; end: string },
+    ) => {
       const url = new URL(`${apiBase}/organizations/${encodeURIComponent(org)}/events/`)
       url.searchParams.set('dataset', 'spans')
       url.searchParams.set('project', projectId)
       if (selectedEnvironment) url.searchParams.set('environment', selectedEnvironment)
-      url.searchParams.set('statsPeriod', period)
+      if (timeRange) {
+        url.searchParams.set('start', timeRange.start)
+        url.searchParams.set('end', timeRange.end)
+      } else {
+        url.searchParams.set('statsPeriod', period)
+      }
       url.searchParams.set('query', query)
       const fields = grouped
         ? ['transaction', 'span.op', 'http.request.method', 'http.response.status_code', 'count()', 'avg(span.duration)', 'p50(span.duration)', 'p95(span.duration)', 'p99(span.duration)', 'failure_rate()']
@@ -142,6 +210,28 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
       return sentryFetch<unknown>(url, token)
     }
 
+    const timeseries = (query: string, yAxis: string) => {
+      const url = new URL(`${apiBase}/organizations/${encodeURIComponent(org)}/events-timeseries/`)
+      url.searchParams.set('dataset', 'spans')
+      url.searchParams.set('project', projectId)
+      if (selectedEnvironment) url.searchParams.set('environment', selectedEnvironment)
+      url.searchParams.set('statsPeriod', period)
+      url.searchParams.set('interval', String(TREND_INTERVAL_SECONDS[period]))
+      url.searchParams.set('comparisonDelta', String(PERIOD_SECONDS[period]))
+      url.searchParams.set('yAxis', yAxis)
+      url.searchParams.set('query', query)
+      return sentryFetch<unknown>(url, token)
+    }
+
+    const periodMilliseconds = PERIOD_SECONDS[period] * 1000
+    const currentPeriodStart = new Date(Date.now() - periodMilliseconds).toISOString()
+    const previousRange = {
+      start: new Date(Date.now() - periodMilliseconds * 2).toISOString(),
+      end: currentPeriodStart,
+    }
+    const frontendQuery = 'is_transaction:true span.op:[pageload,navigation]'
+    const backendQuery = 'is_transaction:true span.op:http.server !http.request.method:HEAD'
+
     const issuesUrl = new URL(`${apiBase}/organizations/${encodeURIComponent(org)}/issues/`)
     issuesUrl.searchParams.set('project', projectId)
     if (selectedEnvironment) issuesUrl.searchParams.set('environment', selectedEnvironment)
@@ -149,17 +239,33 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
     issuesUrl.searchParams.set('query', 'is:unresolved')
     issuesUrl.searchParams.set('limit', '100')
 
-    const requests = await Promise.allSettled([
-      explore('is_transaction:true span.op:[pageload,navigation]'),
-      explore('is_transaction:true span.op:http.server !http.request.method:HEAD'),
-      explore('is_transaction:true span.op:[pageload,navigation]', true),
-      explore('is_transaction:true span.op:http.server !http.request.method:HEAD', true),
+    const requestsPromise = Promise.allSettled([
+      explore(frontendQuery),
+      explore(backendQuery),
+      explore(frontendQuery, true),
+      explore(backendQuery, true),
       sentryFetch<JsonRecord[]>(issuesUrl, token),
+      explore(frontendQuery, false, 8, previousRange),
+      explore(backendQuery, false, 8, previousRange),
     ])
+
+    const trendRequestsPromise = Promise.allSettled([
+      timeseries(frontendQuery, 'p50(span.duration)'),
+      timeseries(frontendQuery, 'p95(span.duration)'),
+      timeseries(frontendQuery, 'p99(span.duration)'),
+      timeseries(backendQuery, 'p50(span.duration)'),
+      timeseries(backendQuery, 'p95(span.duration)'),
+      timeseries(backendQuery, 'p99(span.duration)'),
+    ])
+    const [requests, trendRequests] = await Promise.all([requestsPromise, trendRequestsPromise])
 
     const labels = ['độ trễ frontend', 'độ trễ backend', 'trang frontend chậm', 'API chậm', 'issues']
     requests.forEach((request, index) => {
-      if (request.status === 'rejected') result.warnings.push(`Không tải được ${labels[index]}: ${safeMessage(request.reason)}`)
+      if (request.status === 'rejected') result.warnings.push(`Không tải được ${labels[index] ?? 'dữ liệu kỳ trước'}: ${safeMessage(request.reason)}`)
+    })
+
+    trendRequests.forEach((request, index) => {
+      if (request.status === 'rejected') result.warnings.push(`Không tải được xu hướng ${index < 3 ? 'frontend' : 'backend'}: ${safeMessage(request.reason)}`)
     })
 
     if (requests[0].status === 'fulfilled') result.frontend = parseSummary(requests[0].value)
@@ -178,6 +284,25 @@ export async function getSentryMonitoringData(period: MonitoringPeriod): Promise
         })),
       }
     }
+
+    if (requests[5].status === 'fulfilled') result.frontendPrevious = parseSummary(requests[5].value)
+    if (requests[6].status === 'fulfilled') result.backendPrevious = parseSummary(requests[6].value)
+
+    const trendMetrics = ['p50Ms', 'p95Ms', 'p99Ms'] as const
+    result.frontendTrend = combineTrendSeries(
+      trendRequests.slice(0, 3).flatMap((request, index) =>
+        request.status === 'fulfilled'
+          ? [{ metric: trendMetrics[index], payload: request.value }]
+          : [],
+      ),
+    )
+    result.backendTrend = combineTrendSeries(
+      trendRequests.slice(3).flatMap((request, index) =>
+        request.status === 'fulfilled'
+          ? [{ metric: trendMetrics[index], payload: request.value }]
+          : [],
+      ),
+    )
 
     result.available = requests.some((request) => request.status === 'fulfilled')
     result.fetchedAt = new Date().toISOString()

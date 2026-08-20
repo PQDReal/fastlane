@@ -238,7 +238,7 @@ async function readCartItemContexts(
 
 function cartItemQuantity(row: CartItemRow): number {
   const quantity = Number(row.quantity)
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+  if (!Number.isInteger(quantity) || quantity < 1) {
     throw new ApiRouteError(
       409,
       'CART_CHANGED',
