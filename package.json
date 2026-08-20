@@ -64,7 +64,7 @@
     "ai": "7.0.64",
     "cheerio": "^1.2.0",
     "class-variance-authority": "latest",
-    "cloudinary": "^2.10.0",
+    "cloudinary": "^2.10.1",
     "clsx": "latest",
     "dotenv": "^17.4.2",
     "framer-motion": "^12.42.2",
