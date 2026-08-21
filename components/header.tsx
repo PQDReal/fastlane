@@ -33,7 +33,7 @@ const links = [
   { name: 'Dự toán chi phí', path: '/cost-estimator' },
   { name: 'Đặt lịch lái thử', path: '/test-drive' },
   { name: 'So sánh xe', path: '/compare' },
-  { name: 'Hướng dẫn sử dụng', path: '/user-manual' },
+  { name: 'Dịch vụ hậu mãi', path: '/after-sales' },
 ]
 
 

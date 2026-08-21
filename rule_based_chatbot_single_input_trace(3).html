@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Single-input Rule Engine Trace</title>
+  <style>
+    :root {
+      --bg: #08101c;
+      --panel: #0e1828;
+      --panel2: #101d30;
+      --line: #24344e;
+      --text: #eef4ff;
+      --muted: #8fa0ba;
+      --blue: #79a7ff;
+      --cyan: #62e4d0;
+      --amber: #f1c66f;
+      --violet: #ba9cff;
+      --green: #83e6a8;
+      --red: #ff8f9b;
+      --shadow: 0 18px 55px rgba(0,0,0,.27);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(121,167,255,.10), transparent 30%),
+        radial-gradient(circle at 92% 18%, rgba(98,228,208,.07), transparent 28%),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 54px 0 70px; }
+
+    /* The page deliberately starts with only the one source input. */
+    .source {
+      min-height: 255px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+    .source-inner { max-width: 1040px; }
+    .source-label {
+      color: #6f829f;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .source-text {
+      margin: 0;
+      font-weight: 800;
+      font-size: clamp(28px, 5vw, 55px);
+      line-height: 1.16;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    .source-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 19px;
+    }
+    .down {
+      width: 38px; height: 38px;
+      margin: 8px auto 24px;
+      display: grid; place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--blue);
+      background: rgba(121,167,255,.06);
+      font-size: 19px;
+    }
+
+    .pipeline { position: relative; }
+    .pipeline::before {
+      content: "";
+      position: absolute;
+      left: 27px;
+      top: 20px;
+      bottom: 20px;
+      width: 1px;
+      background: linear-gradient(var(--blue), #2a3c5d 12%, #2a3c5d 88%, var(--cyan));
+      opacity: .72;
+    }
+    .stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .stage-index {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      border: 1px solid #314564;
+      background: #0b1525;
+      box-shadow: 0 0 0 6px var(--bg);
+      color: #bad0ff;
+      font-size: 13px;
+      font-weight: 900;
+      z-index: 2;
+    }
+    .stage-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(16,29,48,.97), rgba(12,23,39,.97));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .stage-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 19px 20px 16px;
+      border-bottom: 1px solid rgba(36,52,78,.8);
+    }
+    .stage-title { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+    .stage-purpose { color: var(--muted); font-size: 13px; line-height: 1.55; margin-top: 5px; }
+    .state {
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(131,230,168,.27);
+      background: rgba(131,230,168,.065);
+      color: #b3f1c9;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+    .body { padding: 18px 20px 20px; }
+    .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+    .box {
+      min-width: 0;
+      border: 1px solid #263955;
+      border-radius: 13px;
+      background: #0a1423;
+      padding: 14px;
+    }
+    .span { grid-column: 1 / -1; }
+    .label {
+      color: #71839f;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: 8px;
+    }
+    .value { font-size: 14px; line-height: 1.65; }
+    .big-value { font-size: 18px; font-weight: 800; }
+    .arrowline {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+      line-height: 1.55;
+    }
+    .arrow { color: #61718b; font-weight: 900; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #c8d6f2;
+      font-size: .94em;
+    }
+    pre {
+      margin: 0;
+      border: 1px solid #21314a;
+      border-radius: 12px;
+      background: #070f1c;
+      padding: 13px;
+      overflow: auto;
+      color: #cfdbef;
+      line-height: 1.55;
+      font-size: 12.5px;
+    }
+
+    .sentence {
+      color: #cfd8e8;
+      font-size: 16px;
+      line-height: 1.95;
+      font-weight: 650;
+      word-spacing: .03em;
+    }
+    mark {
+      color: inherit;
+      padding: 3px 5px;
+      margin: 0 1px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+    }
+    mark.filler { background: rgba(143,160,186,.09); border-color: rgba(143,160,186,.18); color: #9cabc1; }
+    mark.type { background: rgba(121,167,255,.12); border-color: rgba(121,167,255,.35); color: #b8d0ff; }
+    mark.entity { background: rgba(98,228,208,.10); border-color: rgba(98,228,208,.33); color: #aaf1e5; }
+    mark.variant { background: rgba(186,156,255,.11); border-color: rgba(186,156,255,.34); color: #d8c8ff; }
+    mark.price { background: rgba(241,198,111,.10); border-color: rgba(241,198,111,.34); color: #f3d79e; }
+    mark.rank { background: rgba(131,230,168,.10); border-color: rgba(131,230,168,.33); color: #b5f1c9; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .pill {
+      border-radius: 8px;
+      border: 1px solid #2c405e;
+      padding: 5px 7px;
+      color: #9fb0ca;
+      font-size: 11px;
+      font-weight: 800;
+      background: #0c1728;
+    }
+    .pill.type { color: #b8d0ff; border-color: rgba(121,167,255,.30); }
+    .pill.entity { color: #aaf1e5; border-color: rgba(98,228,208,.27); }
+    .pill.variant { color: #d8c8ff; border-color: rgba(186,156,255,.28); }
+    .pill.price { color: #f3d79e; border-color: rgba(241,198,111,.28); }
+    .pill.rank { color: #b5f1c9; border-color: rgba(131,230,168,.27); }
+
+    .rule-list { display: grid; gap: 7px; }
+    .rule {
+      display: grid;
+      grid-template-columns: minmax(130px, .8fr) minmax(180px, 1.1fr) minmax(180px, 1.1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px dashed #23344d;
+      font-size: 12.5px;
+    }
+    .rule:last-child { border-bottom: 0; }
+    .rule .from { color: #d6dfef; font-weight: 720; }
+    .rule .why { color: var(--muted); line-height: 1.5; }
+    .rule .out { color: #b8cdf3; font-family: ui-monospace, monospace; }
+    .yes { color: var(--green); font-weight: 850; }
+    .no { color: #71809a; }
+
+    .decision {
+      border-left: 3px solid var(--green);
+      background: rgba(131,230,168,.055);
+      border-radius: 0 10px 10px 0;
+      padding: 12px 14px;
+      line-height: 1.6;
+      font-size: 13.5px;
+    }
+    .decision strong { color: #c6f6d6; }
+
+    .strip-row {
+      display: grid;
+      grid-template-columns: 145px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 8px 0;
+      border-bottom: 1px dashed #22324a;
+      font-size: 13px;
+    }
+    .strip-row:last-child { border-bottom: 0; }
+    .strip-name { color: var(--muted); }
+    .cross { text-decoration: line-through; text-decoration-thickness: 2px; color: #76859e; }
+    .keep { color: #b5f3e8; font-weight: 850; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid #24344c; }
+    th { color: #70829d; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
+    tr.keep-row { background: rgba(98,228,208,.055); }
+    .match { color: var(--green); font-weight: 900; }
+    .drop { color: #7c8aa2; }
+
+    .template {
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #b7c5db;
+    }
+    .slot { color: var(--amber); font-weight: 850; }
+    .response {
+      border: 1px solid rgba(98,228,208,.30);
+      background: linear-gradient(135deg, rgba(98,228,208,.08), rgba(121,167,255,.06));
+      border-radius: 15px;
+      padding: 16px;
+      line-height: 1.7;
+      font-size: 16px;
+      font-weight: 650;
+    }
+    .foot {
+      text-align: center;
+      color: #70809b;
+      font-size: 11.5px;
+      line-height: 1.7;
+      margin-top: 18px;
+    }
+
+    /* One-screen-at-a-time walkthrough */
+    .page { min-height: 100vh; display: flex; flex-direction: column; }
+    .wizard-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 18px;
+    }
+    .brand { color: #8fa0ba; font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+    .progress-text { color: #8fa0ba; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .progress-track { height: 4px; border-radius: 999px; background: #17253a; overflow: hidden; margin-bottom: 22px; }
+    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--blue), var(--cyan)); transition: width .22s ease; }
+    .screen-shell { flex: 1; display: grid; place-items: center; }
+    .screen { width: 100%; animation: screenIn .18s ease; }
+    @keyframes screenIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+    .input-screen { min-height: 520px; display: grid; place-items: center; text-align: center; }
+    .input-screen .source-inner { max-width: 1040px; }
+    .stage-single { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 18px; align-items: start; }
+    .stage-single .stage-index { box-shadow: none; }
+    .nav {
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px;
+      margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(36,52,78,.72);
+    }
+    .nav-left { justify-self: start; }
+    .nav-right { justify-self: end; }
+    .nav-hint { color: #657792; font-size: 11px; text-align: center; }
+    .nav-btn {
+      appearance: none; border: 1px solid #314765; background: #0d192a; color: #d7e3f7;
+      min-width: 122px; height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+      font: inherit; font-size: 13px; font-weight: 850; transition: .15s ease;
+    }
+    .nav-btn:hover:not(:disabled) { transform: translateY(-1px); border-color: #5274a6; background: #12213a; }
+    .nav-btn.primary { border-color: rgba(121,167,255,.55); background: rgba(121,167,255,.12); color: #dce8ff; }
+    .nav-btn:disabled { opacity: .28; cursor: default; }
+
+
+    .input-trace {
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(13,23,38,.96), rgba(10,19,32,.96));
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+    .trace-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .trace-status-row { justify-content: flex-end; margin-bottom: 10px; }
+    .trace-step {
+      padding: 6px 9px; border-radius: 999px; border: 1px solid #314765; background: #0d192a;
+      color: #c7d6ef; font-size: 11px; font-weight: 850;
+    }
+    .trace-input {
+      font-size: clamp(18px, 2.3vw, 26px); line-height: 1.5; font-weight: 800; letter-spacing: -.02em;
+    }
+    @media (max-width: 760px) {
+      .page { width: min(100% - 20px, 1180px); padding-top: 30px; }
+      .source { min-height: 225px; }
+      .stage { grid-template-columns: 44px minmax(0,1fr); gap: 10px; }
+      .stage-index { width: 44px; height: 44px; border-radius: 13px; }
+      .pipeline::before { left: 21px; }
+      .grid { grid-template-columns: 1fr; }
+      .span { grid-column: auto; }
+      .rule { grid-template-columns: 1fr; gap: 4px; }
+      .strip-row { grid-template-columns: 1fr; gap: 4px; }
+      .stage-head { flex-direction: column; }
+      .stage-single { grid-template-columns: 1fr; }
+      .stage-single .stage-index { width: 44px; height: 44px; }
+      .input-screen { min-height: 420px; }
+      .trace-status-row { justify-content: flex-start; }
+      .nav { grid-template-columns: 1fr 1fr; }
+      .nav-hint { display: none; }
+      .nav-btn { min-width: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="wizard-top">
+      <div class="brand">Rule Engine · Single Input Trace</div>
+      <div class="progress-text" id="progressText"></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+    <section class="screen-shell">
+      <div class="screen" id="screen"></div>
+    </section>
+
+    <nav class="nav" aria-label="Điều hướng walkthrough">
+      <div class="nav-left"><button class="nav-btn" id="prevBtn" type="button">← Trước</button></div>
+      <div class="nav-hint">Dùng nút hoặc phím ← →</div>
+      <div class="nav-right"><button class="nav-btn primary" id="nextBtn" type="button">Tiếp →</button></div>
+    </nav>
+  </main>
+
+<script>
+(() => {
+  // ============================================================
+  // ONE AND ONLY SOURCE INPUT.
+  // Every rendered stage below is computed from this string.
+  // ============================================================
+  const INPUT = 'Tìm giúp mình xe máy điện Kyo bản 2 pin dưới 40 triệu đi xa nhất nhé';
+
+  // Minimal demo fixture used only to visualize catalog grounding.
+  // Kyo values mirror the README examples: 1 pin = 140 km,
+  // 2 pin = 160 km, 2-pin price = 30,000,000 VND.
+  const CATALOG = [
+    {
+      id: 'demo-kyo',
+      name: 'VinFast Kyo',
+      slug: 'vinfast-kyo',
+      productType: 'motorbike',
+      category: 'Xe máy điện',
+      displayedPrice: 30000000,
+      aliases: ['kyo', 'vinfast kyo'],
+      variants: [
+        {
+          name: '1 pin',
+          sku: 'KYO-1-PIN',
+          attributes: { battery_count: 1 },
+          facts: { rangeKm: 140, range: '140 km với 1 pin' }
+        },
+        {
+          name: '2 pin',
+          sku: 'KYO-2-PIN',
+          price: 30000000,
+          attributes: { battery_count: 2 },
+          facts: { rangeKm: 160, range: '160 km với 2 pin', maxPower: '~3000 W', topSpeed: '70 km/h' }
+        }
+      ]
+    }
+  ];
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const pretty = (o) => esc(JSON.stringify(o, null, 2));
+  const fmtVnd = (n) => new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
+
+  function removeDiacritics(text) {
+    return text.normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+  }
+
+  function normalize(text) {
+    return removeDiacritics(text)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function validate(text) {
+    const query = typeof text === 'string' ? text.trim().slice(0, 200) : '';
+    return { valid: query.length > 0, query, length: query.length, maxLength: 200 };
+  }
+
+  function scan(normalized) {
+    const productType = normalized.match(/xe\s+may\s+dien|xe\s+may|scooter|motorbike/);
+    const entity = normalized.match(/\bkyo\b/);
+    const variant = normalized.match(/(?:ban\s*)?(\d+)\s*pin|pin\s*(\d+)/);
+    const price = normalized.match(/(?:duoi|khong qua|re hon)\s+(\d+(?:[.,]\d+)?)\s*(trieu|nghin|ngan|k|vnd|d)?/);
+    const ranking = normalized.match(/di\s+xa\s+nhat|chay\s+xa\s+nhat/);
+
+    let maxPrice = null;
+    if (price) {
+      let n = Number(price[1].replace(',', '.'));
+      if (price[2] === 'trieu') n *= 1_000_000;
+      else if (['nghin','ngan','k'].includes(price[2])) n *= 1_000;
+      maxPrice = Math.round(n);
+    }
+
+    return {
+      productType: productType ? { matched: productType[0], value: 'motorbike' } : null,
+      entity: entity ? { matched: entity[0], value: 'kyo' } : null,
+      variant: variant ? { matched: variant[0], batteryCount: Number(variant[1] || variant[2]) } : null,
+      price: price ? { matched: price[0], maxPrice } : null,
+      ranking: ranking ? { matched: ranking[0], sortBy: 'range', sortDirection: 'desc' } : null
+    };
+  }
+
+  function classify(matches) {
+    // In this input, recommendation wins because a budget filter and
+    // a ranking criterion are explicitly present.
+    const signals = [];
+    if (matches.price) signals.push(matches.price.matched);
+    if (matches.ranking) signals.push(matches.ranking.matched);
+    return {
+      casualMatched: false,
+      faqMatched: false,
+      recommendationMatched: signals.length > 0,
+      signals,
+      intent: signals.length > 0 ? 'recommendation' : 'product_search',
+      confidence: signals.length > 0 ? 0.9 : 0.85,
+      ruleId: signals.length > 0 ? 'INTENT_RECOMMENDATION_FILTER_OR_RANK' : 'INTENT_PRODUCT_SEARCH'
+    };
+  }
+
+  function buildFilters(matches) {
+    return {
+      ...(matches.productType ? { productType: matches.productType.value } : {}),
+      ...(matches.variant ? { batteryCount: matches.variant.batteryCount } : {}),
+      ...(matches.price ? { maxPrice: matches.price.maxPrice } : {}),
+      ...(matches.ranking ? { sortBy: matches.ranking.sortBy, sortDirection: matches.ranking.sortDirection } : {})
+    };
+  }
+
+  function buildCatalogQuery(normalized, matches) {
+    let q = normalized;
+    const removed = [
+      { reason: 'filler words', phrase: 'tim giup minh' },
+      { reason: 'productType đã thành filter', phrase: matches.productType?.matched },
+      { reason: 'variant đã thành filter', phrase: matches.variant?.matched },
+      { reason: 'budget đã thành filter', phrase: matches.price?.matched },
+      { reason: 'ranking đã thành sort rule', phrase: matches.ranking?.matched },
+      { reason: 'filler word', phrase: 'nhe' }
+    ].filter(x => x.phrase);
+
+    for (const x of removed) {
+      const escaped = x.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      q = q.replace(new RegExp('\\b' + escaped + '\\b', 'g'), ' ');
+    }
+    q = q.replace(/\s+/g, ' ').trim();
+    return { query: q, removed };
+  }
+
+  function retrieve(catalogQuery, filters) {
+    return CATALOG.filter(p => {
+      const typeOk = !filters.productType || p.productType === filters.productType;
+      const entityOk = !catalogQuery || p.aliases.some(a => a === catalogQuery || a.includes(catalogQuery) || catalogQuery.includes(a));
+      return typeOk && entityOk;
+    });
+  }
+
+  function resolveCandidates(products, filters) {
+    const allVariants = [];
+    for (const product of products) {
+      for (const variant of product.variants) {
+        const price = variant.price ?? product.displayedPrice;
+        const batteryOk = !filters.batteryCount || variant.attributes.battery_count === filters.batteryCount;
+        const priceOk = !filters.maxPrice || price <= filters.maxPrice;
+        allVariants.push({ product, variant, price, batteryOk, priceOk, kept: batteryOk && priceOk });
+      }
+    }
+    return allVariants;
+  }
+
+  function rank(candidates, filters) {
+    const kept = candidates.filter(c => c.kept);
+    if (filters.sortBy === 'range') {
+      kept.sort((a,b) => filters.sortDirection === 'desc'
+        ? (b.variant.facts.rangeKm ?? -Infinity) - (a.variant.facts.rangeKm ?? -Infinity)
+        : (a.variant.facts.rangeKm ?? Infinity) - (b.variant.facts.rangeKm ?? Infinity));
+    }
+    return kept;
+  }
+
+  function buildResponse(selected, intent) {
+    if (!selected) return {
+      template: 'Mình chưa tìm thấy sản phẩm phù hợp. Bạn thử đổi từ khóa hoặc ngân sách nhé.',
+      message: 'Mình chưa tìm thấy sản phẩm phù hợp. Bạn thử đổi từ khóa hoặc ngân sách nhé.',
+      followUpQuestion: 'Bạn muốn tìm theo dòng xe, loại sản phẩm hay ngân sách?'
+    };
+
+    const template = 'Mình đã tìm thấy {product} ({variant}), thông số dùng để xếp hạng: {range}, giá hiện tại {price}.';
+    const message = template
+      .replace('{product}', selected.product.name)
+      .replace('{variant}', selected.variant.name)
+      .replace('{range}', selected.variant.facts.range)
+      .replace('{price}', fmtVnd(selected.price));
+
+    return { template, message, followUpQuestion: null, intent };
+  }
+
+  const validation = validate(INPUT);
+  const normalized = normalize(validation.query);
+  const matches = scan(normalized);
+  const classification = classify(matches);
+  const filters = buildFilters(matches);
+  const catalogQuery = buildCatalogQuery(normalized, matches);
+  const products = retrieve(catalogQuery.query, filters);
+  const candidates = resolveCandidates(products, filters);
+  const ranked = rank(candidates, filters);
+  const selected = ranked[0] || null;
+  const response = buildResponse(selected, classification.intent);
+
+  const ruleResult = {
+    intent: classification.intent,
+    confidence: classification.confidence,
+    normalizedQuery: normalized,
+    catalogQuery: catalogQuery.query,
+    filters
+  };
+
+  function inputTrace(statusText, statusState, note, partsToMark = {}) {
+    return `
+      <section class="input-trace">
+        <div class="trace-status trace-status-row">
+          <span class="trace-step">${esc(statusText)}</span>
+          <span class="state">${esc(statusState)}</span>
+        </div>
+        <div class="trace-input">${sentence(partsToMark)}</div>
+      </section>`;
+  }
+
+  function sentence(partsToMark = {}) {
+    const chunks = [
+      ['Tìm giúp mình', 'filler'],
+      ['xe máy điện', 'type'],
+      ['Kyo', 'entity'],
+      ['bản 2 pin', 'variant'],
+      ['dưới 40 triệu', 'price'],
+      ['đi xa nhất', 'rank'],
+      ['nhé', 'filler']
+    ];
+    return chunks.map(([text, cls]) => partsToMark[cls]
+      ? `<mark class="${cls}">${esc(text)}</mark>`
+      : esc(text)).join(' ');
+  }
+
+  const stages = [
+    {
+      title: 'Validate input',
+      purpose: 'Kiểm tra request có query hợp lệ trước khi parser chạy.',
+      state: 'VALID',
+      html: `
+        <div class="grid">
+          <div class="box span">
+            <div class="label">Dữ liệu stage nhận</div>
+            <div class="sentence">${esc(INPUT)}</div>
+          </div>
+          <div class="box">
+            <div class="label">Rule áp dụng</div>
+            <div class="value"><code>trim()</code> → giới hạn tối đa <code>200</code> ký tự → reject nếu rỗng.</div>
+          </div>
+          <div class="box">
+            <div class="label">Kết quả tạo ra</div>
+            <div class="arrowline"><span>${validation.length} ký tự</span><span class="arrow">→</span><span class="yes">accepted</span></div>
+          </div>
+          <div class="box span"><pre>${pretty({ query: validation.query, limit: 12 })}</pre></div>
+        </div>`
+    },
+    {
+      title: 'Normalize',
+      purpose: 'Đưa nhiều cách viết về một dạng chuẩn để regex/rule không phải xử lý từng biến thể chữ hoa, dấu và khoảng trắng.',
+      state: 'NORMALIZED',
+      html: `
+        <div class="grid">
+          <div class="box">
+            <div class="label">Trước</div>
+            <div class="value">${esc(INPUT)}</div>
+          </div>
+          <div class="box">
+            <div class="label">Sau</div>
+            <div class="value big-value"><code>${esc(normalized)}</code></div>
+          </div>
+          <div class="box span">
+            <div class="label">Biến đổi đã thực hiện</div>
+            <div class="arrowline"><code>lowercase</code><span class="arrow">→</span><code>bỏ dấu tiếng Việt</code><span class="arrow">→</span><code>chuẩn hóa punctuation</code><span class="arrow">→</span><code>collapse whitespace</code></div>
+          </div>
+        </div>`
+    },
+    {
+      title: 'Parser scan normalized input',
+      purpose: 'Parser không đọc trực tiếp câu gốc. Sau bước Normalize, các rule/regex chạy trên normalized text và tìm những phrase mà engine biết cách đọc.',
+      state: '5 SIGNALS',
+      html: `
+        <div class="box span">
+          <div class="label">Normalized input parser thực sự nhận</div>
+          <div class="sentence"><mark class="filler">tim giup minh</mark> <mark class="type">xe may dien</mark> <mark class="entity">kyo</mark> <mark class="variant">ban 2 pin</mark> <mark class="price">duoi 40 trieu</mark> <mark class="rank">di xa nhat</mark> <mark class="filler">nhe</mark></div>
+          <div class="legend">
+            <span class="pill">filler</span><span class="pill type">product type</span><span class="pill entity">product entity</span><span class="pill variant">variant</span><span class="pill price">price filter</span><span class="pill rank">ranking</span>
+          </div>
+        </div>
+        <div class="box span" style="margin-top:12px">
+          <div class="label">Các match được tìm trên normalized input</div>
+          <div class="rule-list">
+            <div class="rule"><div class="from"><mark class="type">xe may dien</mark></div><div class="why">match product-type keyword group</div><div class="out">productType = "motorbike"</div></div>
+            <div class="rule"><div class="from"><mark class="entity">kyo</mark></div><div class="why">match product/model alias</div><div class="out">entity = "kyo"</div></div>
+            <div class="rule"><div class="from"><mark class="variant">ban 2 pin</mark></div><div class="why">match variant pattern <code>(number) pin</code></div><div class="out">batteryCount = 2</div></div>
+            <div class="rule"><div class="from"><mark class="price">duoi 40 trieu</mark></div><div class="why">match max-price pattern <code>duoi X trieu</code></div><div class="out">maxPrice = 40,000,000</div></div>
+            <div class="rule"><div class="from"><mark class="rank">di xa nhat</mark></div><div class="why">match ranking phrase family</div><div class="out">sortBy = "range", direction = "desc"</div></div>
+          </div>
+        </div>`
+    },
+    {
+      title: 'Phân loại intent',
+      purpose: 'Intent không được đoán từ toàn câu. Rule engine dùng chính các signal vừa tìm thấy và precedence đã định nghĩa.',
+      state: 'RECOMMENDATION',
+      html: `
+        <div class="box span">
+          <div class="label">Những phrase dùng trực tiếp để quyết định intent ở input này</div>
+          <div class="sentence">Tìm giúp mình xe máy điện Kyo bản 2 pin <mark class="price">dưới 40 triệu</mark> <mark class="rank">đi xa nhất</mark> nhé</div>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div class="box">
+            <div class="label">Precedence check</div>
+            <div class="rule-list">
+              <div class="rule" style="grid-template-columns:1fr auto"><div class="from">casual?</div><div class="no">NO</div></div>
+              <div class="rule" style="grid-template-columns:1fr auto"><div class="from">product FAQ?</div><div class="no">NO</div></div>
+              <div class="rule" style="grid-template-columns:1fr auto"><div class="from">có price filter / ranking?</div><div class="yes">YES</div></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="label">Rule match</div>
+            <div class="value"><code>${esc(classification.ruleId)}</code></div>
+            <div class="value" style="margin-top:8px"><span class="yes">${esc(classification.intent)}</span> · confidence <code>${classification.confidence}</code></div>
+          </div>
+          <div class="box span">
+            <div class="decision"><strong>Vì sao là recommendation?</strong> Trong câu có <mark class="price">dưới 40 triệu</mark> → budget filter và <mark class="rank">đi xa nhất</mark> → yêu cầu xếp hạng. Chỉ riêng hai signal này đã đủ đưa query vào nhánh <code>recommendation</code>. <mark class="variant">bản 2 pin</mark> được giữ để lọc variant ở stage sau, không cần dùng để “đoán” intent.</div>
+          </div>
+        </div>`
+    },
+    {
+      title: 'Trích xuất structured filters',
+      purpose: 'Chuyển các phrase đã match thành field mà catalog/retrieval có thể dùng trực tiếp.',
+      state: 'FILTERS READY',
+      html: `
+        <div class="box span">
+          <div class="label">Input được đọc theo từng field</div>
+          <div class="sentence">Tìm giúp mình <mark class="type">xe máy điện</mark> <mark class="entity">Kyo</mark> <mark class="variant">bản 2 pin</mark> <mark class="price">dưới 40 triệu</mark> <mark class="rank">đi xa nhất</mark> nhé</div>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div class="box"><div class="label">Product type</div><div class="arrowline"><mark class="type">xe máy điện</mark><span class="arrow">→</span><code>motorbike</code></div></div>
+          <div class="box"><div class="label">Product entity</div><div class="arrowline"><mark class="entity">Kyo</mark><span class="arrow">→</span><code>kyo</code></div></div>
+          <div class="box"><div class="label">Variant</div><div class="arrowline"><mark class="variant">bản 2 pin</mark><span class="arrow">→</span><code>batteryCount: 2</code></div></div>
+          <div class="box"><div class="label">Budget</div><div class="arrowline"><mark class="price">dưới 40 triệu</mark><span class="arrow">→</span><code>maxPrice: 40000000</code></div></div>
+          <div class="box span"><div class="label">Ranking</div><div class="arrowline"><mark class="rank">đi xa nhất</mark><span class="arrow">→</span><code>sortBy: "range"</code><span class="arrow">+</span><code>sortDirection: "desc"</code></div></div>
+          <div class="box span"><div class="label">RuleResult tạo ra sau parsing</div><pre>${pretty(ruleResult)}</pre></div>
+        </div>`
+    },
+    {
+      title: 'Tạo catalog query',
+      purpose: 'Không gửi nguyên câu người dùng vào catalog. Những phần đã biến thành filter/sort được loại khỏi text lookup; chỉ giữ phần dùng để nhận diện sản phẩm.',
+      state: 'QUERY = KYO',
+      html: `
+        <div class="box span">
+          <div class="label">Bắt đầu từ normalized input</div>
+          <div class="value"><code>${esc(normalized)}</code></div>
+        </div>
+        <div class="box span" style="margin-top:12px">
+          ${catalogQuery.removed.map(x => `<div class="strip-row"><div class="strip-name">${esc(x.reason)}</div><div><span class="cross">${esc(x.phrase)}</span></div></div>`).join('')}
+          <div class="strip-row"><div class="strip-name">giữ lại để lookup</div><div class="keep">${esc(catalogQuery.query)}</div></div>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div class="box"><div class="label">Text lookup</div><div class="big-value"><code>${esc(catalogQuery.query)}</code></div></div>
+          <div class="box"><div class="label">Structured constraints đi cùng</div><div class="value"><code>productType=motorbike</code><br><code>batteryCount=2</code><br><code>maxPrice=40000000</code></div></div>
+        </div>`
+    },
+    {
+      title: 'Truy vấn catalog',
+      purpose: 'Catalog mới là nguồn của tên sản phẩm, variant, giá và technical facts. Rule engine không tự sinh các giá trị này.',
+      state: '1 PRODUCT',
+      html: `
+        <div class="grid">
+          <div class="box">
+            <div class="label">Query gửi vào retrieval</div>
+            <pre>${pretty({ catalogQuery: catalogQuery.query, filters: { productType: filters.productType, batteryCount: filters.batteryCount, maxPrice: filters.maxPrice } })}</pre>
+          </div>
+          <div class="box">
+            <div class="label">Catalog trả về</div>
+            <div class="value big-value">${esc(products[0].name)}</div>
+            <div class="value" style="color:var(--muted);margin-top:5px">${esc(products[0].category)} · base price ${fmtVnd(products[0].displayedPrice)}</div>
+          </div>
+          <div class="box span">
+            <div class="label">Variant data hiện có trong catalog fixture</div>
+            <table>
+              <thead><tr><th>Variant</th><th>battery_count</th><th>range</th><th>price source</th></tr></thead>
+              <tbody>
+                ${products[0].variants.map(v => `<tr><td>${esc(v.name)}</td><td>${v.attributes.battery_count}</td><td>${esc(v.facts.range)}</td><td>${v.price ? fmtVnd(v.price) : 'shared base price'}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`
+    },
+    {
+      title: 'Lọc đúng variant và ngân sách',
+      purpose: 'Dùng các field đã parse từ chính input để loại candidate không đúng context. Đây là nơi chống “variant fact leak”.',
+      state: '2 PIN KEPT',
+      html: `
+        <div class="box span">
+          <div class="sentence">Cụm <mark class="variant">bản 2 pin</mark> tạo <code>batteryCount = 2</code>; cụm <mark class="price">dưới 40 triệu</mark> tạo <code>maxPrice = 40,000,000</code>.</div>
+        </div>
+        <div class="box span" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Candidate</th><th>battery check</th><th>price check</th><th>Kết quả</th></tr></thead>
+            <tbody>
+              ${candidates.map(c => `<tr class="${c.kept ? 'keep-row' : ''}"><td>${esc(c.product.name)} · ${esc(c.variant.name)}</td><td>${c.variant.attributes.battery_count} ${c.batteryOk ? '= 2 ✓' : '≠ 2'}</td><td>${fmtVnd(c.price)} ${c.priceOk ? '≤ 40.000.000 ✓' : '> 40.000.000'}</td><td>${c.kept ? '<span class="match">KEEP</span>' : '<span class="drop">DROP</span>'}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="decision" style="margin-top:12px"><strong>Candidate còn lại:</strong> ${esc(selected.product.name)} (${esc(selected.variant.name)}). Range chưa được “đoán”; engine chỉ giữ reference đến fact của chính variant này.</div>`
+    },
+    {
+      title: 'Áp dụng ranking rule',
+      purpose: 'Cụm “đi xa nhất” đã được chuyển thành sort theo range giảm dần. Ranking dùng structured fact, không dùng text similarity.',
+      state: 'RANGE DESC',
+      html: `
+        <div class="grid">
+          <div class="box">
+            <div class="label">Signal từ input</div>
+            <div class="sentence"><mark class="rank">đi xa nhất</mark></div>
+          </div>
+          <div class="box">
+            <div class="label">Rule chuyển thành</div>
+            <div class="value"><code>sortBy = "range"</code><br><code>sortDirection = "desc"</code></div>
+          </div>
+          <div class="box span">
+            <div class="label">Fact được đọc từ candidate đã chọn</div>
+            <div class="arrowline"><span>${esc(selected.product.name)} · ${esc(selected.variant.name)}</span><span class="arrow">→</span><code>facts.rangeKm = ${selected.variant.facts.rangeKm}</code><span class="arrow">→</span><span class="yes">rank #1</span></div>
+          </div>
+          <div class="box span"><div class="value" style="color:var(--muted)">Trong fixture minh họa này chỉ còn một candidate sau khi filter đúng Kyo + 2 pin + ngân sách, nên sort vẫn chạy nhưng thứ tự không đổi.</div></div>
+        </div>`
+    },
+    {
+      title: 'Sinh câu trả lời bằng template cố định',
+      purpose: 'Không có LLM viết lại câu trả lời. Engine lấy đúng field của candidate và điền vào các slot đã định nghĩa.',
+      state: 'TEMPLATE FILLED',
+      html: `
+        <div class="grid">
+          <div class="box span">
+            <div class="label">Template</div>
+            <div class="template">Mình đã tìm thấy <span class="slot">{product}</span> (<span class="slot">{variant}</span>), thông số dùng để xếp hạng: <span class="slot">{range}</span>, giá hiện tại <span class="slot">{price}</span>.</div>
+          </div>
+          <div class="box"><div class="label">{product}</div><div class="value">${esc(selected.product.name)}</div></div>
+          <div class="box"><div class="label">{variant}</div><div class="value">${esc(selected.variant.name)}</div></div>
+          <div class="box"><div class="label">{range}</div><div class="value">${esc(selected.variant.facts.range)}</div></div>
+          <div class="box"><div class="label">{price}</div><div class="value">${fmtVnd(selected.price)}</div></div>
+          <div class="box span"><div class="label">Fact provenance</div><div class="arrowline"><mark class="rank">đi xa nhất</mark><span class="arrow">→</span><code>sortBy=range</code><span class="arrow">→</span><code>Kyo / 2 pin / facts.range</code><span class="arrow">→</span><strong>${esc(selected.variant.facts.range)}</strong></div></div>
+        </div>`
+    },
+    {
+      title: 'Output cuối cùng trả về frontend',
+      purpose: 'Đây là điểm cuối của đúng câu input ở đầu trang.',
+      state: 'DONE',
+      html: `
+        <div class="response">${esc(response.message)}</div>
+        <div class="grid" style="margin-top:12px">
+          <div class="box span"><div class="label">API payload</div><pre>${pretty({ data: { intent: classification.intent, message: response.message, followUpQuestion: response.followUpQuestion, products: [{ id: selected.product.id, name: selected.product.name, slug: selected.product.slug, category: selected.product.category, displayed_price: selected.price, selected_variant: selected.variant.name, facts: selected.variant.facts }], source: 'rules' } })}</pre></div>
+          <div class="box span"><div class="decision"><strong>Trace hoàn chỉnh:</strong> một câu input → normalize → nhận diện phrase → classify intent → extract filters → tạo catalog query → lấy product/variant/fact từ catalog → filter + rank → điền deterministic template → response.</div></div>
+        </div>`
+    }
+  ];
+
+  // The walkthrough has one source-input screen followed by the computed stages.
+  // Only the active screen exists in the DOM at any moment.
+  const screens = [
+    {
+      kind: 'input',
+      title: 'Input duy nhất',
+      render: () => `
+        <section class="input-screen">
+          <div class="source-inner">
+            ${inputTrace('Màn hình khởi đầu', 'RAW INPUT', 'Chưa qua bất kỳ bước xử lý nào. Từ màn hình này trở đi, chính câu input này sẽ luôn được hiển thị kèm trạng thái hiện tại.', {})}
+            <div class="source-label">Input duy nhất</div>
+            <h1 class="source-text">${esc(INPUT)}</h1>
+            <div class="source-note">Nhấn “Tiếp” để xem engine xử lý chính câu này qua từng stage.</div>
+          </div>
+        </section>`
+    },
+    ...stages.map((stage, index) => ({
+      kind: 'stage',
+      title: stage.title,
+      render: () => `
+        <div>
+          ${inputTrace(`Bước ${index + 1}/${stages.length} · ${stage.title}`, stage.state, `Câu input gốc vẫn giữ nguyên. Ở màn hình này, engine đang ở stage “${stage.title}”.`, {
+            filler: index >= 2,
+            type: [2,4].includes(index),
+            entity: [2,4,5].includes(index),
+            variant: [2,3,4,6,8].includes(index),
+            price: [2,3,4,6].includes(index),
+            rank: [2,3,4,7,8].includes(index)
+          })}
+          <article class="stage-single">
+            <div class="stage-index">${String(index + 1).padStart(2, '0')}</div>
+            <section class="stage-card">
+              <header class="stage-head">
+                <div>
+                  <h2 class="stage-title">${esc(stage.title)}</h2>
+                  <div class="stage-purpose">${esc(stage.purpose)}</div>
+                </div>
+                <div class="state">${esc(stage.state)}</div>
+              </header>
+              <div class="body">${stage.html}</div>
+            </section>
+          </article>
+        </div>`
+    }))
+  ];
+
+  let current = 0;
+  const screenEl = document.getElementById('screen');
+  const progressText = document.getElementById('progressText');
+  const progressFill = document.getElementById('progressFill');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  function renderCurrent() {
+    const item = screens[current];
+    screenEl.innerHTML = item.render();
+    progressText.textContent = current === 0
+      ? `Input · ${screens.length - 1} giai đoạn`
+      : `Bước ${current}/${screens.length - 1}`;
+    progressFill.style.width = `${(current / (screens.length - 1)) * 100}%`;
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === screens.length - 1;
+    nextBtn.textContent = current === screens.length - 2 ? 'Xem output →' : 'Tiếp →';
+    if (current === screens.length - 1) nextBtn.textContent = 'Hoàn tất';
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  prevBtn.addEventListener('click', () => {
+    if (current > 0) { current -= 1; renderCurrent(); }
+  });
+  nextBtn.addEventListener('click', () => {
+    if (current < screens.length - 1) { current += 1; renderCurrent(); }
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft' && current > 0) { current -= 1; renderCurrent(); }
+    if (event.key === 'ArrowRight' && current < screens.length - 1) { current += 1; renderCurrent(); }
+  });
+
+  renderCurrent();
+})();
+</script>
+</body>
+</html>
