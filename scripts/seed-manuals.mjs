@@ -8,8 +8,9 @@ dotenv.config({ path: '.env' });
 dotenv.config({ path: '.env.local' });
 
 // We need the service role key to bypass RLS for inserting.
+// Keep this value in the local/deployment environment; never commit it to the repository.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = 'REDACTED_PUBLIC_HISTORY'; // From test-db.mjs
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error("Missing Supabase URL or Key");
