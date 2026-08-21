@@ -20,7 +20,7 @@ interface ArticleContentProps {
   searchData: { id: string, title: string }[]
 }
 
-export function ArticleContent({ contentHtml, modelId, articleTitle, searchData }: ArticleContentProps) {
+export function ArticleContent({ contentHtml, modelId, modelName, modelYear, articleTitle, searchData }: ArticleContentProps) {
   const normalizedContentHtml = useMemo(() => normalizeManualContentHtml(contentHtml), [contentHtml])
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
