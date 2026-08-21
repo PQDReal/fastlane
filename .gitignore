@@ -13,3 +13,5 @@ node_modules/
 /public/data/by_type/vf_manual_articles.json
 /public/data/by_type/manual_vehicles.json
 /public/assets/images/
+/*.traineddata
+/scripts/data.zip
