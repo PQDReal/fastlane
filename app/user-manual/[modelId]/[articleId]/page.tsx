@@ -2,6 +2,7 @@ import { getManualArticle, getManualModel, getManualTree } from '@/lib/api/manua
 import { notFound } from 'next/navigation'
 import './manual.css'
 import { ArticleContent } from './article-content'
+import { normalizeManualContentHtml } from '@/lib/api/manual-content'
 
 export async function generateStaticParams(props: { params: any }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
@@ -56,7 +57,11 @@ export default async function ManualArticlePage(props: {
     notFound()
   }
 
-  const contentHtml = article.content_html || ''
+  // Basic string replace for Vinfast images if they are absolute. 
+  // If they are relative, they might be broken unless we proxy or copy them.
+  // The original images might be at `https://om.vinfastauto.com/vi_vn/...`
+  // We'll just render the HTML as is, but if images are missing we'll know.
+  const contentHtml = normalizeManualContentHtml(article.content_html || '')
 
   // Get search data (all articles for this model)
   const searchData = tree
