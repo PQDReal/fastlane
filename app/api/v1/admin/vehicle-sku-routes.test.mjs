@@ -28,4 +28,10 @@ describe('admin vehicle SKU write routes', () => {
       expect(route).not.toMatch(/sku\?\.replace\(\/-C/)
     }
   })
+
+  it('retires reserved car configurations instead of deleting immutable deposit history', () => {
+    expect(routes.carEdit).toContain("DEPOSIT_RESERVED_VEHICLE_IMMUTABLE")
+    expect(routes.carEdit).toContain("isImmutableReservedVehicleError(vvDelError)")
+    expect(routes.carEdit).toContain(".update({ is_active: false })")
+  })
 })

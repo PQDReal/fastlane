@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowDown, ArrowUp, Bot, Car, Check, CheckCircle2, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,11 @@ type DisplayMessage = SalesAgentMessage & {
 type InteractionSubmission = { selectedOptionIds: string[]; freeText?: string }
 type InteractionSearchResult = DisplayInteraction
 type InteractionSearchCallback = (result: InteractionSearchResult, selectedOptionIds: string[]) => void
+type FloatingPosition = { left: number; top: number }
+const FLOATING_BUTTON_GRID_SIZE = 32
+const FLOATING_BUTTON_LEFT_PADDING = 0
+const FLOATING_BUTTON_RIGHT_PADDING = 24
+const FLOATING_BUTTON_VERTICAL_PADDING = 0
 
 const SUGGESTIONS = [
   'Tư vấn mẫu xe phù hợp',
@@ -245,6 +250,167 @@ export function SalesAgentShell() {
   const pathname = usePathname()
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
+  const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null)
+  const [isFloatingDragging, setIsFloatingDragging] = useState(false)
+  const latestFloatingPositionRef = useRef<FloatingPosition | null>(null)
+  const floatingButtonRef = useRef<HTMLButtonElement>(null)
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null>(null)
+  const suppressFloatingClickRef = useRef(false)
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('fastlane-sales-agent-position')
+      if (saved) {
+        const position = JSON.parse(saved) as FloatingPosition
+        setFloatingPosition(position)
+        latestFloatingPositionRef.current = position
+      }
+    } catch {
+      // Ignore unavailable or malformed local storage values.
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const button = floatingButtonRef.current
+    if (!button || !floatingPosition) return
+    const width = button.offsetWidth
+    const height = button.offsetHeight
+    const clampedPosition = {
+      left: Math.max(FLOATING_BUTTON_LEFT_PADDING, Math.min(window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING, floatingPosition.left)),
+      top: Math.max(FLOATING_BUTTON_VERTICAL_PADDING, Math.min(window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING, floatingPosition.top)),
+    }
+    if (clampedPosition.left === floatingPosition.left && clampedPosition.top === floatingPosition.top) return
+    latestFloatingPositionRef.current = clampedPosition
+    setFloatingPosition(clampedPosition)
+    window.localStorage.setItem('fastlane-sales-agent-position', JSON.stringify(clampedPosition))
+  }, [floatingPosition])
+
+  const handleFloatingPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top,
+      moved: false,
+    }
+    setIsFloatingDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }, [])
+
+  const handleFloatingPointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const deltaX = event.clientX - drag.startX
+    const deltaY = event.clientY - drag.startY
+    if (Math.hypot(deltaX, deltaY) < 4) return
+    drag.moved = true
+    const width = event.currentTarget.offsetWidth
+    const height = event.currentTarget.offsetHeight
+    const left = Math.max(FLOATING_BUTTON_LEFT_PADDING, Math.min(window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING, drag.left + deltaX))
+    const top = Math.max(FLOATING_BUTTON_VERTICAL_PADDING, Math.min(window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING, drag.top + deltaY))
+    const nextPosition = { left, top }
+    latestFloatingPositionRef.current = nextPosition
+    setFloatingPosition(nextPosition)
+  }, [])
+
+  const handleFloatingPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const latestPosition = latestFloatingPositionRef.current || floatingPosition
+    if (drag.moved && latestPosition) {
+      const width = event.currentTarget.offsetWidth
+      const height = event.currentTarget.offsetHeight
+      const snappedPosition = {
+        left: Math.max(FLOATING_BUTTON_LEFT_PADDING, Math.min(window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING, Math.round(latestPosition.left / FLOATING_BUTTON_GRID_SIZE) * FLOATING_BUTTON_GRID_SIZE)),
+        top: Math.max(FLOATING_BUTTON_VERTICAL_PADDING, Math.min(window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING, Math.round(latestPosition.top / FLOATING_BUTTON_GRID_SIZE) * FLOATING_BUTTON_GRID_SIZE)),
+      }
+      latestFloatingPositionRef.current = snappedPosition
+      setFloatingPosition(snappedPosition)
+      window.localStorage.setItem('fastlane-sales-agent-position', JSON.stringify(snappedPosition))
+      suppressFloatingClickRef.current = true
+      window.setTimeout(() => { suppressFloatingClickRef.current = false }, 0)
+    }
+    dragRef.current = null
+    setIsFloatingDragging(false)
+  }, [floatingPosition])
+
+  /* free-float mode removed */
+  /*
+    const toggleFreeFloatMode = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (floatingClickTimerRef.current !== null) {
+      window.clearTimeout(floatingClickTimerRef.current)
+      floatingClickTimerRef.current = null
+    }
+    const nextMode = !isFreeFloatMode
+    if (nextMode) {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const position = { left: rect.left, top: rect.top }
+      latestFloatingPositionRef.current = position
+      setFloatingPosition(position)
+      floatVelocityRef.current = { x: 0, y: 0 }
+      setFloatRotation(0)
+      setIsFloatReleased(true)
+    } else {
+      floatVelocityRef.current = { x: 0, y: 0 }
+      setIsFloatReleased(false)
+      setFloatRotation(0)
+    }
+    setIsFreeFloatMode(nextMode)
+    setToasts((items) => [...items, {
+      id: Date.now(),
+      kind: nextMode ? 'success' : 'warning',
+      title: `Chế độ thả trôi: ${nextMode ? 'Bật' : 'Tắt'}`,
+      message: nextMode ? 'Chatbot sẽ trôi và bật lại khi chạm cạnh màn hình.' : 'Chatbot đã trở về chế độ kéo thả bình thường.',
+    }])
+  }, [isFreeFloatMode])
+
+  useEffect(() => {
+    if (!isFreeFloatMode || !isFloatReleased || reduceMotion) return
+    let frame = 0
+    let previousTime = performance.now()
+    const tick = (now: number) => {
+      const position = latestFloatingPositionRef.current
+      const button = floatingButtonRef.current
+      if (!position || !button) {
+        frame = requestAnimationFrame(tick)
+        return
+      }
+      const delta = Math.min(32, now - previousTime)
+      previousTime = now
+      const width = button.offsetWidth
+      const height = button.offsetHeight
+      const velocity = floatVelocityRef.current
+      velocity.y += 0.0008 * delta
+      let left = position.left + velocity.x * delta
+      let top = position.top + velocity.y * delta
+      const minLeft = FLOATING_BUTTON_LEFT_PADDING
+      const maxLeft = Math.max(minLeft, window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING)
+      const minTop = FLOATING_BUTTON_VERTICAL_PADDING
+      const maxTop = Math.max(minTop, window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING)
+      if (left <= minLeft || left >= maxLeft) {
+        left = Math.max(minLeft, Math.min(maxLeft, left))
+        velocity.x *= -0.58
+      }
+      if (top <= minTop) {
+        top = minTop
+        velocity.y = Math.abs(velocity.y) * 0.62
+      } else if (top >= maxTop) {
+        top = maxTop
+        velocity.y *= -0.62
+      }
+      // Stronger horizontal friction keeps the ball from rolling too far.
+      velocity.x *= 0.94
+      setFloatRotation((rotation) => rotation + velocity.x * delta * 0.75)
+      latestFloatingPositionRef.current = { left, top }
+      setFloatingPosition({ left, top })
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [isFreeFloatMode, isFloatReleased, reduceMotion])
+  */
 
   // Auto-expand textarea smoothly up to 5 lines
   useEffect(() => {
@@ -842,7 +1008,7 @@ export function SalesAgentShell() {
   </AnimatePresence>
 
   {/* Floating Trigger */}
-  <AnimatePresence>
+  <AnimatePresence initial={false} mode="wait">
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
@@ -851,12 +1017,21 @@ export function SalesAgentShell() {
         exit={{ opacity: 0, scale: 0.85, y: 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed bottom-6 right-6 z-[55] flex items-center"
+        style={floatingPosition ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto', bottom: 'auto' } : undefined}
       >
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          ref={floatingButtonRef}
+          onPointerDown={handleFloatingPointerDown}
+          onPointerMove={handleFloatingPointerMove}
+          onPointerUp={handleFloatingPointerUp}
+          onPointerCancel={handleFloatingPointerUp}
+          onClick={() => {
+            if (suppressFloatingClickRef.current) return
+            setOpen(true)
+          }}
           aria-label="Mở Trợ lý AI FASTLANE"
-          className="group relative flex items-center gap-2.5 rounded-2xl border border-amber-400/40 bg-slate-950/95 p-1.5 pr-3.5 text-white shadow-2xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:border-amber-400 hover:bg-slate-900 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 cursor-pointer"
+          className={`group relative flex select-none items-center gap-2.5 touch-none rounded-2xl border border-amber-400/40 bg-slate-950/95 p-1.5 pr-3.5 text-white shadow-2xl backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${isFloatingDragging ? `border-amber-300 shadow-[0_12px_35px_rgba(245,158,11,0.35)] cursor-grabbing ${reduceMotion ? 'scale-105 rotate-1' : 'sales-agent-dragging'}` : 'cursor-grab transition-all duration-300 hover:scale-105 hover:border-amber-400 hover:bg-slate-900 active:scale-95'}`}
         >
           {/* Squircle mascot container */}
           <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/50 bg-slate-900 shadow-md">

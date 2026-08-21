@@ -22,6 +22,14 @@ function handleAuthorizationError(error: unknown) {
   throw error
 }
 
+// A vehicle configuration that has already been reserved is intentionally
+// immutable in the database. Editing the catalog must therefore retire it,
+// rather than trying to remove the historical row.
+function isImmutableReservedVehicleError(error: { code?: unknown; message?: unknown } | null | undefined) {
+  const message = String(error?.message || '')
+  return error?.code === 'P0001' && message.includes('DEPOSIT_RESERVED_VEHICLE_IMMUTABLE')
+}
+
 function makeUrlsAbsolute(obj: any, origin: string): any {
   if (typeof obj === 'string') {
     if (obj.startsWith('/uploads')) {
@@ -749,7 +757,7 @@ export async function PATCH(request: Request, context: Context) {
       .in('id', pvIdsToDelete)
       .eq('product_id', productId)
     if (pvDelError) {
-      if (pvDelError.code === '23503') {
+      if (pvDelError.code === '23503' || isImmutableReservedVehicleError(pvDelError)) {
         const { error: pvUpdateError } = await supabase
           .from('product_variants')
           .update({ is_active: false })
@@ -774,7 +782,7 @@ export async function PATCH(request: Request, context: Context) {
       .in('id', vvIdsToDelete)
       .eq('product_id', productId)
     if (vvDelError) {
-      if (vvDelError.code === '23503') {
+      if (vvDelError.code === '23503' || isImmutableReservedVehicleError(vvDelError)) {
         const { error: vvUpdateError } = await supabase
           .from('vehicle_variants')
           .update({ is_active: false })
