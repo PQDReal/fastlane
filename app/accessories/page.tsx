@@ -70,9 +70,6 @@ export default async function AccessoriesPage({
             <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl lg:text-4xl">
               Phụ kiện Chính Hãng VinFast
             </h1>
-            <p className="max-w-md text-xs leading-5 text-slate-500 sm:text-right sm:text-sm">
-              Tìm theo tên sản phẩm hoặc thu hẹp kết quả theo danh mục và dòng xe phù hợp.
-            </p>
           </div>
         </div>
       </header>
