@@ -7,7 +7,7 @@ import { BikeCatalogBrowser } from './bike-catalog-browser'
 
 // The catalog is read from Supabase at request time; Render may not expose
 // production database networking during the build step.
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 export default async function BikesPage() {
   const bikesData = await listMotorbikeCatalog()

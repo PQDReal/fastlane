@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
+import dotenv from 'dotenv'
 
-const supabaseUrl = 'https://tpvsoegkztjnwxirogkp.supabase.co'
-const supabaseKey = 'REDACTED_PUBLIC_HISTORY'
+dotenv.config({ path: '.env' })
+dotenv.config({ path: '.env.local' })
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!supabaseUrl || !supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function test() {
