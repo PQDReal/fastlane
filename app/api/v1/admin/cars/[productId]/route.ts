@@ -11,7 +11,7 @@ import { deleteRedisKeysByPrefix } from '@/lib/redis'
 import { CAR_CATALOG_CACHE_PREFIX, CAR_DETAIL_CACHE_PREFIX, DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX, PRODUCT_SEARCH_CACHE_PREFIX } from '@/lib/cache-keys'
 import { reconstructCarAdminConfiguration } from '@/lib/car-admin-variants'
 import { normalizeCarSkuBase } from '@/lib/car-sku'
-import { allocateVehicleVariantSkus, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
+import { allocateVehicleVariantSkus, buildVehicleOptionSignature, isCanonicalVehicleSku, vehicleConfigurationKey } from '@/lib/vehicle-sku'
 
 type Context = { params: Promise<{ productId: string }> }
 
@@ -238,18 +238,7 @@ export async function GET(request: Request, context: Context) {
   let hero_image_url = specsObj.gallery?.banner_images?.find((img: string) => !img.toLowerCase().includes('mobile') && !img.toLowerCase().includes('_mb'))
     || specsObj.gallery?.banner_images?.[0]
     || image_urls[1]
-    || carRichData?.gallery?.banner_images?.find((img: string) => !img.toLowerCase().includes('mobile') && !img.toLowerCase().includes('_mb'))
-    || carRichData?.gallery?.banner_images?.[0]
-    || image_urls[0]
-    || '/images/vf8.png'
-
-  if (product.name === 'VF 3') {
-    hero_image_url = carRichData?.gallery?.exterior_images?.[1] || hero_image_url
-  } else if (product.slug === 'vf-8-all-new' || product.name.toLowerCase().includes('vf 8 the all')) {
-    hero_image_url = 'https://vinfastauto.com/themes/porto/img/vf8-new-product/hero-banner.svg'
-  } else if (product.name.includes('MPV')) {
-    hero_image_url = 'https://static-cms-prod.vinfastauto.com/pdp/vf_mpv_7/M_01.webp'
-  }
+    || ''
 
   const raw_detail_images = specsObj.gallery?.detail_images || specsObj.gallery_images || []
 
@@ -686,7 +675,7 @@ export async function PATCH(request: Request, context: Context) {
       original_price: priceForConfiguration(version, color),
     sale_price: null,
     is_active: is_active,
-    option_signature: `version=${version.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}&color=${String(color.color_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}&interior=${String(interior.interior_name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    option_signature: buildVehicleOptionSignature({ version: version.name, versionSku: version.sku, color: color.color_name, interiorColor: interior.interior_name }),
     metadata: { source: 'admin_car_edit', base_sku: normalizeCarSkuBase(version.sku, color.color_name, interior.interior_name), version: version.name, color: color.color_name, interior_color: interior.interior_name },
     deposit_amount: version.deposit_amount,
     }

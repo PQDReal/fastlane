@@ -30,7 +30,7 @@ export async function sendEmailOTP(to: string, otp: string, subject: string = 'F
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);">
           <tr>
             <td align="center" style="padding: 34px 40px 24px; border-bottom: 1px solid #f1f5f9;">
-              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="56" style="display: block; height: 56px; width: auto; border: 0;">
+              <img src="https://res.cloudinary.com/dawbec7mw/image/upload/v1787196680/fastlane/vmeey4jjnztproaj22ax.png" alt="FASTLANE" height="56" style="display: block; height: 56px; width: auto; border: 0;">
             </td>
           </tr>
           <tr>
@@ -187,7 +187,7 @@ export async function sendContractSignedEmail(
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="56" style="display: block; height: 56px; width: auto; margin: 0 auto; border: 0;">
+      <img src="https://res.cloudinary.com/dawbec7mw/image/upload/v1787196680/fastlane/vmeey4jjnztproaj22ax.png" alt="FASTLANE" height="56" style="display: block; height: 56px; width: auto; margin: 0 auto; border: 0;">
     </div>
     <div class="content">
       <div class="eyebrow">Xác nhận hợp đồng</div>
@@ -335,7 +335,7 @@ export async function sendPaymentSuccessEmail(to: string, orderNumber: string, a
           <!-- Header -->
           <tr>
             <td style="background-color: #ffffff; padding: 40px 40px 10px 40px; text-align: center;">
-              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
+              <img src="https://res.cloudinary.com/dawbec7mw/image/upload/v1787196680/fastlane/vmeey4jjnztproaj22ax.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
             </td>
           </tr>
           <!-- Body -->
@@ -427,7 +427,7 @@ export async function sendTestDriveConfirmationEmail(
           <!-- Header -->
           <tr>
             <td style="background-color: #ffffff; padding: 40px 40px 10px 40px; text-align: center;">
-              <img src="https://i.ibb.co/27Xy5yRX/fastlane-logo-name.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
+              <img src="https://res.cloudinary.com/dawbec7mw/image/upload/v1787196680/fastlane/vmeey4jjnztproaj22ax.png" alt="FASTLANE" height="64" style="display: block; margin: 0 auto; border: 0;" />
             </td>
           </tr>
           <!-- Body -->

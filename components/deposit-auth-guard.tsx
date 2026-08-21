@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { usePathname } from 'next/navigation'
+import { AnimatePresence } from 'framer-motion'
 
 import { DepositLoginRequired } from '@/components/deposit-login-required'
 
@@ -37,5 +38,9 @@ export function DepositAuthGuard() {
     return () => document.removeEventListener('click', onClick, true)
   }, [isLoading, user])
 
-  return open ? <DepositLoginRequired /> : null
+  return (
+    <AnimatePresence>
+      {open ? <DepositLoginRequired key="deposit-login-required" /> : null}
+    </AnimatePresence>
+  )
 }

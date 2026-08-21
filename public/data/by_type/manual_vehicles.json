@@ -21,7 +21,7 @@
         {
           "model_name": "VF7",
           "model_code": "VF 7",
-          "thumbnail": "/assets/model-images/6a4df24c882ac.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4e20b248598.png",
           "text_align": 0,
           "versions": [
             "2026",
@@ -29,16 +29,16 @@
             "2024"
           ],
           "version_thumbnails": {
-            "2024": "/assets/model-images/6a4e2b437b099.png",
-            "2025": "/assets/model-images/6a4e2af95a298.png",
-            "2026": "/assets/model-images/6a4e20b248598.png"
+            "2024": "https://om.vinfastauto.com/vfom/model-images/6a4e2b437b099.png",
+            "2025": "https://om.vinfastauto.com/vfom/model-images/6a4e2af95a298.png",
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4e20b248598.png"
           },
           "vehicle_id": 5
         },
         {
           "model_name": "VF6",
           "model_code": "VF 6",
-          "thumbnail": "/assets/model-images/6a4dc7ee71667.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4def9652f06.png",
           "text_align": 0,
           "versions": [
             "2026",
@@ -47,17 +47,17 @@
             "2023"
           ],
           "version_thumbnails": {
-            "2023": "/assets/model-images/6a4dc901f3898.png",
-            "2024": "/assets/model-images/6a4dc9443c8d4.png",
-            "2025": "/assets/model-images/6a4dcf9f8f2b5.png",
-            "2026": "/assets/model-images/6a4def9652f06.png"
+            "2023": "https://om.vinfastauto.com/vfom/model-images/6a4dc901f3898.png",
+            "2024": "https://om.vinfastauto.com/vfom/model-images/6a4dc9443c8d4.png",
+            "2025": "https://om.vinfastauto.com/vfom/model-images/6a4dcf9f8f2b5.png",
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4def9652f06.png"
           },
           "vehicle_id": 5
         },
         {
           "model_name": "VF9",
           "model_code": "VF 9",
-          "thumbnail": "/assets/model-images/6a4df92427f8d.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4df92427f8d.png",
           "text_align": 0,
           "versions": [
             "2026",
@@ -66,17 +66,17 @@
             "2023"
           ],
           "version_thumbnails": {
-            "2023": "/assets/model-images/6a4df92427f8d.png",
-            "2024": "/assets/model-images/6a4df92427f8d.png",
-            "2025": "/assets/model-images/6a4df92427f8d.png",
-            "2026": "/assets/model-images/6a4df92427f8d.png"
+            "2023": "https://om.vinfastauto.com/vfom/model-images/6a4df92427f8d.png",
+            "2024": "https://om.vinfastauto.com/vfom/model-images/6a4df92427f8d.png",
+            "2025": "https://om.vinfastauto.com/vfom/model-images/6a4df92427f8d.png",
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4df92427f8d.png"
           },
           "vehicle_id": 5
         },
         {
           "model_name": "VF8",
           "model_code": "VF 8",
-          "thumbnail": "/assets/model-images/6a4ddcd342c10.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4ddcd342c10.png",
           "text_align": 0,
           "versions": [
             "2026",
@@ -86,31 +86,31 @@
             "2022"
           ],
           "version_thumbnails": {
-            "2022": "/assets/model-images/6a4ddcd342c10.png",
-            "2023": "/assets/model-images/6a4ddcd342c10.png",
-            "2024": "/assets/model-images/6a4ddcd342c10.png",
-            "2025": "/assets/model-images/6a4ddcd342c10.png",
-            "2026": "/assets/model-images/6a4ddcd342c10.png"
+            "2022": "https://om.vinfastauto.com/vfom/model-images/6a4ddcd342c10.png",
+            "2023": "https://om.vinfastauto.com/vfom/model-images/6a4ddcd342c10.png",
+            "2024": "https://om.vinfastauto.com/vfom/model-images/6a4ddcd342c10.png",
+            "2025": "https://om.vinfastauto.com/vfom/model-images/6a4ddcd342c10.png",
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4ddcd342c10.png"
           },
           "vehicle_id": 5
         },
         {
           "model_name": "VF8NP",
           "model_code": "VF 8 - MY26",
-          "thumbnail": "/assets/model-images/6a4e1f615972e.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4e1f615972e.png",
           "text_align": 0,
           "versions": [
             "2026"
           ],
           "version_thumbnails": {
-            "2026": "/assets/model-images/6a4e1f615972e.png"
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4e1f615972e.png"
           },
           "vehicle_id": 5
         },
         {
           "model_name": "VF5",
           "model_code": "VF 5",
-          "thumbnail": "/assets/model-images/6a4dbace7bbee.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4dbe2b64034.png",
           "text_align": 0,
           "versions": [
             "2026",
@@ -119,10 +119,10 @@
             "2023"
           ],
           "version_thumbnails": {
-            "2023": "/assets/model-images/6a4dbb37b220d.png",
-            "2024": "/assets/model-images/6a4dbfb4cb147.png",
-            "2025": "/assets/model-images/6a4dc45c563b9.png",
-            "2026": "/assets/model-images/6a4dbe2b64034.png"
+            "2023": "https://om.vinfastauto.com/vfom/model-images/6a4dbb37b220d.png",
+            "2024": "https://om.vinfastauto.com/vfom/model-images/6a4dbfb4cb147.png",
+            "2025": "https://om.vinfastauto.com/vfom/model-images/6a4dc45c563b9.png",
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4dbe2b64034.png"
           },
           "vehicle_id": 5
         }
@@ -131,7 +131,7 @@
         {
           "model_name": "VF3",
           "model_code": "VF 3",
-          "thumbnail": "/assets/model-images/6a51032a1156c.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a51032a1156c.png",
           "text_align": 0,
           "versions": [
             "2026",
@@ -139,9 +139,9 @@
             "2024"
           ],
           "version_thumbnails": {
-            "2024": "/assets/model-images/6a51032a1156c.png",
-            "2025": "/assets/model-images/6a51032a1156c.png",
-            "2026": "/assets/model-images/6a51032a1156c.png"
+            "2024": "https://om.vinfastauto.com/vfom/model-images/6a51032a1156c.png",
+            "2025": "https://om.vinfastauto.com/vfom/model-images/6a51032a1156c.png",
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a51032a1156c.png"
           },
           "vehicle_id": 12
         }
@@ -150,13 +150,13 @@
         {
           "model_name": "VF MPV 7",
           "model_code": "VF MPV 7",
-          "thumbnail": "/assets/model-images/6a4dc75b44afc.png",
+          "thumbnail": "https://om.vinfastauto.com/vfom/model-images/6a4e2a0e101f9.png",
           "text_align": 0,
           "versions": [
             "2026"
           ],
           "version_thumbnails": {
-            "2026": "/assets/model-images/6a4e2a0e101f9.png"
+            "2026": "https://om.vinfastauto.com/vfom/model-images/6a4e2a0e101f9.png"
           },
           "vehicle_id": 15
         }

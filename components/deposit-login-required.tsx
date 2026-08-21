@@ -1,14 +1,24 @@
 'use client'
 
-import Link from 'next/link'
-import { LogIn, Undo2 } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { LogIn, X } from 'lucide-react'
 
 import { PopupLoginButton } from '@/components/auth/popup-login-button'
 
 export function DepositLoginRequired() {
   return (
-    <main className="fixed inset-0 z-[100] flex items-center justify-center bg-white/55 px-5 py-10 backdrop-blur-md">
-      <section
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-white/55 px-5 py-10 backdrop-blur-md"
+    >
+      <motion.section
+        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="deposit-login-title"
@@ -32,16 +42,16 @@ export function DepositLoginRequired() {
             <LogIn size={17} aria-hidden="true" />
             Đăng nhập để tiếp tục
           </PopupLoginButton>
-          <Link
-            href="/"
+          <button
+            type="button"
             onClick={() => window.dispatchEvent(new Event('fastlane:close-deposit-login'))}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
-            <Undo2 size={17} aria-hidden="true" />
-            Về trang chủ
-          </Link>
+            <X size={17} aria-hidden="true" />
+            Đóng
+          </button>
         </div>
-      </section>
-    </main>
+      </motion.section>
+    </motion.main>
   )
 }

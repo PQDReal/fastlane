@@ -119,7 +119,7 @@ export function BikeVersionMediaGallery({
                   </motion.div>
                 )}
               </AnimatePresence>
-              <span className="absolute bottom-4 left-6 z-20 text-xs text-white/40">
+              <span className="hidden absolute bottom-4 left-6 z-20 text-xs text-white/40">
                 {selectedVersion?.name} · {selectedColor?.colorName}
               </span>
             </div>
@@ -209,7 +209,7 @@ export function BikeVersionMediaGallery({
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 384px"
                   className="object-cover transition duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12">
+                <div className="hidden absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 pt-12">
                   <span className="text-xs font-bold text-white/70">Hình ảnh chi tiết #{index + 1}</span>
                 </div>
               </div>

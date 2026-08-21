@@ -62,7 +62,7 @@ export const getManualArticle = cache(async (modelId: string, articleId: string)
     .from('manual_articles')
     .select('*')
     .eq('model_id', modelId)
-    .eq('id', articleId)
+    .eq('id', articleId.includes('_') ? articleId : `${modelId}_${articleId}`)
     .single()
 
   if (error) {
