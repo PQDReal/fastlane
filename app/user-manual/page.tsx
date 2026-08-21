@@ -2,6 +2,11 @@ import { getManualModels } from '@/lib/api/manuals-server'
 import { ManualHero } from './manual-hero'
 import { VehicleCatalog } from './vehicle-catalog'
 
+// Manual data is managed in Supabase and must be read after deployment as
+// well as during build. Avoid baking an empty catalog into a static page when
+// build-time environment variables are unavailable.
+export const dynamic = 'force-dynamic'
+
 export default async function UserManualPage() {
   const dbModels = await getManualModels()
   
