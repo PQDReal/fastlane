@@ -7,7 +7,7 @@ import { PromotionsList, type PromotionListItem } from '@/components/promotions-
 import { productTypeLabel, productTypesFromLegacy, type PromotionProductType } from '@/lib/promotions/product-types'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 type PromotionRow = {
   id: string

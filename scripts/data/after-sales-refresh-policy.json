@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "timezone": "Asia/Ho_Chi_Minh",
+  "scopeExclusions": [
+    "owner_manual_car",
+    "owner_manual_motorbike",
+    "owner_manual_bus",
+    "service_booking"
+  ],
+  "schedule": {
+    "officialPolicy": "0 3 * * 1",
+    "serviceCenters": "0 */12 * * *"
+  },
+  "freshnessSlaHours": {
+    "warranty": 168,
+    "maintenance": 168,
+    "repair": 168,
+    "rescue": 24,
+    "service-center": 12
+  },
+  "changePolicy": {
+    "sameHash": "mark_unchanged",
+    "changedHash": "create_new_snapshot_and_review",
+    "sourceUnavailable": "retain_last_published_and_raise_alert",
+    "newSource": "create_draft_and_require_admin_review",
+    "deletedSource": "mark_archived_never_hard_delete"
+  },
+  "publicationRules": {
+    "autoPublish": false,
+    "requireAdminReview": true,
+    "requireSourceUrl": true,
+    "requireContentHash": true,
+    "retainSnapshots": true,
+    "retainDays": 730
+  }
+}

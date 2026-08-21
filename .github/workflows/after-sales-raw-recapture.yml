@@ -1,0 +1,61 @@
+name: After-sales raw recapture
+
+on:
+  workflow_dispatch:
+    inputs:
+      reuse_verified_assets:
+        description: Reuse already verified PDF/assets when possible
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: after-sales-raw-recapture
+  cancel-in-progress: false
+
+jobs:
+  recapture:
+    name: Recapture raw DOM/PDF evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BROWSERLESS_API_TOKEN: ${{ secrets.BROWSERLESS_API_TOKEN }}
+      BROWSERLESS_CDP_ENDPOINT: ${{ secrets.BROWSERLESS_CDP_ENDPOINT }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run raw recapture pipeline
+        run: |
+          if [ "${{ inputs.reuse_verified_assets }}" = "true" ]; then
+            npm run process:after-sales:raw-recapture -- --reuse-verified-assets
+          else
+            npm run process:after-sales:raw-recapture
+          fi
+
+      - name: Upload recapture artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: after-sales-raw-recapture-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            .local/after-sales/
+            public/data/after-sales-parsed.json
+            public/data/after-sales-verified.json
+            public/data/after-sales-extracted.json
+            public/data/after-sales-normalized.json

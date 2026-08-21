@@ -13,11 +13,20 @@ interface TocItem {
 interface ArticleContentProps {
   contentHtml: string
   modelId: string
+  modelName: string
+  modelYear: string
   articleTitle: string
   searchData: { id: string, title: string }[]
 }
 
-export function ArticleContent({ contentHtml, modelId, articleTitle, searchData }: ArticleContentProps) {
+export function ArticleContent({
+  contentHtml,
+  modelId,
+  modelName,
+  modelYear,
+  articleTitle,
+  searchData,
+}: ArticleContentProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -70,7 +79,15 @@ export function ArticleContent({ contentHtml, modelId, articleTitle, searchData 
     <div className="w-full relative">
       {/* Search Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-4 border-b border-slate-200 gap-4">
-        <h1 className="text-xl font-semibold text-slate-800">{articleTitle}</h1>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#836100]">{modelName}</p>
+            <span className="bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
+              Phiên bản {modelYear}
+            </span>
+          </div>
+          <h1 className="mt-2 text-xl font-semibold text-slate-800">{articleTitle}</h1>
+        </div>
         
         <div className="relative w-full md:w-72 z-20">
           <div className="relative flex items-center">

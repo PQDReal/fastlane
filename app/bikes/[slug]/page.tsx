@@ -22,7 +22,7 @@ import LandingPageRenderer from '../../../components/landing-page-renderer'
 import Image from 'next/image'
 
 // Avoid querying Supabase while the deployment build is prerendering pages.
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 type JsonObject = Record<string, unknown>
 type SpecEntry = [string, string]

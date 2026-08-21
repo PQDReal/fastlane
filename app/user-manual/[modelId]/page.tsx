@@ -1,27 +1,29 @@
-import { getFirstArticleId, getManualModels } from '@/lib/api/manuals-server'
-import Link from 'next/link'
+import { getFirstArticleId, getManualModel, getManualModels } from '@/lib/api/manuals-server'
 import { notFound, redirect } from 'next/navigation'
 
 export async function generateStaticParams() {
-  const models = await getManualModels()
-  return models.map(m => ({ modelId: m.id }))
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
+  try {
+    const models = await getManualModels()
+    return models.map((m) => ({ modelId: m.id }))
+  } catch (error) {
+    console.error('Failed to generate static params:', error)
+    return []
+  }
 }
 
-export default async function ModelManualIndexPage({
-  params
-}: {
+export default async function ModelManualIndexPage(props: {
   params: Promise<{ modelId: string }>
 }) {
-  const { modelId } = await params;
-  const decodedModelId = decodeURIComponent(modelId)
+  const params = await props.params
+  const decodedModelId = decodeURIComponent(params.modelId)
   const firstArticleId = await getFirstArticleId(decodedModelId)
 
   if (firstArticleId) {
-    redirect(`/user-manual/${modelId}/${encodeURIComponent(firstArticleId)}`)
+    redirect(`/user-manual/${params.modelId}/${encodeURIComponent(firstArticleId)}`)
   }
 
-  const models = await getManualModels()
-  const model = models.find(m => m.id === decodedModelId)
+  const model = await getManualModel(decodedModelId)
 
   if (!model) {
     notFound()
