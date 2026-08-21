@@ -33,6 +33,7 @@ const links = [
   { name: 'Dự toán chi phí', path: '/cost-estimator' },
   { name: 'Đặt lịch lái thử', path: '/test-drive' },
   { name: 'So sánh xe', path: '/compare' },
+  { name: 'Hướng dẫn sử dụng', path: '/user-manual' },
 ]
 
 
@@ -212,18 +213,18 @@ export function Header({ initialProfile }: { initialProfile?: CustomerProfile | 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerSolid ? 'bg-white/95 shadow-glass backdrop-blur-md h-[74px] border-b border-black/5' : 'bg-transparent h-[92px] lg:h-[118px]'}`}>
       <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between px-5 sm:px-8 lg:px-10 xl:px-12">
-        <div className="flex items-center xl:gap-8 2xl:gap-14 flex-1">
+        <div className="flex items-center xl:gap-4 2xl:gap-8 flex-1 min-w-0 overflow-hidden pr-4">
           <Link href="/" className="flex shrink-0 items-center gap-2 group" aria-label="FASTLANE - Trang chủ">
             <img src="/images/fastlane-logo.png" alt="Logo" className="h-8 w-auto object-contain transition-transform duration-500 group-hover:scale-105 lg:h-9" />
             <span className="font-display mt-1 text-[24px] font-bold tracking-[0.06em] text-[#9b7200] transition-opacity duration-500 group-hover:opacity-80 lg:text-[28px] 2xl:text-[32px]">FASTLANE</span>
           </Link>
 
-          <nav className="hidden items-center gap-4 xl:flex 2xl:gap-8">
+          <nav className="hidden items-center gap-2 xl:flex 2xl:gap-6 overflow-hidden">
             {links.map((link) => (
               <Link
                 key={link.name}
                 href={link.path}
-                className={`group relative whitespace-nowrap text-[13px] font-bold tracking-wide 2xl:text-[15px] ${headerSolid ? 'text-slate-600' : 'text-white/80'}`}
+                className={`group relative whitespace-nowrap text-[12px] font-bold tracking-wide 2xl:text-[14px] ${headerSolid ? 'text-slate-600' : 'text-white/80'}`}
               >
                 <span className="relative inline-grid">
                   <span className="col-start-1 row-start-1 transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0">

@@ -150,6 +150,35 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
+
+
+  const allFacts = options.evidence.getAllFacts()
+
+  // 2.5 Extract User Manual Images from Evidence
+  const imageFacts = allFacts.filter((f) => f.factPath === 'image_url' && f.valueHash)
+  
+  if (imageFacts.length > 0) {
+    // We NO LONGER auto-push the first image. The AI is now instructed to use Markdown `![alt](url)`
+    // to render the most relevant image based on context.
+  }
+
+  // 2.6 Extract User Manual Article References from Evidence
+  const articleFacts = allFacts.filter((f) => f.factPath === 'article_id' && f.valueHash)
+  if (articleFacts.length > 0) {
+    const firstArticleId = articleFacts[0].valueHash
+    // Find the corresponding model_id using the chunkId (which is in the factRef)
+    const chunkId = articleFacts[0].factRef.replace('fact-manual-articleId-', '')
+    const modelIdFact = allFacts.find((f) => f.factRef === `fact-manual-modelId-${chunkId}`)
+    
+    if (firstArticleId && modelIdFact && modelIdFact.valueHash) {
+      blocks.push({
+        kind: 'MANUAL_REFERENCE',
+        articleId: firstArticleId,
+        modelId: modelIdFact.valueHash
+      })
+    }
+  }
+
   // 3. Compose Actions (only include global actions or navigation if blocks are not already showing cards)
   const actions: SalesAgentAction[] = plan.actionIntents
     .filter((intent) => intent.actionKey !== 'VIEW_PRODUCT' || blocks.length === 0)
@@ -211,10 +240,10 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         )
       } else {
         suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Giá xe hiện tại', payload: 'Giá xe hiện tại' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'So sánh VF 8 và VF 9', payload: 'So sánh VF 8 và VF 9' },
+          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các dòng xe VinFast', payload: 'Các dòng xe VinFast hiện nay' },
+          { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: 'Tư vấn mua xe trả góp' },
           { suggestionId: `sug-3-${options.turnId}`, label: 'Chính sách bảo hành pin', payload: 'Chính sách bảo hành pin' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện nên mua', payload: 'Phụ kiện nên mua' },
+          { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện nổi bật', payload: 'Phụ kiện xe VinFast' },
         )
       }
     }
