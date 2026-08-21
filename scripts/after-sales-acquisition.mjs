@@ -14,11 +14,16 @@ import {
   shouldRetainPreviousSnapshot,
 } from './lib/after-sales-provider-utils.mjs'
 import {
-  BROWSERLESS_SERVICE_WORKSHOP_SOURCE_ID,
   buildBrowserlessCdpUrl,
   providerOrderForSource,
   validateBrowserlessCapture,
 } from './lib/after-sales-browserless-provider.mjs'
+import {
+  BRIGHTDATA_PROVIDER,
+  buildBrightDataCdpUrl,
+  hasBrightDataConfiguration,
+  validateBrightDataCapture,
+} from './lib/after-sales-brightdata-provider.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SOURCE_MANIFEST = path.join(ROOT, 'scripts', 'data', 'after-sales-source-manifest.json')
@@ -27,9 +32,13 @@ const PROVIDER_HEALTH_PATH = path.join(ROOT, '.local', 'after-sales', 'provider-
 const manifest = JSON.parse(fs.readFileSync(SOURCE_MANIFEST, 'utf8'))
 const requestedSource = process.argv.find(argument => argument.startsWith('--source='))?.slice('--source='.length)
 const diagnosticMode = process.argv.includes('--diagnostic')
+const rawRecapture = process.argv.includes('--raw-recapture')
 const requestedProviderInput = process.argv.find(argument => argument.startsWith('--provider='))?.slice('--provider='.length)
 const providerAliases = new Map([
   ['http', 'http'],
+  ['brightdata', 'brightdata_browser_api'],
+  ['brightdata_browser_api', 'brightdata_browser_api'],
+  ['brightdata_playwright', 'brightdata_browser_api'],
   ['browserless', 'browserless_playwright'],
   ['browserless_playwright', 'browserless_playwright'],
   ['browserbase', 'browserbase_playwright'],
@@ -216,9 +225,92 @@ async function installCdpNetworkGuard(context, page) {
   return session
 }
 
-async function captureWithBrowser(source, browser, provider, { cdpNetworkGuard = false } = {}) {
-  // Always create and close an isolated context; never reuse provider contexts or sessions.
-  const context = await browser.newContext({ serviceWorkers: 'block' })
+async function expandInteractiveControls(page) {
+  const selectors = [
+    'button[aria-expanded="false"]',
+    '[role="button"][aria-expanded="false"]',
+    'details:not([open]) > summary',
+  ]
+  let expanded = 0
+  for (const selector of selectors) {
+    const controls = page.locator(selector)
+    const count = Math.min(await controls.count(), 100)
+    for (let index = 0; index < count; index++) {
+      const control = controls.nth(index)
+      try {
+        const belongsToGlobalNavigation = await control.evaluate(element => Boolean(
+          element.closest('header, nav, .dvhm-mega-menu'),
+        ))
+        if (belongsToGlobalNavigation) continue
+        if (!(await control.isVisible())) continue
+        await control.scrollIntoViewIfNeeded()
+        await control.click({ timeout: 3000 })
+        expanded++
+        await page.waitForTimeout(150)
+      } catch {}
+    }
+  }
+  return expanded
+}
+
+async function captureInteractiveStates(page, source) {
+  const navigationHubOnly = source.scope?.modelScope === 'navigation_hub_only'
+  const vehicleButtons = page.locator('button[data-vehicle]:not(.dvhm-mega-menu__vehicle-btn)')
+  const availableVehicles = navigationHubOnly ? [] : await vehicleButtons.evaluateAll(buttons => buttons
+    .map(button => button.getAttribute('data-vehicle'))
+    .filter(Boolean))
+  const preferredVehicle = source.vehicleType === 'car'
+    ? 'oto'
+    : source.vehicleType === 'motorbike'
+      ? 'xemay'
+      : source.vehicleType === 'bus'
+        ? 'ebus'
+        : null
+  const requestedVehicles = navigationHubOnly ? [] : source.vehicleType === 'all'
+    ? [...new Set(availableVehicles)]
+    : preferredVehicle && availableVehicles.includes(preferredVehicle)
+      ? [preferredVehicle]
+      : [availableVehicles[0]].filter(Boolean)
+  const states = []
+  const targets = requestedVehicles.length ? requestedVehicles : [null]
+  for (const vehicle of targets) {
+    if (vehicle) {
+      const button = page.locator(`button[data-vehicle="${vehicle}"]`).first()
+      try {
+        await button.click({ timeout: 5000 })
+        await page.waitForTimeout(400)
+      } catch {}
+    }
+    const expandedControls = navigationHubOnly ? 0 : await expandInteractiveControls(page)
+    await page.waitForTimeout(250)
+    const scoped = page.locator('.dvhm-revamp-page').first()
+    const hasScopedContent = await scoped.count() > 0
+    const scopedHtml = hasScopedContent
+      ? await scoped.evaluate(element => element.outerHTML)
+      : await page.locator('body').evaluate(element => element.outerHTML)
+    const text = hasScopedContent ? await scoped.innerText() : await page.locator('body').innerText()
+    states.push({
+      vehicle: vehicle || null,
+      expandedControls,
+      html: scopedHtml,
+      text,
+    })
+  }
+  return states
+}
+
+async function captureWithBrowser(source, browser, provider, {
+  cdpNetworkGuard = false,
+  navigationWaitUntil = 'networkidle',
+  navigationTimeout = 45000,
+  hydrationWaitMs = 0,
+  screenshotTimeout = 15000,
+  useDefaultContext = false,
+} = {}) {
+  // Every provider connection is single-use. Browserless launch/proxy settings belong to its default context.
+  const providerContext = useDefaultContext ? browser.contexts()[0] : null
+  const context = providerContext || await browser.newContext({ serviceWorkers: 'block' })
+  const ownsContext = !providerContext
   try {
     const page = await context.newPage()
     if (cdpNetworkGuard) {
@@ -236,8 +328,8 @@ async function captureWithBrowser(source, browser, provider, { cdpNetworkGuard =
     const requestedUrls = new Set()
     page.on('request', request => requestedUrls.add(request.url()))
     const response = await page.goto((await validateUrl(source.url, { exactSource: true })).toString(), {
-      waitUntil: 'networkidle',
-      timeout: 45000,
+      waitUntil: navigationWaitUntil,
+      timeout: navigationTimeout,
     })
     if (!response || !response.ok()) {
       const error = new Error(`HTTP ${response?.status() || 'NO_RESPONSE'}`)
@@ -245,15 +337,20 @@ async function captureWithBrowser(source, browser, provider, { cdpNetworkGuard =
       throw error
     }
     await validateUrl(page.url())
+    if (hydrationWaitMs > 0) await page.waitForTimeout(hydrationWaitMs)
+    const interactiveStates = await captureInteractiveStates(page, source)
     const html = await page.content()
     const afterSalesContent = page.locator('.dvhm-revamp-page').first()
     const hasScopedContent = await afterSalesContent.count() > 0
-    const scopedHtml = hasScopedContent ? await afterSalesContent.evaluate(element => element.outerHTML) : ''
-    const text = hasScopedContent ? await afterSalesContent.innerText() : await page.locator('body').innerText()
+    const scopedHtml = interactiveStates.map(state => state.html).filter(Boolean).join('\n')
+    const rawText = interactiveStates.map(state => state.text).filter(Boolean).join('\n\n')
+    const text = cleanText(rawText)
+    const rawDomHtml = interactiveStates.map((state, index) => `<section data-fastlane-interactive-state="${index}" data-vehicle="${state.vehicle || ''}">${state.html}</section>`).join('\n')
+    const rawDomText = text || cleanText(hasScopedContent ? await afterSalesContent.innerText() : await page.locator('body').innerText())
     let screenshotBase64 = null
     const captureWarnings = []
     try {
-      const screenshot = await page.screenshot({ type: 'png', fullPage: false, timeout: 15000 })
+      const screenshot = await page.screenshot({ type: 'png', fullPage: false, timeout: screenshotTimeout })
       screenshotBase64 = screenshot.toString('base64')
     } catch (error) {
       captureWarnings.push({ stage: 'viewport_screenshot', message: error.message })
@@ -269,6 +366,10 @@ async function captureWithBrowser(source, browser, provider, { cdpNetworkGuard =
       contentType: 'text/html',
       html,
       text,
+      rawSnapshotVersion: 'after-sales-raw-v2',
+      rawDomHtml,
+      rawDomText,
+      interactiveStates: interactiveStates.map(({ vehicle, expandedControls }) => ({ vehicle, expandedControls })),
       screenshotBase64,
       captureWarnings,
       title: await page.title(),
@@ -278,7 +379,7 @@ async function captureWithBrowser(source, browser, provider, { cdpNetworkGuard =
       extractionScope: hasScopedContent ? '.dvhm-revamp-page' : 'metadata_only',
     }
   } finally {
-    await context.close()
+    if (ownsContext) await context.close()
   }
 }
 
@@ -288,11 +389,23 @@ async function browserlessProvider(source) {
   const playwright = await loadPlaywright()
   const endpoint = buildBrowserlessCdpUrl({
     token,
-    endpoint: process.env.BROWSERLESS_CDP_ENDPOINT,
+    endpoint: process.env.BROWSERLESS_CDP_ENDPOINT || undefined,
+    proxy: process.env.BROWSERLESS_PROXY || undefined,
+    proxyCountry: process.env.BROWSERLESS_PROXY_COUNTRY || undefined,
+    proxySticky: process.env.BROWSERLESS_PROXY_STICKY || undefined,
+    proxyLocaleMatch: process.env.BROWSERLESS_PROXY_LOCALE_MATCH || undefined,
+    timeout: process.env.BROWSERLESS_SESSION_TIMEOUT_MS || 180_000,
   })
   const browser = await playwright.chromium.connectOverCDP(endpoint, { timeout: 60000 })
   try {
-    const capture = await captureWithBrowser(source, browser, 'browserless_playwright', { cdpNetworkGuard: true })
+    const capture = await captureWithBrowser(source, browser, 'browserless_playwright', {
+      cdpNetworkGuard: true,
+      navigationWaitUntil: 'domcontentloaded',
+      navigationTimeout: 40000,
+      hydrationWaitMs: source.scope?.modelScope === 'navigation_hub_only' ? 750 : 2000,
+      screenshotTimeout: source.scope?.modelScope === 'navigation_hub_only' ? 3000 : 5000,
+      useDefaultContext: true,
+    })
     return validateBrowserlessCapture(source, capture)
   } finally {
     await browser.close()
@@ -319,6 +432,24 @@ async function browserbaseProvider(source) {
   const browser = await playwright.chromium.connectOverCDP(session.connectUrl)
   try {
     return await captureWithBrowser(source, browser, 'browserbase_playwright')
+  } finally {
+    await browser.close()
+  }
+}
+
+async function brightDataProvider(source) {
+  const playwright = await loadPlaywright()
+  const browser = await playwright.chromium.connectOverCDP(buildBrightDataCdpUrl(), { timeout: 60000 })
+  try {
+    const capture = await captureWithBrowser(source, browser, BRIGHTDATA_PROVIDER, {
+      cdpNetworkGuard: true,
+      navigationWaitUntil: 'domcontentloaded',
+      navigationTimeout: 40000,
+      hydrationWaitMs: source.scope?.modelScope === 'navigation_hub_only' ? 750 : 2000,
+      screenshotTimeout: source.scope?.modelScope === 'navigation_hub_only' ? 3000 : 5000,
+      useDefaultContext: true,
+    })
+    return validateBrightDataCapture(source, capture)
   } finally {
     await browser.close()
   }
@@ -379,8 +510,9 @@ function browserlessCooldownHours() {
 function browserlessSourceCooldown(source) {
   const provider = providerHealth.providers.browserless_playwright || {}
   const stored = provider.sourceCooldowns?.[source.id]
-  if (stored?.cooldownUntil) return stored
   const latest = latestVerifiedForSource(source)
+  if (latest?.sourceUrl !== source.url) return null
+  if (stored?.cooldownUntil) return stored
   if (latest?.captureMethod !== 'browserless_playwright') return null
   const lastSuccessAt = latest.capturedAt
   return {
@@ -392,14 +524,13 @@ function browserlessSourceCooldown(source) {
 
 async function attemptBrowserless(source) {
   const provider = 'browserless_playwright'
-  if (source.id !== BROWSERLESS_SERVICE_WORKSHOP_SOURCE_ID) return { result: null, failure: null, notApplicable: true }
   if (!process.env.BROWSERLESS_API_TOKEN) {
     const failure = skippedFailure(provider, 'NOT_CONFIGURED', 'BROWSERLESS_API_TOKEN is not configured')
     updateProviderHealth(provider, { status: 'not_configured', code: failure.code, retryAt: null, lastError: failure.message })
     return { result: null, failure }
   }
   const state = providerHealth.providers[provider]
-  const forceRetry = process.env.BROWSERLESS_FORCE_RETRY === '1'
+  const forceRetry = rawRecapture || process.env.BROWSERLESS_FORCE_RETRY === '1'
   const cooldown = browserlessSourceCooldown(source)
   if (cooldown && providerCooldownOpen({ sourceCooldowns: { [source.id]: cooldown } }, source.id, { forceRetry })) {
     updateProviderHealth(provider, {
@@ -484,6 +615,37 @@ async function attemptBrowserbase(source) {
   return attempt
 }
 
+async function attemptBrightData(source) {
+  const provider = BRIGHTDATA_PROVIDER
+  if (!hasBrightDataConfiguration()) {
+    const failure = skippedFailure(provider, 'NOT_CONFIGURED', 'Bright Data Browser API is not configured')
+    updateProviderHealth(provider, { status: 'not_configured', code: failure.code, retryAt: null, lastError: failure.message })
+    return { result: null, failure }
+  }
+  const state = providerHealth.providers[provider]
+  const forceRetry = rawRecapture || ['1', 'true'].includes(String(process.env.BRIGHTDATA_FORCE_RETRY || '').toLowerCase())
+  if (providerQuotaCircuitOpen(state, { forceRetry })) {
+    return {
+      result: null,
+      failure: skippedFailure(provider, 'QUOTA_EXHAUSTED', `Bright Data quota circuit open until ${state.retryAt}`, 402),
+    }
+  }
+  const attempt = await executeProvider(provider, () => brightDataProvider(source), { maxAttempts: 2 })
+  if (attempt.result) {
+    updateProviderHealth(provider, { status: 'available', code: 'AVAILABLE', retryAt: null, lastError: null, lastSuccessAt: new Date().toISOString() })
+    return attempt
+  }
+  updateProviderHealth(provider, {
+    status: healthStatusForFailure(attempt.failure),
+    code: attempt.failure.code,
+    retryAt: attempt.failure.code === 'QUOTA_EXHAUSTED'
+      ? quotaRetryAt(process.env.BRIGHTDATA_QUOTA_RETRY_HOURS)
+      : null,
+    lastError: attempt.failure.message,
+  })
+  return attempt
+}
+
 async function attemptLocal(source) {
   const provider = 'local_playwright'
   const executablePath = findLocalBrowserExecutable()
@@ -503,6 +665,7 @@ async function attemptLocal(source) {
 
 async function attemptProvider(source, provider) {
   if (provider === 'http') return executeProvider('http', () => httpProvider(source))
+  if (provider === BRIGHTDATA_PROVIDER) return attemptBrightData(source)
   if (provider === 'browserless_playwright') return attemptBrowserless(source)
   if (provider === 'browserbase_playwright') return attemptBrowserbase(source)
   if (provider === 'local_playwright') return attemptLocal(source)
@@ -510,6 +673,7 @@ async function attemptProvider(source, provider) {
 }
 
 function providerOrderFor(source) {
+  if (rawRecapture) return [BRIGHTDATA_PROVIDER, 'browserless_playwright', 'browserbase_playwright', 'local_playwright']
   return providerOrderForSource(source.id)
 }
 
@@ -521,7 +685,7 @@ async function acquire(source) {
     if (attempt.failure) failures.push(attempt.failure)
     if (attempt.cooldownActive) return { ...manualProvider(source), acquisitionFailures: failures }
   }
-  return { ...manualProvider(source), acquisitionFailures: failures }
+  return { ...manualProvider(source), acquisitionFailures: failures, acquisitionFailed: true }
 }
 
 function latestVerifiedForSource(source) {
@@ -551,6 +715,12 @@ async function snapshotSource(source) {
     title: result.title || source.id,
     html: result.html || null,
     text: result.text || '',
+    rawSnapshotVersion: result.rawSnapshotVersion || null,
+    rawDomHtml: result.rawDomHtml || null,
+    rawDomText: result.rawDomText || result.text || '',
+    rawDomTextHash: sha256(result.rawDomText || result.text || ''),
+    rawDomHtmlHash: result.rawDomHtml ? sha256(result.rawDomHtml) : null,
+    interactiveStates: result.interactiveStates || [],
     screenshotBase64: result.screenshotBase64 || null,
     extractionScope: result.extractionScope || (result.provider === 'manual_curated' ? 'manual_curated' : 'full_document'),
     captureWarnings: result.captureWarnings || [],
@@ -577,9 +747,9 @@ async function snapshotSource(source) {
     snapshot.retainedSnapshotId = previousVerified.snapshotId
   }
   writeJson(path.join(sourceDir, `${snapshot.snapshotId}.json`), snapshot)
-  if (captureSucceeded || !previousVerified) {
+  if (captureSucceeded) {
     writeJson(path.join(sourceDir, 'latest.json'), snapshot)
-  } else {
+  } else if (previousVerified) {
     writeJson(path.join(sourceDir, 'latest.json'), previousVerified)
   }
   return snapshot
@@ -591,6 +761,9 @@ const summarizeSnapshot = snapshot => ({
   availability: snapshot.availability,
   httpStatus: snapshot.httpStatus,
   contentHash: snapshot.contentHash,
+  rawSnapshotVersion: snapshot.rawSnapshotVersion || null,
+  rawDomTextHash: snapshot.rawDomTextHash || null,
+  interactiveStates: snapshot.interactiveStates || [],
   extractionScope: snapshot.extractionScope || null,
   captureWarnings: snapshot.captureWarnings || [],
   contentValidation: snapshot.contentValidation || null,
@@ -639,7 +812,7 @@ if (requestedSource && !sources.length) throw new Error(`Unknown source: ${reque
 if (diagnosticMode) {
   if (!requestedSource) throw new Error('--diagnostic requires --source=<source-id>')
   if (!requestedProviderInput || !requestedProvider) {
-    throw new Error('--diagnostic requires --provider=http|browserless|browserbase|local|last-known-good')
+    throw new Error('--diagnostic requires --provider=http|brightdata|browserless|browserbase|local|last-known-good')
   }
   const diagnostic = await runDiagnostic(sources[0], requestedProvider)
   const diagnosticDir = path.join(ROOT, '.local', 'after-sales', 'source-diagnostics', sources[0].id)
@@ -658,13 +831,29 @@ if (diagnosticMode) {
   const report = {
     runAt: new Date().toISOString(),
     requestedSource: requestedSource || null,
+    rawRecapture,
     providerOrder: requestedSource && sources.length
       ? [...providerOrderFor(sources[0]), 'manual_curated']
-      : ['http', 'browserless_playwright (service-workshop only)', 'browserbase_playwright', 'local_playwright', 'manual_curated'],
+      : ['http', BRIGHTDATA_PROVIDER, 'browserless_playwright', 'browserbase_playwright', 'local_playwright', 'manual_curated'],
     providerHealth: providerHealth.providers,
     runSources: results.map(summarizeSnapshot),
     sources: latestSnapshots.map(summarizeSnapshot),
   }
   writeJson(path.join(ROOT, '.local', 'after-sales', 'acquisition-report.json'), report)
   console.log(JSON.stringify(report, null, 2))
+}
+
+// Some remote CDP providers keep internal WebSocket/timer handles alive after
+// browser.close(). A scheduled snapshot job must terminate before Railway can
+// start its next cron execution, so explicitly exit only when the deployment
+// opts into this CLI-only behavior. All snapshot/report writes above are sync.
+const forceProcessExit = ['1', 'true', 'yes'].includes(
+  String(process.env.AFTER_SALES_ACQUISITION_FORCE_EXIT || '').toLowerCase(),
+)
+if (forceProcessExit) {
+  await Promise.all([
+    new Promise(resolve => process.stdout.write('', resolve)),
+    new Promise(resolve => process.stderr.write('', resolve)),
+  ])
+  process.exit(process.exitCode || 0)
 }

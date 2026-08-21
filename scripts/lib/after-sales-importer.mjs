@@ -44,6 +44,7 @@ function factRow(fact) {
     model: fact.model,
     subject: fact.subject,
     policy_entity: fact.policyEntity,
+    battery_chemistry: fact.batteryChemistry || 'not_applicable',
     usage_condition: fact.usageCondition,
     applicability: fact.applicability,
     action: fact.action,
@@ -58,6 +59,11 @@ function factRow(fact) {
     distance_policy: fact.distancePolicy || 'not_stated',
     confidence: fact.confidence,
     source_review_status: fact.sourceReviewStatus,
+    review_reasons: [...new Set(fact.reviewReasons || [])],
+    publication_status: fact.publicationStatus || 'review_required',
+    supersedes_fact_ids: [...new Set(fact.supersedesFactIds || [])],
+    source_fact_group_ids: [...new Set(fact.sourceFactGroupIds || [])],
+    alternative_triggers: structuredClone(fact.alternativeTriggers || []),
     semantic_flags: [...new Set(fact.semanticFlags || [])],
     group_semantic_flags: [...new Set(fact.groupSemanticFlags || [])],
     approval_status: fact.approval.status,
@@ -130,8 +136,34 @@ function evidenceRow(fact, evidence) {
     pdf_page: evidence.pdfPage,
     extraction_method: evidence.extractionMethod,
     extraction_confidence: evidence.extractionConfidence,
+    source_value_text: evidence.sourceValueText,
     excerpt: evidence.excerpt,
     context_index: evidence.contextIndex,
+    raw_provenance: {
+      origin: evidence.origin,
+      sourceId: evidence.sourceId,
+      sourceUrl: evidence.sourceUrl,
+      snapshotHash: evidence.snapshotHash,
+      capturedAt: evidence.capturedAt,
+      assetUrl: evidence.assetUrl,
+      assetHash: evidence.assetHash,
+      pdfPage: evidence.pdfPage,
+      extractionMethod: evidence.extractionMethod,
+      extractionConfidence: evidence.extractionConfidence,
+      contextIndex: evidence.contextIndex,
+    },
+  }
+}
+
+function approvalRow(event) {
+  return {
+    approval_id: event.approvalId,
+    fact_id: event.factId,
+    from_status: event.fromStatus,
+    to_status: event.toStatus,
+    reviewer_id: event.reviewerId,
+    reviewed_at: event.reviewedAt,
+    note: event.note || null,
   }
 }
 
@@ -146,18 +178,24 @@ function findDuplicates(rows, key) {
   return duplicates
 }
 
-export function buildImportPlan(dataset, existing = {}) {
+export function buildImportPlan(dataset, existing = {}, options = {}) {
+  const requireApproved = options.requireApproved === true
   const sources = (dataset.sources || []).map(sourceRow)
   const assets = (dataset.assets || []).map(assetRow)
   const existingFacts = rowsBy(existing.facts, 'fact_id')
   const facts = (dataset.facts || []).map(fact => preserveExistingApproval(factRow(fact), existingFacts.get(fact.factId)))
   const evidence = (dataset.facts || []).flatMap(fact => (fact.evidence || []).map(item => evidenceRow(fact, item)))
   const lifecycle = classifyFactLifecycle(facts, existing.facts || [])
-  const approvals = []
+  const approvals = (dataset.approvalEvents || []).map(approvalRow)
   const conflicts = []
   const rejectedWrites = []
 
-  for (const [rows, key, table] of [[sources, 'source_id', 'sources'], [assets, 'asset_id', 'assets'], [facts, 'fact_id', 'facts']]) {
+  for (const [rows, key, table] of [
+    [sources, 'source_id', 'sources'],
+    [assets, 'asset_id', 'assets'],
+    [facts, 'fact_id', 'facts'],
+    [approvals, 'approval_id', 'approvals'],
+  ]) {
     const duplicates = findDuplicates(rows, key)
     if (duplicates.length) conflicts.push({ table, type: 'duplicate_identity', keys: duplicates })
   }
@@ -175,6 +213,41 @@ export function buildImportPlan(dataset, existing = {}) {
     if (!sourceIds.has(row.source_id)) conflicts.push({ table: 'fact_evidence', type: 'missing_source', key: row.evidence_id, sourceId: row.source_id })
     if (row.asset_id && !assetIds.has(row.asset_id)) conflicts.push({ table: 'fact_evidence', type: 'missing_asset', key: row.evidence_id, assetId: row.asset_id })
   }
+  const factIds = new Set(facts.map(row => row.fact_id))
+  for (const row of approvals) {
+    if (!factIds.has(row.fact_id)) conflicts.push({ table: 'approvals', type: 'missing_fact', key: row.approval_id, factId: row.fact_id })
+  }
+
+  if (requireApproved) {
+    const nonApprovedFacts = facts.filter(row => row.approval_status !== 'approved')
+    const incompleteApprovalFields = facts.filter(row => row.approval_status === 'approved'
+      && (!row.reviewer_id || !row.reviewed_at || !row.approved_by || !row.approved_at))
+    const invalidPublicationFacts = facts.filter(row => row.publication_status !== 'approved_for_publication')
+    const approvalEventsByFact = new Map(approvals
+      .filter(row => row.from_status === 'pending' && row.to_status === 'approved')
+      .map(row => [row.fact_id, row]))
+    const missingApprovalEvents = facts.filter(row => !approvalEventsByFact.has(row.fact_id))
+
+    if (dataset.publicationStatus !== 'approved_for_supabase' || dataset.adminReviewStatus !== 'approved') {
+      rejectedWrites.push({
+        table: 'release',
+        reason: 'dataset_not_approved_for_supabase',
+        key: dataset.release?.releaseId || null,
+      })
+    }
+    if (nonApprovedFacts.length) {
+      rejectedWrites.push({ table: 'facts', reason: 'facts_not_approved', count: nonApprovedFacts.length })
+    }
+    if (incompleteApprovalFields.length) {
+      rejectedWrites.push({ table: 'facts', reason: 'approved_facts_missing_reviewer_fields', count: incompleteApprovalFields.length })
+    }
+    if (invalidPublicationFacts.length) {
+      rejectedWrites.push({ table: 'facts', reason: 'facts_not_approved_for_publication', count: invalidPublicationFacts.length })
+    }
+    if (missingApprovalEvents.length) {
+      rejectedWrites.push({ table: 'approvals', reason: 'missing_pending_to_approved_event', count: missingApprovalEvents.length })
+    }
+  }
   if (conflicts.length) rejectedWrites.push(...conflicts.map(conflict => ({ table: conflict.table, reason: conflict.type, key: conflict.key || conflict.keys })))
 
   const plan = {
@@ -187,8 +260,9 @@ export function buildImportPlan(dataset, existing = {}) {
     rejectedWrites,
   }
   return {
-    schemaVersion: 2,
-    decision: conflicts.length ? 'REJECT' : lifecycle.reviewRequired ? 'REVIEW' : 'READY',
+    schemaVersion: 3,
+    approvalPolicy: requireApproved ? 'all_facts_approved_with_history' : 'review_plan_only',
+    decision: conflicts.length || rejectedWrites.length ? 'REJECT' : lifecycle.reviewRequired ? 'REVIEW' : 'READY',
     conflicts,
     rejectedWrites,
     lifecycle,

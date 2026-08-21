@@ -122,13 +122,15 @@ export function buildEvidenceContext(text, index, matchLength, {
   maxChars = DEFAULT_MAX_CHARS,
   overshootChars = DEFAULT_OVERSHOOT_CHARS,
   lineBreaksAreBoundaries = false,
+  sourceAnchor = null,
+  sourceOffsetsVerified = true,
 } = {}) {
   const value = String(text || '')
   const matchEnd = index + matchLength
   const startBoundary = structuralStart(value, index, lineBreaksAreBoundaries)
   const endBoundary = structuralEnd(value, matchEnd, lineBreaksAreBoundaries)
   const sentence = sentenceBounds(value, startBoundary.position, endBoundary.position, index, matchLength)
-  const statement = renderContext(value.slice(sentence.start, sentence.end))
+  const rawStatement = value.slice(sentence.start, sentence.end)
   const sentenceLength = sentence.end - sentence.start
   let excerptStart = sentence.start
   let excerptEnd = sentence.end
@@ -143,13 +145,21 @@ export function buildEvidenceContext(text, index, matchLength, {
   }
 
   const headings = extractHeadingPath(value, index)
+  const rawExcerpt = value.slice(excerptStart, excerptEnd)
 
   return {
-    excerpt: renderContext(value.slice(excerptStart, excerptEnd)),
-    statement,
+    // Keep the indexed text byte/character-faithful. Rendering line breaks as
+    // " | " changes its length and invalidates every absolute source offset.
+    excerpt: rawExcerpt,
+    statement: rawStatement,
+    displayExcerpt: renderContext(rawExcerpt),
+    displayStatement: renderContext(rawStatement),
     headingPath: headings,
     index: {
-      version: 'after-sales-evidence-context-v1',
+      version: 'after-sales-evidence-context-v2',
+      offsetBasis: 'source_text_utf16',
+      sourceOffsetsVerified,
+      sourceAnchor,
       boundaryType: startBoundary.type,
       sourceStart: sentence.start,
       sourceEnd: sentence.end,
@@ -163,6 +173,62 @@ export function buildEvidenceContext(text, index, matchLength, {
       clipped,
       crossedFutureBoundary: false,
       headingPath: headings,
+    },
+  }
+}
+
+function whitespaceFlexiblePattern(value) {
+  return String(value || '')
+    .split(/\s+/u)
+    .filter(Boolean)
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'))
+    .join('\\s+')
+}
+
+/**
+ * Migrates a legacy rendered excerpt when the original raw source text is not
+ * available. The new offsets are explicitly excerpt-relative; the unverifiable
+ * legacy source offsets are retained for forensic comparison only.
+ */
+export function reindexSerializedEvidenceContext(excerpt, valueText, legacyIndex = null) {
+  const serialized = String(excerpt || '')
+  const pattern = whitespaceFlexiblePattern(valueText)
+  const match = pattern ? new RegExp(pattern, 'iu').exec(serialized) : null
+  if (!match) return {
+    contextIndex: legacyIndex,
+    matched: false,
+  }
+
+  const matchStart = match.index
+  const matchEnd = match.index + match[0].length
+  return {
+    matched: true,
+    contextIndex: {
+      version: 'after-sales-evidence-context-v2',
+      offsetBasis: 'serialized_excerpt_utf16',
+      sourceOffsetsVerified: false,
+      boundaryType: legacyIndex?.boundaryType || 'legacy_projection',
+      sourceStart: 0,
+      sourceEnd: serialized.length,
+      excerptStart: 0,
+      excerptEnd: serialized.length,
+      matchStart,
+      matchEnd,
+      maxChars: legacyIndex?.maxChars ?? DEFAULT_MAX_CHARS,
+      overshootChars: legacyIndex?.overshootChars ?? DEFAULT_OVERSHOOT_CHARS,
+      lineBreaksAreBoundaries: Boolean(legacyIndex?.lineBreaksAreBoundaries),
+      clipped: Boolean(legacyIndex?.clipped),
+      crossedFutureBoundary: false,
+      headingPath: legacyIndex?.headingPath || [],
+      legacySourceOffsets: legacyIndex ? {
+        version: legacyIndex.version || null,
+        sourceStart: legacyIndex.sourceStart ?? null,
+        sourceEnd: legacyIndex.sourceEnd ?? null,
+        excerptStart: legacyIndex.excerptStart ?? null,
+        excerptEnd: legacyIndex.excerptEnd ?? null,
+        matchStart: legacyIndex.matchStart ?? null,
+        matchEnd: legacyIndex.matchEnd ?? null,
+      } : null,
     },
   }
 }

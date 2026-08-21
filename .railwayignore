@@ -1,0 +1,10 @@
+*
+!.railwayignore
+!package.json
+!package-lock.json
+!scripts/
+!scripts/**
+!public/
+!public/data/
+!public/data/after-sales*.json
+!eng.traineddata

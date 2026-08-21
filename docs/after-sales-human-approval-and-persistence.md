@@ -1,107 +1,150 @@
-# After-sales human approval và persistence
+# After-sales admin approval và Supabase publication
 
-## Baseline đóng băng
+## Trạng thái baseline hiện tại
 
-Acquisition, extraction, normalization và validation hiện được coi là frozen:
-
-- Pipeline: `PASS`.
-- `SOURCE_FRESH`: `PASS`, 6/6 source.
-- `DATA_VALID`: `PASS`.
-- 52/52 asset hợp lệ.
-- 384 normalized business facts.
-- 488 evidence/provenance records.
-- 13/13 semantic regressions và provider tests pass.
-
-Thay đổi parser, normalizer hoặc provider chỉ được mở lại khi có regression tái hiện được.
-
-## Approval model
-
-Approval nằm trên normalized business fact, không nằm độc lập trên từng evidence. Mỗi fact có projection:
+Release local mới nhất đã qua admin review nhưng **chưa được publish lên Supabase**:
 
 ```text
-approval_status: pending | approved | rejected
+Hard gates:          12/12 PASS (100%)
+Official sources:    10/10 PASS
+Verified assets:     71/71 PASS
+Normalized facts:   392/392 approved
+Evidence records:   535/535 retained
+Approval events:    392 pending -> approved
+Service locations:  163/163 approved
+Semantic conflicts: 0
+Validation errors:  0
+Supabase writes:     0
+```
+
+`100%` ở đây có nghĩa là toàn bộ tiêu chí kiểm chứng được của release hiện tại đều đạt. Đây không phải tuyên bố dữ liệu sẽ đúng vĩnh viễn: khi VinFast thay đổi nội dung, snapshot mới phải đi lại toàn bộ pipeline và tạo release/hash mới.
+
+Cảnh báo duy nhất được chấp nhận có chủ ý:
+
+```text
+Nguồn locator không công bố capability bảo hành/bảo dưỡng/sửa chữa chi tiết
+cho từng địa điểm. Dataset chỉ publish general_after_sales và
+capabilityGranularity=location_category_only; hệ thống không được suy diễn thêm.
+```
+
+## Luồng và ranh giới quyền hạn
+
+```text
+Crawler / worker
+  -> Raw snapshot
+  -> Parser
+  -> Normalizer
+  -> Validation
+  -> Read-only delegated admin review
+  -> Explicit release approval
+  -> Atomic Supabase publisher
+  -> Admin-only read model
+```
+
+Worker acquisition chỉ tạo artifact và status. Worker không có Supabase service-role key, không được approve, publish, sửa nội dung nội bộ hay gọi RPC publication.
+
+Approval được ghi rõ là `delegated_admin_agent` theo ủy quyền trực tiếp của admin; không giả danh human reviewer. Mỗi fact có projection hiện tại và một event append-only:
+
+```text
+approval_status: approved
 reviewer_id
 reviewed_at
 approved_by
 approved_at
 approval_note
+
+event: pending -> approved
 ```
 
-Mỗi evidence vẫn giữ toàn bộ provenance: `sourceId`, source URL, snapshot hash, captured time, asset URL/hash, PDF page, extraction method, confidence và excerpt. Một fact có thể có nhiều evidence; một evidence có thể hỗ trợ nhiều fact.
+## Hard gates của release
 
-Các quyết định thay đổi được lưu append-only trong `after_sales_fact_approvals`. Rerun pipeline không được chuyển `approved` hoặc `rejected` về `pending`.
+Release chỉ được tạo khi tất cả gate sau đều `PASS`:
 
-## Review dataset
+1. Review dataset đủ số lượng và identity không trùng.
+2. Normalized v6 và review dataset parity tuyệt đối ở mọi semantic field/evidence.
+3. Staging ở trạng thái sạch: mọi fact còn `pending`, chưa có approval lẫn lộn.
+4. Pipeline, source freshness và provider health đều `PASS`.
+5. Raw evidence validation không có unverified evidence, warning hoặc conflict.
+6. Asset verification không có fetch failure hoặc MIME mismatch.
+7. Snapshot inventory không có source thiếu, snapshot lạ hoặc bản hợp lệ mới hơn bị bỏ qua.
+8. Toàn bộ regression assertion đạt.
+9. Delegated admin review bao phủ mọi fact, không còn human queue/blocker/conflict.
+10. Mọi evidence dùng URL VinFast chính thức và còn excerpt/source value.
+11. Service locations đạt policy no-inference và không chứa field nội bộ/Salesforce.
+12. Persistence audit đạt idempotency, lifecycle, FK và contradiction checks.
 
-Tạo dataset local:
+Các hash SHA-256 trong manifest khóa chính xác normalized input, review input, report, approved facts, evidence và service locations. Sửa một byte sau approval làm publisher trả `REJECT`.
 
-```powershell
-npm run build:after-sales-review
-```
-
-Output:
+## Artifact local
 
 ```text
-.local/after-sales/review-dataset.json
+.local/after-sales/release-readiness-report.json
+.local/after-sales/approved-release.json
+.local/after-sales/releases/<release-id>/release-manifest.json
+.local/after-sales/releases/<release-id>/inputs/*.json
+.local/after-sales/releases/<release-id>/review-dataset.json
+.local/after-sales/releases/<release-id>/service-locations.json
+.local/after-sales/releases/<release-id>/release-verification-report.json
+.local/after-sales/supabase-publish-report.json
 ```
 
-Dataset hiện có 6 source, 52 asset, 384 facts và 488 evidence. Reviewer chỉ cần xem fact, giá trị/điều kiện, confidence và danh sách evidence; không cần mở lại 570 trang PDF. Evidence PDF có `pdfPage` và liên kết đến asset đã verify.
-
-Approval action sau này phải gọi `applyApprovalCommand` với reviewer identity và note; không sửa trực tiếp normalized JSON.
-
-Evidence excerpt được tạo bởi `after-sales-evidence-context-v1`: excerpt dừng tại sentence/block hiện tại, có conditional boundary ở blank line/list/section và ở line break của HTML snapshot. Có thể vượt nhẹ giới hạn ký tự trong cùng sentence, nhưng không được vượt sang block tiếp theo; `contextIndex` lưu source/excerpt/match offsets và cờ `crossedFutureBoundary=false` để reviewer kiểm tra.
+`approved-release.json` chỉ là pointer tới release bất biến mới nhất. Các release cũ và toàn bộ input report đúng tại thời điểm approval được giữ lại để audit; publisher luôn xác minh pointer hash trước khi dùng.
 
 ## Supabase schema
 
-Migration thiết kế nằm tại [060_after_sales_persistence.sql](../migrations/060_after_sales_persistence.sql). Migration chưa được apply.
+Hai migration cần được review/apply theo thứ tự:
 
-| Table | Vai trò | Identity |
-|---|---|---|
-| `after_sales_sources` | 6 official source/snapshot metadata | `source_id` PK, `source_url` unique |
-| `after_sales_assets` | 52 verified PDF/image asset | deterministic `asset_id`, unique source/url/hash |
-| `after_sales_facts` | 384 normalized facts + current approval projection | existing stable `fact_id`, `canonical_key` unique |
-| `after_sales_fact_evidence` | 488 fact-to-provenance links | `(fact_id, evidence_id)` PK |
-| `after_sales_fact_approvals` | approval/rejection transition history | UUID event PK, FK `fact_id` |
+```text
+migrations/060_after_sales_persistence.sql
+migrations/061_after_sales_release_publication.sql
+```
 
-`after_sales_fact_review_queue` là view dành cho reviewer, gom fact hiện tại cùng evidence JSON. RLS được bật và chỉ `service_role` được cấp quyền trong migration draft; chưa có customer-facing read policy.
+Schema gồm:
 
-## Importer và idempotency
+| Object | Vai trò |
+|---|---|
+| `after_sales_sources` | Metadata của 10 nguồn chính thức và snapshot |
+| `after_sales_assets` | 71 asset đã verify |
+| `after_sales_facts` | Current approved fact projection, gồm battery chemistry và release ID |
+| `after_sales_fact_evidence` | 535 fact-evidence relationships cùng raw provenance |
+| `after_sales_fact_approvals` | 392 approval event append-only |
+| `after_sales_service_locations` | 163 địa điểm dịch vụ ở scope category-only |
+| `after_sales_publication_releases` | Manifest/hash/trạng thái mỗi publication release |
+| `publish_after_sales_release(jsonb)` | RPC service-role-only, atomic và idempotent |
 
-Dry-run:
+RLS được bật. `anon` và `authenticated` không có quyền trực tiếp trên bảng, view hay RPC. Quyền `INSERT/UPDATE/DELETE/TRUNCATE` trực tiếp của `service_role` trên các bảng after-sales cũng bị revoke; mutation chỉ đi qua RPC atomic. Các view published hiện chỉ cấp `SELECT` cho `service_role`; public API phải đi qua backend/read model được thiết kế riêng sau này.
+
+RPC thực hiện toàn bộ source -> asset -> fact -> evidence -> approval -> location trong một PostgreSQL transaction. Nếu một row lỗi, toàn bộ lần publish rollback. Gọi lại đúng release/hash là idempotent; dùng cùng release ID với payload khác bị chặn.
+
+## Lệnh vận hành
+
+Kiểm tra read-only:
 
 ```powershell
-npm run import:after-sales -- --dry-run
+npm.cmd run check:after-sales-release
 ```
 
-Kết quả baseline:
+Tạo approval release mới (chỉ khi admin thực sự ủy quyền):
 
-```text
-sources:    6 inserts
-assets:    52 inserts
-facts:    384 inserts
-evidence: 488 inserts
-approvals: 0 inserts
-conflicts: 0
-rejectedWrites: 0
-writes: 0
-decision: READY
+```powershell
+npm.cmd run approve:after-sales-release -- `
+  --reviewer-id=<admin-or-delegated-agent-id> `
+  --note="Lý do và phạm vi duyệt"
 ```
 
-Identity được tính deterministic từ pipeline facts/provenance:
+Dry-run publisher, không kết nối Supabase và luôn ghi `writes: 0`:
 
-- Fact: giữ `factId` hiện có, được normalizer tạo từ `canonicalKey`.
-- Asset: hash của `sourceId + asset URL + content hash`.
-- Evidence: hash của provenance source/snapshot/asset/page/excerpt.
-- Fact/evidence relationship: `(factId, evidenceId)`.
-
-Importer bảo toàn approval đã có trong database khi pipeline output mới vẫn để `pending`. Import lại cùng output phân loại tất cả row là `unchanged`, không duplicate và không xóa provenance.
-
-Actual Supabase write hiện bị khóa có chủ ý. Trước lần import đầu tiên cần đạt:
-
-```text
-SOURCE_FRESH     PASS
-DATA_VALID       PASS
-HUMAN_APPROVAL   PASS
-IMPORT_DRY_RUN   PASS
-MIGRATION_APPLIED AND REVIEWED
+```powershell
+npm.cmd run publish:after-sales-supabase
 ```
+
+Sau khi cả migration `060` và `061` đã được apply/review, publish thật yêu cầu đồng thời `--apply`, service-role key và release ID chính xác:
+
+```powershell
+npm.cmd run publish:after-sales-supabase:apply -- `
+  --release-id=<release-id-trong-approved-release.json>
+```
+
+Có thể đặt `AFTER_SALES_PUBLISH_RELEASE_ID` ở server environment thay cho CLI argument. Biến này chỉ là confirmation token; `SUPABASE_SERVICE_ROLE_KEY` vẫn phải giữ server-side và không bao giờ dùng prefix `NEXT_PUBLIC_`.
+
+`npm run import:after-sales -- --dry-run` giờ mặc định từ chối dataset còn `pending`. Chỉ dùng `--allow-pending-review-plan` khi cần audit kiến trúc import trước approval; chế độ đó không cấp quyền publish.

@@ -16,7 +16,7 @@ const warnings = []
 const seenIds = new Set()
 const seenUrls = new Set()
 const allowedServiceTypes = new Set(['after-sales-hub', 'warranty', 'maintenance', 'repair', 'rescue', 'service-center'])
-const verifiedCaptureMethods = new Set(['http', 'browserless_playwright', 'browserbase_playwright', 'local_playwright'])
+const verifiedCaptureMethods = new Set(['http', 'brightdata_browser_api', 'browserless_playwright', 'browserbase_playwright', 'local_playwright'])
 
 function isOfficialUrl(value) {
   try {
@@ -46,8 +46,8 @@ for (const record of records) {
   if (expected && record.sourceUrl !== expected.url) errors.push(`${key}: source URL differs from manifest`)
   if (!allowedServiceTypes.has(record.serviceType)) errors.push(`${key}: invalid serviceType ${record.serviceType}`)
   if (!verifiedCaptureMethods.has(record.captureMethod)) errors.push(`${key}: source capture not verified (${record.captureMethod})`)
-  if (record.captureMethod === 'browserless_playwright' && record.contentValidation?.status !== 'passed') {
-    errors.push(`${key}: Browserless capture is missing expected-content validation`)
+  if (['brightdata_browser_api', 'browserless_playwright'].includes(record.captureMethod) && record.contentValidation?.status !== 'passed') {
+    errors.push(`${key}: managed browser capture is missing expected-content validation`)
   }
   if (record.httpStatus !== 200 || record.availability !== 'available') errors.push(`${key}: source is unavailable (HTTP ${record.httpStatus})`)
   if ((record.text || '').trim().length < 120) errors.push(`${key}: content too short (${(record.text || '').trim().length} chars)`)

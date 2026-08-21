@@ -4,6 +4,7 @@
   "scopeExclusions": [
     "owner_manual_car",
     "owner_manual_motorbike",
+    "owner_manual_bus",
     "service_booking"
   ],
   "schedule": {

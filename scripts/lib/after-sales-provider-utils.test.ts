@@ -18,6 +18,10 @@ import {
   providerOrderForSource,
   validateBrowserlessCapture,
 } from './after-sales-browserless-provider.mjs'
+import {
+  buildBrightDataCdpUrl,
+  validateBrightDataCapture,
+} from './after-sales-brightdata-provider.mjs'
 
 describe('after-sales acquisition provider guarantees', () => {
   it.each([
@@ -25,6 +29,7 @@ describe('after-sales acquisition provider guarantees', () => {
     [Object.assign(new Error('HTTP 402 quota'), { status: 402 }), 'QUOTA_EXHAUSTED', false],
     [Object.assign(new Error('HTTP 429'), { status: 429 }), 'RATE_LIMITED', true],
     [Object.assign(new Error('HTTP 503'), { status: 503 }), 'PROVIDER_ERROR', true],
+    [Object.assign(new Error("401 Unauthorized: You've reached the units usage limit allowed under our free plan"), { status: 401 }), 'QUOTA_EXHAUSTED', false],
     [new Error('Navigation timeout of 45000 ms exceeded'), 'TIMEOUT', true],
   ])('classifies provider errors', (error, code, retryable) => {
     expect(classifyProviderError(error)).toMatchObject({ code, retryable })
@@ -90,18 +95,102 @@ describe('after-sales acquisition provider guarantees', () => {
     expect(url.searchParams.get('blockAds')).toBe('true')
   })
 
-  it('prioritizes Browserless only for the stale service-workshop source', () => {
+  it('builds a validated residential proxy URL for Vietnam', () => {
+    const url = new URL(buildBrowserlessCdpUrl({
+      token: 'browserless-test-token',
+      endpoint: 'wss://production-sfo.browserless.io/stealth',
+      proxy: 'residential',
+      proxyCountry: 'vn',
+      proxySticky: 'true',
+      proxyLocaleMatch: 'true',
+      timeout: 180000,
+    }))
+    expect(url.pathname).toBe('/stealth')
+    expect(url.searchParams.get('proxy')).toBe('residential')
+    expect(url.searchParams.get('proxyCountry')).toBe('VN')
+    expect(url.searchParams.get('proxySticky')).toBe('true')
+    expect(url.searchParams.get('proxyLocaleMatch')).toBe('true')
+    expect(url.searchParams.get('timeout')).toBe('180000')
+  })
+
+  it('rejects an unsafe Browserless session timeout', () => {
+    expect(() => buildBrowserlessCdpUrl({ token: 'secret', timeout: 10_000 }))
+      .toThrow(/between 30000 and 300000/)
+  })
+
+  it('rejects proxy location options when no proxy network is configured', () => {
+    expect(() => buildBrowserlessCdpUrl({
+      token: 'browserless-test-token',
+      proxyCountry: 'VN',
+    })).toThrow(/require BROWSERLESS_PROXY/)
+  })
+
+  it('prioritizes Bright Data before managed-browser fallbacks for all sources', () => {
     expect(providerOrderForSource('vinfast-service-workshops')).toEqual([
       'http',
+      'brightdata_browser_api',
       'browserless_playwright',
       'browserbase_playwright',
       'local_playwright',
     ])
     expect(providerOrderForSource('vinfast-warranty-car')).toEqual([
       'http',
+      'brightdata_browser_api',
+      'browserless_playwright',
       'browserbase_playwright',
       'local_playwright',
     ])
+  })
+
+  it('builds a validated Bright Data Browser API CDP URL from split credentials', () => {
+    const url = new URL(buildBrightDataCdpUrl({
+      username: 'brd-customer-test-zone-fastlane',
+      password: 'brightdata-test-password',
+    }))
+    expect(url.protocol).toBe('wss:')
+    expect(url.hostname).toBe('brd.superproxy.io')
+    expect(url.port).toBe('9222')
+    expect(url.username).toBe('brd-customer-test-zone-fastlane')
+    expect(url.password).toBe('brightdata-test-password')
+  })
+
+  it('rejects a Bright Data endpoint outside the official CDP host', () => {
+    expect(() => buildBrightDataCdpUrl({
+      endpoint: 'wss://example.com:9222',
+    })).toThrow(/brd\.superproxy\.io/)
+  })
+
+  it('validates Bright Data content before accepting a candidate', () => {
+    const capture = validateBrightDataCapture(
+      { id: 'vinfast-service-workshops' },
+      {
+        httpStatus: 200,
+        title: 'Hệ thống Showroom & Trạm sạc | VinFast',
+        text: 'Khu vực tìm kiếm Tỉnh thành ' + 'Nội dung chính thức '.repeat(20),
+      },
+    )
+    expect(capture.contentValidation).toMatchObject({ status: 'passed', validator: 'brightdata-service-workshop-v1' })
+  })
+
+  it('requires the detailed maintenance source to retain its regression evidence', () => {
+    const detailedText = `Bộ lọc không khí Nước làm mát pin 12.000km ${'Nội dung bảo dưỡng chính thức '.repeat(220)}`
+    const brightData = validateBrightDataCapture(
+      { id: 'vinfast-maintenance-car' },
+      { httpStatus: 200, title: 'Bảo dưỡng xe VinFast định kỳ', text: detailedText },
+    )
+    const browserless = validateBrowserlessCapture(
+      { id: 'vinfast-maintenance-car' },
+      { httpStatus: 200, title: 'Bảo dưỡng xe VinFast định kỳ', text: detailedText },
+    )
+    expect(brightData.contentValidation).toMatchObject({ status: 'passed', validator: 'brightdata-maintenance-detail-v1' })
+    expect(browserless.contentValidation).toMatchObject({ status: 'passed', validator: 'browserless-maintenance-detail-v1' })
+  })
+
+  it('rejects a partial maintenance landing page under the detailed source identity', () => {
+    expect(() => validateBrightDataCapture(
+      { id: 'vinfast-maintenance-car' },
+      { httpStatus: 200, title: 'Dịch vụ bảo dưỡng ô tô', text: 'Đặt lịch dịch vụ '.repeat(140) },
+    )).toThrow(/content validation failed/)
   })
 
   it('refuses to send a Browserless token to a non-Browserless endpoint', () => {
@@ -119,6 +208,18 @@ describe('after-sales acquisition provider guarantees', () => {
       },
     )
     expect(capture.contentValidation).toMatchObject({ status: 'passed', validator: 'service-workshop-v1' })
+  })
+
+  it('marks non-workshop Browserless content as validated after the generic content gate', () => {
+    const capture = validateBrowserlessCapture(
+      { id: 'vinfast-warranty-car' },
+      {
+        httpStatus: 200,
+        title: 'Chính sách bảo hành ô tô VinFast',
+        text: 'Nội dung bảo hành chính thức '.repeat(8),
+      },
+    )
+    expect(capture.contentValidation).toMatchObject({ status: 'passed', validator: 'browserless-content-v1' })
   })
 
   it('rejects an HTTP 200 Browserless page that lacks service-workshop content', () => {
@@ -150,6 +251,17 @@ describe('after-sales acquisition provider guarantees', () => {
   it('never accepts an unvalidated Browserless candidate as a verified snapshot', () => {
     const candidate = {
       captureMethod: 'browserless_playwright',
+      httpStatus: 200,
+      contentHash: 'sha256:candidate',
+      capturedAt: '2026-08-19T00:00:00.000Z',
+    }
+    expect(isVerifiedSnapshot(candidate)).toBe(false)
+    expect(isVerifiedSnapshot({ ...candidate, contentValidation: { status: 'passed' } })).toBe(true)
+  })
+
+  it('never accepts an unvalidated Bright Data candidate as a verified snapshot', () => {
+    const candidate = {
+      captureMethod: 'brightdata_browser_api',
       httpStatus: 200,
       contentHash: 'sha256:candidate',
       capturedAt: '2026-08-19T00:00:00.000Z',

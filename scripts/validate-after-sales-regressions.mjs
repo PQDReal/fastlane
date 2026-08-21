@@ -3,17 +3,23 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const inputPath = path.join(ROOT, 'public', 'data', 'after-sales-normalized.json')
+const normalizedV6Path = path.join(ROOT, '.local', 'after-sales', 'after-sales-normalized-v6.json')
+const requestedInput = process.argv.find(argument => argument.startsWith('--input='))?.slice('--input='.length)
+const inputPath = path.resolve(requestedInput
+  || (fs.existsSync(normalizedV6Path) ? normalizedV6Path : path.join(ROOT, 'public', 'data', 'after-sales-normalized.json')))
 const reportPath = path.join(ROOT, '.local', 'after-sales', 'regression-report.json')
 const data = JSON.parse(fs.readFileSync(inputPath, 'utf8'))
 const facts = data.facts || []
 const failures = []
+let assertionCount = 0
 
 function expectFact(name, predicate) {
+  assertionCount += 1
   if (!facts.some(predicate)) failures.push(`${name}: expected fact not found`)
 }
 
 function rejectFact(name, predicate) {
+  assertionCount += 1
   const matching = facts.filter(predicate)
   if (matching.length) failures.push(`${name}: found ${matching.length} forbidden fact(s): ${matching.map(fact => fact.factId).join(', ')}`)
 }
@@ -61,6 +67,17 @@ expectFact('general maintenance does not inherit nearby component', fact =>
   && fact.action === 'scheduled_service'
   && fact.valueNumeric === 12000
   && fact.unit === 'km')
+rejectFact('general maintenance must not emit a nearby component duplicate', fact =>
+  fact.sourceId === 'vinfast-maintenance-car'
+  && fact.subject !== 'vehicle'
+  && fact.action === 'scheduled_service'
+  && ((fact.valueNumeric === 12000 && fact.unit === 'km')
+    || (fact.valueNumeric === 12 && fact.unit === 'month')))
+
+rejectFact('motorbike replacement-battery rows must not inherit replacement-part subject', fact =>
+  fact.sourceId === 'vinfast-warranty-motorbike'
+  && fact.subject === 'replacement_part'
+  && /\bPin\s+(?:LFP|khác\s*\(\s*không\s+phải\s+pin\s+LFP\s*\))\s*:/iu.test(fact.provenance?.excerpt || ''))
 
 expectFact('inspect clause stays inspect', fact =>
   fact.model === 'VF e34'
@@ -103,6 +120,19 @@ rejectFact('temporal interval must not inherit distance policy from counterpart'
   && fact.unit === 'year'
   && fact.distancePolicy === 'limited')
 
+expectFact('engine-oil yearly interval preserves dashboard warning alternative', fact =>
+  fact.subject === 'engine_oil'
+  && fact.action === 'replace'
+  && fact.valueNumeric === 1
+  && fact.unit === 'year'
+  && fact.alternativeTriggers?.some(trigger => trigger.code === 'dashboard_oil_level_warning'))
+expectFact('tire monthly interval preserves both event alternatives', fact =>
+  fact.subject === 'tire'
+  && fact.action === 'inspect'
+  && fact.valueNumeric === 1
+  && fact.unit === 'month'
+  && ['after_refueling', 'before_driving'].every(code => fact.alternativeTriggers?.some(trigger => trigger.code === code)))
+
 // New semantic invariants from expert review
 expectFact('VF 8 and VF 8 The All New co-exist without dropping plain VF 8', fact =>
   fact.model === 'VF 8'
@@ -113,6 +143,66 @@ expectFact('VF 8 The All New exists as separate entity', fact =>
   fact.model === 'VF 8 The All New'
   && fact.subject === 'vehicle'
   && fact.valueNumeric === 7
+  && fact.unit === 'year')
+
+expectFact('VF 3 vehicle standard warranty is 7 years', fact =>
+  fact.model === 'VF 3'
+  && fact.subject === 'vehicle'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 7
+  && fact.unit === 'year')
+expectFact('VF 3 high-voltage battery standard warranty is 8 years', fact =>
+  fact.model === 'VF 3'
+  && fact.subject === 'battery'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 8
+  && fact.unit === 'year')
+rejectFact('VF 3 battery duration must not leak into vehicle policy', fact =>
+  fact.model === 'VF 3'
+  && fact.subject === 'vehicle'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 8
+  && fact.unit === 'year')
+
+expectFact('VF EC Van vehicle warranty is 5 years', fact =>
+  fact.model === 'VF EC Van'
+  && fact.subject === 'vehicle'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 5
+  && fact.unit === 'year')
+expectFact('VF EC Van vehicle warranty is limited to 130000 km', fact =>
+  fact.model === 'VF EC Van'
+  && fact.subject === 'vehicle'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 130000
+  && fact.unit === 'km')
+expectFact('VF EC Van high-voltage battery warranty is 7 years', fact =>
+  fact.model === 'VF EC Van'
+  && fact.subject === 'battery'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 7
+  && fact.unit === 'year')
+expectFact('VF EC Van high-voltage battery warranty is limited to 160000 km', fact =>
+  fact.model === 'VF EC Van'
+  && fact.subject === 'battery'
+  && fact.usageCondition === 'standard_use'
+  && fact.valueNumeric === 160000
+  && fact.unit === 'km')
+rejectFact('VF EC Van battery terms must not leak into vehicle policy', fact =>
+  fact.model === 'VF EC Van'
+  && fact.subject === 'vehicle'
+  && fact.usageCondition === 'standard_use'
+  && ((fact.valueNumeric === 7 && fact.unit === 'year') || (fact.valueNumeric === 160000 && fact.unit === 'km')))
+
+expectFact('customer-paid replacement parts retain their own 2-year scope', fact =>
+  fact.subject === 'replacement_part'
+  && fact.applicability === 'customer_paid_replacement'
+  && fact.valueNumeric === 2
+  && fact.unit === 'year')
+expectFact('post-delivery high-voltage battery retains its 4-year scope', fact =>
+  fact.subject === 'battery'
+  && ['customer_paid_replacement', 'customer_purchased_after_delivery'].includes(fact.applicability)
+  && fact.valueNumeric === 4
   && fact.unit === 'year')
 
 expectFact('VF 3 accessory unlimited distance', fact =>
@@ -168,7 +258,9 @@ rejectFact('percentage must use controlled semantic type', fact =>
   fact.unit === 'percent' && !['battery_capacity_threshold', 'coverage_percentage'].includes(fact.factType))
 
 const pdfProvenances = facts.flatMap(fact => fact.provenances || []).filter(provenance => provenance.extractionMethod === 'pdf_text_layer')
+assertionCount += 1
 if (!pdfProvenances.length) failures.push('PDF page provenance: no PDF evidence found')
+assertionCount += 1
 if (pdfProvenances.some(provenance => !Number.isInteger(provenance.pdfPage) || provenance.pdfPage < 1)) {
   failures.push('PDF page provenance: one or more evidence rows lack a valid pdfPage')
 }
@@ -176,10 +268,34 @@ if (pdfProvenances.some(provenance => !Number.isInteger(provenance.pdfPage) || p
 const report = {
   validatorVersion: 'after-sales-regressions-v1',
   checkedAt: new Date().toISOString(),
-  assertions: 22,
+  input: inputPath,
+  assertions: assertionCount,
   facts: facts.length,
   pdfProvenances: pdfProvenances.length,
   failures,
+  diagnostics: failures.length ? {
+    maintenanceRegressionCandidates: facts
+      .filter(fact => (
+        (fact.model === 'Fadil' && fact.subject === 'engine_air_filter')
+        || (fact.sourceId === 'vinfast-maintenance-car' && fact.subject === 'vehicle' && fact.action === 'scheduled_service')
+        || (fact.model === 'VF e34' && fact.subject === 'battery_coolant')
+      ))
+      .map(fact => ({
+        factId: fact.factId,
+        sourceId: fact.sourceId,
+        model: fact.model,
+        subject: fact.subject,
+        action: fact.action,
+        factType: fact.factType,
+        valueNumeric: fact.valueNumeric,
+        unit: fact.unit,
+        intervalRelation: fact.intervalRelation,
+        intervalGroupId: fact.intervalGroupId,
+        distancePolicy: fact.distancePolicy,
+        intervalGroupDistancePolicy: fact.intervalGroupDistancePolicy,
+        excerpt: fact.provenance?.excerpt || null,
+      })),
+  } : null,
   decision: failures.length ? 'REJECT' : 'PASS',
 }
 

@@ -81,6 +81,8 @@ export interface AfterSalesData {
   rescues: RescuePolicyItem[]
   workshops: ServiceWorkshopItem[]
   sourcesSyncedAt?: string
+  releaseId?: string
+  dataOrigin?: 'supabase_published'
 }
 
 export interface ServiceBookingPayload {

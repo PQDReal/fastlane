@@ -11,6 +11,8 @@ const excluded = /hướng dẫn sử dụng ô tô|huong dan su dung o to|owner
 const serviceScope = /^(https:\/\/vinfastauto\.com\/vn_vi\/?)$|chinh-sach-bao-hanh-oto|bao-duong-xe-vinfast-dinh-ky|dich-vu-sua-chua-oto|thong-tin-cuu-ho-oto/i
 const maxPages = Number(process.env.AFTER_SALES_MAX_DISCOVERED_PAGES || 100)
 const maxDepth = Number(process.env.AFTER_SALES_MAX_DISCOVERY_DEPTH || 2)
+const { buildBrowserlessCdpUrl } = await import('./lib/after-sales-browserless-provider.mjs')
+const { buildBrightDataCdpUrl, hasBrightDataConfiguration } = await import('./lib/after-sales-brightdata-provider.mjs')
 
 function hash(value) { return `sha256:${crypto.createHash('sha256').update(value).digest('hex')}` }
 function safeUrl(value) {
@@ -41,12 +43,32 @@ const resumable = previous?.scopeVersion === scopeVersion
 const queue = resumable && previous?.remainingQueue?.length ? previous.remainingQueue : manifest.sources.map(source => ({ url: source.url, depth: 0, parent: null }))
 const visited = new Set(resumable ? previous?.visitedUrls || [] : [])
 const pages = [], skipped = []
-const { Browserbase } = await import('@browserbasehq/sdk')
 const { chromium } = await import('playwright-core')
-const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY })
-if (!process.env.BROWSERBASE_API_KEY) throw new Error('BROWSERBASE_API_KEY is not configured')
-const session = await bb.sessions.create({ projectId: process.env.BROWSERBASE_PROJECT_ID || undefined, browserSettings: { allowedDomains: ['vinfastauto.com', 'www.vinfastauto.com'], blockAds: true, recordSession: false }, keepAlive: false, userMetadata: { worker: 'fastlane-after-sales-discovery' } })
-const browser = await chromium.connectOverCDP(session.connectUrl)
+let browser = null
+let provider = null
+if (hasBrightDataConfiguration()) {
+  try {
+    browser = await chromium.connectOverCDP(buildBrightDataCdpUrl())
+    provider = 'brightdata_browser_api'
+  } catch {}
+}
+if (!browser && process.env.BROWSERLESS_API_TOKEN) {
+  try {
+    browser = await chromium.connectOverCDP(buildBrowserlessCdpUrl({
+      token: process.env.BROWSERLESS_API_TOKEN,
+      endpoint: process.env.BROWSERLESS_CDP_ENDPOINT,
+    }))
+    provider = 'browserless_playwright'
+  } catch {}
+}
+if (!browser && process.env.BROWSERBASE_API_KEY) {
+  const { Browserbase } = await import('@browserbasehq/sdk')
+  const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY })
+  const session = await bb.sessions.create({ projectId: process.env.BROWSERBASE_PROJECT_ID || undefined, browserSettings: { allowedDomains: ['vinfastauto.com', 'www.vinfastauto.com'], blockAds: true, recordSession: false }, keepAlive: false, userMetadata: { worker: 'fastlane-after-sales-discovery' } })
+  browser = await chromium.connectOverCDP(session.connectUrl)
+  provider = 'browserbase_playwright'
+}
+if (!browser) throw new Error('No managed browser available: configure BRIGHTDATA_BROWSER_WS_ENDPOINT or BROWSERLESS_API_TOKEN or BROWSERBASE_API_KEY')
 try {
   const context = await browser.newContext({ serviceWorkers: 'block' })
   await context.route('**/*', async route => {
@@ -70,7 +92,7 @@ try {
     } catch (error) { skipped.push({ ...item, reason: error.message }) } finally { await page.close() }
   }
 } finally { await browser.close() }
-const result = { scopeVersion, capturedAt: new Date().toISOString(), maxPages, maxDepth, seedCount: manifest.sources.length, visitedCount: visited.size, visitedUrls: [...visited], pages, skipped, remainingQueue: queue }
+const result = { scopeVersion, capturedAt: new Date().toISOString(), provider, maxPages, maxDepth, seedCount: manifest.sources.length, visitedCount: visited.size, visitedUrls: [...visited], pages, skipped, remainingQueue: queue }
 write(path.join(OUT, 'latest.json'), result)
 write(path.join(OUT, `run-${Date.now()}.json`), result)
 console.log(JSON.stringify({ captured: pages.length, skipped: skipped.length, visited: visited.size, remainingQueue: queue.length, output: '.local/after-sales/discovered/latest.json' }, null, 2))

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { stableAssetId, stableEvidenceId, defaultApproval } from './after-sales-approval.mjs'
 
-export const REVIEW_DATASET_SCHEMA_VERSION = 4
+export const REVIEW_DATASET_SCHEMA_VERSION = 6
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -72,6 +72,7 @@ export function buildReviewDataset({ normalized, verified, manifest, existing = 
         pdfPage: provenance.pdfPage ?? null,
         extractionMethod: provenance.extractionMethod || null,
         extractionConfidence: provenance.extractionConfidence ?? null,
+        sourceValueText: provenance.sourceValueText || fact.valueText,
         excerpt: provenance.excerpt,
         contextIndex: provenance.contextIndex || null,
         asset: asset || null,
@@ -89,6 +90,7 @@ export function buildReviewDataset({ normalized, verified, manifest, existing = 
       model: fact.model,
       subject: fact.subject,
       policyEntity: fact.policyEntity,
+      batteryChemistry: fact.batteryChemistry || 'not_applicable',
       usageCondition: fact.usageCondition,
       applicability: fact.applicability,
       action: fact.action,
@@ -103,6 +105,11 @@ export function buildReviewDataset({ normalized, verified, manifest, existing = 
       distancePolicy: fact.distancePolicy || 'not_stated',
       confidence: fact.confidence,
       sourceReviewStatus: fact.reviewStatus,
+      reviewReasons: [...new Set(fact.reviewReasons || [])],
+      publicationStatus: fact.publicationStatus || 'review_required',
+      supersedesFactIds: [...new Set(fact.supersedesFactIds || [])],
+      sourceFactGroupIds: [...new Set(fact.sourceFactGroupIds || [])],
+      alternativeTriggers: structuredClone(fact.alternativeTriggers || []),
       semanticFlags: [...new Set(fact.semanticFlags || [])],
       groupSemanticFlags: [...new Set(fact.groupSemanticFlags || [])],
       evidenceCount: evidence.length,
@@ -128,10 +135,16 @@ export function buildReviewDataset({ normalized, verified, manifest, existing = 
   }
 }
 
-export function buildReviewDatasetFromFiles({ root, existingPath = null }) {
+export function buildReviewDatasetFromFiles({ root, existingPath = null, normalizedPath = null }) {
   const existing = existingPath && fs.existsSync(existingPath) ? readJson(existingPath) : null
+  const normalized = readJson(normalizedPath || path.join(root, 'public/data/after-sales-normalized.json'))
+  if (normalized.schemaVersion === 6
+    && (normalized.normalizationBasis?.rawCorpusAvailable !== true
+      || normalized.publicationStatus !== 'pending_admin_approval')) {
+    throw new Error('V6 review dataset is blocked until raw DOM/PDF evidence is fully anchored and publicationStatus is pending_admin_approval')
+  }
   return buildReviewDataset({
-    normalized: readJson(path.join(root, 'public/data/after-sales-normalized.json')),
+    normalized,
     verified: readJson(path.join(root, 'public/data/after-sales-verified.json')),
     manifest: readJson(path.join(root, 'scripts/data/after-sales-source-manifest.json')),
     existing,

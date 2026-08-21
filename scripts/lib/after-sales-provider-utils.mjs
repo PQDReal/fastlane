@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-export const REAL_CAPTURE_PROVIDERS = new Set(['http', 'browserless_playwright', 'browserbase_playwright', 'local_playwright'])
+export const REAL_CAPTURE_PROVIDERS = new Set(['http', 'brightdata_browser_api', 'browserless_playwright', 'browserbase_playwright', 'local_playwright'])
+export const VALIDATED_BROWSER_PROVIDERS = new Set(['brightdata_browser_api', 'browserless_playwright'])
 export const PROVIDER_CLASSIFICATIONS = new Set([
   'AVAILABLE',
   'AUTH_FAILED',
@@ -33,6 +34,9 @@ export function classifyProviderError(error) {
   if (error?.providerCode && PROVIDER_CLASSIFICATIONS.has(error.providerCode)) {
     return { code: error.providerCode, status, retryable: Boolean(error.retryable), message }
   }
+  if (/\b(?:units? usage limit|free plan.*limit|quota exhausted|quota exceeded|browser units? limit|subscription limit)\b/iu.test(message)) {
+    return { code: 'QUOTA_EXHAUSTED', status: status || 402, retryable: false, message }
+  }
   if (status === 401 || /\b(?:unauthori[sz]ed|invalid token|authentication failed)\b/iu.test(message)) {
     return { code: 'AUTH_FAILED', status: status || 401, retryable: false, message }
   }
@@ -40,9 +44,6 @@ export function classifyProviderError(error) {
   if (status === 429) return { code: 'RATE_LIMITED', status, retryable: true, message }
   if (status && status >= 500) return { code: 'PROVIDER_ERROR', status, retryable: true, message }
   if (status === 403) return { code: 'ACCESS_DENIED', status, retryable: false, message }
-  if (/\b(?:quota exhausted|quota exceeded|browser units? limit|subscription limit)\b/iu.test(message)) {
-    return { code: 'QUOTA_EXHAUSTED', status, retryable: false, message }
-  }
   if (/\b(?:rate limited|too many requests)\b/iu.test(message)) {
     return { code: 'RATE_LIMITED', status, retryable: true, message }
   }
@@ -127,7 +128,7 @@ export function selectLatestVerifiedSnapshot(snapshots) {
 
 export function isVerifiedSnapshot(snapshot) {
   if (!REAL_CAPTURE_PROVIDERS.has(snapshot?.captureMethod) || snapshot.httpStatus !== 200 || !snapshot.contentHash) return false
-  return snapshot.captureMethod !== 'browserless_playwright' || snapshot.contentValidation?.status === 'passed'
+  return !VALIDATED_BROWSER_PROVIDERS.has(snapshot.captureMethod) || snapshot.contentValidation?.status === 'passed'
 }
 
 export function shouldRetainPreviousSnapshot(current, previous) {

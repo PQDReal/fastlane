@@ -8,11 +8,50 @@ const ACTIONS = [
 
 const CONNECTORS = /\s+(hoặc|hay|và|đồng thời|sau đó)\s+/giu
 const THRESHOLD_SIGNAL = /\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?|năm|years?|tháng|months?|ngày|days?|phút|minutes?)\b|hàng\s+(?:năm|tháng|ngày)|mỗi\s+(?:lần|\d)|sau\s+mỗi\s+\d/iu
-const EVENT_TRIGGER_SIGNAL = /dựa\s+vào\s+cảnh\s+báo|cảnh\s+báo\s+mức\s+dầu|sau\s+mỗi\s+lần\s+đổ\s+xăng|trước\s+khi\s+chạy|màn\s+hình\s+hiển\s+thị/iu
+const EVENT_TRIGGER_DEFINITIONS = [
+  ['dashboard_oil_level_warning', /(?:dựa\s+vào\s+)?cảnh\s+báo\s+mức\s+dầu(?:\s+trên\s+màn\s+hình\s+hiển\s+thị)?/iu],
+  ['before_driving', /trước\s+khi\s+chạy/iu],
+  ['after_refueling', /sau\s+mỗi\s+lần\s+đổ\s+xăng/iu],
+]
+const EVENT_TRIGGER_SIGNAL = new RegExp(EVENT_TRIGGER_DEFINITIONS.map(([, pattern]) => pattern.source).join('|'), 'iu')
+const WHICHEVER_COMES_FIRST = /t(?:ù|uỳ|ùy)\s*(?:thuộc|theo)?\s*(?:vào\s*)?(?:điều\s*kiện\s*)?(?:nào\s*)?đến\s*trước/iu
+const UNLIMITED_DISTANCE = /không\s+giới\s+hạn\s+(?:số\s*)?(?:km|quãng\s+đường)/iu
+const SUBJECTS = [
+  ['steering_head_bearing', /cổ\s+phốt/iu],
+  ['seat_lock_and_stands', /(?:khóa\s+yên|chân\s+chống)/iu],
+  ['battery', /ắc\s*quy\s+lithium(?:[-\s]?ion)?|pin\s+(?:cao\s+áp|điện\s+áp\s+cao)/iu],
+  ['battery_12v', /ắc\s*quy\s+12v|pin\s+12v/iu],
+  ['battery_coolant', /nước\s+làm\s+mát\s+pin/iu],
+  ['key_fob_battery', /pin\s+chìa\s+khóa/iu],
+  ['brake_fluid', /dầu\s+phanh/iu],
+  ['brake_system', /(?:tay|hệ\s+thống)\s+phanh/iu],
+]
 
 export function detectActionHint(text) {
   for (const [action, pattern] of ACTIONS) if (pattern.test(String(text || ''))) return action
   return null
+}
+
+export function detectSubjectHint(text) {
+  for (const [subject, pattern] of SUBJECTS) if (pattern.test(String(text || ''))) return subject
+  return null
+}
+
+function extractEventTriggers(...scopes) {
+  const triggers = new Map()
+  for (const scope of scopes) {
+    const text = String(scope || '')
+    for (const [code, pattern] of EVENT_TRIGGER_DEFINITIONS) {
+      const match = text.match(pattern)
+      if (!match || triggers.has(code)) continue
+      triggers.set(code, {
+        type: 'event',
+        code,
+        sourceText: match[0].replace(/\s+/gu, ' ').trim(),
+      })
+    }
+  }
+  return [...triggers.values()].sort((left, right) => left.code.localeCompare(right.code))
 }
 
 /**
@@ -31,7 +70,9 @@ export function decomposeSemanticClause(statement, rawValue) {
       inheritedAction: null,
       actionHint: detectActionHint(text),
       actionConflict: false,
-      qualifierHint: null,
+      qualifierHint: WHICHEVER_COMES_FIRST.test(text) ? 'whichever_comes_first' : null,
+      distancePolicyHint: UNLIMITED_DISTANCE.test(text) ? 'unlimited' : null,
+      subjectHint: detectSubjectHint(text),
       intervalRelation: null,
       nonNumericAlternativeTriggers: [],
       flags: [],
@@ -62,6 +103,7 @@ export function decomposeSemanticClause(statement, rawValue) {
   const inheritedAction = detectActionHint(previousLocalClause) || detectActionHint(previousClause)
   const nextAction = detectActionHint(nextClause)
   const actionHint = explicitAction || inheritedAction || detectActionHint(text)
+  const subjectHint = detectSubjectHint(clause) || detectSubjectHint(text)
   const previousActionConflict = Boolean(explicitAction && inheritedAction && explicitAction !== inheritedAction)
   const nextActionConflict = Boolean(nextAction && actionHint && nextAction !== actionHint)
     && ['hoặc', 'hay', 'và', 'đồng thời', 'sau đó'].includes(nextConnector)
@@ -83,17 +125,11 @@ export function decomposeSemanticClause(statement, rawValue) {
   const flags = []
   if (actionBindingAmbiguous) flags.push('ACTION_BINDING_AMBIGUOUS')
 
-  const nonNumericAlternativeTriggers = []
-  if (EVENT_TRIGGER_SIGNAL.test(previousLocalClause) || EVENT_TRIGGER_SIGNAL.test(previousClause)) {
-    const match = (previousLocalClause || previousClause).match(EVENT_TRIGGER_SIGNAL)
-    if (match) nonNumericAlternativeTriggers.push(match[0])
-    flags.push('INCOMPLETE_ALTERNATIVE_TRIGGER')
-  }
-  if (EVENT_TRIGGER_SIGNAL.test(nextClause)) {
-    const match = nextClause.match(EVENT_TRIGGER_SIGNAL)
-    if (match) nonNumericAlternativeTriggers.push(match[0])
-    flags.push('INCOMPLETE_ALTERNATIVE_TRIGGER')
-  }
+  const nonNumericAlternativeTriggers = extractEventTriggers(
+    previousThresholdAlternative ? previousClause : '',
+    nextThresholdAlternative ? nextClause : '',
+  )
+  if (nonNumericAlternativeTriggers.length) flags.push('NON_NUMERIC_ALTERNATIVE_TRIGGER')
 
   return {
     clause,
@@ -102,9 +138,11 @@ export function decomposeSemanticClause(statement, rawValue) {
     inheritedAction,
     actionHint,
     actionConflict,
-    qualifierHint: null,
+    qualifierHint: WHICHEVER_COMES_FIRST.test(text) ? 'whichever_comes_first' : null,
+    distancePolicyHint: UNLIMITED_DISTANCE.test(text) ? 'unlimited' : null,
+    subjectHint,
     intervalRelation: sameActionThreshold ? 'or' : null,
-    nonNumericAlternativeTriggers: [...new Set(nonNumericAlternativeTriggers)],
+    nonNumericAlternativeTriggers,
     groupSemanticFlags,
     flags: [...new Set(flags)],
   }

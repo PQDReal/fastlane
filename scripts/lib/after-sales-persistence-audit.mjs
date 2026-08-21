@@ -38,15 +38,59 @@ export function semanticScopeKey(row) {
     field(row, 'powertrain'),
     field(row, 'model') || 'all_models',
     field(row, 'subject'),
+    field(row, 'batteryChemistry', 'battery_chemistry') || 'not_applicable',
     field(row, 'usageCondition', 'usage_condition'),
     field(row, 'applicability'),
     field(row, 'action'),
     field(row, 'factType', 'fact_type'),
     field(row, 'unit'),
-    field(row, 'qualifier'),
-    field(row, 'distancePolicy', 'distance_policy'),
-    field(row, 'intervalRelation', 'interval_relation'),
   ].join('|')
+}
+
+function semanticConflictScopeKey(row) {
+  const serviceType = field(row, 'serviceType', 'service_type')
+  return [
+    semanticScopeKey(row),
+    serviceType === 'maintenance'
+      ? field(row, 'intervalRelation', 'interval_relation') || 'standalone'
+      : 'policy',
+  ].join('|')
+}
+
+function assetName(value) {
+  try {
+    return new URL(value).pathname.split('/').filter(Boolean).at(-1) || null
+  } catch {
+    return null
+  }
+}
+
+function conflictCandidate(fact) {
+  const provenances = fact.provenances?.length
+    ? fact.provenances
+    : fact.provenance
+      ? [fact.provenance]
+      : []
+  return {
+    factId: field(fact, 'factId', 'fact_id'),
+    valueNumeric: field(fact, 'valueNumeric', 'value_numeric'),
+    originKinds: [...new Set(provenances.map(item => item.origin).filter(Boolean))].sort(),
+    sourceIds: [...new Set([
+      ...(fact.sourceIds || []),
+      ...provenances.map(item => item.sourceId),
+    ].filter(Boolean))].sort(),
+    assetNames: [...new Set(provenances.map(item => assetName(item.assetUrl)).filter(Boolean))].sort(),
+    capturedAt: [...new Set(provenances.map(item => item.capturedAt).filter(Boolean))].sort(),
+  }
+}
+
+function semanticConflictType(candidates) {
+  const origins = new Set(candidates.flatMap(candidate => candidate.originKinds))
+  if (origins.has('snapshot_page_text') && origins.has('asset_text_extraction')) {
+    return 'OFFICIAL_PAGE_DOCUMENT_CONFLICT'
+  }
+  if (origins.has('manifest_transcription')) return 'MANUAL_TRANSCRIPTION_CONFLICT'
+  return 'SEMANTIC_CONFLICT'
 }
 
 export function classifyFactLifecycle(desiredFacts = [], existingFacts = []) {
@@ -135,7 +179,7 @@ export function classifyFactLifecycle(desiredFacts = [], existingFacts = []) {
 export function detectSemanticConflicts(facts = []) {
   const groups = new Map()
   for (const fact of facts) {
-    const key = semanticScopeKey(fact)
+    const key = semanticConflictScopeKey(fact)
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(fact)
   }
@@ -154,12 +198,15 @@ export function detectSemanticConflicts(facts = []) {
         .filter(Boolean),
     )
     if (factGroupIds.size === 1 && group.every(fact => field(fact, 'factGroupId', 'fact_group_id'))) continue
+    const candidates = group.map(conflictCandidate)
     findings.push({
-      type: 'SEMANTIC_CONFLICT',
+      type: semanticConflictType(candidates),
       scopeKey: key,
       values,
       factGroupIds: [...factGroupIds].sort(),
       factIds: group.map(fact => field(fact, 'factId', 'fact_id')),
+      candidates,
+      resolutionPolicy: 'admin_review_required_no_automatic_precedence',
     })
   }
   return findings.sort((a, b) => a.scopeKey.localeCompare(b.scopeKey))

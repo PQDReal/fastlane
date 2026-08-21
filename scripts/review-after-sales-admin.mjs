@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url'
 import { detectSemanticConflicts } from './lib/after-sales-persistence-audit.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const normalizedV6Path = path.join(ROOT, '.local/after-sales/after-sales-normalized-v6.json')
 const inputPath = path.resolve(process.argv.find(argument => argument.startsWith('--input='))?.slice('--input='.length)
-  || path.join(ROOT, 'public/data/after-sales-normalized.json'))
+  || (fs.existsSync(normalizedV6Path) ? normalizedV6Path : path.join(ROOT, 'public/data/after-sales-normalized.json')))
 const outputPath = path.resolve(process.argv.find(argument => argument.startsWith('--output='))?.slice('--output='.length)
   || path.join(ROOT, '.local/after-sales/admin-review-report.json'))
 const queuePath = path.resolve(process.argv.find(argument => argument.startsWith('--queue='))?.slice('--queue='.length)
@@ -13,6 +14,9 @@ const queuePath = path.resolve(process.argv.find(argument => argument.startsWith
 
 const data = JSON.parse(fs.readFileSync(inputPath, 'utf8'))
 const facts = data.facts || []
+const extractedPath = path.join(ROOT, 'public/data/after-sales-extracted.json')
+const extracted = fs.existsSync(extractedPath) ? JSON.parse(fs.readFileSync(extractedPath, 'utf8')) : { records: [] }
+const extractedSources = new Map((extracted.records || []).map(source => [source.sourceId, source]))
 
 const fold = value => String(value || '')
   .normalize('NFD')
@@ -23,7 +27,17 @@ const fold = value => String(value || '')
   .trim()
 
 const compact = value => fold(value).replace(/[^a-z0-9]+/g, '')
+const rawContext = provenance => {
+  if (provenance.origin !== 'snapshot_page_text') return provenance.excerpt || ''
+  const source = extractedSources.get(provenance.sourceId)
+  const text = source?.text || ''
+  const matchStart = provenance.contextIndex?.matchStart
+  const matchEnd = provenance.contextIndex?.matchEnd
+  if (!text || !Number.isInteger(matchStart) || !Number.isInteger(matchEnd)) return provenance.excerpt || ''
+  return text.slice(Math.max(0, matchStart - 900), Math.min(text.length, matchEnd + 360))
+}
 const anyExcerpt = (fact, predicate) => (fact.provenances || []).some(provenance => predicate(provenance.excerpt || ''))
+const anyEvidenceContext = (fact, predicate) => (fact.provenances || []).some(provenance => predicate(rawContext(provenance)))
 const directValueInEvidence = fact => anyExcerpt(fact, excerpt => compact(excerpt).includes(compact(fact.valueText)))
 const officialEvidence = fact => (fact.provenances || []).every(provenance => {
   try {
@@ -39,6 +53,20 @@ const officialEvidence = fact => (fact.provenances || []).every(provenance => {
 // and PDFs, including "tùy điều kiện đến trước" and "tùy thuộc vào...".
 const whicheverComesFirst = /tuy(?:\s+(?:theo|thuoc)(?:\s+vao)?)?\s+dieu\s+kien(?:\s+nao)?\s+den\s+truoc/u
 const evidenceSaysWhichever = fact => anyExcerpt(fact, excerpt => whicheverComesFirst.test(fold(excerpt)))
+  || (
+    fact.serviceType === 'warranty'
+    && fact.subject === 'vehicle'
+    && fact.usageCondition === 'standard_use'
+    && fact.applicability === 'original_vehicle'
+    && anyEvidenceContext(fact, context => /thoi han bao hanh.{0,120}tuy.{0,80}dieu kien.{0,40}den truoc/u.test(fold(context)))
+  )
+
+const modelAliases = model => ({
+  'Lux A 2.0': ['Lux A 2.0', 'Lux A'],
+  'Lux SA 2.0': ['Lux SA 2.0', 'Lux SA'],
+  'Lạc Hồng 900LX': ['Lạc Hồng 900LX', 'Lạc Hồng 900 LX'],
+  'VF MPV7': ['VF MPV7', 'VF MPV 7'],
+}[model] || [model])
 
 function intervalPairKey(fact) {
   return [
@@ -85,7 +113,7 @@ function makeReview(fact) {
     member.usageCondition,
     member.applicability,
   ].join('|')))
-  const modelAnchored = !fact.model || anyExcerpt(fact, excerpt => compact(excerpt).includes(compact(fact.model)))
+  const modelAnchored = !fact.model || modelAliases(fact.model).some(alias => anyExcerpt(fact, excerpt => compact(excerpt).includes(compact(alias))))
     || (fact.provenances || []).some(provenance => Boolean(provenance.assetUrl))
 
   if (!valueCovered) addFinding(findings, 'VALUE_NOT_IN_EVIDENCE', 'blocker', 'Normalized valueText is not present in any provenance excerpt.')
@@ -107,14 +135,17 @@ function makeReview(fact) {
       usageCondition: member.usageCondition,
       applicability: member.applicability,
     })))
-  } else if (fact.intervalRelation === 'or' && groupMembers.length < 2) {
+  } else if (fact.intervalRelation === 'or' && groupMembers.length < 2 && !(fact.alternativeTriggers || []).length) {
     addFinding(findings, 'INCOMPLETE_ALTERNATIVE_TRIGGER', 'warning', 'OR interval group has no normalized sibling. The omitted alternative may be a non-numeric event trigger.', fact.provenance.excerpt)
+  } else if (fact.intervalRelation === 'or' && groupMembers.length < 2) {
+    addFinding(findings, 'STRUCTURED_EVENT_ALTERNATIVE', 'info', 'OR interval has a verified, structured non-numeric event alternative.', fact.alternativeTriggers)
   }
   if (fact.reviewStatus === 'pending_admin_review') {
     addFinding(findings, 'EXISTING_ADMIN_REVIEW_QUEUE', 'human_review', 'This fact was intentionally held for administrator review by the source/normalization workflow.', fact.provenance.excerpt)
   }
-  if ((fact.semanticFlags || []).length) {
-    addFinding(findings, 'FACT_SEMANTIC_FLAG', 'human_review', `Fact semantic flags: ${fact.semanticFlags.join(', ')}.`, fact.provenance.excerpt)
+  const blockingSemanticFlags = (fact.semanticFlags || []).filter(flag => flag !== 'NON_NUMERIC_ALTERNATIVE_TRIGGER')
+  if (blockingSemanticFlags.length) {
+    addFinding(findings, 'FACT_SEMANTIC_FLAG', 'human_review', `Fact semantic flags: ${blockingSemanticFlags.join(', ')}.`, fact.provenance.excerpt)
   }
   if ((fact.groupSemanticFlags || []).includes('MULTI_ACTION_CLAUSE')) {
     addFinding(findings, 'MULTI_ACTION_GROUP_VALIDATED', 'info', 'Multi-action source statement is retained as a group flag; local action/value bindings are evaluated separately.', fact.provenance.excerpt)
@@ -132,6 +163,7 @@ function makeReview(fact) {
       explicitWhicheverEvidence: hasExplicitQualifier,
       intervalScopeMemberCount: groupMembers.length,
       relaxedIntervalScopeVariantCount: relaxedScopeVariants.size,
+      structuredAlternativeTriggerCount: (fact.alternativeTriggers || []).length,
     },
     findings,
     fact: {
@@ -152,6 +184,7 @@ function makeReview(fact) {
       intervalGroupDistancePolicy: fact.intervalGroupDistancePolicy,
       distancePolicy: fact.distancePolicy,
       confidence: fact.confidence,
+      alternativeTriggers: fact.alternativeTriggers || [],
       sourceReviewStatus: fact.reviewStatus,
     },
     evidence: {
@@ -180,10 +213,14 @@ const conflicts = detectSemanticConflicts(facts)
 
 const report = {
   reviewer: {
-    id: 'after-sales-local-admin-reviewer',
-    version: 'v1',
+    id: 'after-sales-delegated-admin-review-agent',
+    version: 'v2',
     mode: 'read_only_deterministic',
     authority: 'does_not_mutate_normalized_data_or_approval_state',
+  },
+  publicationAuthorization: {
+    status: 'NOT_GRANTED',
+    reason: 'Delegated agent review is an evidence and conflict gate; final publication remains an explicit human-admin action.',
   },
   reviewedAt: new Date().toISOString(),
   input: inputPath,
@@ -198,6 +235,7 @@ const report = {
       'explicit whichever-comes-first qualifier parity',
       'fact-level versus group-level distance policy ownership',
       'interval alternative completeness',
+      'structured non-numeric alternative triggers',
       'existing admin/semantic hold flags',
       'cross-fact contradiction detection',
     ],
@@ -210,6 +248,7 @@ const report = {
     officialEvidence: reviews.filter(review => review.reviewChecks.officialEvidence).length,
     modelScopeAnchored: reviews.filter(review => review.reviewChecks.modelScopeAnchored).length,
     semanticConflicts: conflicts.length,
+    structuredAlternativeTriggers: reviews.reduce((sum, review) => sum + review.reviewChecks.structuredAlternativeTriggerCount, 0),
     findingCounts: Object.fromEntries(Object.entries(countFindings).sort(([a], [b]) => a.localeCompare(b))),
   },
   semanticConflicts: conflicts,

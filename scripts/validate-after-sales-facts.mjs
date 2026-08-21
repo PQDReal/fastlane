@@ -18,9 +18,10 @@ const allowedReviewStatuses = new Set(['pending', 'pending_admin_review', 'needs
 const allowedUsageConditions = new Set(['general', 'standard_use', 'commercial_use'])
 const allowedApplicabilities = new Set(['general', 'original_vehicle', 'original_equipment', 'customer_purchased_after_delivery', 'customer_paid_replacement', 'general_accessories_excluding_fixed_group', 'general_accessories_non_fixed', 'fixed_accessory_group', 'factory_fitted'])
 const allowedPowertrains = new Set(['all', 'petrol', 'electric'])
+const allowedBatteryChemistries = new Set(['not_applicable', 'unspecified', 'lfp', 'non_lfp'])
 const allowedDistancePolicies = new Set(['not_stated', 'limited', 'unlimited'])
 const allowedIntervalRelations = new Set(['or'])
-const allowedFactSemanticFlags = new Set(['SOURCE_SCOPE_CONFLICT', 'ACTION_BINDING_AMBIGUOUS', 'INCOMPLETE_ALTERNATIVE_TRIGGER', 'UNRESOLVED_MODEL_ALIAS'])
+const allowedFactSemanticFlags = new Set(['SOURCE_SCOPE_CONFLICT', 'ACTION_BINDING_AMBIGUOUS', 'NON_NUMERIC_ALTERNATIVE_TRIGGER', 'UNRESOLVED_MODEL_ALIAS'])
 const allowedGroupSemanticFlags = new Set(['MULTI_ACTION_CLAUSE'])
 const controlledFactTypes = new Set(data.controlledFactTypes || [])
 const manifestSources = new Map((manifest.sources || []).map(source => [source.id, source]))
@@ -56,6 +57,7 @@ function expectedCanonicalKey(fact) {
     fact.powertrain || 'all',
     fact.model || 'all_models',
     fact.subject,
+    fact.batteryChemistry || 'not_applicable',
     fact.usageCondition,
     fact.applicability,
     fact.action,
@@ -83,7 +85,7 @@ const intervalGroupByApplicability = new Map()
 
 for (const fact of data.facts || []) {
   const factId = fact.factId || 'unknown'
-  for (const key of ['factId', 'factGroupId', 'canonicalKey', 'sourceId', 'serviceType', 'vehicleType', 'powertrain', 'subject', 'usageCondition', 'applicability', 'action', 'factType', 'unit', 'distancePolicy', 'reviewStatus']) {
+  for (const key of ['factId', 'factGroupId', 'canonicalKey', 'sourceId', 'serviceType', 'vehicleType', 'powertrain', 'subject', 'batteryChemistry', 'usageCondition', 'applicability', 'action', 'factType', 'unit', 'distancePolicy', 'reviewStatus']) {
     if (fact[key] === undefined || fact[key] === null || fact[key] === '') errors.push(`${factId}: missing ${key}`)
   }
 
@@ -106,6 +108,9 @@ for (const fact of data.facts || []) {
   if (!controlledFactTypes.has(fact.factType)) errors.push(`${factId}: uncontrolled factType ${fact.factType}`)
   if (!allowedUnits.has(fact.unit)) errors.push(`${factId}: invalid unit ${fact.unit}`)
   if (!allowedPowertrains.has(fact.powertrain)) errors.push(`${factId}: invalid powertrain ${fact.powertrain}`)
+  if (!allowedBatteryChemistries.has(fact.batteryChemistry)) errors.push(`${factId}: invalid batteryChemistry ${fact.batteryChemistry}`)
+  if (fact.subject === 'battery' && fact.batteryChemistry === 'not_applicable') errors.push(`${factId}: battery fact is missing chemistry scope`)
+  if (fact.subject !== 'battery' && fact.batteryChemistry !== 'not_applicable') errors.push(`${factId}: non-battery fact has battery chemistry scope`)
   if (!allowedDistancePolicies.has(fact.distancePolicy)) errors.push(`${factId}: invalid distancePolicy ${fact.distancePolicy}`)
   if (fact.intervalRelation !== null && !allowedIntervalRelations.has(fact.intervalRelation)) errors.push(`${factId}: invalid intervalRelation ${fact.intervalRelation}`)
   if (fact.intervalRelation && !fact.intervalGroupId) errors.push(`${factId}: intervalRelation is missing intervalGroupId`)
@@ -115,6 +120,18 @@ for (const fact of data.facts || []) {
   if (!fact.intervalGroupId && fact.intervalGroupDistancePolicy !== null) errors.push(`${factId}: intervalGroupDistancePolicy is missing intervalGroupId`)
   if (!Array.isArray(fact.semanticFlags)) errors.push(`${factId}: semanticFlags must be an array`)
   for (const flag of fact.semanticFlags || []) if (!allowedFactSemanticFlags.has(flag)) errors.push(`${factId}: invalid fact semantic flag ${flag}`)
+  if (!Array.isArray(fact.alternativeTriggers)) errors.push(`${factId}: alternativeTriggers must be an array`)
+  const alternativeTriggerCodes = new Set()
+  for (const [index, trigger] of (fact.alternativeTriggers || []).entries()) {
+    if (trigger?.type !== 'event') errors.push(`${factId}: alternativeTriggers[${index}] must have type event`)
+    if (!trigger?.code || typeof trigger.code !== 'string') errors.push(`${factId}: alternativeTriggers[${index}] is missing code`)
+    if (!trigger?.sourceText || typeof trigger.sourceText !== 'string') errors.push(`${factId}: alternativeTriggers[${index}] is missing sourceText`)
+    if (alternativeTriggerCodes.has(trigger?.code)) errors.push(`${factId}: duplicate alternative trigger code ${trigger.code}`)
+    alternativeTriggerCodes.add(trigger?.code)
+  }
+  const hasAlternativeTriggerFlag = (fact.semanticFlags || []).includes('NON_NUMERIC_ALTERNATIVE_TRIGGER')
+  if (hasAlternativeTriggerFlag && !(fact.alternativeTriggers || []).length) errors.push(`${factId}: non-numeric alternative flag has no structured trigger`)
+  if (!hasAlternativeTriggerFlag && (fact.alternativeTriggers || []).length) errors.push(`${factId}: structured alternative trigger is missing semantic flag`)
   if (!Array.isArray(fact.groupSemanticFlags)) errors.push(`${factId}: groupSemanticFlags must be an array`)
   for (const flag of fact.groupSemanticFlags || []) if (!allowedGroupSemanticFlags.has(flag)) errors.push(`${factId}: invalid group semantic flag ${flag}`)
   if (!allowedReviewStatuses.has(fact.reviewStatus)) errors.push(`${factId}: invalid reviewStatus ${fact.reviewStatus}`)
@@ -193,10 +210,11 @@ for (const fact of data.facts || []) {
     if (!allowedOrigins.has(provenance.origin)) provenanceError(factId, `invalid provenance origin ${provenance.origin}`)
     if (!manifestSources.has(provenance.sourceId)) provenanceError(factId, `provenance sourceId not found: ${provenance.sourceId}`)
     if (!isOfficialUrl(provenance.sourceUrl)) provenanceError(factId, 'provenance source URL is not official')
+    if (!provenance.sourceValueText || typeof provenance.sourceValueText !== 'string') provenanceError(factId, 'provenance sourceValueText is empty')
     if (!provenance.excerpt) provenanceError(factId, 'provenance excerpt is empty')
     if (provenance.origin !== 'manifest_transcription') {
       const index = provenance.contextIndex
-      if (!index || index.version !== 'after-sales-evidence-context-v1') {
+      if (!index || !['after-sales-evidence-context-v1', 'after-sales-evidence-context-v2'].includes(index.version)) {
         provenanceError(factId, 'extracted provenance is missing context index')
       } else if (
         !Number.isInteger(index.sourceStart)
@@ -279,7 +297,7 @@ for (const [intervalId, scopes] of intervalGroupByApplicability) {
 
 for (const finding of detectSemanticConflicts(data.facts || [])) {
   semanticConflicts.push(finding)
-  warnings.push(`semantic conflict ${finding.scopeKey}: ${finding.values.join(', ')}`)
+  warnings.push(`${finding.type} ${finding.scopeKey}: ${finding.values.join(', ')}`)
 }
 
 const usageAliasGroups = new Map()
@@ -305,6 +323,10 @@ const output = {
     warnings: warnings.length,
     brokenProvenances,
     semanticConflicts: semanticConflicts.length,
+    semanticConflictTypes: semanticConflicts.reduce((counts, finding) => {
+      counts[finding.type] = (counts[finding.type] || 0) + 1
+      return counts
+    }, {}),
     usageAliasConflicts: usageAliasConflicts.length,
   },
   errors,

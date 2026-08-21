@@ -52,6 +52,7 @@ create table if not exists public.after_sales_facts (
   model text,
   subject text not null,
   policy_entity text not null,
+  battery_chemistry text not null default 'not_applicable',
   usage_condition text not null,
   applicability text not null,
   action text not null,
@@ -66,6 +67,7 @@ create table if not exists public.after_sales_facts (
   distance_policy text not null default 'not_stated',
   confidence numeric not null,
   source_review_status text not null,
+  alternative_triggers jsonb not null default '[]'::jsonb,
   semantic_flags jsonb not null default '[]'::jsonb,
   group_semantic_flags jsonb not null default '[]'::jsonb,
   approval_status text not null default 'pending',
@@ -80,6 +82,8 @@ create table if not exists public.after_sales_facts (
     check (approval_status in ('pending', 'approved', 'rejected', 'superseded', 'revoked')),
   constraint after_sales_facts_confidence_check
     check (confidence >= 0 and confidence <= 1),
+  constraint after_sales_facts_battery_chemistry_check
+    check (battery_chemistry in ('not_applicable', 'unspecified', 'lfp', 'non_lfp')),
   constraint after_sales_facts_approval_fields_check
     check (
       (approval_status = 'pending' and approved_by is null and approved_at is null)
@@ -106,7 +110,13 @@ alter table public.after_sales_facts
   add column if not exists interval_group_distance_policy text;
 
 alter table public.after_sales_facts
+  add column if not exists alternative_triggers jsonb not null default '[]'::jsonb;
+
+alter table public.after_sales_facts
   add column if not exists group_semantic_flags jsonb not null default '[]'::jsonb;
+
+alter table public.after_sales_facts
+  add column if not exists battery_chemistry text not null default 'not_applicable';
 
 create table if not exists public.after_sales_fact_evidence (
   fact_id text not null references public.after_sales_facts(fact_id) on delete cascade,
@@ -122,6 +132,7 @@ create table if not exists public.after_sales_fact_evidence (
   pdf_page integer,
   extraction_method text,
   extraction_confidence numeric,
+  source_value_text text not null,
   excerpt text not null,
   context_index jsonb,
   raw_provenance jsonb,
@@ -132,6 +143,9 @@ create table if not exists public.after_sales_fact_evidence (
   constraint after_sales_fact_evidence_confidence_check
     check (extraction_confidence is null or (extraction_confidence >= 0 and extraction_confidence <= 1))
 );
+
+alter table public.after_sales_fact_evidence
+  add column if not exists source_value_text text not null default '';
 
 create table if not exists public.after_sales_fact_approvals (
   approval_id uuid primary key default gen_random_uuid(),
@@ -178,6 +192,7 @@ select
   f.powertrain,
   f.model,
   f.subject,
+  f.battery_chemistry,
   f.fact_type,
   f.value_numeric,
   f.value_text,

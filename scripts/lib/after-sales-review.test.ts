@@ -18,6 +18,9 @@ const read = (file: string) => JSON.parse(fs.readFileSync(path.join(ROOT, file),
 const normalized = read('public/data/after-sales-normalized.json')
 const verified = read('public/data/after-sales-verified.json')
 const manifest = read('scripts/data/after-sales-source-manifest.json')
+const verifiedAssetCount = new Set((verified.records || []).flatMap((source: any) =>
+  (source.assets || []).map((asset: any) => `${source.sourceId}|${asset.url}|${asset.contentHash || asset.verification?.contentHash || ''}`),
+)).size
 
 function dataset(existing: any = null) {
   return buildReviewDataset({ normalized, verified, manifest, existing, generatedAt: '2026-08-19T00:00:00.000Z' })
@@ -92,6 +95,7 @@ describe('after-sales human approval and persistence contract', () => {
     const statement = 'Bảo dưỡng lần đầu sau 12 tháng hoặc 12.000 km (tuỳ điều kiện đến trước).'
     const first = decomposeSemanticClause(statement, '12 tháng')
     expect(first.intervalRelation).toBe('or')
+    expect(first.qualifierHint).toBe('whichever_comes_first')
     expect(normalized.facts.some((fact: any) => fact.action === 'first_service' && fact.qualifier === 'whichever_comes_first')).toBe(true)
   })
 
@@ -141,6 +145,10 @@ describe('after-sales human approval and persistence contract', () => {
     expect(context.excerpt).not.toContain('Đoạn sau')
     expect(context.index.crossedFutureBoundary).toBe(false)
     expect(context.index.boundaryType).toBe('document_start')
+    expect(context.index.version).toBe('after-sales-evidence-context-v2')
+    expect(context.index.offsetBasis).toBe('source_text_utf16')
+    expect(context.excerpt).toBe(text.slice(context.index.excerptStart, context.index.excerptEnd))
+    expect(text.slice(context.index.matchStart, context.index.matchEnd)).toBe('1.000 km')
   })
 
   it('uses a controlled overshoot for long sentences but keeps the numeric match indexed', () => {
@@ -208,6 +216,45 @@ describe('after-sales human approval and persistence contract', () => {
       base,
       { ...base, factId: 'fact-b', factGroupId: 'group-b', valueNumeric: 24 },
     ])).toHaveLength(1)
+    expect(detectSemanticConflicts([
+      { ...base, factId: 'fact-recurring', factGroupId: 'group-recurring', valueNumeric: 1, intervalRelation: 'or' },
+      { ...base, factId: 'fact-scheduled', factGroupId: 'group-scheduled', valueNumeric: 24, intervalRelation: null },
+    ])).toEqual([])
+  })
+
+  it('classifies official page/PDF and manual transcription conflicts for admin review', () => {
+    const base = {
+      factId: 'fact-page', factGroupId: 'group-page', serviceType: 'warranty', vehicleType: 'car',
+      powertrain: 'electric', model: 'VF 5', subject: 'vehicle', usageCondition: 'standard_use',
+      applicability: 'original_vehicle', action: 'warranty_coverage', factType: 'vehicle_warranty_duration',
+      valueNumeric: 8, unit: 'year', intervalRelation: 'or',
+      provenances: [{ origin: 'snapshot_page_text', sourceId: 'warranty', capturedAt: '2026-08-20T00:00:00.000Z' }],
+    }
+    const official = detectSemanticConflicts([
+      base,
+      {
+        ...base,
+        factId: 'fact-pdf',
+        factGroupId: 'group-pdf',
+        valueNumeric: 7,
+        provenances: [{ origin: 'asset_text_extraction', sourceId: 'warranty', assetUrl: 'https://example.test/vf5.pdf' }],
+      },
+    ])[0]
+    expect(official.type).toBe('OFFICIAL_PAGE_DOCUMENT_CONFLICT')
+    expect(official.resolutionPolicy).toBe('admin_review_required_no_automatic_precedence')
+    expect(official.candidates[1].assetNames).toEqual(['vf5.pdf'])
+
+    const manual = detectSemanticConflicts([
+      base,
+      {
+        ...base,
+        factId: 'fact-manual',
+        factGroupId: 'group-manual',
+        valueNumeric: 7,
+        provenances: [{ origin: 'manifest_transcription', sourceId: 'warranty' }],
+      },
+    ])[0]
+    expect(manual.type).toBe('MANUAL_TRANSCRIPTION_CONFLICT')
   })
 
   it('preserves a rejection when the review dataset is rebuilt', () => {
@@ -234,14 +281,21 @@ describe('after-sales human approval and persistence contract', () => {
   it('preserves all provenance records and resolves PDF asset links', () => {
     const review = dataset()
     const evidence = review.facts.flatMap((fact: any) => fact.evidence)
-    expect(review.sourceCount).toBe(6)
-    expect(review.assetCount).toBe(52)
+    expect(review.sourceCount).toBe(manifest.sources.length)
+    expect(review.assetCount).toBe(verifiedAssetCount)
     expect(review.factCount).toBe(normalized.facts.length)
     expect(review.evidenceCount).toBe(normalized.summary.evidenceCount)
-    expect(evidence.filter((item: any) => item.pdfPage !== null)).toHaveLength(280)
-    expect(evidence.filter((item: any) => item.pdfPage !== null && item.assetId)).toHaveLength(280)
+    const expectedPdfEvidence = normalized.facts
+      .flatMap((fact: any) => fact.provenances)
+      .filter((item: any) => item.pdfPage !== null).length
+    expect(evidence.filter((item: any) => item.pdfPage !== null)).toHaveLength(expectedPdfEvidence)
+    expect(evidence.filter((item: any) => item.pdfPage !== null && item.assetId)).toHaveLength(expectedPdfEvidence)
+    expect(evidence.every((item: any) => item.sourceValueText)).toBe(true)
     expect(evidence.every((item: any) => item.sourceUrl.startsWith('https://vinfastauto.com'))).toBe(true)
-    expect(evidence.filter((item: any) => item.origin === 'snapshot_page_text').every((item: any) => item.contextIndex?.version === 'after-sales-evidence-context-v1')).toBe(true)
+    expect(evidence.filter((item: any) => item.origin === 'snapshot_page_text').every((item: any) => ['after-sales-evidence-context-v1', 'after-sales-evidence-context-v2'].includes(item.contextIndex?.version))).toBe(true)
+    const normalizedById = new Map(normalized.facts.map((fact: any) => [fact.factId, fact]))
+    expect(review.facts.every((fact: any) => fact.batteryChemistry === (normalizedById.get(fact.factId)?.batteryChemistry || 'not_applicable'))).toBe(true)
+    expect(review.facts.every((fact: any) => JSON.stringify(fact.sourceFactGroupIds) === JSON.stringify(normalizedById.get(fact.factId)?.sourceFactGroupIds || []))).toBe(true)
   })
 
   it('produces an insert-only dry-run plan for an empty database', () => {
@@ -251,8 +305,8 @@ describe('after-sales human approval and persistence contract', () => {
     expect(plan.rejectedWrites).toHaveLength(0)
     expect(plan.writes).toBe(0)
     expect(plan.summary).toMatchObject({
-      sources: { inserts: 6, updates: 0, unchanged: 0 },
-      assets: { inserts: 52, updates: 0, unchanged: 0 },
+      sources: { inserts: manifest.sources.length, updates: 0, unchanged: 0 },
+      assets: { inserts: verifiedAssetCount, updates: 0, unchanged: 0 },
       facts: { inserts: normalized.facts.length, updates: 0, unchanged: 0 },
       evidence: { inserts: normalized.summary.evidenceCount, updates: 0, unchanged: 0 },
     })
@@ -266,7 +320,7 @@ describe('after-sales human approval and persistence contract', () => {
     ]))
     const second = buildImportPlan(dataset(), existing)
     expect(second.conflicts).toHaveLength(0)
-    expect(second.summary.sources).toMatchObject({ inserts: 0, updates: 0, unchanged: 6 })
+    expect(second.summary.sources).toMatchObject({ inserts: 0, updates: 0, unchanged: manifest.sources.length })
     expect(second.summary.facts).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.facts.length })
     expect(second.summary.evidence).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.summary.evidenceCount })
   })

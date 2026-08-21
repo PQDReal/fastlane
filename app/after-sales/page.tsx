@@ -11,6 +11,9 @@ export const metadata: Metadata = {
     'Chính sách bảo hành lên tới 10 năm, dịch vụ bảo dưỡng định kỳ, sửa chữa chuyên sâu, cứu hộ 24/7 và tra cứu sổ tay hướng dẫn sử dụng xe FASTLANE.',
 }
 
+export const revalidate = 300
+export const dynamic = 'force-dynamic'
+
 export default async function AfterSalesPage() {
   const [afterSalesData, manualModels] = await Promise.all([
     getAfterSalesData(),

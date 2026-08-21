@@ -11,6 +11,7 @@ import {
 
 const ROOT = process.cwd()
 const reportPath = path.join(ROOT, '.local/after-sales/persistence-hardening-report.json')
+const normalizedV6Path = path.join(ROOT, '.local/after-sales/after-sales-normalized-v6.json')
 
 const clone = value => JSON.parse(JSON.stringify(value))
 const tableRows = plan => Object.fromEntries(Object.entries(plan.tables).map(([table, value]) => [
@@ -55,7 +56,10 @@ function replaceFactValue(fact, valueNumeric) {
   }
 }
 
-const dataset = buildReviewDatasetFromFiles({ root: ROOT })
+const dataset = buildReviewDatasetFromFiles({
+  root: ROOT,
+  normalizedPath: fs.existsSync(normalizedV6Path) ? normalizedV6Path : null,
+})
 const emptyPlan = buildImportPlan(dataset)
 const existing = tableRows(emptyPlan)
 const idempotentPlan = buildImportPlan(dataset, existing)
