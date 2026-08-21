@@ -40,6 +40,18 @@ export const getManualModels = cache(async (): Promise<ManualModel[]> => {
   return data as ManualModel[]
 })
 
+export const getManualModel = cache(async (modelId: string): Promise<ManualModel | undefined> => {
+  const supabase = getSupabaseAdmin()
+  const { data, error } = await supabase.from('manual_models').select('*').eq('id', modelId).maybeSingle()
+
+  if (error) {
+    console.error('Error fetching manual model from DB:', JSON.stringify(error))
+    return undefined
+  }
+
+  return (data as ManualModel | null) ?? undefined
+})
+
 export const getManualTree = cache(async (modelId: string): Promise<ManualArticle[]> => {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase

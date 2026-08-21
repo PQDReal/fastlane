@@ -1,9 +1,6 @@
 import crypto from 'node:crypto'
 import { reindexSerializedEvidenceContext } from './after-sales-evidence-context.mjs'
-import {
-  statementPrefixThroughValue,
-  valueLocalRowPrefix,
-} from './after-sales-statement-scope.mjs'
+import { statementPrefixThroughValue, valueLocalRowPrefix } from './after-sales-statement-scope.mjs'
 
 export const DEFAULT_MODEL_POWERTRAINS = Object.freeze({
   Fadil: 'petrol',
@@ -88,9 +85,13 @@ function unique(values) {
 
 function mergeAlternativeTriggers(facts) {
   const triggers = facts
-    .flatMap(fact => Array.isArray(fact.alternativeTriggers) ? fact.alternativeTriggers : [])
-    .filter(trigger => trigger?.type === 'event' && trigger?.code && trigger?.sourceText)
-    .sort((left, right) => String(left.code).localeCompare(String(right.code)) || String(left.sourceText).localeCompare(String(right.sourceText), 'vi'))
+    .flatMap((fact) => (Array.isArray(fact.alternativeTriggers) ? fact.alternativeTriggers : []))
+    .filter((trigger) => trigger?.type === 'event' && trigger?.code && trigger?.sourceText)
+    .sort(
+      (left, right) =>
+        String(left.code).localeCompare(String(right.code)) ||
+        String(left.sourceText).localeCompare(String(right.sourceText), 'vi'),
+    )
   const byCode = new Map()
   for (const trigger of triggers) {
     if (byCode.has(trigger.code)) continue
@@ -108,15 +109,14 @@ function clone(value) {
 }
 
 function evidenceText(fact) {
-  return (fact.provenances || []).map(item => item.excerpt || '').join(' ')
+  return (fact.provenances || []).map((item) => item.excerpt || '').join(' ')
 }
 
 function evidenceMatchBounds(provenance) {
   const index = provenance?.contextIndex
   if (!Number.isInteger(index?.matchStart) || !Number.isInteger(index?.matchEnd)) return null
-  const offset = index.offsetBasis === 'source_text_utf16' && Number.isInteger(index.excerptStart)
-    ? index.excerptStart
-    : 0
+  const offset =
+    index.offsetBasis === 'source_text_utf16' && Number.isInteger(index.excerptStart) ? index.excerptStart : 0
   return {
     matchStart: index.matchStart - offset,
     matchEnd: index.matchEnd - offset,
@@ -170,9 +170,8 @@ function semanticSignature(fact) {
 }
 
 function dedupeSignature(fact) {
-  const valueNumeric = fact.unit === 'month' && Number(fact.valueNumeric) % 12 === 0
-    ? Number(fact.valueNumeric) / 12
-    : fact.valueNumeric
+  const valueNumeric =
+    fact.unit === 'month' && Number(fact.valueNumeric) % 12 === 0 ? Number(fact.valueNumeric) / 12 : fact.valueNumeric
   const unit = fact.unit === 'month' && Number(fact.valueNumeric) % 12 === 0 ? 'year' : fact.unit
   return JSON.stringify([
     fact.serviceType,
@@ -209,15 +208,14 @@ function normalizePowertrain(fact, modelPowertrains) {
 
 function normalizeBatteryChemistry(fact) {
   if (fact.subject !== 'battery') return 'not_applicable'
-  return ['lfp', 'non_lfp', 'unspecified'].includes(fact.batteryChemistry)
-    ? fact.batteryChemistry
-    : 'unspecified'
+  return ['lfp', 'non_lfp', 'unspecified'].includes(fact.batteryChemistry) ? fact.batteryChemistry : 'unspecified'
 }
 
 function normalizeUsage(fact) {
-  const text = fold((fact.provenances || []).map(provenance => scopedEvidenceText(fact, provenance)).join(' '))
-    .replace(/\s+/gu, ' ')
-  if (fact.factType === 'battery_capacity_threshold') return 'general'
+  const text = fold(
+    (fact.provenances || []).map((provenance) => scopedEvidenceText(fact, provenance)).join(' '),
+  ).replace(/\s+/gu, ' ')
+  if (['battery_capacity_threshold', 'battery_post_repair_capacity_floor'].includes(fact.factType)) return 'general'
   if (fact.serviceType !== 'warranty') return fact.usageCondition || 'general'
   if (fact.applicability === 'customer_paid_replacement') return 'general'
   // A standard-use clause often says "except commercial use" before giving
@@ -230,15 +228,28 @@ function normalizeUsage(fact) {
 }
 
 function normalizeKnownSemanticDefects(fact) {
-  const semanticText = fold((fact.provenances || [fact.provenance])
-    .filter(Boolean)
-    .map(provenance => provenance.excerpt || '')
-    .join(' '))
+  const semanticText = fold(
+    (fact.provenances || [fact.provenance])
+      .filter(Boolean)
+      .map((provenance) => provenance.excerpt || '')
+      .join(' '),
+  ).replace(/\s+/gu, ' ')
   const replacementBatteryChemistry = /\bpin\s+lfp\s*:/u.test(semanticText)
     ? 'lfp'
     : /\bpin\s+khac\s*\(\s*khong\s+phai\s+pin\s+lfp\s*\)\s*:/u.test(semanticText)
       ? 'non_lfp'
       : null
+  const isPostRepairCapacityFloor =
+    fact.factType === 'battery_capacity_threshold' &&
+    /(?:sua chua|thay the).{0,240}(?:pham vi bao hanh).{0,240}(?:dam bao\s+)?dung luong pin|(?:pham vi bao hanh).{0,240}(?:sua chua|thay the).{0,240}(?:dam bao\s+)?dung luong pin/u.test(
+      semanticText,
+    )
+  if (isPostRepairCapacityFloor) {
+    fact.factType = 'battery_post_repair_capacity_floor'
+    fact.action = 'post_repair_capacity_floor'
+    fact.qualifier = 'minimum'
+    fact.usageCondition = 'general'
+  }
   if (fact.serviceType === 'warranty' && fact.vehicleType === 'motorbike' && replacementBatteryChemistry) {
     fact.subject = 'battery'
     fact.policyEntity = 'battery'
@@ -315,7 +326,9 @@ function expandMultiModelEvidence(facts) {
   for (const group of evidenceGroups.values()) {
     const template = group.facts[0]
     for (const model of group.models) {
-      const target = facts.find(fact => fact.model === model && semanticSignature(fact) === semanticSignature(template))
+      const target = facts.find(
+        (fact) => fact.model === model && semanticSignature(fact) === semanticSignature(template),
+      )
       if (target) {
         target.provenances = [...(target.provenances || []), clone(group.provenance)]
       } else {
@@ -337,7 +350,8 @@ function normalizeDistanceAndQualifier(fact) {
   const hasWhichever = /tuy.{0,80}(?:dieu kien)?.{0,40}den truoc/u.test(text)
   if (hasWhichever) fact.qualifier = 'whichever_comes_first'
   if (/khong gioi han\s+(?:quang duong(?:\s+su dung)?|so\s*km|km)\b/u.test(text)) fact.distancePolicy = 'unlimited'
-  if (fact.factType === 'battery_capacity_threshold') fact.qualifier = 'minimum'
+  if (['battery_capacity_threshold', 'battery_post_repair_capacity_floor'].includes(fact.factType))
+    fact.qualifier = 'minimum'
 
   if (fact.intervalRelation === 'or') {
     if (fact.unit === 'km') fact.distancePolicy = 'limited'
@@ -353,9 +367,10 @@ function prepareProvenance(fact, provenance) {
   const value = clone(provenance)
   value.sourceValueText = value.sourceValueText || fact.valueText
   if (['snapshot_page_text', 'asset_text_extraction'].includes(value.origin)) {
-    const hasRawAnchor = value.contextIndex?.version === 'after-sales-evidence-context-v2'
-      && value.contextIndex?.sourceOffsetsVerified === true
-      && value.contextIndex?.sourceAnchor?.kind
+    const hasRawAnchor =
+      value.contextIndex?.version === 'after-sales-evidence-context-v2' &&
+      value.contextIndex?.sourceOffsetsVerified === true &&
+      value.contextIndex?.sourceAnchor?.kind
     if (hasRawAnchor) return value
     const repaired = reindexSerializedEvidenceContext(value.excerpt, value.sourceValueText, value.contextIndex)
     if (!repaired.matched) {
@@ -388,13 +403,13 @@ function mergeFacts(facts) {
       const rightOrder = PRIMARY_ORIGIN_ORDER.get(right.origin) ?? 99
       return leftOrder - rightOrder || provenanceFingerprint(left).localeCompare(provenanceFingerprint(right))
     })
-    primary.semanticFlags = unique(group.flatMap(fact => fact.semanticFlags || []))
-    primary.groupSemanticFlags = unique(group.flatMap(fact => fact.groupSemanticFlags || []))
+    primary.semanticFlags = unique(group.flatMap((fact) => fact.semanticFlags || []))
+    primary.groupSemanticFlags = unique(group.flatMap((fact) => fact.groupSemanticFlags || []))
     primary.alternativeTriggers = mergeAlternativeTriggers(group)
-    primary.sourceFactGroupIds = unique(group.map(fact => fact.factGroupId).filter(Boolean)).sort()
-    primary.confidence = Math.max(...group.map(fact => Number(fact.confidence) || 0))
-    primary.supersedesFactIds = unique(group.map(fact => fact.factId).filter(Boolean)).sort()
-    primary.reviewStatus = primary.provenances.every(item => item.origin === 'manifest_transcription')
+    primary.sourceFactGroupIds = unique(group.map((fact) => fact.factGroupId).filter(Boolean)).sort()
+    primary.confidence = Math.max(...group.map((fact) => Number(fact.confidence) || 0))
+    primary.supersedesFactIds = unique(group.map((fact) => fact.factId).filter(Boolean)).sort()
+    primary.reviewStatus = primary.provenances.every((item) => item.origin === 'manifest_transcription')
       ? 'pending_admin_review'
       : 'pending'
     primary.reviewReasons = primary.reviewStatus === 'pending_admin_review' ? ['MANUAL_ONLY_SOURCE'] : []
@@ -427,7 +442,7 @@ function finalizeIdentity(fact) {
   fact.factId = hash('af_fact_', `after-sales-fact-v6|${fact.canonicalKey}`)
   const legacyGroups = fact.sourceFactGroupIds?.length
     ? unique(fact.sourceFactGroupIds).sort()
-    : unique((fact.supersedesFactIds || []).map(id => id || '')).sort()
+    : unique((fact.supersedesFactIds || []).map((id) => id || '')).sort()
   const groupScope = [
     fact.serviceType,
     fact.vehicleType,
@@ -439,10 +454,14 @@ function finalizeIdentity(fact) {
   ].join('|')
   fact.factGroupId = hash('af_group_', `after-sales-group-v6|${legacyGroups.join('|')}|${groupScope}`, 16)
   if (fact.intervalGroupId) {
-    fact.intervalGroupId = hash('af_interval_', `after-sales-interval-v6|${fact.model || 'all_models'}|${fact.subject}|${fact.action}|${fact.intervalGroupId}`, 16)
+    fact.intervalGroupId = hash(
+      'af_interval_',
+      `after-sales-interval-v6|${fact.model || 'all_models'}|${fact.subject}|${fact.action}|${fact.intervalGroupId}`,
+      16,
+    )
   }
   fact.provenance = fact.provenances[0]
-  fact.sourceIds = unique(fact.provenances.map(item => item.sourceId))
+  fact.sourceIds = unique(fact.provenances.map((item) => item.sourceId))
   fact.sourceId = fact.provenance.sourceId
   fact.evidenceCount = fact.provenances.length
   return fact
@@ -456,14 +475,14 @@ function ensureUniqueCanonicalKeys(facts) {
   }
 }
 
-export function correctNormalizedDataset(input, {
-  modelPowertrains = DEFAULT_MODEL_POWERTRAINS,
-  normalizedAt = new Date().toISOString(),
-} = {}) {
+export function correctNormalizedDataset(
+  input,
+  { modelPowertrains = DEFAULT_MODEL_POWERTRAINS, normalizedAt = new Date().toISOString() } = {},
+) {
   const sourceFacts = input.facts || []
   let facts = sourceFacts
-    .filter(fact => !REMOVED_FACT_IDS.has(fact.factId))
-    .map(fact => {
+    .filter((fact) => !REMOVED_FACT_IDS.has(fact.factId))
+    .map((fact) => {
       const normalized = normalizeKnownSemanticDefects(clone(fact))
       normalized.batteryChemistry = normalizeBatteryChemistry(normalized)
       return normalized
@@ -471,38 +490,44 @@ export function correctNormalizedDataset(input, {
 
   facts = splitAssetScopedFacts(facts)
   facts = expandMultiModelEvidence(facts)
-  facts = facts.map(fact => {
+  facts = facts.map((fact) => {
     fact.usageCondition = normalizeUsage(fact)
     fact.powertrain = normalizePowertrain(fact, modelPowertrains)
     return normalizeDistanceAndQualifier(fact)
   })
   const candidateFacts = facts.length
   facts = mergeFacts(facts)
-  facts = facts.map(fact => {
-    fact.powertrain = normalizePowertrain(fact, modelPowertrains)
-    return finalizeIdentity(fact)
-  }).sort((left, right) => left.canonicalKey.localeCompare(right.canonicalKey))
+  facts = facts
+    .map((fact) => {
+      fact.powertrain = normalizePowertrain(fact, modelPowertrains)
+      return finalizeIdentity(fact)
+    })
+    .sort((left, right) => left.canonicalKey.localeCompare(right.canonicalKey))
 
   ensureUniqueCanonicalKeys(facts)
 
   const normalizedFacts = facts.length
   const duplicateCandidatesMerged = Math.max(0, candidateFacts - normalizedFacts)
-  const machineEvidence = facts.flatMap(fact => fact.provenances || [])
-    .filter(provenance => provenance.origin !== 'manifest_transcription')
-  const rawAnchoredEvidence = machineEvidence.filter(provenance => (
-    provenance.contextIndex?.sourceOffsetsVerified === true
-    && provenance.contextIndex?.sourceAnchor?.kind
-  )).length
+  const machineEvidence = facts
+    .flatMap((fact) => fact.provenances || [])
+    .filter((provenance) => provenance.origin !== 'manifest_transcription')
+  const rawAnchoredEvidence = machineEvidence.filter(
+    (provenance) =>
+      provenance.contextIndex?.sourceOffsetsVerified === true && provenance.contextIndex?.sourceAnchor?.kind,
+  ).length
   const rawCorpusAvailable = rawAnchoredEvidence === machineEvidence.length
   return {
     ...clone(input),
     schemaVersion: 6,
     normalizerVersion: 'after-sales-facts-v6-corrected',
+    controlledFactTypes: unique([...(input.controlledFactTypes || []), 'battery_post_repair_capacity_floor']).sort(),
     normalizedAt,
     publicationStatus: rawCorpusAvailable ? 'pending_admin_approval' : 'hold_raw_recrawl_required',
     normalizationBasis: {
       inputSchemaVersion: input.schemaVersion,
-      mode: rawCorpusAvailable ? 'rebuild_from_raw_dom_and_pdf_anchors' : 'corrective_rebuild_from_normalized_evidence_projection',
+      mode: rawCorpusAvailable
+        ? 'rebuild_from_raw_dom_and_pdf_anchors'
+        : 'corrective_rebuild_from_normalized_evidence_projection',
       rawCorpusAvailable,
       rawAnchoredEvidence,
       unverifiedEvidence: machineEvidence.length - rawAnchoredEvidence,
@@ -517,16 +542,26 @@ export function correctNormalizedDataset(input, {
       candidateFacts,
       normalizedFacts,
       duplicateCandidatesMerged,
-      usageAliasesMerged: sourceFacts.length - new Set(sourceFacts.map(fact => dedupeSignature({
-        ...fact,
-        usageCondition: fact.serviceType === 'warranty' && fact.usageCondition === 'general' ? 'standard_use' : fact.usageCondition,
-        powertrain: normalizePowertrain(fact, modelPowertrains),
-      }))).size,
+      usageAliasesMerged:
+        sourceFacts.length -
+        new Set(
+          sourceFacts.map((fact) =>
+            dedupeSignature({
+              ...fact,
+              usageCondition:
+                fact.serviceType === 'warranty' && fact.usageCondition === 'general'
+                  ? 'standard_use'
+                  : fact.usageCondition,
+              powertrain: normalizePowertrain(fact, modelPowertrains),
+            }),
+          ),
+        ).size,
       evidenceCount: facts.reduce((sum, fact) => sum + fact.provenances.length, 0),
       rawAnchoredEvidence,
       unverifiedEvidence: machineEvidence.length - rawAnchoredEvidence,
-      factsNeedingReview: facts.filter(fact => fact.reviewStatus === 'pending_admin_review').length,
-      curatedFacts: facts.filter(fact => fact.provenances.some(item => item.origin === 'manifest_transcription')).length,
+      factsNeedingReview: facts.filter((fact) => fact.reviewStatus === 'pending_admin_review').length,
+      curatedFacts: facts.filter((fact) => fact.provenances.some((item) => item.origin === 'manifest_transcription'))
+        .length,
       removedUngroundedFacts: REMOVED_FACT_IDS.size,
       correctedAt: normalizedAt,
     },

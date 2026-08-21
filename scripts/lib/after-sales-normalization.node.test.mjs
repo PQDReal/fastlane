@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  buildEvidenceContext,
-  reindexSerializedEvidenceContext,
-} from './after-sales-evidence-context.mjs'
+import { buildEvidenceContext, reindexSerializedEvidenceContext } from './after-sales-evidence-context.mjs'
 import { decomposeSemanticClause, detectSubjectHint } from './after-sales-semantic-clause.mjs'
 import {
   inferBatteryChemistry,
@@ -68,30 +65,105 @@ test('semantic parser preserves non-numeric alternatives as structured event tri
     'Các dòng xe VinFast được khuyến cáo nên thay dầu động cơ mỗi năm 1 lần hoặc dựa vào cảnh báo mức dầu trên màn hình hiển thị.',
     'mỗi năm',
   )
-  assert.deepEqual(oil.nonNumericAlternativeTriggers, [{
-    type: 'event',
-    code: 'dashboard_oil_level_warning',
-    sourceText: 'dựa vào cảnh báo mức dầu trên màn hình hiển thị',
-  }])
+  assert.deepEqual(oil.nonNumericAlternativeTriggers, [
+    {
+      type: 'event',
+      code: 'dashboard_oil_level_warning',
+      sourceText: 'dựa vào cảnh báo mức dầu trên màn hình hiển thị',
+    },
+  ])
   assert.deepEqual(oil.flags, ['NON_NUMERIC_ALTERNATIVE_TRIGGER'])
 
   const tire = decomposeSemanticClause(
     'Kiểm tra tình trạng lốp trước khi chạy hay kiểm tra áp suất lốp sau mỗi lần đổ xăng, hoặc ít nhất 1 lần 1 tháng.',
     '1 tháng',
   )
-  assert.deepEqual(tire.nonNumericAlternativeTriggers.map(trigger => trigger.code), [
-    'after_refueling',
-    'before_driving',
-  ])
+  assert.deepEqual(
+    tire.nonNumericAlternativeTriggers.map((trigger) => trigger.code),
+    ['after_refueling', 'before_driving'],
+  )
   assert.deepEqual(tire.flags, ['NON_NUMERIC_ALTERNATIVE_TRIGGER'])
 })
 
 test('model parser emits middle items and keeps VF 8 distinct from All New', () => {
-  assert.deepEqual(
-    extractMentionedModels('Áp dụng cho VF 3, VF 7, VF 8, VF 9, VF 8 The All New.'),
-    ['VF 8 The All New', 'VF 3', 'VF 7', 'VF 8', 'VF 9'],
-  )
+  assert.deepEqual(extractMentionedModels('Áp dụng cho VF 3, VF 7, VF 8, VF 9, VF 8 The All New.'), [
+    'VF 8 The All New',
+    'VF 3',
+    'VF 7',
+    'VF 8',
+    'VF 9',
+  ])
   assert.equal(inferAssetModel('https://example.test/VinFast_VF6_SUV_2023_Electric_VN_ERG.pdf'), 'VF 6')
+})
+
+test('corrector separates post-repair battery capacity floor from warranty eligibility', () => {
+  const excerpt = 'VinFast sẽ sửa chữa hoặc thay thế trong phạm vi bảo hành của pin và đảm bảo dung lượng pin trên 70%.'
+  const value = '70%'
+  const matchStart = excerpt.indexOf(value)
+  const provenance = {
+    origin: 'asset_text_extraction',
+    sourceId: 'vinfast-warranty-car',
+    sourceUrl: 'https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-oto',
+    snapshotHash: `sha256:${'d'.repeat(64)}`,
+    capturedAt: '2026-08-20T00:00:00.000Z',
+    assetUrl: 'https://static-cms-prod.vinfastauto.com/vf7-warranty.pdf',
+    assetHash: `sha256:${'e'.repeat(64)}`,
+    pdfPage: 7,
+    extractionMethod: 'pdf_text_layer',
+    extractionConfidence: 0.95,
+    sourceValueText: value,
+    excerpt,
+    contextIndex: {
+      version: 'after-sales-evidence-context-v2',
+      offsetBasis: 'source_text_utf16',
+      sourceOffsetsVerified: true,
+      sourceAnchor: { kind: 'pdf_page_text', assetHash: `sha256:${'e'.repeat(64)}`, pdfPage: 7 },
+      sourceStart: 0,
+      sourceEnd: excerpt.length,
+      excerptStart: 0,
+      excerptEnd: excerpt.length,
+      matchStart,
+      matchEnd: matchStart + value.length,
+    },
+  }
+  const fact = {
+    factId: 'legacy-capacity-threshold',
+    factGroupId: 'legacy-capacity-group',
+    serviceType: 'warranty',
+    vehicleType: 'car',
+    powertrain: 'electric',
+    model: 'VF 7',
+    subject: 'battery',
+    policyEntity: 'battery',
+    batteryChemistry: 'unspecified',
+    usageCondition: 'general',
+    applicability: 'original_equipment',
+    action: 'warranty_coverage',
+    factType: 'battery_capacity_threshold',
+    valueNumeric: 70,
+    valueText: value,
+    unit: 'percent',
+    qualifier: 'minimum',
+    intervalRelation: null,
+    intervalGroupId: null,
+    intervalGroupDistancePolicy: null,
+    distancePolicy: 'not_stated',
+    confidence: 0.82,
+    reviewStatus: 'pending',
+    semanticFlags: [],
+    groupSemanticFlags: [],
+    provenance,
+    provenances: [provenance],
+  }
+
+  const corrected = correctNormalizedDataset({
+    schemaVersion: 5,
+    controlledFactTypes: ['battery_capacity_threshold'],
+    facts: [fact],
+  })
+  assert.equal(corrected.facts[0].factType, 'battery_post_repair_capacity_floor')
+  assert.equal(corrected.facts[0].action, 'post_repair_capacity_floor')
+  assert(corrected.controlledFactTypes.includes('battery_post_repair_capacity_floor'))
 })
 
 test('corrector removes ungrounded fact and merges semantic duplicates', () => {
@@ -148,11 +220,11 @@ test('corrector removes ungrounded fact and merges semantic duplicates', () => {
   const corrected = correctNormalizedDataset(input, { normalizedAt: '2026-08-19T00:00:00.000Z' })
   assert.equal(corrected.schemaVersion, 6)
   assert.equal(corrected.facts.length, 2)
-  assert.deepEqual(corrected.facts.map(fact => fact.model).sort(), ['VF 7', 'VF 8'])
-  assert(corrected.facts.every(fact => fact.powertrain === 'electric'))
-  assert(corrected.facts.every(fact => fact.distancePolicy === 'unlimited'))
-  assert(corrected.facts.every(fact => fact.usageCondition === 'standard_use'))
-  assert(corrected.facts.every(fact => fact.provenance.contextIndex.version === 'after-sales-evidence-context-v2'))
+  assert.deepEqual(corrected.facts.map((fact) => fact.model).sort(), ['VF 7', 'VF 8'])
+  assert(corrected.facts.every((fact) => fact.powertrain === 'electric'))
+  assert(corrected.facts.every((fact) => fact.distancePolicy === 'unlimited'))
+  assert(corrected.facts.every((fact) => fact.usageCondition === 'standard_use'))
+  assert(corrected.facts.every((fact) => fact.provenance.contextIndex.version === 'after-sales-evidence-context-v2'))
 })
 
 test('corrector preserves an already verified raw-source anchor', () => {
@@ -257,7 +329,11 @@ test('commercial-use words inside an exclusion do not flip standard-use policy',
     provenance,
     provenances: [provenance],
   }
-  const corrected = correctNormalizedDataset({ schemaVersion: 5, controlledFactTypes: ['battery_warranty_duration'], facts: [fact] })
+  const corrected = correctNormalizedDataset({
+    schemaVersion: 5,
+    controlledFactTypes: ['battery_warranty_duration'],
+    facts: [fact],
+  })
   assert.equal(corrected.facts[0].usageCondition, 'standard_use')
 })
 
@@ -298,7 +374,7 @@ test('corrector preserves one fact group for enumerated maintenance checkpoints'
     semanticFlags: [],
     groupSemanticFlags: [],
   }
-  const facts = [12, 24, 36].map(value => ({
+  const facts = [12, 24, 36].map((value) => ({
     ...structuredClone(base),
     factId: `legacy-${value}`,
     valueNumeric: value,
@@ -307,7 +383,7 @@ test('corrector preserves one fact group for enumerated maintenance checkpoints'
     provenances: [{ ...structuredClone(provenance), excerpt: `${value} tháng` }],
   }))
   const corrected = correctNormalizedDataset({ schemaVersion: 5, facts })
-  assert.equal(new Set(corrected.facts.map(fact => fact.factGroupId)).size, 1)
+  assert.equal(new Set(corrected.facts.map((fact) => fact.factGroupId)).size, 1)
 })
 
 test('statement scope does not borrow models or usage markers from a later warranty row', () => {
@@ -342,7 +418,8 @@ test('statement scope does not borrow models or usage markers from a later warra
 })
 
 test('row scope retains a model prefix across comma-separated maintenance checkpoints', () => {
-  const statement = 'VinFast Lux A2.0, VinFast Lux SA2.0 và President: kiểm tra tại các mốc 12 tháng, 24 tháng và 36 tháng.'
+  const statement =
+    'VinFast Lux A2.0, VinFast Lux SA2.0 và President: kiểm tra tại các mốc 12 tháng, 24 tháng và 36 tháng.'
   for (const value of ['12 tháng', '24 tháng', '36 tháng']) {
     const matchStart = statement.indexOf(value)
     const scope = valueLocalRowPrefix(statement, value, {
@@ -390,13 +467,14 @@ test('flattened warranty page keeps vehicle and high-voltage battery sections se
   const vehicleSection = 'Thời hạn bảo hành ô tô Đối với xe được sử dụng ở điều kiện sử dụng tiêu chuẩn:'
   assert.equal(inferPolicySectionSubject(vehicleSection), 'vehicle')
 
-  const batterySection = `${vehicleSection} VF 3: 7 năm hoặc 160.000 km. `
-    + 'Phụ tùng xe mới bảo hành giới hạn Pin cao áp '
-    + 'Pin cao áp mua theo xe mới, sử dụng tiêu chuẩn:'
+  const batterySection =
+    `${vehicleSection} VF 3: 7 năm hoặc 160.000 km. ` +
+    'Phụ tùng xe mới bảo hành giới hạn Pin cao áp ' +
+    'Pin cao áp mua theo xe mới, sử dụng tiêu chuẩn:'
   assert.equal(inferPolicySectionSubject(batterySection), 'battery')
 
-  const replacementBatterySection = 'Bảo hành phụ tùng thay thế chính hãng '
-    + 'Phụ tùng không bao gồm pin: 2 năm. PIN:'
+  const replacementBatterySection =
+    'Bảo hành phụ tùng thay thế chính hãng ' + 'Phụ tùng không bao gồm pin: 2 năm. PIN:'
   assert.equal(inferPolicySectionSubject(replacementBatterySection), 'battery')
 })
 
@@ -454,9 +532,9 @@ test('corrector separates replacement LFP battery rows from ordinary replacement
       makeFact({ factId: 'lfp', valueNumeric: 8, excerpt: 'Pin LFP: 8 năm.' }),
     ],
   })
-  const replacementPart = corrected.facts.find(fact => fact.valueNumeric === 1)
-  const nonLfp = corrected.facts.find(fact => fact.valueNumeric === 3)
-  const lfp = corrected.facts.find(fact => fact.valueNumeric === 8)
+  const replacementPart = corrected.facts.find((fact) => fact.valueNumeric === 1)
+  const nonLfp = corrected.facts.find((fact) => fact.valueNumeric === 3)
+  const lfp = corrected.facts.find((fact) => fact.valueNumeric === 8)
   assert.equal(replacementPart.subject, 'replacement_part')
   assert.equal(nonLfp.subject, 'battery')
   assert.equal(nonLfp.batteryChemistry, 'non_lfp')

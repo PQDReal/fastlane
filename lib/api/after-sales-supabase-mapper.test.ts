@@ -120,8 +120,8 @@ function warrantyPair(model: string, prefix: string): PublishedAfterSalesFactRow
       battery_chemistry: 'unspecified',
       usage_condition: 'general',
       applicability: 'original_equipment',
-      action: 'warranty_coverage',
-      fact_type: 'battery_capacity_threshold',
+      action: 'post_repair_capacity_floor',
+      fact_type: 'battery_post_repair_capacity_floor',
       value_numeric: 70,
       value_text: '70%',
       unit: 'percent',
@@ -130,9 +130,7 @@ function warrantyPair(model: string, prefix: string): PublishedAfterSalesFactRow
   ]
 }
 
-function location(
-  overrides: Partial<PublishedAfterSalesLocationRow> = {},
-): PublishedAfterSalesLocationRow {
+function location(overrides: Partial<PublishedAfterSalesLocationRow> = {}): PublishedAfterSalesLocationRow {
   return {
     location_id: 'vinfast-workshop-test',
     release_id: release.release_id,
@@ -140,7 +138,6 @@ function location(
     location_category: 'official_car_workshop',
     vehicle_types: ['car'],
     service_types: ['general_after_sales'],
-    bookable_service_types: ['maintenance'],
     capability_granularity: 'location_category_only',
     address: {
       province: 'Hà Nội',
@@ -227,7 +224,7 @@ describe('published after-sales read-model mapper', () => {
       models: ['VF 8'],
       warrantyTerm: '10 năm hoặc 200.000 km',
     })
-    expect(data.warranties[0].batteryWarrantyTerm).toContain('ngưỡng dung lượng tối thiểu 70%')
+    expect(data.warranties[0].batteryWarrantyTerm).toBe('10 năm hoặc 200.000 km')
     expect(data.maintenances[0].intervals[0]).toMatchObject({ mileageKm: 12000, months: 12 })
     expect(data.repairs[0].description).toContain('30 phút')
     expect(data.rescues[0].coverage).toContain('Chuyển yêu cầu đến đơn vị điều phối trong 10 phút.')

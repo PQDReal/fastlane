@@ -1,4 +1,4 @@
-import { getManualArticle, getManualTree } from '@/lib/api/manuals-server'
+import { getManualArticle, getManualModel, getManualTree } from '@/lib/api/manuals-server'
 import { notFound } from 'next/navigation'
 import './manual.css'
 import { ArticleContent } from './article-content'
@@ -24,13 +24,18 @@ export async function generateMetadata(props: {
   const params = await props.params
   const decodedModelId = decodeURIComponent(params.modelId)
   const decodedArticleId = decodeURIComponent(params.articleId)
-  const article = await getManualArticle(decodedModelId, decodedArticleId)
+  const [article, model] = await Promise.all([
+    getManualArticle(decodedModelId, decodedArticleId),
+    getManualModel(decodedModelId),
+  ])
 
   if (!article) return { title: 'Không tìm thấy - FASTLANE' }
 
+  const modelLabel = model ? `${model.model_series || model.name} ${model.year}` : decodedModelId
+
   return {
-    title: `${article.title} - FASTLANE`,
-    description: `Hướng dẫn sử dụng VinFast: ${article.title}`,
+    title: `${article.title} | ${modelLabel} - FASTLANE`,
+    description: `Hướng dẫn sử dụng ${modelLabel}: ${article.title}`,
   }
 }
 
@@ -41,16 +46,19 @@ export default async function ManualArticlePage(props: {
   const decodedModelId = decodeURIComponent(params.modelId)
   const decodedArticleId = decodeURIComponent(params.articleId)
 
-  const article = await getManualArticle(decodedModelId, decodedArticleId)
+  const [article, model, tree] = await Promise.all([
+    getManualArticle(decodedModelId, decodedArticleId),
+    getManualModel(decodedModelId),
+    getManualTree(decodedModelId),
+  ])
 
-  if (!article) {
+  if (!article || !model) {
     notFound()
   }
 
   const contentHtml = article.content_html || ''
 
   // Get search data (all articles for this model)
-  const tree = await getManualTree(decodedModelId)
   const searchData = tree
     .filter((item) => item.content_html && item.content_html.trim().length > 0)
     .map((item) => ({ id: item.id, title: item.title }))
@@ -60,6 +68,8 @@ export default async function ManualArticlePage(props: {
       <ArticleContent
         contentHtml={contentHtml}
         modelId={decodedModelId}
+        modelName={model.model_series || model.name}
+        modelYear={model.year}
         articleTitle={article.title}
         searchData={searchData}
       />

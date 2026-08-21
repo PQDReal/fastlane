@@ -1,4 +1,4 @@
-import { getFirstArticleId, getManualModels } from '@/lib/api/manuals-server'
+import { getFirstArticleId, getManualModel, getManualModels } from '@/lib/api/manuals-server'
 import { notFound, redirect } from 'next/navigation'
 
 export async function generateStaticParams() {
@@ -23,8 +23,7 @@ export default async function ModelManualIndexPage(props: {
     redirect(`/user-manual/${params.modelId}/${encodeURIComponent(firstArticleId)}`)
   }
 
-  const models = await getManualModels()
-  const model = models.find((m) => m.id === decodedModelId)
+  const model = await getManualModel(decodedModelId)
 
   if (!model) {
     notFound()

@@ -1,12 +1,6 @@
 export type VehicleCategoryType = 'car' | 'motorbike' | 'bus' | 'all'
 
-export type AfterSalesServiceType =
-  | 'warranty'
-  | 'maintenance'
-  | 'repair'
-  | 'rescue'
-  | 'manual'
-  | 'workshop'
+export type AfterSalesServiceType = 'warranty' | 'maintenance' | 'repair' | 'rescue' | 'manual' | 'workshop'
 
 export interface WarrantyFactItem {
   id: string
@@ -42,6 +36,7 @@ export interface MaintenanceServiceItem {
 
 export interface RepairServiceItem {
   id: string
+  vehicleType: 'car' | 'motorbike' | 'bus'
   title: string
   description: string
   badge: string
@@ -83,19 +78,4 @@ export interface AfterSalesData {
   sourcesSyncedAt?: string
   releaseId?: string
   dataOrigin?: 'supabase_published'
-}
-
-export interface ServiceBookingPayload {
-  fullName: string
-  phoneNumber: string
-  email?: string
-  vehicleType: 'car' | 'motorbike' | 'bus'
-  vehicleModel: string
-  licensePlate?: string
-  serviceType: string
-  preferredDate: string
-  preferredTime: string
-  workshopId: string
-  workshopName: string
-  note?: string
 }

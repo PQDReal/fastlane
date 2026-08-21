@@ -7,6 +7,7 @@ import type {
   ServiceWorkshopItem,
   WarrantyFactItem,
 } from './after-sales-types'
+import { formatAfterSalesMeasurement } from '../after-sales-display-value'
 
 export interface PublishedAfterSalesReleaseRow {
   release_id: string
@@ -49,7 +50,6 @@ export interface PublishedAfterSalesLocationRow {
   location_category: string
   vehicle_types: string[] | null
   service_types: string[] | null
-  bookable_service_types: string[] | null
   capability_granularity: string
   address: Record<string, unknown> | null
   contact: Record<string, unknown> | null
@@ -104,12 +104,11 @@ function textValue(value: unknown): string {
 }
 
 function factValue(fact: PublishedAfterSalesFactRow): string {
-  const explicit = textValue(fact.value_text)
-  if (explicit) return explicit
-
-  const numeric = numericValue(fact.value_numeric)
-  if (numeric === null) return 'Chưa cập nhật'
-  return `${numeric.toLocaleString('vi-VN')} ${textValue(fact.unit)}`.trim()
+  return formatAfterSalesMeasurement({
+    valueText: fact.value_text,
+    valueNumeric: fact.value_numeric,
+    unit: fact.unit,
+  })
 }
 
 function slugify(value: string): string {
@@ -187,8 +186,7 @@ function mapWarrantyFacts(facts: PublishedAfterSalesFactRow[]): WarrantyFactItem
       models: string[]
       vehicleCoverage: CoveragePair
       batteryCoverage: CoveragePair | null
-      batteryCapacity: string | null
-      commercialCoverage: string | null
+      commercialByModel: { model: string; coverage: string }[]
     }
   >()
 
@@ -221,17 +219,6 @@ function mapWarrantyFacts(facts: PublishedAfterSalesFactRow[]): WarrantyFactItem
       'battery_warranty_duration',
       'battery_warranty_distance',
     )
-    const capacityFact = modelFacts(
-      warrantyFacts,
-      model,
-      (fact) =>
-        fact.vehicle_type === 'car' &&
-        fact.subject === 'battery' &&
-        fact.applicability === 'original_equipment' &&
-        fact.fact_type === 'battery_capacity_threshold',
-    )[0]
-    const batteryCapacity = capacityFact ? factValue(capacityFact) : null
-
     const commercialVehicle = formatCoveragePair(
       modelFacts(
         warrantyFacts,
@@ -259,10 +246,7 @@ function mapWarrantyFacts(facts: PublishedAfterSalesFactRow[]): WarrantyFactItem
       'battery_warranty_distance',
     )
     const commercialCoverage = commercialVehicle
-      ? [
-          `Xe: ${commercialVehicle.term}`,
-          commercialBattery ? `pin: ${commercialBattery.term}` : null,
-        ]
+      ? [`Xe: ${commercialVehicle.term}`, commercialBattery ? `pin: ${commercialBattery.term}` : null]
           .filter(Boolean)
           .join('; ')
       : null
@@ -270,19 +254,17 @@ function mapWarrantyFacts(facts: PublishedAfterSalesFactRow[]): WarrantyFactItem
     const groupKey = JSON.stringify({
       vehicle: vehicleCoverage.term,
       battery: batteryCoverage?.term ?? null,
-      capacity: batteryCapacity,
-      commercial: commercialCoverage,
     })
     const existing = groups.get(groupKey)
     if (existing) {
       existing.models.push(model)
+      if (commercialCoverage) existing.commercialByModel.push({ model, coverage: commercialCoverage })
     } else {
       groups.set(groupKey, {
         models: [model],
         vehicleCoverage,
         batteryCoverage,
-        batteryCapacity,
-        commercialCoverage,
+        commercialByModel: commercialCoverage ? [{ model, coverage: commercialCoverage }] : [],
       })
     }
   }
@@ -296,12 +278,15 @@ function mapWarrantyFacts(facts: PublishedAfterSalesFactRow[]): WarrantyFactItem
     })
     .map((group) => {
       const batteryTerm = group.batteryCoverage
-        ? `${group.batteryCoverage.term}${
-            group.batteryCapacity
-              ? ` (ngưỡng dung lượng tối thiểu ${group.batteryCapacity})`
-              : ''
-          }`
+        ? group.batteryCoverage.term
         : 'Không có chính sách pin tương ứng trong dữ liệu đã duyệt'
+      const commercialGroups = new Map<string, string[]>()
+      for (const entry of group.commercialByModel) {
+        commercialGroups.set(entry.coverage, [...(commercialGroups.get(entry.coverage) ?? []), entry.model])
+      }
+      const commercialWarranty = [...commercialGroups.entries()]
+        .map(([coverage, models]) => `${models.sort(viCollator.compare).join(', ')}: ${coverage}`)
+        .join(' • ')
       const conditions = [
         'Áp dụng cho xe nguyên bản trong điều kiện sử dụng tiêu chuẩn.',
         'Thời hạn hoặc quãng đường được tính theo điều kiện đến trước.',
@@ -309,27 +294,17 @@ function mapWarrantyFacts(facts: PublishedAfterSalesFactRow[]): WarrantyFactItem
       if (group.batteryCoverage) {
         conditions.push('Bảo hành pin áp dụng cho pin nguyên bản theo phạm vi đã công bố.')
       }
-      if (group.batteryCapacity) {
-        conditions.push(`Ngưỡng dung lượng pin tối thiểu được công bố: ${group.batteryCapacity}.`)
-      }
 
       return {
         id: `published-car-${slugify(group.models.join('-'))}`,
         vehicleType: 'car',
-        modelSeries:
-          group.models.length === 1
-            ? group.models[0]
-            : `Nhóm chính sách ${group.vehicleCoverage.term}`,
+        modelSeries: group.models.length === 1 ? group.models[0] : `Nhóm chính sách ${group.vehicleCoverage.term}`,
         models: group.models.sort(viCollator.compare),
         warrantyTerm: group.vehicleCoverage.term,
         batteryWarrantyTerm: batteryTerm,
-        batteryCapacityWarranty: group.batteryCapacity ?? undefined,
-        commercialWarranty: group.commercialCoverage ?? undefined,
+        commercialWarranty: commercialWarranty || undefined,
         conditions,
-        highlight:
-          (numericValue(group.vehicleCoverage.duration.value_numeric) ?? 0) >= 10
-            ? 'long_term'
-            : undefined,
+        highlight: (numericValue(group.vehicleCoverage.duration.value_numeric) ?? 0) >= 10 ? 'long_term' : undefined,
       }
     })
 
@@ -390,8 +365,7 @@ function pairedTimeFact(
   if (!distanceFact.interval_group_id) return undefined
   return facts.find(
     (fact) =>
-      fact.interval_group_id === distanceFact.interval_group_id &&
-      fact.fact_type === 'maintenance_interval_time',
+      fact.interval_group_id === distanceFact.interval_group_id && fact.fact_type === 'maintenance_interval_time',
   )
 }
 
@@ -403,10 +377,7 @@ function actionLabel(action: string | null): string {
   return ACTION_LABELS[action ?? ''] ?? 'Thực hiện'
 }
 
-function maintenanceStatement(
-  fact: PublishedAfterSalesFactRow,
-  scopeFacts: PublishedAfterSalesFactRow[],
-): string {
+function maintenanceStatement(fact: PublishedAfterSalesFactRow, scopeFacts: PublishedAfterSalesFactRow[]): string {
   const pair =
     fact.fact_type === 'maintenance_interval_distance'
       ? pairedTimeFact(fact, scopeFacts)
@@ -426,9 +397,7 @@ function maintenanceStatement(
     .join(pair ? ' hoặc ' : '')}`
 }
 
-function buildMaintenanceChecklist(
-  scopeFacts: PublishedAfterSalesFactRow[],
-): MaintenanceServiceItem['checklist'] {
+function buildMaintenanceChecklist(scopeFacts: PublishedAfterSalesFactRow[]): MaintenanceServiceItem['checklist'] {
   const seenGroups = new Set<string>()
   const categorized = new Map<string, Set<string>>()
 
@@ -463,9 +432,7 @@ function milestoneFromDistanceFact(
     new Set(
       scopeFacts
         .filter(
-          (fact) =>
-            fact.fact_type === 'maintenance_interval_distance' &&
-            numericValue(fact.value_numeric) === mileage,
+          (fact) => fact.fact_type === 'maintenance_interval_distance' && numericValue(fact.value_numeric) === mileage,
         )
         .map((fact) => `${actionLabel(fact.action)} ${subjectLabel(fact.subject)}`),
     ),
@@ -532,8 +499,7 @@ function mapMaintenanceFacts(facts: PublishedAfterSalesFactRow[]): MaintenanceSe
     .sort((left, right) => {
       if (left.generic !== right.generic) return left.generic ? -1 : 1
       return (
-        (numericValue(left.primary.value_numeric) ?? 0) -
-          (numericValue(right.primary.value_numeric) ?? 0) ||
+        (numericValue(left.primary.value_numeric) ?? 0) - (numericValue(right.primary.value_numeric) ?? 0) ||
         viCollator.compare(left.models[0] ?? '', right.models[0] ?? '')
       )
     })
@@ -551,9 +517,7 @@ function mapMaintenanceFacts(facts: PublishedAfterSalesFactRow[]): MaintenanceSe
           ? `published-maintenance-car-${slugify(group.primary.powertrain ?? 'general')}`
           : `published-maintenance-${slugify(sortedModels.join('-'))}`,
         vehicleType: 'car',
-        title: group.generic
-          ? 'Lịch bảo dưỡng chung cho ô tô điện'
-          : `Lịch bảo dưỡng ${sortedModels.join(' / ')}`,
+        title: group.generic ? 'Lịch bảo dưỡng chung cho ô tô điện' : `Lịch bảo dưỡng ${sortedModels.join(' / ')}`,
         description: group.generic
           ? 'Mốc bảo dưỡng chung theo dữ liệu chính thức đã được duyệt.'
           : `Mốc bảo dưỡng áp dụng cho ${sortedModels.join(', ')}.`,
@@ -564,9 +528,7 @@ function mapMaintenanceFacts(facts: PublishedAfterSalesFactRow[]): MaintenanceSe
     })
 
   const motorbikeFacts = maintenanceFacts.filter((fact) => fact.vehicle_type === 'motorbike')
-  const motorbikeDistanceFacts = motorbikeFacts.filter(
-    (fact) => fact.fact_type === 'maintenance_interval_distance',
-  )
+  const motorbikeDistanceFacts = motorbikeFacts.filter((fact) => fact.fact_type === 'maintenance_interval_distance')
   const motorbikeDistanceGroups = new Map<number, PublishedAfterSalesFactRow[]>()
   for (const distanceFact of motorbikeDistanceFacts) {
     const mileage = numericValue(distanceFact.value_numeric) ?? 0
@@ -606,7 +568,8 @@ function mapRepairFacts(facts: PublishedAfterSalesFactRow[]): RepairServiceItem[
     .sort((left, right) => left.fact_id.localeCompare(right.fact_id))
     .map((fact) => ({
       id: `published-repair-${fact.fact_id}`,
-      title: 'Đặt lịch sửa chữa',
+      vehicleType: fact.vehicle_type === 'motorbike' || fact.vehicle_type === 'bus' ? fact.vehicle_type : 'car',
+      title: 'Dịch vụ sửa chữa',
       description:
         fact.fact_type === 'appointment_arrival_window'
           ? `Mốc đến làm dịch vụ đúng hẹn được ghi nhận trong vòng ${factValue(fact)}.`
@@ -683,12 +646,8 @@ function mapServiceLocations(locations: PublishedAfterSalesLocationRow[]): Servi
         city: textValue(address.province) || 'Chưa cập nhật tỉnh/thành',
         district: textValue(address.district) || 'Chưa cập nhật quận/huyện',
         address: textValue(address.fullAddress) || 'Chưa cập nhật địa chỉ',
-        phone:
-          textValue(contact.servicePhone) ||
-          textValue(contact.generalPhone) ||
-          'Chưa cập nhật',
-        operatingHours:
-          opensAt && closesAt ? `${opensAt} - ${closesAt}` : 'Liên hệ xưởng',
+        phone: textValue(contact.servicePhone) || textValue(contact.generalPhone) || 'Chưa cập nhật',
+        operatingHours: opensAt && closesAt ? `${opensAt} - ${closesAt}` : 'Liên hệ xưởng',
         services,
         latitude: numericValue(address.latitude as number | string | null) ?? undefined,
         longitude: numericValue(address.longitude as number | string | null) ?? undefined,

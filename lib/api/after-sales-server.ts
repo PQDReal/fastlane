@@ -41,7 +41,6 @@ const LOCATION_COLUMNS = [
   'location_category',
   'vehicle_types',
   'service_types',
-  'bookable_service_types',
   'capability_granularity',
   'address',
   'contact',

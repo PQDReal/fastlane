@@ -13,6 +13,8 @@ interface ManualReaderPanelProps {
 
 interface ArticleData {
   contentHtml: string
+  modelName: string
+  modelYear: string
   articleTitle: string
   searchData: { id: string; title: string }[]
 }
@@ -71,6 +73,8 @@ export function ManualReaderPanel({ modelId, articleId, onClose }: ManualReaderP
             <ArticleContent
               modelId={modelId}
               contentHtml={data.contentHtml}
+              modelName={data.modelName}
+              modelYear={data.modelYear}
               articleTitle={data.articleTitle}
               searchData={data.searchData}
             />

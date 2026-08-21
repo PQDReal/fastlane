@@ -4,11 +4,7 @@ import { AccessTokenError } from '@auth0/nextjs-auth0/errors'
 
 import type { ServerTimingRecorder } from '@/lib/api/server-timing'
 import { auth0 } from '@/lib/auth0'
-import {
-  authorizeAccessToken,
-  authorizeRequest,
-  type AuthorizationPolicy,
-} from '@/lib/auth/authorize'
+import { authorizeAccessToken, authorizeRequest, type AuthorizationPolicy } from '@/lib/auth/authorize'
 import { ApiAuthError } from '@/lib/auth/errors'
 import { getCurrentUser } from '@/lib/auth/current-user'
 
@@ -17,10 +13,7 @@ export const adminCatalogPolicy = {
   requiredPermissions: ['catalog:manage'],
 } as const satisfies AuthorizationPolicy
 
-export async function authorizeAdminCatalogRequest(
-  request: Request,
-  timing?: ServerTimingRecorder,
-) {
+export async function authorizeAdminCatalogRequest(request: Request, timing?: ServerTimingRecorder) {
   if (request.headers.has('authorization')) {
     const jwtStartedAt = performance.now()
     try {
@@ -69,10 +62,27 @@ export const adminInventoryPolicy = {
   requiredPermissions: ['inventory:manage'],
 } as const satisfies AuthorizationPolicy
 
-export async function authorizeAdminInventoryRequest(
-  request: Request,
-  timing?: ServerTimingRecorder,
-) {
+export const adminAfterSalesPolicy = {
+  requiredRoles: ['admin'],
+} as const satisfies AuthorizationPolicy
+
+export async function authorizeAdminAfterSalesRequest(request: Request) {
+  if (request.headers.has('authorization')) {
+    return authorizeRequest(request, adminAfterSalesPolicy)
+  }
+
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  }
+  if (currentUser.role !== 'ADMIN') {
+    throw new ApiAuthError(403, 'INSUFFICIENT_PERMISSION', 'Administrator access is required.')
+  }
+
+  return currentUser
+}
+
+export async function authorizeAdminInventoryRequest(request: Request, timing?: ServerTimingRecorder) {
   if (request.headers.has('authorization')) {
     const jwtStartedAt = performance.now()
     try {

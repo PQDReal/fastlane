@@ -1,13 +1,12 @@
 'use client'
 
-import { Calendar, ChevronRight, ShieldCheck } from 'lucide-react'
+import { ChevronRight, ShieldCheck } from 'lucide-react'
 
 interface AfterSalesHeroProps {
-  onOpenBooking: () => void
   onSelectTab: (tab: string) => void
 }
 
-export function AfterSalesHero({ onOpenBooking, onSelectTab }: AfterSalesHeroProps) {
+export function AfterSalesHero({ onSelectTab }: AfterSalesHeroProps) {
   return (
     <section className="border-b border-slate-200 bg-[#f8fafc] pt-10 pb-8 sm:pt-14 sm:pb-10 lg:pt-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -23,14 +22,6 @@ export function AfterSalesHero({ onOpenBooking, onSelectTab }: AfterSalesHeroPro
         </div>
 
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={onOpenBooking}
-            className="inline-flex items-center justify-center gap-2 bg-[#836100] px-6 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white transition hover:bg-[#6c4f00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] focus-visible:ring-offset-2 active:scale-[0.98]"
-          >
-            <Calendar size={15} />
-            Đặt lịch dịch vụ
-          </button>
           <button
             type="button"
             onClick={() => onSelectTab('warranty')}

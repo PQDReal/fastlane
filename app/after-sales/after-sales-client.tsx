@@ -5,12 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   BookOpen,
-  Calendar,
   Car,
   ChevronDown,
   ChevronRight,
   Clock,
-  ExternalLink,
   MapPin,
   PhoneCall,
   Search,
@@ -27,7 +25,6 @@ import { MaintenanceContent } from './maintenance-content'
 import { MotorbikeWarrantyContent } from './motorbike-warranty-content'
 import { RepairContent } from './repair-content'
 import { RescueContent } from './rescue-content'
-import { ServiceBookingModal } from './service-booking-modal'
 
 interface AfterSalesClientProps {
   initialData: AfterSalesData
@@ -109,9 +106,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
   const router = useRouter()
   const [selectedVehicleType, setSelectedVehicleType] = useState<SupportedVehicleType>('car')
   const [activeTab, setActiveTab] = useState('warranty')
-  const [bookingModalOpen, setBookingModalOpen] = useState(false)
-  const [bookingInitialService, setBookingInitialService] = useState('Bảo dưỡng định kỳ')
-  const [bookingWorkshopId, setBookingWorkshopId] = useState('')
   const [selectedCity, setSelectedCity] = useState('all')
   const [workshopSearch, setWorkshopSearch] = useState('')
   const [manualSearchQuery, setManualSearchQuery] = useState('')
@@ -123,12 +117,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
     setToasts((previous) => [...previous, { ...toast, id: Date.now() + Math.random() }])
   }
 
-  const openBookingWithConfig = (serviceType: string, workshopId = '') => {
-    setBookingInitialService(serviceType)
-    setBookingWorkshopId(workshopId)
-    setBookingModalOpen(true)
-  }
-
   const selectVehicleType = (vehicleType: SupportedVehicleType) => {
     setSelectedVehicleType(vehicleType)
     if (vehicleType === 'motorbike' && activeTab === 'rescue') {
@@ -136,11 +124,15 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
     }
   }
 
-  const selectTab = (tabId: string, scrollToContent = false) => {
+  const selectTab = (tabId: string) => {
     setActiveTab(tabId)
-    if (scrollToContent) {
-      document.getElementById('after-sales-content')?.scrollIntoView({ behavior: 'smooth' })
-    }
+    window.requestAnimationFrame(() => {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      document.getElementById('after-sales-content')?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    })
   }
 
   const visibleTabs = TABS.filter((tab) => !tab.carOnly || selectedVehicleType === 'car')
@@ -211,12 +203,12 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
         onClose={(id) => setToasts((previous) => previous.filter((toast) => toast.id !== id))}
       />
 
-      <AfterSalesHero
-        onOpenBooking={() => openBookingWithConfig('Bảo dưỡng định kỳ')}
-        onSelectTab={(tabId) => selectTab(tabId, true)}
-      />
+      <AfterSalesHero onSelectTab={selectTab} />
 
-      <section id="after-sales-content" className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+      <section
+        id="after-sales-content"
+        className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-12 lg:px-8"
+      >
         <div className="grid gap-8 lg:grid-cols-[250px_minmax(0,1fr)] lg:items-start">
           <aside className="lg:sticky lg:top-24">
             <div className="border border-slate-200 bg-white">
@@ -285,13 +277,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
                 </nav>
               )}
 
-              <button
-                type="button"
-                onClick={() => openBookingWithConfig('Bảo dưỡng định kỳ')}
-                className="m-4 inline-flex w-[calc(100%-2rem)] items-center justify-center gap-2 bg-[#836100] px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#6c4f00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] focus-visible:ring-offset-2 active:scale-[0.98]"
-              >
-                <Calendar size={14} /> Đặt lịch dịch vụ
-              </button>
             </div>
           </aside>
 
@@ -320,7 +305,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
             {activeTab === 'warranty' && selectedVehicleType === 'car' && (
               <CarWarrantyContent
                 warranties={filteredWarranties}
-                onBookWarrantyCheck={() => openBookingWithConfig('Kiểm tra bảo hành')}
                 onOpenManuals={() => selectTab('manual')}
                 onOpenWorkshops={() => selectTab('workshop')}
               />
@@ -328,7 +312,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
             {activeTab === 'warranty' && selectedVehicleType === 'motorbike' && (
               <MotorbikeWarrantyContent
                 warranties={filteredWarranties}
-                onBook={() => openBookingWithConfig('Kiểm tra bảo hành')}
                 onOpenManuals={() => selectTab('manual')}
                 onOpenWorkshops={() => selectTab('workshop')}
               />
@@ -337,7 +320,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
               <MaintenanceContent
                 vehicleType={selectedVehicleType}
                 items={filteredMaintenances}
-                onBook={() => openBookingWithConfig('Bảo dưỡng định kỳ')}
                 onOpenManuals={() => selectTab('manual')}
                 onOpenWorkshops={() => selectTab('workshop')}
               />
@@ -345,8 +327,7 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
             {activeTab === 'repair' && (
               <RepairContent
                 vehicleType={selectedVehicleType}
-                items={selectedVehicleType === 'car' ? initialData.repairs : []}
-                onBook={openBookingWithConfig}
+                items={initialData.repairs.filter((item) => item.vehicleType === selectedVehicleType)}
                 onOpenManuals={() => selectTab('manual')}
                 onOpenWorkshops={() => selectTab('workshop')}
               />
@@ -441,48 +422,42 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
                 </div>
 
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {manualSeriesList.map((group) => {
-                    const defaultYear = group.years[0] || '2024'
-                    return (
-                      <div
-                        key={group.name}
-                        className="group flex flex-col justify-between border border-slate-200 bg-white p-6 transition hover:border-[#836100]"
-                      >
-                        <div>
-                          <div className="flex h-32 items-center justify-center bg-slate-50 p-4">
-                            {group.thumbnail ? (
-                              <img
-                                src={group.thumbnail}
-                                alt={group.name}
-                                className="max-h-full max-w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
-                              />
-                            ) : (
-                              <Car size={48} className="text-slate-300" />
-                            )}
-                          </div>
-                          <h4 className="mt-4 text-xl font-bold text-slate-900">{group.name}</h4>
-                          <p className="mt-1 text-xs text-slate-500">{group.category}</p>
-                          <div className="mt-4 flex flex-wrap gap-1.5">
-                            {group.years.map((year) => (
-                              <Link
-                                key={year}
-                                href={`/user-manual/${encodeURIComponent(group.name)}_${encodeURIComponent(year)}`}
-                                className="border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-[#836100] hover:text-[#836100] active:scale-[0.98]"
-                              >
-                                Phiên bản {year}
-                              </Link>
-                            ))}
-                          </div>
+                  {manualSeriesList.map((group) => (
+                    <div
+                      key={group.name}
+                      className="group flex flex-col justify-between border border-slate-200 bg-white p-6 transition hover:border-[#836100]"
+                    >
+                      <div>
+                        <div className="flex h-32 items-center justify-center bg-slate-50 p-4">
+                          {group.thumbnail ? (
+                            <img
+                              src={group.thumbnail}
+                              alt={group.name}
+                              className="max-h-full max-w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
+                            />
+                          ) : (
+                            <Car size={48} className="text-slate-300" />
+                          )}
                         </div>
-                        <Link
-                          href={`/user-manual/${encodeURIComponent(group.name)}_${encodeURIComponent(defaultYear)}`}
-                          className="mt-6 inline-flex items-center gap-1 border-t border-slate-100 pt-4 text-xs font-bold text-[#836100] hover:underline"
-                        >
-                          Đọc sổ tay hướng dẫn <ExternalLink size={13} />
-                        </Link>
+                        <h4 className="mt-4 text-xl font-bold text-slate-900">{group.name}</h4>
+                        <p className="mt-1 text-xs text-slate-500">{group.category}</p>
+                        <div className="mt-4 flex flex-wrap gap-1.5">
+                          {group.years.map((year) => (
+                            <Link
+                              key={year}
+                              href={`/user-manual/${encodeURIComponent(group.name)}_${encodeURIComponent(year)}`}
+                              className="border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-[#836100] hover:text-[#836100] active:scale-[0.98]"
+                            >
+                              Phiên bản {year}
+                            </Link>
+                          ))}
+                        </div>
                       </div>
-                    )
-                  })}
+                      <p className="mt-6 border-t border-slate-100 pt-4 text-xs font-medium leading-5 text-slate-500">
+                        Chọn một phiên bản theo năm ở trên.
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -541,12 +516,14 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
                           </p>
                           <p className="flex items-center gap-2">
                             <PhoneCall size={15} className="shrink-0 text-[#836100]" />
-                            <a
-                              href={`tel:${workshop.phone.replace(/\s/g, '')}`}
-                              className="font-semibold text-slate-800 hover:underline"
+                            <button
+                              type="button"
+                              aria-disabled="true"
+                              title="Chức năng gọi đang tạm thời chưa khả dụng"
+                              className="origin-left font-semibold text-slate-800 transition duration-150 hover:text-[#836100] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100] active:scale-[0.96]"
                             >
                               {workshop.phone}
-                            </a>
+                            </button>
                           </p>
                           <p className="flex items-center gap-2">
                             <Clock size={15} className="shrink-0 text-slate-400" />
@@ -572,13 +549,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
                           ))}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => openBookingWithConfig('Bảo dưỡng định kỳ', workshop.id)}
-                        className="mt-6 w-full bg-slate-900 py-3 text-center text-xs font-bold text-white transition hover:bg-slate-800 active:scale-[0.98]"
-                      >
-                        Đặt hẹn tại xưởng này
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -593,14 +563,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
         </div>
       </section>
 
-      <ServiceBookingModal
-        isOpen={bookingModalOpen}
-        onClose={() => setBookingModalOpen(false)}
-        workshops={initialData.workshops}
-        onAddToast={addToast}
-        initialServiceType={bookingInitialService}
-        initialVehicleType={selectedVehicleType}
-      />
     </div>
   )
 }

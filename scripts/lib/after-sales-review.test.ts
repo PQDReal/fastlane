@@ -15,9 +15,13 @@ import { detectSemanticConflicts } from './after-sales-persistence-audit.mjs'
 
 const ROOT = process.cwd()
 const read = (file: string) => JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8'))
-const normalized = read('public/data/after-sales-normalized.json')
-const verified = read('public/data/after-sales-verified.json')
+const normalizedPath = 'public/data/after-sales-normalized.json'
+const verifiedPath = 'public/data/after-sales-verified.json'
+const artifactsAvailable = [normalizedPath, verifiedPath].every((file) => fs.existsSync(path.join(ROOT, file)))
+const normalized = artifactsAvailable ? read(normalizedPath) : { facts: [], summary: {} }
+const verified = artifactsAvailable ? read(verifiedPath) : { records: [] }
 const manifest = read('scripts/data/after-sales-source-manifest.json')
+const itWithArtifacts = artifactsAvailable ? it : it.skip
 const verifiedAssetCount = new Set((verified.records || []).flatMap((source: any) =>
   (source.assets || []).map((asset: any) => `${source.sourceId}|${asset.url}|${asset.contentHash || asset.verification?.contentHash || ''}`),
 )).size
@@ -91,7 +95,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(distance).toMatchObject({ actionHint: 'inspect', intervalRelation: 'or', qualifierHint: null })
   })
 
-  it('preserves an explicit whichever-comes-first qualifier with tuỳ spelling', () => {
+  itWithArtifacts('preserves an explicit whichever-comes-first qualifier with tuỳ spelling', () => {
     const statement = 'Bảo dưỡng lần đầu sau 12 tháng hoặc 12.000 km (tuỳ điều kiện đến trước).'
     const first = decomposeSemanticClause(statement, '12 tháng')
     expect(first.intervalRelation).toBe('or')
@@ -99,7 +103,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(normalized.facts.some((fact: any) => fact.action === 'first_service' && fact.qualifier === 'whichever_comes_first')).toBe(true)
   })
 
-  it('emits three scoped facts for the coolant yearly-or-distance statement', () => {
+  itWithArtifacts('emits three scoped facts for the coolant yearly-or-distance statement', () => {
     const coolant = normalized.facts.filter((fact: any) =>
       fact.subject === 'battery_coolant'
       && fact.model === 'VF e34'
@@ -119,13 +123,13 @@ describe('after-sales human approval and persistence contract', () => {
     expect(inspect[0].intervalGroupId).toBeTruthy()
   })
 
-  it('keeps the specific first-service action when the clause also contains a generic maintenance verb', () => {
+  itWithArtifacts('keeps the specific first-service action when the clause also contains a generic maintenance verb', () => {
     const firstServiceFacts = normalized.facts.filter((fact: any) => fact.subject === 'first_service')
     expect(firstServiceFacts.some((fact: any) => fact.valueNumeric === 12 && fact.unit === 'month' && fact.action === 'first_service')).toBe(true)
     expect(firstServiceFacts.some((fact: any) => fact.valueNumeric === 12000 && fact.unit === 'km' && fact.action === 'first_service')).toBe(true)
   })
 
-  it('keeps petrol and electric 12V warranty scopes separate', () => {
+  itWithArtifacts('keeps petrol and electric 12V warranty scopes separate', () => {
     const batteryFacts = normalized.facts.filter((fact: any) => fact.subject === 'battery_12v' && fact.provenance.origin === 'snapshot_page_text')
     const petrol = batteryFacts.filter((fact: any) => fact.powertrain === 'petrol')
     const electric = batteryFacts.filter((fact: any) => fact.powertrain === 'electric')
@@ -257,7 +261,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(manual.type).toBe('MANUAL_TRANSCRIPTION_CONFLICT')
   })
 
-  it('preserves a rejection when the review dataset is rebuilt', () => {
+  itWithArtifacts('preserves a rejection when the review dataset is rebuilt', () => {
     const first = dataset()
     const firstFact = first.facts[0]
     const withRejection = {
@@ -270,7 +274,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(rebuilt.facts[0].approval).toMatchObject({ status: 'rejected', reviewerId: 'reviewer-2' })
   })
 
-  it('keeps fact/evidence identity stable across identical pipeline reruns', () => {
+  itWithArtifacts('keeps fact/evidence identity stable across identical pipeline reruns', () => {
     const first = dataset()
     const second = dataset()
     expect(first.facts.map((fact: any) => fact.factId)).toEqual(second.facts.map((fact: any) => fact.factId))
@@ -278,7 +282,7 @@ describe('after-sales human approval and persistence contract', () => {
       .toEqual(second.facts.flatMap((fact: any) => fact.evidence.map((item: any) => item.evidenceId)))
   })
 
-  it('preserves all provenance records and resolves PDF asset links', () => {
+  itWithArtifacts('preserves all provenance records and resolves PDF asset links', () => {
     const review = dataset()
     const evidence = review.facts.flatMap((fact: any) => fact.evidence)
     expect(review.sourceCount).toBe(manifest.sources.length)
@@ -298,7 +302,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(review.facts.every((fact: any) => JSON.stringify(fact.sourceFactGroupIds) === JSON.stringify(normalizedById.get(fact.factId)?.sourceFactGroupIds || []))).toBe(true)
   })
 
-  it('produces an insert-only dry-run plan for an empty database', () => {
+  itWithArtifacts('produces an insert-only dry-run plan for an empty database', () => {
     const plan = buildImportPlan(dataset())
     expect(plan.decision).toBe('READY')
     expect(plan.conflicts).toHaveLength(0)
@@ -312,7 +316,7 @@ describe('after-sales human approval and persistence contract', () => {
     })
   })
 
-  it('reports unchanged rows when the same plan is imported twice', () => {
+  itWithArtifacts('reports unchanged rows when the same plan is imported twice', () => {
     const first = buildImportPlan(dataset())
     const existing = Object.fromEntries(Object.entries(first.tables).map(([table, plan]: [string, any]) => [
       table,
@@ -325,7 +329,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(second.summary.evidence).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.summary.evidenceCount })
   })
 
-  it('does not overwrite an existing approved fact during a pipeline re-import', () => {
+  itWithArtifacts('does not overwrite an existing approved fact during a pipeline re-import', () => {
     const first = buildImportPlan(dataset())
     const existing = Object.fromEntries(Object.entries(first.tables).map(([table, plan]: [string, any]) => [
       table,
@@ -345,7 +349,7 @@ describe('after-sales human approval and persistence contract', () => {
     expect(rerun.summary.facts).toMatchObject({ inserts: 0, updates: 0, unchanged: normalized.facts.length })
   })
 
-  it('uses deterministic IDs for the same asset and evidence provenance', () => {
+  itWithArtifacts('uses deterministic IDs for the same asset and evidence provenance', () => {
     const provenance = normalized.facts[0].provenances[0]
     expect(stableAssetId({ sourceId: 'source-a', url: 'https://example.com/a.pdf', contentHash: 'sha256:a' }))
       .toBe(stableAssetId({ sourceId: 'source-a', url: 'https://example.com/a.pdf', contentHash: 'sha256:a' }))

@@ -6,8 +6,8 @@ import { validateRawEvidence } from './lib/after-sales-raw-evidence-validator.mj
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const inputPath = path.resolve(
-  process.argv.find(argument => argument.startsWith('--input='))?.slice('--input='.length)
-    || path.join(ROOT, '.local/after-sales/after-sales-normalized-v6.json'),
+  process.argv.find((argument) => argument.startsWith('--input='))?.slice('--input='.length) ||
+    path.join(ROOT, '.local/after-sales/after-sales-normalized-v6.json'),
 )
 const outputPath = path.join(ROOT, '.local/after-sales/normalized-v6-validation-report.json')
 
@@ -17,7 +17,13 @@ const warnings = []
 const factIds = new Set()
 const canonicalKeys = new Set()
 const allowedReviewStatuses = new Set(['pending', 'pending_admin_review', 'needs_review', 'approved', 'rejected'])
-const allowedSemanticFlags = new Set(['SOURCE_SCOPE_CONFLICT', 'ACTION_BINDING_AMBIGUOUS', 'NON_NUMERIC_ALTERNATIVE_TRIGGER', 'UNRESOLVED_MODEL_ALIAS', 'PROMOTION_SCOPED'])
+const allowedSemanticFlags = new Set([
+  'SOURCE_SCOPE_CONFLICT',
+  'ACTION_BINDING_AMBIGUOUS',
+  'NON_NUMERIC_ALTERNATIVE_TRIGGER',
+  'UNRESOLVED_MODEL_ALIAS',
+  'PROMOTION_SCOPED',
+])
 
 if (data.schemaVersion !== 6) errors.push(`schemaVersion must be 6, got ${data.schemaVersion}`)
 if (!['hold_raw_recrawl_required', 'pending_admin_approval'].includes(data.publicationStatus)) {
@@ -45,16 +51,21 @@ for (const fact of data.facts || []) {
   const alternativeTriggerCodes = new Set()
   for (const [index, trigger] of (fact.alternativeTriggers || []).entries()) {
     if (trigger?.type !== 'event') errors.push(`${fact.factId}: alternativeTriggers[${index}] must have type event`)
-    if (!trigger?.code || typeof trigger.code !== 'string') errors.push(`${fact.factId}: alternativeTriggers[${index}] is missing code`)
-    if (!trigger?.sourceText || typeof trigger.sourceText !== 'string') errors.push(`${fact.factId}: alternativeTriggers[${index}] is missing sourceText`)
-    if (alternativeTriggerCodes.has(trigger?.code)) errors.push(`${fact.factId}: duplicate alternative trigger code ${trigger.code}`)
+    if (!trigger?.code || typeof trigger.code !== 'string')
+      errors.push(`${fact.factId}: alternativeTriggers[${index}] is missing code`)
+    if (!trigger?.sourceText || typeof trigger.sourceText !== 'string')
+      errors.push(`${fact.factId}: alternativeTriggers[${index}] is missing sourceText`)
+    if (alternativeTriggerCodes.has(trigger?.code))
+      errors.push(`${fact.factId}: duplicate alternative trigger code ${trigger.code}`)
     alternativeTriggerCodes.add(trigger?.code)
   }
   const hasAlternativeTriggerFlag = (fact.semanticFlags || []).includes('NON_NUMERIC_ALTERNATIVE_TRIGGER')
-  if (hasAlternativeTriggerFlag && !(fact.alternativeTriggers || []).length) errors.push(`${fact.factId}: non-numeric alternative flag has no structured trigger`)
-  if (!hasAlternativeTriggerFlag && (fact.alternativeTriggers || []).length) errors.push(`${fact.factId}: structured alternative trigger is missing semantic flag`)
+  if (hasAlternativeTriggerFlag && !(fact.alternativeTriggers || []).length)
+    errors.push(`${fact.factId}: non-numeric alternative flag has no structured trigger`)
+  if (!hasAlternativeTriggerFlag && (fact.alternativeTriggers || []).length)
+    errors.push(`${fact.factId}: structured alternative trigger is missing semantic flag`)
   if (!Array.isArray(fact.provenances) || fact.provenances.length === 0) {
-    errors.push(`${fact.factId}: missing provenance`) 
+    errors.push(`${fact.factId}: missing provenance`)
     continue
   }
   if (fact.evidenceCount !== fact.provenances.length) {
@@ -85,7 +96,13 @@ const rawEvidence = fs.existsSync(path.join(ROOT, 'public/data/after-sales-extra
       snapshotsRoot: path.join(ROOT, '.local/after-sales/snapshots'),
       extractedPath: path.join(ROOT, 'public/data/after-sales-extracted.json'),
     })
-  : { machineEvidence: 0, rawAnchoredEvidence: 0, unverifiedEvidence: 0, errors: ['missing extracted raw-source data'], valid: false }
+  : {
+      machineEvidence: 0,
+      rawAnchoredEvidence: 0,
+      unverifiedEvidence: 0,
+      errors: ['missing extracted raw-source data'],
+      valid: false,
+    }
 errors.push(...rawEvidence.errors)
 if (data.normalizationBasis?.rawCorpusAvailable !== rawEvidence.valid) {
   errors.push(`normalizationBasis.rawCorpusAvailable does not match raw evidence validation (${rawEvidence.valid})`)
@@ -95,7 +112,10 @@ if (data.publicationStatus !== expectedPublicationStatus) {
   errors.push(`publicationStatus must be ${expectedPublicationStatus} for the current raw evidence state`)
 }
 
-if ((data.summary?.factsNeedingReview || 0) !== (data.facts || []).filter(fact => fact.reviewStatus === 'pending_admin_review').length) {
+if (
+  (data.summary?.factsNeedingReview || 0) !==
+  (data.facts || []).filter((fact) => fact.reviewStatus === 'pending_admin_review').length
+) {
   errors.push('summary.factsNeedingReview does not match fact review statuses')
 }
 
@@ -129,17 +149,23 @@ const report = {
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
-console.log(JSON.stringify({
-  checkedAt: report.checkedAt,
-  input: report.input,
-  summary: report.summary,
-  errors: report.errors,
-  rawEvidence: report.rawEvidence,
-  decision: report.decision,
-  conflictScopes: report.semanticConflicts.map(finding => ({
-    type: finding.type,
-    scopeKey: finding.scopeKey,
-    values: finding.values,
-  })),
-}, null, 2))
+console.log(
+  JSON.stringify(
+    {
+      checkedAt: report.checkedAt,
+      input: report.input,
+      summary: report.summary,
+      errors: report.errors,
+      rawEvidence: report.rawEvidence,
+      decision: report.decision,
+      conflictScopes: report.semanticConflicts.map((finding) => ({
+        type: finding.type,
+        scopeKey: finding.scopeKey,
+        values: finding.values,
+      })),
+    },
+    null,
+    2,
+  ),
+)
 if (errors.length) process.exitCode = 1

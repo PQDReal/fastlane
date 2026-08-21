@@ -12,14 +12,20 @@ import {
 } from './lib/after-sales-statement-scope.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const extractedPath = path.resolve(process.argv.find(argument => argument.startsWith('--input='))?.slice('--input='.length) || path.join(ROOT, 'public/data/after-sales-extracted.json'))
+const extractedPath = path.resolve(
+  process.argv.find((argument) => argument.startsWith('--input='))?.slice('--input='.length) ||
+    path.join(ROOT, 'public/data/after-sales-extracted.json'),
+)
 const manifestPath = path.join(ROOT, 'scripts/data/after-sales-source-manifest.json')
-const outputPath = path.resolve(process.argv.find(argument => argument.startsWith('--output='))?.slice('--output='.length) || path.join(ROOT, 'public/data/after-sales-normalized.json'))
+const outputPath = path.resolve(
+  process.argv.find((argument) => argument.startsWith('--output='))?.slice('--output='.length) ||
+    path.join(ROOT, 'public/data/after-sales-normalized.json'),
+)
 
 const input = JSON.parse(fs.readFileSync(extractedPath, 'utf8'))
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-const sourceById = new Map((input.records || []).map(source => [source.sourceId, source]))
-const manifestSourceById = new Map((manifest.sources || []).map(source => [source.id, source]))
+const sourceById = new Map((input.records || []).map((source) => [source.sourceId, source]))
+const manifestSourceById = new Map((manifest.sources || []).map((source) => [source.id, source]))
 
 const controlledFactTypes = new Set([
   'vehicle_warranty_duration',
@@ -29,6 +35,7 @@ const controlledFactTypes = new Set([
   'battery_12v_warranty_duration',
   'battery_12v_warranty_distance',
   'battery_capacity_threshold',
+  'battery_post_repair_capacity_floor',
   'accessory_warranty_duration',
   'accessory_warranty_distance',
   'replacement_part_warranty_duration',
@@ -52,30 +59,32 @@ const controlledFactTypes = new Set([
   'coverage_percentage',
 ])
 
-const numberUnitPattern = /(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(km|kilômét|kilomet(?:er)?s?|năm|years?|tháng|months?|ngày|days?|phút|minutes?|%|VNĐ|VND|đồng)(?=\s|[.,;:)\]}]|$)/giu
-const lexicalIntervalPattern = /\b(?:(?:định\s+kỳ\s+)?(?:hàng|hằng)\s+(?:năm|tháng|ngày)|mỗi\s+(?:năm|tháng|ngày)(?:\s+một\s+lần)?)\b/giu
+const numberUnitPattern =
+  /(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(km|kilômét|kilomet(?:er)?s?|năm|years?|tháng|months?|ngày|days?|phút|minutes?|%|VNĐ|VND|đồng)(?=\s|[.,;:)\]}]|$)/giu
+const lexicalIntervalPattern =
+  /\b(?:(?:định\s+kỳ\s+)?(?:hàng|hằng)\s+(?:năm|tháng|ngày)|mỗi\s+(?:năm|tháng|ngày)(?:\s+một\s+lần)?)\b/giu
 const warrantyContextPattern = /bảo hành|thời hạn|warranty|pin cao áp|ắc\s*[-–—]?\s*quy|phụ tùng|phụ kiện/iu
-const maintenanceContextPattern = /bảo dưỡng|định kỳ|chu kỳ|mốc bảo dưỡng|lần đầu|sau\s+\d|mỗi\s+\d|(?:hàng|hằng)\s+(?:năm|tháng|ngày)|mỗi\s+(?:năm|tháng|ngày)/iu
+const maintenanceContextPattern =
+  /bảo dưỡng|định kỳ|chu kỳ|mốc bảo dưỡng|lần đầu|sau\s+\d|mỗi\s+\d|(?:hàng|hằng)\s+(?:năm|tháng|ngày)|mỗi\s+(?:năm|tháng|ngày)/iu
 const rescueContextPattern = /cứu hộ|hỗ trợ trên đường|eCall|khẩn cấp|phản hồi|điều phối|hiện trường/iu
 const repairContextPattern = /sửa chữa|thời gian|cam kết|đồng sơn|bàn giao/iu
 const priceContextPattern = /giá|mức phí|chi phí|phí dịch vụ|thanh toán|đơn giá|giá tiền/iu
-const percentageContextPattern = /dung lượng|công suất|tỷ lệ|mức pin|hoàn tiền|khấu trừ|bồi hoàn|tối thiểu|không thấp hơn/iu
+const percentageContextPattern =
+  /dung lượng|công suất|tỷ lệ|mức pin|hoàn tiền|khấu trừ|bồi hoàn|tối thiểu|không thấp hơn/iu
+const batteryPostRepairCapacityPattern =
+  /(?:sửa chữa|thay thế)[\s\S]{0,240}(?:phạm vi\s+bảo hành)[\s\S]{0,240}(?:đảm bảo\s+)?dung lượng\s+pin|(?:phạm vi\s+bảo hành)[\s\S]{0,240}(?:sửa chữa|thay thế)[\s\S]{0,240}(?:đảm bảo\s+)?dung lượng\s+pin/iu
 
 function sha1(value, length = 20) {
   return crypto.createHash('sha1').update(String(value)).digest('hex').slice(0, length)
 }
 
-const blockingSemanticFlags = new Set([
-  'SOURCE_SCOPE_CONFLICT',
-  'ACTION_BINDING_AMBIGUOUS',
-  'UNRESOLVED_MODEL_ALIAS',
-])
+const blockingSemanticFlags = new Set(['SOURCE_SCOPE_CONFLICT', 'ACTION_BINDING_AMBIGUOUS', 'UNRESOLVED_MODEL_ALIAS'])
 
 function mergeAlternativeTriggers(...collections) {
   const triggers = collections
-    .flatMap(collection => Array.isArray(collection) ? collection : [])
-    .filter(trigger => trigger?.type === 'event' && trigger?.code && trigger?.sourceText)
-    .map(trigger => ({
+    .flatMap((collection) => (Array.isArray(collection) ? collection : []))
+    .filter((trigger) => trigger?.type === 'event' && trigger?.code && trigger?.sourceText)
+    .map((trigger) => ({
       type: 'event',
       code: String(trigger.code),
       sourceText: String(trigger.sourceText).replace(/\s+/gu, ' ').trim(),
@@ -87,18 +96,18 @@ function mergeAlternativeTriggers(...collections) {
 }
 
 function hasBlockingSemanticFlag(flags) {
-  return (flags || []).some(flag => blockingSemanticFlags.has(flag))
+  return (flags || []).some((flag) => blockingSemanticFlags.has(flag))
 }
 
 function reconcileAlternativeIntervalGroups(facts) {
   for (const fact of facts) {
     const parsedAlternatives = (fact.provenances || [])
-      .map(provenance => decomposeSemanticClause(provenance.excerpt || '', fact.valueText))
-      .filter(parsed => parsed.intervalRelation === 'or')
+      .map((provenance) => decomposeSemanticClause(provenance.excerpt || '', fact.valueText))
+      .filter((parsed) => parsed.intervalRelation === 'or')
     if (parsedAlternatives.length) fact.intervalRelation = 'or'
     fact.alternativeTriggers = mergeAlternativeTriggers(
       fact.alternativeTriggers,
-      ...parsedAlternatives.map(parsed => parsed.nonNumericAlternativeTriggers),
+      ...parsedAlternatives.map((parsed) => parsed.nonNumericAlternativeTriggers),
     )
     if (fact.alternativeTriggers.length) {
       fact.intervalRelation = 'or'
@@ -106,9 +115,9 @@ function reconcileAlternativeIntervalGroups(facts) {
     }
   }
 
-  const intervalFacts = facts.filter(candidate => candidate.intervalRelation === 'or')
+  const intervalFacts = facts.filter((candidate) => candidate.intervalRelation === 'or')
   const parents = intervalFacts.map((_, index) => index)
-  const find = index => {
+  const find = (index) => {
     while (parents[index] !== index) {
       parents[index] = parents[parents[index]]
       index = parents[index]
@@ -133,13 +142,15 @@ function reconcileAlternativeIntervalGroups(facts) {
       fact.applicability,
       fact.action,
     ].join('|')
-    const evidenceKeys = (fact.provenances || []).map(provenance => [
-      provenance.sourceId,
-      provenance.assetHash || provenance.snapshotHash || '',
-      provenance.pdfPage || '',
-      cleanText(provenance.excerpt || ''),
-    ].join('|'))
-    const keys = [`fact-group|${fact.factGroupId}`, ...evidenceKeys.map(key => `evidence|${key}`)]
+    const evidenceKeys = (fact.provenances || []).map((provenance) =>
+      [
+        provenance.sourceId,
+        provenance.assetHash || provenance.snapshotHash || '',
+        provenance.pdfPage || '',
+        cleanText(provenance.excerpt || ''),
+      ].join('|'),
+    )
+    const keys = [`fact-group|${fact.factGroupId}`, ...evidenceKeys.map((key) => `evidence|${key}`)]
     for (const key of keys) {
       const scopedKey = `${scope}|${key}`
       if (ownerByKey.has(scopedKey)) union(index, ownerByKey.get(scopedKey))
@@ -156,15 +167,15 @@ function reconcileAlternativeIntervalGroups(facts) {
   }
 
   for (const memberIndexes of components.values()) {
-    const members = memberIndexes.map(index => intervalFacts[index])
+    const members = memberIndexes.map((index) => intervalFacts[index])
     const seed = memberIndexes
-      .flatMap(index => componentKeys[index].keys.map(key => `${componentKeys[index].scope}|${key}`))
+      .flatMap((index) => componentKeys[index].keys.map((key) => `${componentKeys[index].scope}|${key}`))
       .sort()
       .join('|')
     const intervalGroupId = `af_interval_${sha1(`after-sales-interval-v5|${seed}`, 16)}`
-    const distancePolicy = members.some(member => member.unit === 'km')
+    const distancePolicy = members.some((member) => member.unit === 'km')
       ? 'limited'
-      : members.some(member => member.distancePolicy === 'unlimited')
+      : members.some((member) => member.distancePolicy === 'unlimited')
         ? 'unlimited'
         : 'not_stated'
     for (const member of members) {
@@ -201,9 +212,10 @@ function mergeReconciledFacts(facts) {
     return leftRank - rightRank
   })
   for (const fact of orderedFacts) {
-    const equivalent = fact.unit === 'month' && fact.valueNumeric % 12 === 0
-      ? { ...fact, valueNumeric: fact.valueNumeric / 12, unit: 'year' }
-      : fact
+    const equivalent =
+      fact.unit === 'month' && fact.valueNumeric % 12 === 0
+        ? { ...fact, valueNumeric: fact.valueNumeric / 12, unit: 'year' }
+        : fact
     const key = canonicalKey(equivalent)
     const existing = merged.get(key)
     if (!existing) {
@@ -211,7 +223,9 @@ function mergeReconciledFacts(facts) {
       merged.set(key, fact)
       continue
     }
-    existing.sourceIds = [...new Set([...(existing.sourceIds || [existing.sourceId]), ...(fact.sourceIds || [fact.sourceId])])].sort()
+    existing.sourceIds = [
+      ...new Set([...(existing.sourceIds || [existing.sourceId]), ...(fact.sourceIds || [fact.sourceId])]),
+    ].sort()
     const seen = new Set((existing.provenances || []).map(provenanceKey))
     for (const provenance of fact.provenances || []) {
       if (!seen.has(provenanceKey(provenance))) existing.provenances.push(provenance)
@@ -220,7 +234,9 @@ function mergeReconciledFacts(facts) {
     existing.confidence = Math.min(0.99, Math.max(existing.confidence, fact.confidence) + 0.02)
     existing.alternativeTriggers = mergeAlternativeTriggers(existing.alternativeTriggers, fact.alternativeTriggers)
     existing.semanticFlags = [...new Set([...(existing.semanticFlags || []), ...(fact.semanticFlags || [])])].sort()
-    existing.groupSemanticFlags = [...new Set([...(existing.groupSemanticFlags || []), ...(fact.groupSemanticFlags || [])])].sort()
+    existing.groupSemanticFlags = [
+      ...new Set([...(existing.groupSemanticFlags || []), ...(fact.groupSemanticFlags || [])]),
+    ].sort()
     if (fact.intervalRelation === 'or') existing.intervalRelation = 'or'
     if (fact.reviewStatus === 'pending_admin_review') existing.reviewStatus = 'pending_admin_review'
     if (fact.reviewStatus === 'needs_review') existing.reviewStatus = 'needs_review'
@@ -265,10 +281,7 @@ function lexicalIntervalUnit(rawValue) {
 }
 
 function normalizeModel(raw) {
-  const value = String(raw)
-    .replace(/\s+/g, ' ')
-    .replace(/2,0/g, '2.0')
-    .trim()
+  const value = String(raw).replace(/\s+/g, ' ').replace(/2,0/g, '2.0').trim()
   const compact = value.toLocaleLowerCase('vi').replace(/\s+/g, '')
   const mappings = [
     [/^vf8theallnew$/, 'VF 8 The All New'],
@@ -330,7 +343,7 @@ function legacyContextAround(text, index, matchLength) {
 }
 
 function legacyStatementAround(text, index, matchLength, { lineBreaksAreBoundaries = true } = {}) {
-  const isBoundary = position => {
+  const isBoundary = (position) => {
     const char = text[position]
     if (/[!?;]/.test(char || '')) return true
     if (char === '\n') return lineBreaksAreBoundaries
@@ -344,13 +357,15 @@ function legacyStatementAround(text, index, matchLength, { lineBreaksAreBoundari
   const startMarker = '\uE000'
   const endMarker = '\uE001'
   const localMatchStart = index - start
-  const marked = cleanText([
-    text.slice(start, index),
-    startMarker,
-    text.slice(index, index + matchLength),
-    endMarker,
-    text.slice(index + matchLength, end),
-  ].join(''))
+  const marked = cleanText(
+    [
+      text.slice(start, index),
+      startMarker,
+      text.slice(index, index + matchLength),
+      endMarker,
+      text.slice(index + matchLength, end),
+    ].join(''),
+  )
   const markerStart = marked.indexOf(startMarker)
   const markerEnd = marked.indexOf(endMarker)
   if (markerStart < 0 || markerEnd < markerStart) {
@@ -384,7 +399,10 @@ const policyHeadingPatterns = [
   ['accessory', /bảo hành phụ kiện/iu],
   ['replacement_part', /bảo hành\s+phụ tùng|phụ tùng\s+chính hãng/iu],
   ['battery_12v', /ắc\s*[-–—]?\s*quy(?:\s*12\s*v)?(?:\s*:|\s*(?=\n|$))/iu],
-  ['battery', /pin(?:\s*\([^)]*\))?\s*:|pin\s*\(mua lần đầu[^)]*\)|(?:^|\n)\s*[•]?\s*pin cao áp[^\n]{0,100}(?=\n|$)/iu],
+  [
+    'battery',
+    /pin(?:\s*\([^)]*\))?\s*:|pin\s*\(mua lần đầu[^)]*\)|(?:^|\n)\s*[•]?\s*pin cao áp[^\n]{0,100}(?=\n|$)/iu,
+  ],
   ['paint', /sơn ngoại thất/iu],
   ['corrosion', /gỉ sét|rỉ sét|ăn mòn/iu],
   ['suspension', /các bộ phận treo|bộ phận treo/iu],
@@ -450,33 +468,41 @@ function subjectFrom(source, statement, precedingText, context) {
     }
     const heading = String(precedingText || '')
       .split(/\n+/)
-      .map(line => line.trim())
-      .filter(line => line.length <= 140 && /:\s*$/.test(line))
+      .map((line) => line.trim())
+      .filter((line) => line.length <= 140 && /:\s*$/.test(line))
       .at(-1)
-    return firstMatchingSubject(statement, maintenanceSubjectPatterns)
-      || firstMatchingSubject(heading, maintenanceSubjectPatterns)
-      || 'vehicle'
+    return (
+      firstMatchingSubject(statement, maintenanceSubjectPatterns) ||
+      firstMatchingSubject(heading, maintenanceSubjectPatterns) ||
+      'vehicle'
+    )
   }
-  if (source.serviceType === 'rescue') return /ecall|sos|khẩn cấp/iu.test(context) ? 'emergency_response' : 'roadside_assistance'
+  if (source.serviceType === 'rescue')
+    return /ecall|sos|khẩn cấp/iu.test(context) ? 'emergency_response' : 'roadside_assistance'
   if (source.serviceType === 'repair') return 'repair_service'
   if (source.serviceType !== 'warranty') return 'vehicle'
   if (/\bpin\s+(?:lfp|khác\s*\(\s*không\s+phải\s+pin\s+lfp\s*\))\s*:/iu.test(statement)) return 'battery'
   if (/phụ\s+tùng[\s\S]{0,320}không\s+bao\s+gồm/iu.test(statement)) return 'replacement_part'
   if (/phụ\s+kiện[\s\S]{0,320}không\s+bao\s+gồm/iu.test(statement)) return 'accessory'
-  const heading = inferPolicySectionSubject(precedingText)
-    || lastMatchingSubject(precedingText, policyHeadingPatterns)
+  const heading = inferPolicySectionSubject(precedingText) || lastMatchingSubject(precedingText, policyHeadingPatterns)
   const explicit = strongPolicySubject(statement)
   if (explicit) return explicit
   const localSubject = lastMatchingSubject(statement, policySubjectPatterns)
   if (localSubject) return localSubject
-  if (/thời hạn bảo hành (?:chung|xe)|bảo hành (?:chung )?đối với mẫu xe|bảo hành ô tô|bảo hành xe mới/iu.test(statement)) return 'vehicle'
+  if (
+    /thời hạn bảo hành (?:chung|xe)|bảo hành (?:chung )?đối với mẫu xe|bảo hành ô tô|bảo hành xe mới/iu.test(statement)
+  )
+    return 'vehicle'
   if (heading) return heading
-  return lastMatchingSubject(precedingText, policySubjectPatterns)
-    || 'vehicle'
+  return lastMatchingSubject(precedingText, policySubjectPatterns) || 'vehicle'
 }
 
 function usageConditionFrom(statement, precedingText, evidenceContext) {
-  const flatten = value => String(value || '').replace(/\s*\|\s*/g, ' ').replace(/\s+/g, ' ').trim()
+  const flatten = (value) =>
+    String(value || '')
+      .replace(/\s*\|\s*/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
   statement = flatten(statement)
   precedingText = flatten(precedingText)
   evidenceContext = flatten(evidenceContext)
@@ -485,11 +511,17 @@ function usageConditionFrom(statement, precedingText, evidenceContext) {
   const addMarkers = (pattern, condition) => {
     for (const match of context.matchAll(pattern)) markers.push({ condition, position: match.index + match[0].length })
   }
-  addMarkers(/bảo hành phụ kiện|bảo hành\s+phụ tùng|phụ tùng\s+chính hãng|ắc\s*[-–—]?\s*quy(?:\s*12\s*v)?(?:\s*:|\s+(?=ô tô))|pin(?:\s*\([^)]*\))?\s*:|pin cao áp|sơn ngoại thất|gỉ sét|rỉ sét|các bộ phận treo|bảo hành lốp|lốp xe|thời (?:hạn|gian) bảo hành (?:ô tô|xe mới|chung)|bảo hành xe mới/giu, 'general')
+  addMarkers(
+    /bảo hành phụ kiện|bảo hành\s+phụ tùng|phụ tùng\s+chính hãng|ắc\s*[-–—]?\s*quy(?:\s*12\s*v)?(?:\s*:|\s+(?=ô tô))|pin(?:\s*\([^)]*\))?\s*:|pin cao áp|sơn ngoại thất|gỉ sét|rỉ sét|các bộ phận treo|bảo hành lốp|lốp xe|thời (?:hạn|gian) bảo hành (?:ô tô|xe mới|chung)|bảo hành xe mới/giu,
+    'general',
+  )
   addMarkers(/điều kiện sử dụng tiêu chuẩn|sử dụng trong điều kiện tiêu chuẩn|sử dụng tiêu chuẩn/giu, 'standard_use')
   addMarkers(/ngoại trừ trường hợp.{0,420}?(?:dịch vụ thương mại|taxi|kinh doanh)/giu, 'standard_use')
   addMarkers(/trong trường hợp.{0,420}?(?:dịch vụ thương mại|xe taxi|xe kinh doanh)/giu, 'commercial_use')
-  addMarkers(/sử dụng (?:cho )?(?:mục đích )?dịch vụ thương mại|xe đang hoặc đã từng.{0,220}?dịch vụ thương mại/giu, 'commercial_use')
+  addMarkers(
+    /sử dụng (?:cho )?(?:mục đích )?dịch vụ thương mại|xe đang hoặc đã từng.{0,220}?dịch vụ thương mại/giu,
+    'commercial_use',
+  )
   return markers.sort((a, b) => b.position - a.position)[0]?.condition || 'general'
 }
 
@@ -497,25 +529,38 @@ function applicabilityFrom(source, statement, precedingText, evidenceContext, su
   if (source.serviceType !== 'warranty') return 'general'
   const context = `${precedingText.slice(-1800)} ${statement}`
   if (/mua lần đầu theo xe mới|được trang bị theo xe mới/iu.test(statement)) return 'original_equipment'
-  if (/khách hàng mua.{0,300}(?:sau thời điểm giao xe|lắp đặt lên xe)/iu.test(statement)) return 'customer_purchased_after_delivery'
+  if (/khách hàng mua.{0,300}(?:sau thời điểm giao xe|lắp đặt lên xe)/iu.test(statement))
+    return 'customer_purchased_after_delivery'
   if (/khách hàng chịu chi phí/iu.test(statement)) return 'customer_paid_replacement'
   if (subject === 'replacement_part') return 'customer_paid_replacement'
   if (subject === 'battery_12v') {
     return /bảo hành phụ tùng/iu.test(context) ? 'customer_paid_replacement' : 'original_equipment'
   }
-  if (subject === 'battery' && /bảo hành\s+phụ\s+tùng|phụ\s+tùng\s+thay\s+thế.{0,500}khách\s+hàng\s+chịu\s+chi\s+phí/iu.test(context)) {
+  if (
+    subject === 'battery' &&
+    /bảo hành\s+phụ\s+tùng|phụ\s+tùng\s+thay\s+thế.{0,500}khách\s+hàng\s+chịu\s+chi\s+phí/iu.test(context)
+  ) {
     return 'customer_paid_replacement'
   }
-  if (subject === 'battery' && /mua lần đầu theo xe mới|pin cao áp mua theo xe mới/iu.test(context)) return 'original_equipment'
-  if (subject === 'battery' && /khách hàng mua.{0,300}(?:sau thời điểm giao xe|lắp đặt lên xe)/iu.test(context)) return 'customer_purchased_after_delivery'
+  if (subject === 'battery' && /mua lần đầu theo xe mới|pin cao áp mua theo xe mới/iu.test(context))
+    return 'original_equipment'
+  if (subject === 'battery' && /khách hàng mua.{0,300}(?:sau thời điểm giao xe|lắp đặt lên xe)/iu.test(context))
+    return 'customer_purchased_after_delivery'
   if (subject === 'accessory') {
-    const flattenedEvidence = String(evidenceContext).replace(/\s*\|\s*/g, ' ').replace(/\s+/g, ' ')
+    const flattenedEvidence = String(evidenceContext)
+      .replace(/\s*\|\s*/g, ' ')
+      .replace(/\s+/g, ' ')
     if (/không yêu cầu lắp đặt cố định/iu.test(flattenedEvidence)) return 'general_accessories_non_fixed'
-    const excluded = [...flattenedEvidence.matchAll(/không bao gồm.{0,220}?(?:móc kéo|bậc lên xuống|giá đỡ hành lý)/giu)].at(-1)
-    const included = [...flattenedEvidence.matchAll(/các phụ kiện bao gồm.{0,260}?(?:móc kéo|bậc lên xuống|giá đỡ hành lý)/giu)].at(-1)
+    const excluded = [
+      ...flattenedEvidence.matchAll(/không bao gồm.{0,220}?(?:móc kéo|bậc lên xuống|giá đỡ hành lý)/giu),
+    ].at(-1)
+    const included = [
+      ...flattenedEvidence.matchAll(/các phụ kiện bao gồm.{0,260}?(?:móc kéo|bậc lên xuống|giá đỡ hành lý)/giu),
+    ].at(-1)
     const excludedPosition = excluded ? excluded.index + excluded[0].length : -1
     const includedPosition = included ? included.index + included[0].length : -1
-    if (excludedPosition >= 0 || includedPosition >= 0) return includedPosition > excludedPosition ? 'fixed_accessory_group' : 'general_accessories_excluding_fixed_group'
+    if (excludedPosition >= 0 || includedPosition >= 0)
+      return includedPosition > excludedPosition ? 'fixed_accessory_group' : 'general_accessories_excluding_fixed_group'
   }
   if (subject === 'tire' && /được trang bị theo xe|lốp dự phòng/iu.test(context)) return 'factory_fitted'
   if (['vehicle', 'paint', 'corrosion', 'suspension'].includes(subject)) return 'original_vehicle'
@@ -558,7 +603,11 @@ function powertrainFrom(source, statement, asset = null) {
 
 function distancePolicyFrom(statement, unit, clause = null, excerpt = '', evidenceContext = '') {
   const broadContext = `${clause?.clause || ''} ${statement || ''} ${excerpt || ''} ${evidenceContext || ''}`
-  if (/không\s*giới\s*hạn[\s|]+(?:quãng\s*đường(?:\s*sử\s*dụng)?|số\s*km|km)|\bkhông\s*giới\s*hạn\s*km\b|\bunlimited\s*km\b/iu.test(broadContext)) {
+  if (
+    /không\s*giới\s*hạn[\s|]+(?:quãng\s*đường(?:\s*sử\s*dụng)?|số\s*km|km)|\bkhông\s*giới\s*hạn\s*km\b|\bunlimited\s*km\b/iu.test(
+      broadContext,
+    )
+  ) {
     return 'unlimited'
   }
   if (unit === 'km' || /\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?)/iu.test(clause?.clause || '')) {
@@ -570,7 +619,11 @@ function distancePolicyFrom(statement, unit, clause = null, excerpt = '', eviden
 function intervalGroupDistancePolicyFrom(statement, intervalRelation, excerpt = '') {
   if (!intervalRelation) return null
   const context = `${statement || ''} ${excerpt || ''}`
-  if (/không\s*giới\s*hạn[\s|]+(?:quãng\s*đường(?:\s*sử\s*dụng)?|số\s*km|km)|\bkhông\s*giới\s*hạn\s*km\b|\bunlimited\s*km\b/iu.test(context)) {
+  if (
+    /không\s*giới\s*hạn[\s|]+(?:quãng\s*đường(?:\s*sử\s*dụng)?|số\s*km|km)|\bkhông\s*giới\s*hạn\s*km\b|\bunlimited\s*km\b/iu.test(
+      context,
+    )
+  ) {
     return 'unlimited'
   }
   if (/\d+(?:[.,\s]\d+)?\s*(?:km|kilômét|kilomet(?:er)?s?)/iu.test(context)) return 'limited'
@@ -578,9 +631,10 @@ function intervalGroupDistancePolicyFrom(statement, intervalRelation, excerpt = 
 }
 
 function actionFrom(source, statement, factType, actionHint = null, subject = null) {
+  if (factType === 'battery_post_repair_capacity_floor') return 'post_repair_capacity_floor'
+  if (factType === 'battery_capacity_threshold') return 'minimum_capacity'
   if (source.serviceType === 'warranty') return 'warranty_coverage'
   if (factType === 'service_price') return 'price'
-  if (factType === 'battery_capacity_threshold') return 'minimum_capacity'
   if (factType === 'emergency_safety_wait_time') return 'high_voltage_discharge_wait'
   if (factType === 'appointment_arrival_window') return 'appointment_arrival'
   if (source.serviceType === 'rescue') {
@@ -606,6 +660,7 @@ function inferFactType(source, context, subject, unit) {
   if (unit === 'VND') return priceContextPattern.test(context) ? 'service_price' : null
   if (unit === 'percent') {
     if (!percentageContextPattern.test(context)) return null
+    if (batteryPostRepairCapacityPattern.test(context)) return 'battery_post_repair_capacity_floor'
     return /pin|ắc\s*[-–—]?\s*quy|dung lượng/iu.test(context) ? 'battery_capacity_threshold' : 'coverage_percentage'
   }
 
@@ -632,7 +687,8 @@ function inferFactType(source, context, subject, unit) {
 
   if (serviceType === 'rescue') {
     if (!rescueContextPattern.test(context)) return null
-    if (unit === 'minute' && /điện áp cao|vô hiệu hóa|ngắt nguồn điện|tiêu tan/iu.test(context)) return 'emergency_safety_wait_time'
+    if (unit === 'minute' && /điện áp cao|vô hiệu hóa|ngắt nguồn điện|tiêu tan/iu.test(context))
+      return 'emergency_safety_wait_time'
     if (unit === 'minute') return 'service_response_time'
     if (unit === 'km') return 'roadside_assistance_distance'
     if (['year', 'month', 'day'].includes(unit)) return 'roadside_assistance_duration'
@@ -645,11 +701,33 @@ function inferFactType(source, context, subject, unit) {
   return null
 }
 
+function correctPostRepairCapacitySemantic(fact) {
+  if (fact.factType !== 'battery_capacity_threshold') return fact
+  const evidence = (fact.provenances || []).map((provenance) => provenance.excerpt || '').join(' ')
+  if (!batteryPostRepairCapacityPattern.test(evidence)) return fact
+  return {
+    ...fact,
+    factType: 'battery_post_repair_capacity_floor',
+    action: 'post_repair_capacity_floor',
+    usageCondition: 'general',
+    qualifier: 'minimum',
+  }
+}
+
 function qualifierFrom(context, factType, clause = null) {
-  if (factType === 'battery_capacity_threshold' && /tối thiểu|không thấp hơn/iu.test(context)) return 'minimum'
+  if (
+    ['battery_capacity_threshold', 'battery_post_repair_capacity_floor'].includes(factType) &&
+    /tối thiểu|không thấp hơn|trên/iu.test(context)
+  )
+    return 'minimum'
   if (clause?.actionConflict) return null
   if (clause?.qualifierHint) return clause.qualifierHint
-  if (/(?:tùy|tuỳ)\s+điều kiện(?:\s+nào)?\s+đến\s+trước|điều kiện(?:\s+nào)?\s+đến\s+trước|whichever comes first/iu.test(context)) return 'whichever_comes_first'
+  if (
+    /(?:tùy|tuỳ)\s+điều kiện(?:\s+nào)?\s+đến\s+trước|điều kiện(?:\s+nào)?\s+đến\s+trước|whichever comes first/iu.test(
+      context,
+    )
+  )
+    return 'whichever_comes_first'
   if (/không quá|tối đa/iu.test(context)) return 'maximum'
   return null
 }
@@ -664,32 +742,47 @@ function provenanceKey(provenance) {
   ].join('|')
 }
 
-function candidateFromMatch({ source, text, match, origin, asset = null, confidence, pdfPage = null, valueNumeric = null, unit = null, rawValue = null, evidenceText = text, evidenceIndex = match.index }) {
+function candidateFromMatch({
+  source,
+  text,
+  match,
+  origin,
+  asset = null,
+  confidence,
+  pdfPage = null,
+  valueNumeric = null,
+  unit = null,
+  rawValue = null,
+  evidenceText = text,
+  evidenceIndex = match.index,
+}) {
   const matchedValue = String(rawValue || match[0])
   valueNumeric = valueNumeric ?? parseNumber(match[1])
   unit = unit || normalizeUnit(match[2])
   if (!Number.isFinite(valueNumeric) || valueNumeric < 0) return []
   const evidenceWindow = buildEvidenceContext(evidenceText, evidenceIndex, matchedValue.length, {
     lineBreaksAreBoundaries: origin === 'snapshot_page_text',
-    sourceOffsetsVerified: origin === 'snapshot_page_text'
-      ? source.rawSnapshotVersion === 'after-sales-raw-v2' && Boolean(source.rawDomTextHash)
-      : origin === 'asset_text_extraction'
-        ? Boolean(asset?.verification?.typeVerified && asset?.verification?.contentHash && pdfPage)
-        : false,
-    sourceAnchor: origin === 'snapshot_page_text'
-      ? {
-          kind: 'raw_dom_text',
-          snapshotVersion: source.rawSnapshotVersion || null,
-          snapshotHash: source.contentHash || null,
-          textHash: source.rawDomTextHash || null,
-        }
-      : origin === 'asset_text_extraction'
+    sourceOffsetsVerified:
+      origin === 'snapshot_page_text'
+        ? source.rawSnapshotVersion === 'after-sales-raw-v2' && Boolean(source.rawDomTextHash)
+        : origin === 'asset_text_extraction'
+          ? Boolean(asset?.verification?.typeVerified && asset?.verification?.contentHash && pdfPage)
+          : false,
+    sourceAnchor:
+      origin === 'snapshot_page_text'
         ? {
-            kind: 'pdf_page_text',
-            assetHash: asset?.verification?.contentHash || asset?.contentHash || null,
-            pdfPage,
+            kind: 'raw_dom_text',
+            snapshotVersion: source.rawSnapshotVersion || null,
+            snapshotHash: source.contentHash || null,
+            textHash: source.rawDomTextHash || null,
           }
-        : null,
+        : origin === 'asset_text_extraction'
+          ? {
+              kind: 'pdf_page_text',
+              assetHash: asset?.verification?.contentHash || asset?.contentHash || null,
+              pdfPage,
+            }
+          : null,
   })
   const excerpt = evidenceWindow.excerpt
   const statementWindow = legacyStatementAround(text, match.index, matchedValue.length, {
@@ -704,15 +797,19 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
   const classificationStatement = statementPrefixThroughValue(statement, statementMatchedValue, statementBounds)
   const modelStatement = valueLocalRowPrefix(statement, statementMatchedValue, statementBounds)
   const classificationExcerpt = legacyContextAround(text, match.index, matchedValue.length)
-  const evidenceContext = cleanText(text.slice(Math.max(0, match.index - 520), match.index + matchedValue.length)).replace(/\n/g, ' | ')
+  const evidenceContext = cleanText(
+    text.slice(Math.max(0, match.index - 520), match.index + matchedValue.length),
+  ).replace(/\n/g, ' | ')
   const precedingText = cleanText(text.slice(Math.max(0, match.index - 2400), match.index))
-  const semanticStatement = origin === 'snapshot_page_text' && source.serviceType === 'warranty'
-    ? modelStatement
-    : statement
+  const semanticStatement =
+    origin === 'snapshot_page_text' && source.serviceType === 'warranty' ? modelStatement : statement
   const clause = decomposeSemanticClause(semanticStatement, statementMatchedValue)
   const localClauseSubject = detectSubjectHint(clause.clause)
-  const isVehicleMaintenanceInterval = source.serviceType === 'maintenance'
-    && /bảo\s+dưỡng\s+xe\s+(?:ô\s+tô\s+)?(?:điện\s+)?vinfast\s+(?:nên|cần|được)/iu.test(`${classificationStatement} ${classificationExcerpt}`)
+  const isVehicleMaintenanceInterval =
+    source.serviceType === 'maintenance' &&
+    /bảo\s+dưỡng\s+xe\s+(?:ô\s+tô\s+)?(?:điện\s+)?vinfast\s+(?:nên|cần|được)/iu.test(
+      `${classificationStatement} ${classificationExcerpt}`,
+    )
   const subject = isVehicleMaintenanceInterval
     ? 'vehicle'
     : source.serviceType === 'maintenance' && localClauseSubject
@@ -727,9 +824,8 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
   const assetModels = modelsFrom('', `${asset?.label || ''} ${asset?.url || ''}`)
   const detectedModels = statementModels.length ? statementModels : assetModels
   const models = detectedModels.length ? detectedModels : [null]
-  const batteryChemistry = subject === 'battery'
-    ? inferBatteryChemistry(classificationStatement, precedingText)
-    : 'not_applicable'
+  const batteryChemistry =
+    subject === 'battery' ? inferBatteryChemistry(classificationStatement, precedingText) : 'not_applicable'
 
   const vehicleType = vehicleTypeFrom(source, classificationStatement, precedingText, detectedModels)
   const explicitVehicleType = explicitVehicleTypeFrom(classificationStatement)
@@ -738,7 +834,10 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
   if (source.vehicleType !== 'all' && explicitVehicleType !== 'all' && explicitVehicleType !== source.vehicleType) {
     semanticFlags.push('SOURCE_SCOPE_CONFLICT')
   }
-  let usageCondition = source.serviceType === 'warranty' ? usageConditionFrom(classificationStatement, precedingText, evidenceContext) : 'general'
+  let usageCondition =
+    source.serviceType === 'warranty'
+      ? usageConditionFrom(classificationStatement, precedingText, evidenceContext)
+      : 'general'
   const applicability = applicabilityFrom(source, classificationStatement, precedingText, evidenceContext, subject)
   if (applicability === 'general_accessories_non_fixed') usageCondition = 'general'
   const action = actionFrom(source, classificationStatement, factType, clause.actionHint, subject)
@@ -781,7 +880,7 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
 
   const distancePolicy = distancePolicyFrom(statement, unit, clause, excerpt, evidenceContext)
 
-  return models.map(model => ({
+  return models.map((model) => ({
     factGroupId,
     sourceId: source.sourceId,
     serviceType: source.serviceType,
@@ -804,7 +903,10 @@ function candidateFromMatch({ source, text, match, origin, asset = null, confide
     powertrain: powertrainFrom(source, statement, asset),
     distancePolicy,
     confidence,
-    reviewStatus: hasBlockingSemanticFlag(semanticFlags) || origin === 'asset_ocr' || (factType.startsWith('vehicle_') && !model) ? 'needs_review' : 'pending',
+    reviewStatus:
+      hasBlockingSemanticFlag(semanticFlags) || origin === 'asset_ocr' || (factType.startsWith('vehicle_') && !model)
+        ? 'needs_review'
+        : 'pending',
     alternativeTriggers: mergeAlternativeTriggers(clause.nonNumericAlternativeTriggers),
     semanticFlags,
     groupSemanticFlags,
@@ -829,25 +931,37 @@ function candidatesFromText({ source, text, origin, asset = null, confidence, pd
   const analysisText = focusMarker ? cleaned.replace(focusMarker, ' '.repeat(focusMarker.length)) : cleaned
   const candidates = []
   const matches = [
-    ...[...analysisText.matchAll(numberUnitPattern)].map(match => ({ match, valueNumeric: parseNumber(match[1]), unit: normalizeUnit(match[2]) })),
-    ...[...analysisText.matchAll(lexicalIntervalPattern)].map(match => ({ match, valueNumeric: 1, unit: lexicalIntervalUnit(match[0]) })),
-  ].filter(item => item.unit).sort((a, b) => a.match.index - b.match.index)
+    ...[...analysisText.matchAll(numberUnitPattern)].map((match) => ({
+      match,
+      valueNumeric: parseNumber(match[1]),
+      unit: normalizeUnit(match[2]),
+    })),
+    ...[...analysisText.matchAll(lexicalIntervalPattern)].map((match) => ({
+      match,
+      valueNumeric: 1,
+      unit: lexicalIntervalUnit(match[0]),
+    })),
+  ]
+    .filter((item) => item.unit)
+    .sort((a, b) => a.match.index - b.match.index)
   for (const item of matches) {
     if (focusMarker && item.match.index < focusOffset) continue
-    candidates.push(...candidateFromMatch({
-      source,
-      text: analysisText,
-      match: item.match,
-      origin,
-      asset,
-      confidence,
-      pdfPage,
-      valueNumeric: item.valueNumeric,
-      unit: item.unit,
-      rawValue: item.match[0],
-      evidenceText,
-      evidenceIndex: item.match.index - evidenceOffset,
-    }))
+    candidates.push(
+      ...candidateFromMatch({
+        source,
+        text: analysisText,
+        match: item.match,
+        origin,
+        asset,
+        confidence,
+        pdfPage,
+        valueNumeric: item.valueNumeric,
+        unit: item.unit,
+        rawValue: item.match[0],
+        evidenceText,
+        evidenceIndex: item.match.index - evidenceOffset,
+      }),
+    )
   }
   return candidates
 }
@@ -886,9 +1000,12 @@ function curatedCandidates() {
           valueNumeric,
           valueText: String(match[0]).replace(/\s+/g, ' ').trim(),
           unit,
-          qualifier: /(?:tùy|tuỳ)\s+điều kiện(?:\s+nào)?\s+đến\s+trước|điều kiện(?:\s+nào)?\s+đến\s+trước|whichever comes first/iu.test(text)
-            ? 'whichever_comes_first'
-            : null,
+          qualifier:
+            /(?:tùy|tuỳ)\s+điều kiện(?:\s+nào)?\s+đến\s+trước|điều kiện(?:\s+nào)?\s+đến\s+trước|whichever comes first/iu.test(
+              text,
+            )
+              ? 'whichever_comes_first'
+              : null,
           intervalRelation: null,
           intervalGroupId: null,
           intervalGroupDistancePolicy: null,
@@ -898,21 +1015,23 @@ function curatedCandidates() {
           groupSemanticFlags: [],
           confidence: 0.95,
           reviewStatus: transcribed.reviewStatus || 'pending_admin_review',
-          provenances: [{
-            origin: 'manifest_transcription',
-            sourceId: source.sourceId,
-            sourceUrl: transcribed.sourceUrl || source.sourceUrl,
-            snapshotHash: source.contentHash || null,
-            capturedAt: source.capturedAt || null,
-            assetUrl: null,
-            assetHash: null,
-            pdfPage: null,
-            extractionMethod: 'manual_transcription',
-            extractionConfidence: null,
-            sourceValueText: String(match[0]).replace(/\s+/gu, ' ').trim(),
-            excerpt,
-            headingPath: ['Chính sách bảo hành'],
-          }],
+          provenances: [
+            {
+              origin: 'manifest_transcription',
+              sourceId: source.sourceId,
+              sourceUrl: transcribed.sourceUrl || source.sourceUrl,
+              snapshotHash: source.contentHash || null,
+              capturedAt: source.capturedAt || null,
+              assetUrl: null,
+              assetHash: null,
+              pdfPage: null,
+              extractionMethod: 'manual_transcription',
+              extractionConfidence: null,
+              sourceValueText: String(match[0]).replace(/\s+/gu, ' ').trim(),
+              excerpt,
+              headingPath: ['Chính sách bảo hành'],
+            },
+          ],
         })
       }
     }
@@ -982,12 +1101,14 @@ for (const source of input.records || []) {
     scope: configuredSource.scope || source.scope,
   }
   if (!['after-sales-hub', 'service-center'].includes(effectiveSource.serviceType)) {
-    rawCandidates.push(...candidatesFromText({
-      source: effectiveSource,
-      text: source.text,
-      origin: 'snapshot_page_text',
-      confidence: 0.88,
-    }))
+    rawCandidates.push(
+      ...candidatesFromText({
+        source: effectiveSource,
+        text: source.text,
+        origin: 'snapshot_page_text',
+        confidence: 0.88,
+      }),
+    )
   }
 
   for (const asset of source.assets || []) {
@@ -1001,33 +1122,35 @@ for (const source of input.records || []) {
         const page = pages[pageIndex]
         const focusMarker = '[[AF_CURRENT_PDF_PAGE]]'
         const previousPageTail = String(pages[pageIndex - 1]?.text || '').slice(-2400)
-        rawCandidates.push(...candidatesFromText({
-          source: effectiveSource,
-          text: `${previousPageTail}\n${focusMarker}\n${page.text}`,
-          origin: 'asset_text_extraction',
-          asset,
-          confidence: 0.82,
-          pdfPage: page.pageNumber,
-          focusMarker,
-        }))
+        rawCandidates.push(
+          ...candidatesFromText({
+            source: effectiveSource,
+            text: `${previousPageTail}\n${focusMarker}\n${page.text}`,
+            origin: 'asset_text_extraction',
+            asset,
+            confidence: 0.82,
+            pdfPage: page.pageNumber,
+            focusMarker,
+          }),
+        )
       }
     } else {
-      rawCandidates.push(...candidatesFromText({
-        source: effectiveSource,
-        text,
-        origin: isOcr ? 'asset_ocr' : 'asset_text_extraction',
-        asset,
-        confidence: isOcr ? 0.58 : 0.82,
-      }))
+      rawCandidates.push(
+        ...candidatesFromText({
+          source: effectiveSource,
+          text,
+          origin: isOcr ? 'asset_ocr' : 'asset_text_extraction',
+          asset,
+          confidence: isOcr ? 0.58 : 0.82,
+        }),
+      )
     }
   }
 }
 rawCandidates.push(...curatedCandidates())
 
 const explicitStandardKeys = new Set(
-  rawCandidates
-    .filter(candidate => candidate.usageCondition === 'standard_use')
-    .map(usageAliasKey),
+  rawCandidates.filter((candidate) => candidate.usageCondition === 'standard_use').map(usageAliasKey),
 )
 let usageAliasesMerged = 0
 for (const candidate of rawCandidates) {
@@ -1040,7 +1163,7 @@ for (const candidate of rawCandidates) {
 const explicitCores = new Map()
 for (const candidate of rawCandidates) {
   const core = semanticCoreKey(candidate)
-  const isExplicit = Boolean(candidate.qualifier || (candidate.distancePolicy === 'unlimited'))
+  const isExplicit = Boolean(candidate.qualifier || candidate.distancePolicy === 'unlimited')
   if (isExplicit) {
     if (!explicitCores.has(core)) explicitCores.set(core, [])
     explicitCores.get(core).push(candidate)
@@ -1092,7 +1215,9 @@ for (const candidate of rawCandidates) {
   existing.alternativeTriggers = mergeAlternativeTriggers(existing.alternativeTriggers, candidate.alternativeTriggers)
   existing.semanticFlags = [...new Set([...(existing.semanticFlags || []), ...(candidate.semanticFlags || [])])]
   existing.semanticFlags.sort()
-  existing.groupSemanticFlags = [...new Set([...(existing.groupSemanticFlags || []), ...(candidate.groupSemanticFlags || [])])]
+  existing.groupSemanticFlags = [
+    ...new Set([...(existing.groupSemanticFlags || []), ...(candidate.groupSemanticFlags || [])]),
+  ]
   existing.groupSemanticFlags.sort()
   if (!existing.intervalRelation && candidate.intervalRelation) existing.intervalRelation = candidate.intervalRelation
   if (!existing.intervalGroupId && candidate.intervalGroupId) existing.intervalGroupId = candidate.intervalGroupId
@@ -1103,17 +1228,18 @@ for (const candidate of rawCandidates) {
   if (candidate.reviewStatus === 'needs_review') existing.reviewStatus = 'needs_review'
 }
 
-let reconciledFacts = reapplySemanticSubsumption([...aggregated.values()])
+let reconciledFacts = reapplySemanticSubsumption([...aggregated.values()].map(correctPostRepairCapacitySemantic))
 reconciledFacts = reconcileAlternativeIntervalGroups(reconciledFacts)
 reconciledFacts = reapplySemanticSubsumption(reconciledFacts)
 reconciledFacts = mergeReconciledFacts(reconciledFacts)
 reconciledFacts = reconcileAlternativeIntervalGroups(reconciledFacts)
 
 const facts = reconciledFacts
-  .map(fact => {
-    const origins = new Set(fact.provenances.map(item => item.origin))
+  .map((fact) => {
+    const origins = new Set(fact.provenances.map((item) => item.origin))
     const onlyOcr = origins.size === 1 && origins.has('asset_ocr')
-    if (onlyOcr || (fact.factType.startsWith('vehicle_') && !fact.model) || hasBlockingSemanticFlag(fact.semanticFlags)) fact.reviewStatus = 'needs_review'
+    if (onlyOcr || (fact.factType.startsWith('vehicle_') && !fact.model) || hasBlockingSemanticFlag(fact.semanticFlags))
+      fact.reviewStatus = 'needs_review'
     const resolvedCanonicalKey = canonicalKey(fact)
     const factId = `af_fact_${sha1(resolvedCanonicalKey, 20)}`
     return {
@@ -1165,8 +1291,9 @@ const result = {
     duplicateCandidatesMerged: rawCandidates.length - facts.length,
     usageAliasesMerged,
     evidenceCount,
-    factsNeedingReview: facts.filter(fact => fact.reviewStatus === 'needs_review').length,
-    curatedFacts: facts.filter(fact => fact.provenances.some(item => item.origin === 'manifest_transcription')).length,
+    factsNeedingReview: facts.filter((fact) => fact.reviewStatus === 'needs_review').length,
+    curatedFacts: facts.filter((fact) => fact.provenances.some((item) => item.origin === 'manifest_transcription'))
+      .length,
   },
   facts,
 }
