@@ -1,6 +1,10 @@
 import { cache } from 'react'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
+function hasSupabaseConfig() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
+
 export interface ManualModel {
   id: string
   name: string
@@ -26,6 +30,7 @@ export interface ManualArticle {
 }
 
 export const getManualModels = cache(async (): Promise<ManualModel[]> => {
+  if (!hasSupabaseConfig()) return []
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('manual_models')
@@ -41,6 +46,7 @@ export const getManualModels = cache(async (): Promise<ManualModel[]> => {
 })
 
 export const getManualTree = cache(async (modelId: string): Promise<ManualArticle[]> => {
+  if (!hasSupabaseConfig()) return []
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('manual_articles')
@@ -57,6 +63,7 @@ export const getManualTree = cache(async (modelId: string): Promise<ManualArticl
 })
 
 export const getManualArticle = cache(async (modelId: string, articleId: string): Promise<ManualArticle | undefined> => {
+  if (!hasSupabaseConfig()) return undefined
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('manual_articles')
@@ -75,6 +82,7 @@ export const getManualArticle = cache(async (modelId: string, articleId: string)
 
 // Used to get the first article (like "Introduction") to redirect or show by default
 export const getFirstArticleId = cache(async (modelId: string): Promise<string | undefined> => {
+  if (!hasSupabaseConfig()) return undefined
   const supabase = getSupabaseAdmin()
   const { data: items, error } = await supabase
     .from('manual_articles')
