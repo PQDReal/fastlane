@@ -2,6 +2,7 @@ import { getManualArticle, getManualTree } from '@/lib/api/manuals-server'
 import { notFound } from 'next/navigation'
 import './manual.css' // We'll add some styles here
 import { ArticleContent } from './article-content'
+import { normalizeManualContentHtml } from '@/lib/api/manual-content'
 
 export async function generateStaticParams({ params }: { params: { modelId: string } }) {
   const decodedModelId = decodeURIComponent(params.modelId)
@@ -44,7 +45,7 @@ export default async function ManualArticlePage({
   // If they are relative, they might be broken unless we proxy or copy them.
   // The original images might be at `https://om.vinfastauto.com/vi_vn/...`
   // We'll just render the HTML as is, but if images are missing we'll know.
-  const contentHtml = article.content_html || ''
+  const contentHtml = normalizeManualContentHtml(article.content_html || '')
 
   // Get search data (all articles for this model)
   const tree = await getManualTree(decodedModelId)
