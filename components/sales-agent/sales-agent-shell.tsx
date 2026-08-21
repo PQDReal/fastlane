@@ -1,8 +1,8 @@
 'use client'
 
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion, useDragControls } from 'framer-motion'
 import { ArrowDown, ArrowUp, Bot, Car, Check, CheckCircle2, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,8 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
 import { ProductCardBlock } from './product-card-block'
 import { ComparisonCardBlock } from './comparison-card-block'
+import { ManualImageBlock } from './manual-image-block'
+import { ManualReaderPanel } from './manual-reader-panel'
 import { SuggestionChips } from './suggestion-chips'
 import { ActionButtons } from './action-buttons'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
@@ -46,6 +48,11 @@ type DisplayMessage = SalesAgentMessage & {
 type InteractionSubmission = { selectedOptionIds: string[]; freeText?: string }
 type InteractionSearchResult = DisplayInteraction
 type InteractionSearchCallback = (result: InteractionSearchResult, selectedOptionIds: string[]) => void
+type FloatingPosition = { left: number; top: number }
+const FLOATING_BUTTON_GRID_SIZE = 32
+const FLOATING_BUTTON_LEFT_PADDING = 0
+const FLOATING_BUTTON_RIGHT_PADDING = 24
+const FLOATING_BUTTON_VERTICAL_PADDING = 0
 
 const SUGGESTIONS = [
   'Tư vấn mẫu xe phù hợp',
@@ -231,7 +238,19 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
 export function SalesAgentShell() {
   const open = useSalesAgentStore((state) => state.open)
   const setOpen = useSalesAgentStore((state) => state.setOpen)
+  const position = useSalesAgentStore((state) => state.position)
+  const setPosition = useSalesAgentStore((state) => state.setPosition)
+
+  const handleDragEnd = (event: any, info: any) => {
+    setPosition({
+      x: position.x + info.offset.x,
+      y: position.y + info.offset.y,
+    })
+  }
+  const dragControls = useDragControls()
   const [isExpanded, setIsExpanded] = useState(false)
+  
+
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -243,9 +262,246 @@ export function SalesAgentShell() {
   const followBottomRef = useRef(true)
   const autoScrollUntilRef = useRef(0)
   const pathname = usePathname()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Calculate bounds to prevent chat window from going completely off-screen
+  let chatX = isMounted && !isExpanded ? position.x : 0
+  let chatY = isMounted && !isExpanded ? position.y : 0
+  if (typeof window !== 'undefined' && !isExpanded && isMounted) {
+    const minY = 720 - window.innerHeight
+    if (chatY < minY) chatY = minY
+    
+    const minX = 460 - window.innerWidth
+    if (chatX < minX) chatX = minX
+  }
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
+  const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null)
+  const [isFloatingDragging, setIsFloatingDragging] = useState(false)
+  const latestFloatingPositionRef = useRef<FloatingPosition | null>(null)
+  const floatingButtonRef = useRef<HTMLButtonElement>(null)
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null>(null)
+  const suppressFloatingClickRef = useRef(false)
 
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('fastlane-sales-agent-position')
+      if (saved) {
+        const position = JSON.parse(saved) as FloatingPosition
+        setFloatingPosition(position)
+        latestFloatingPositionRef.current = position
+      }
+    } catch {
+      // Ignore unavailable or malformed local storage values.
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const button = floatingButtonRef.current
+    if (!button || !floatingPosition) return
+    const width = button.offsetWidth
+    const height = button.offsetHeight
+    const clampedPosition = {
+      left: Math.max(FLOATING_BUTTON_LEFT_PADDING, Math.min(window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING, floatingPosition.left)),
+      top: Math.max(FLOATING_BUTTON_VERTICAL_PADDING, Math.min(window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING, floatingPosition.top)),
+    }
+    if (clampedPosition.left === floatingPosition.left && clampedPosition.top === floatingPosition.top) return
+    latestFloatingPositionRef.current = clampedPosition
+    setFloatingPosition(clampedPosition)
+    window.localStorage.setItem('fastlane-sales-agent-position', JSON.stringify(clampedPosition))
+  }, [floatingPosition])
+
+  const handleFloatingPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top,
+      moved: false,
+    }
+    setIsFloatingDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }, [])
+
+  const handleFloatingPointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const deltaX = event.clientX - drag.startX
+    const deltaY = event.clientY - drag.startY
+    if (Math.hypot(deltaX, deltaY) < 4) return
+    drag.moved = true
+    const width = event.currentTarget.offsetWidth
+    const height = event.currentTarget.offsetHeight
+    const left = Math.max(FLOATING_BUTTON_LEFT_PADDING, Math.min(window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING, drag.left + deltaX))
+    const top = Math.max(FLOATING_BUTTON_VERTICAL_PADDING, Math.min(window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING, drag.top + deltaY))
+    const nextPosition = { left, top }
+    latestFloatingPositionRef.current = nextPosition
+    setFloatingPosition(nextPosition)
+  }, [])
+
+  const handleFloatingPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const latestPosition = latestFloatingPositionRef.current || floatingPosition
+    if (drag.moved && latestPosition) {
+      const width = event.currentTarget.offsetWidth
+      const height = event.currentTarget.offsetHeight
+      const snappedPosition = {
+        left: Math.max(FLOATING_BUTTON_LEFT_PADDING, Math.min(window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING, Math.round(latestPosition.left / FLOATING_BUTTON_GRID_SIZE) * FLOATING_BUTTON_GRID_SIZE)),
+        top: Math.max(FLOATING_BUTTON_VERTICAL_PADDING, Math.min(window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING, Math.round(latestPosition.top / FLOATING_BUTTON_GRID_SIZE) * FLOATING_BUTTON_GRID_SIZE)),
+      }
+      latestFloatingPositionRef.current = snappedPosition
+      setFloatingPosition(snappedPosition)
+      window.localStorage.setItem('fastlane-sales-agent-position', JSON.stringify(snappedPosition))
+      suppressFloatingClickRef.current = true
+      window.setTimeout(() => { suppressFloatingClickRef.current = false }, 0)
+    }
+    dragRef.current = null
+    setIsFloatingDragging(false)
+  }, [floatingPosition])
+
+  /* free-float mode removed */
+  /*
+    const toggleFreeFloatMode = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (floatingClickTimerRef.current !== null) {
+      window.clearTimeout(floatingClickTimerRef.current)
+      floatingClickTimerRef.current = null
+    }
+    const nextMode = !isFreeFloatMode
+    if (nextMode) {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const position = { left: rect.left, top: rect.top }
+      latestFloatingPositionRef.current = position
+      setFloatingPosition(position)
+      floatVelocityRef.current = { x: 0, y: 0 }
+      setFloatRotation(0)
+      setIsFloatReleased(true)
+    } else {
+      floatVelocityRef.current = { x: 0, y: 0 }
+      setIsFloatReleased(false)
+      setFloatRotation(0)
+    }
+    setIsFreeFloatMode(nextMode)
+    setToasts((items) => [...items, {
+      id: Date.now(),
+      kind: nextMode ? 'success' : 'warning',
+      title: `Chế độ thả trôi: ${nextMode ? 'Bật' : 'Tắt'}`,
+      message: nextMode ? 'Chatbot sẽ trôi và bật lại khi chạm cạnh màn hình.' : 'Chatbot đã trở về chế độ kéo thả bình thường.',
+    }])
+  }, [isFreeFloatMode])
+
+  useEffect(() => {
+    if (!isFreeFloatMode || !isFloatReleased || reduceMotion) return
+    let frame = 0
+    let previousTime = performance.now()
+    const tick = (now: number) => {
+      const position = latestFloatingPositionRef.current
+      const button = floatingButtonRef.current
+      if (!position || !button) {
+        frame = requestAnimationFrame(tick)
+        return
+      }
+      const delta = Math.min(32, now - previousTime)
+      previousTime = now
+      const width = button.offsetWidth
+      const height = button.offsetHeight
+      const velocity = floatVelocityRef.current
+      velocity.y += 0.0008 * delta
+      let left = position.left + velocity.x * delta
+      let top = position.top + velocity.y * delta
+      const minLeft = FLOATING_BUTTON_LEFT_PADDING
+      const maxLeft = Math.max(minLeft, window.innerWidth - width - FLOATING_BUTTON_RIGHT_PADDING)
+      const minTop = FLOATING_BUTTON_VERTICAL_PADDING
+      const maxTop = Math.max(minTop, window.innerHeight - height - FLOATING_BUTTON_VERTICAL_PADDING)
+      if (left <= minLeft || left >= maxLeft) {
+        left = Math.max(minLeft, Math.min(maxLeft, left))
+        velocity.x *= -0.58
+      }
+      if (top <= minTop) {
+        top = minTop
+        velocity.y = Math.abs(velocity.y) * 0.62
+      } else if (top >= maxTop) {
+        top = maxTop
+        velocity.y *= -0.62
+      }
+      // Stronger horizontal friction keeps the ball from rolling too far.
+      velocity.x *= 0.94
+      setFloatRotation((rotation) => rotation + velocity.x * delta * 0.75)
+      latestFloatingPositionRef.current = { left, top }
+      setFloatingPosition({ left, top })
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [isFreeFloatMode, isFloatReleased, reduceMotion])
+  */
+
+  const SESSION_STORAGE_KEY = 'fastlane_sales_agent_session'
+  const SESSION_EXPIRY_MS = 5 * 60 * 1000
+
+  // Restore session on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (saved) {
+        const data = JSON.parse(saved)
+        if (Date.now() - data.lastActiveAt < SESSION_EXPIRY_MS) {
+          setMessages(data.messages)
+          conversationIdRef.current = data.conversationId
+        } else {
+          sessionStorage.removeItem(SESSION_STORAGE_KEY)
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load chat session', e)
+    }
+  }, [])
+
+  // Save session when messages update
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        messages,
+        conversationId: conversationIdRef.current,
+        lastActiveAt: Date.now()
+      }))
+    }
+  }, [messages])
+
+  const [dismissedManualArticle, setDismissedManualArticle] = useState<string | null>(null)
+
+  // Find the latest user manual context to display in the right pane
+  const latestManualContext = useMemo(() => {
+    // Search from newest to oldest message
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant') {
+        const refBlock = msg.blocks?.find(b => b.kind === 'MANUAL_REFERENCE')
+        if (refBlock && 'articleId' in refBlock && 'modelId' in refBlock) {
+          return { modelId: String(refBlock.modelId), articleId: String(refBlock.articleId) }
+        }
+        
+        if (msg.content) {
+          const match = msg.content.match(/\/user-manual\/([^\/]+)\/([^\)\s"']+)/);
+          if (match) {
+            return { modelId: decodeURIComponent(match[1]), articleId: match[2] };
+          }
+        }
+      }
+    }
+    return null;
+  }, [messages])
+
+  // Decide whether to show manual right pane
+  const showManualPanel = latestManualContext && dismissedManualArticle !== latestManualContext.articleId
+
+  // Auto-expand panel when manual is referenced has been removed per user request
   // Auto-expand textarea smoothly up to 5 lines
   useEffect(() => {
     const textarea = textareaRef.current
@@ -274,6 +530,7 @@ export function SalesAgentShell() {
     setDraft('')
     setShowScrollButton(false)
     conversationIdRef.current = undefined
+    sessionStorage.removeItem('fastlane_sales_agent_session')
   }, [])
 
   useEffect(() => {
@@ -471,16 +728,24 @@ export function SalesAgentShell() {
             : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
         }
         style={{ transformOrigin: isExpanded ? 'center' : 'calc(100% - 32px) calc(100% - 32px)' }}
-        initial={{ opacity: 0, scale: 0.85, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.85, y: 20 }}
+        initial={{ opacity: 0, scale: 0.85, x: chatX, y: chatY + 20 }}
+        animate={{ opacity: 1, scale: 1, x: chatX, y: chatY }}
+        exit={{ opacity: 0, scale: 0.85, x: chatX, y: chatY + 20 }}
         transition={{ 
           default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
         }}
+        drag={!isExpanded}
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0">
+        <div 
+          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0 cursor-grab active:cursor-grabbing"
+          onPointerDown={(e) => dragControls.start(e)}
+        >
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
               <img
@@ -631,6 +896,15 @@ export function SalesAgentShell() {
                               />
                             )
                           }
+                          if (block.kind === 'MANUAL_IMAGE') {
+                            return (
+                              <ManualImageBlock
+                                key={`block-${idx}`}
+                                imageUrl={block.imageUrl}
+                                caption={block.caption}
+                              />
+                            )
+                          }
                           return null
                         })}
 
@@ -731,8 +1005,18 @@ export function SalesAgentShell() {
             >
               <div className="w-full min-w-[300px] py-5 space-y-4">
               
-              {/* Header Showcase */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              {showManualPanel ? (
+                <div className="flex-1 h-full min-h-0">
+                  <ManualReaderPanel 
+                    modelId={latestManualContext.modelId} 
+                    articleId={latestManualContext.articleId} 
+                    onClose={() => setDismissedManualArticle(latestManualContext.articleId)}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Header Showcase */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
                 <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm mb-1.5">
                   <Zap size={16} className="text-amber-500" />
                   <span>Trung Tâm Hỗ Trợ Mua Xe FASTLANE</span>
@@ -830,6 +1114,8 @@ export function SalesAgentShell() {
                   </li>
                 </ul>
               </div>
+            </>
+          )}
 
               </div>
             </motion.div>
@@ -842,21 +1128,30 @@ export function SalesAgentShell() {
   </AnimatePresence>
 
   {/* Floating Trigger */}
-  <AnimatePresence>
+  <AnimatePresence initial={false} mode="wait">
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
-        initial={{ opacity: 1, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.85, y: 15 }}
+        initial={{ opacity: 1, scale: 0.95, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
+        animate={{ opacity: 1, scale: 1, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
+        exit={{ opacity: 0, scale: 0.85, x: isMounted ? position.x : 0, y: (isMounted ? position.y : 0) + 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed bottom-6 right-6 z-[55] flex items-center"
+        style={floatingPosition ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto', bottom: 'auto' } : undefined}
       >
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          ref={floatingButtonRef}
+          onPointerDown={handleFloatingPointerDown}
+          onPointerMove={handleFloatingPointerMove}
+          onPointerUp={handleFloatingPointerUp}
+          onPointerCancel={handleFloatingPointerUp}
+          onClick={() => {
+            if (suppressFloatingClickRef.current) return
+            setOpen(true)
+          }}
           aria-label="Mở Trợ lý AI FASTLANE"
-          className="group relative flex items-center gap-2.5 rounded-2xl border border-amber-400/40 bg-slate-950/95 p-1.5 pr-3.5 text-white shadow-2xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:border-amber-400 hover:bg-slate-900 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 cursor-pointer"
+          className={`group relative flex select-none items-center gap-2.5 touch-none rounded-2xl border border-amber-400/40 bg-slate-950/95 p-1.5 pr-3.5 text-white shadow-2xl backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${isFloatingDragging ? `border-amber-300 shadow-[0_12px_35px_rgba(245,158,11,0.35)] cursor-grabbing ${reduceMotion ? 'scale-105 rotate-1' : 'sales-agent-dragging'}` : 'cursor-grab transition-all duration-300 hover:scale-105 hover:border-amber-400 hover:bg-slate-900 active:scale-95'}`}
         >
           {/* Squircle mascot container */}
           <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/50 bg-slate-900 shadow-md">

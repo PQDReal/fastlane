@@ -95,6 +95,14 @@ export const searchKnowledgeInputSchema = z.object({
 })
 export type SearchKnowledgeInput = z.infer<typeof searchKnowledgeInputSchema>
 
+export const searchUserManualsInputSchema = z.object({
+  query: z.string().trim().min(1).max(200),
+  modelSeries: z.string().trim().optional().describe('Dòng xe người dùng đang sử dụng, vd: VF 5, VF 8'),
+  year: z.number().int().optional().describe('Đời xe người dùng đang sử dụng, vd: 2024'),
+  topK: z.number().int().min(1).max(5).default(3),
+})
+export type SearchUserManualsInput = z.infer<typeof searchUserManualsInputSchema>
+
 // Terminal Tool Inputs
 export const submitResponseInputSchema = z.object({
   plan: agentResponsePlanSchema,
@@ -182,6 +190,7 @@ export const DATA_TOOL_NAMES = [
   'get_current_promotions',
   'discover_accessories',
   'search_knowledge',
+  'search_user_manuals',
 ] as const
 export type DataToolName = typeof DATA_TOOL_NAMES[number]
 
@@ -219,5 +228,9 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
   search_knowledge: {
     description: 'Tra cứu tài liệu tri thức, cẩm nang kỹ thuật, thông số xe, chính sách bảo hành, thuê/mua pin, trạm sạc và quy trình mua bán xe điện FASTLANE.',
     inputSchema: searchKnowledgeInputSchema,
+  },
+  search_user_manuals: {
+    description: 'Tra cứu Hướng dẫn sử dụng xe (vị trí cổng sạc, ý nghĩa đèn cảnh báo, cách khởi động, v.v.). Bắt buộc phải có thông tin năm sản xuất trước khi gọi.',
+    inputSchema: searchUserManualsInputSchema,
   },
 }

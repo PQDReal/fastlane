@@ -175,6 +175,16 @@ body {
   opacity: 0.9;
 }
 
+@keyframes sales-agent-drag {
+  0%, 100% { transform: scale(1.06) rotate(-1.5deg); }
+  50% { transform: scale(1.1) rotate(1.5deg); }
+}
+
+.sales-agent-dragging {
+  animation: sales-agent-drag 0.42s ease-in-out infinite;
+  will-change: transform;
+}
+
 @keyframes navigation-speed-trace {
   0% {
     stroke-dashoffset: 0;
