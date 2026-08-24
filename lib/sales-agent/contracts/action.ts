@@ -35,6 +35,7 @@ export type SalesAgentAction = z.infer<typeof salesAgentActionSchema>
 
 export const suggestionIntentSchema = z.object({
   text: z.string().trim().min(1).max(200),
+  payload: z.string().trim().optional(),
   category: z.enum(['FOLLOW_UP', 'ALTERNATIVE', 'CLARIFICATION']).optional(),
   targetEntityId: z.string().trim().min(1).optional(),
 })

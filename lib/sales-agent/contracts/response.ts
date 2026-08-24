@@ -74,7 +74,7 @@ export const agentResponsePlanSchema = z.object({
   outcome: z.enum(['ANSWER', 'NEEDS_INPUT', 'DEGRADED', 'REFUSAL']),
   narrative: z.array(plannedNarrativeItemSchema).min(1),
   views: z.array(plannedViewItemSchema).default([]),
-  suggestionIntents: z.array(suggestionIntentSchema).max(3).default([]),
+  suggestionIntents: z.array(suggestionIntentSchema).max(5).default([]),
   actionIntents: z.array(navigationIntentSchema).max(2).default([]),
   interactionIntent: interactionIntentSchema.optional(),
 })

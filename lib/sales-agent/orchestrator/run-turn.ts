@@ -265,7 +265,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
       try {
         const parsed = JSON.parse(possibleJson)
         if (Array.isArray(parsed) && parsed.every(p => p.label && p.intent)) {
-          parsedSuggestions = parsed
+          parsedSuggestions = parsed.map(p => ({ text: p.label, payload: p.intent })).slice(0, 5)
           finalMarkdown = finalMarkdown.substring(0, lastBracketIndex).trim()
         }
       } catch (e) {

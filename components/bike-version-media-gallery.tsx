@@ -137,7 +137,7 @@ export function BikeVersionMediaGallery({
                   const selected = resolvedColorIndex === index
                   return (
                     <button
-                      key={`${color.versionSku}-${color.colorName}`}
+                      key={`${color.versionSku}-${color.colorName}-${index}`}
                       type="button"
                       onClick={() => setSelectedColorIndex(index)}
                       aria-pressed={selected}
