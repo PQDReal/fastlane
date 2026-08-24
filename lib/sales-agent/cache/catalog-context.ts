@@ -15,8 +15,8 @@ export type CatalogPromptOptions = {
   productIds?: string[]
 }
 
-const CATALOG_SIGNAL_PATTERN = /\b(?:vinfast|vf\s*\d+|evo|feliz|klara|xe|mau xe|danh muc|gia|thong so|pin|quang duong|tam hoat dong|cong suat|toc do|sac|bao hanh|so sanh|tu van|chi tiet)\b/iu
-const CATALOG_FACT_PATTERN = /\b(?:gia|bao nhieu|thong so|pin|quang duong|tam hoat dong|cong suat|toc do|sac|bao hanh|so sanh|danh muc|xe nao|tu van|chi tiet|phu hop|uu nhuoc)\b/iu
+export const CATALOG_INDEX_CHAR_BUDGET = 1200
+export const CATALOG_CONTEXT_CHAR_BUDGET = 3000
 
 function safeCatalogValue(value: unknown, maxLength = 80) {
   return String(value ?? '')
@@ -49,14 +49,6 @@ function productIndexLine(product: CachedProduct) {
   const aliases = productAliases(product)
   const primary = aliases.shift() || displayProductName(product)
   return aliases.length > 0 ? `${primary}[${aliases.join(',')}]` : primary
-}
-
-function matchesProductQuery(query: string, product: CachedProduct) {
-  const normalizedQuery = ` ${normalizeProductSearchText(query)} `
-  return productAliases(product).some((alias) => {
-    const normalizedAlias = normalizeProductSearchText(alias)
-    return normalizedAlias.length >= 3 && normalizedQuery.includes(` ${normalizedAlias} `)
-  })
 }
 
 function formatPrice(value: number | null | undefined) {
@@ -110,8 +102,29 @@ function snapshotStatus(snapshot: Pick<CachedCatalogSnapshot, 'lastRefreshedAt' 
   }
 }
 
+function truncateDelimitedValues(values: string[], maxLength: number) {
+  const result: string[] = []
+  let length = 0
+
+  for (const value of values) {
+    const nextLength = length === 0 ? value.length : length + 2 + value.length
+    if (nextLength > maxLength) break
+    result.push(value)
+    length = nextLength
+  }
+
+  return result.join('; ') || 'NA'
+}
+
+function appendWithinBudget(lines: string[], line: string, maxLength: number) {
+  const nextLength = lines.join('\n').length + (lines.length > 0 ? 1 : 0) + line.length
+  if (nextLength > maxLength) return false
+  lines.push(line)
+  return true
+}
+
 /**
- * Builds a small, data-only catalog context from the in-memory snapshot.
+ * Builds a small, data-only catalog capability index from the in-memory snapshot.
  * Knowledge documents, promotions, accessories and policy prose intentionally
  * stay out of this context and continue to use their dedicated tools.
  */
@@ -125,7 +138,7 @@ export function compileCompactCatalogContext(
     : products
   const mode = options.mode || 'INDEX'
   const status = snapshotStatus(snapshot)
-  const index = products.map(productIndexLine).join('; ')
+  const index = truncateDelimitedValues(products.map(productIndexLine), CATALOG_INDEX_CHAR_BUDGET)
 
   const lines = [
     `[CATALOG_SNAPSHOT status=${status.label} as_of=${status.asOf}]`,
@@ -139,46 +152,30 @@ export function compileCompactCatalogContext(
 
     if (cars.length > 0) {
       lines.push('CAR(name|price_vnd|seats|battery|range_km|power_kw|fast_charge_min|vehicle_warranty|battery_warranty):')
-      lines.push(...cars.map(formatCarFact))
+      for (const row of cars.map(formatCarFact)) {
+        if (!appendWithinBudget(lines, row, CATALOG_CONTEXT_CHAR_BUDGET)) {
+          lines.push('FACTS_TRUNCATED: true')
+          break
+        }
+      }
     }
 
     if (bikes.length > 0) {
       lines.push('BIKE(name|price_vnd|battery|range_km|top_speed_kmh|power_w|trunk_l|warranty):')
-      lines.push(...bikes.map(formatBikeFact))
+      for (const row of bikes.map(formatBikeFact)) {
+        if (!appendWithinBudget(lines, row, CATALOG_CONTEXT_CHAR_BUDGET)) {
+          lines.push('FACTS_TRUNCATED: true')
+          break
+        }
+      }
     }
   }
 
-  lines.push('[/CATALOG_SNAPSHOT]')
+  const closing = '[/CATALOG_SNAPSHOT]'
+  while (lines.length > 3 && lines.join('\n').length + 1 + closing.length > CATALOG_CONTEXT_CHAR_BUDGET) {
+    lines.pop()
+  }
+  lines.push(closing)
   return lines.join('\n')
 }
 
-/** Selects only the relevant catalog slice before the model is called. */
-export function buildCatalogPromptContext(query: string, snapshot: CachedCatalogSnapshot) {
-  if (!CATALOG_SIGNAL_PATTERN.test(normalizeProductSearchText(query))) return ''
-
-  const matches = snapshot.products
-    .filter((product) => product.productType !== 'ACCESSORY')
-    .filter((product) => matchesProductQuery(query, product))
-
-  if (CATALOG_FACT_PATTERN.test(normalizeProductSearchText(query))) {
-    if (matches.length > 0) {
-      return compileCompactCatalogContext(snapshot, {
-        mode: 'FACTS',
-        productIds: matches.slice(0, 3).map((product) => product.id),
-      })
-    }
-
-    return compileCompactCatalogContext(snapshot, { mode: 'FACTS' })
-  }
-
-  return compileCompactCatalogContext(snapshot, {
-    mode: 'INDEX',
-    productIds: matches.slice(0, 3).map((product) => product.id),
-  })
-}
-
-/** Reads the current process-local snapshot without waiting for a DB refresh. */
-export function getCatalogPromptContext(query: string) {
-  if (!CATALOG_SIGNAL_PATTERN.test(normalizeProductSearchText(query))) return ''
-  return buildCatalogPromptContext(query, catalogCacheEngine.getSnapshot())
-}

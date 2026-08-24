@@ -106,6 +106,7 @@ export type SalesAgentMessageRequest = {
   conversationId?: string
   message: string
   guestHistory?: SalesAgentMessage[]
+  suggestionSelection?: SalesAgentSuggestionSelection
   interactionResponse?: {
     interactionId: string
     selectedOptionIds: string[]
@@ -113,6 +114,12 @@ export type SalesAgentMessageRequest = {
     continuationToken: string
   }
   locale?: 'vi-VN'
+}
+
+export type SalesAgentSuggestionSelection = {
+  suggestionId: string
+  entityIds?: string[]
+  catalogVersion?: number
 }
 
 export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessageRequest {
@@ -131,10 +138,28 @@ export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessage
     return content ? [{ role: row.role, content } as SalesAgentMessage] : []
   }))
 
+  let suggestionSelection: SalesAgentSuggestionSelection | undefined
+  if (input.suggestionSelection != null) {
+    if (!input.suggestionSelection || typeof input.suggestionSelection !== 'object') {
+      throw new SalesAgentRequestError('Lựa chọn gợi ý không hợp lệ.')
+    }
+    const selection = input.suggestionSelection as Record<string, unknown>
+    const suggestionId = typeof selection.suggestionId === 'string' ? selection.suggestionId.trim() : ''
+    const entityIds = Array.isArray(selection.entityIds)
+      ? selection.entityIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).map((value) => value.trim())
+      : undefined
+    const catalogVersion = typeof selection.catalogVersion === 'number' && Number.isFinite(selection.catalogVersion)
+      ? Math.max(0, Math.trunc(selection.catalogVersion))
+      : undefined
+    if (!suggestionId || suggestionId.length > 120) throw new SalesAgentRequestError('Lựa chọn gợi ý không hợp lệ.')
+    suggestionSelection = { suggestionId, ...(entityIds?.length ? { entityIds } : {}), ...(catalogVersion != null ? { catalogVersion } : {}) }
+  }
+
   return {
     conversationId: typeof input.conversationId === 'string' ? input.conversationId.slice(0, 120) : undefined,
     message,
     guestHistory,
+    suggestionSelection,
     interactionResponse: input.interactionResponse as any,
     locale: input.locale === 'vi-VN' || input.locale == null ? 'vi-VN' : undefined,
   }

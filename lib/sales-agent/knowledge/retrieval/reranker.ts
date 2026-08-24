@@ -85,14 +85,10 @@ function buildRerankScore(
   const titleText = candidate.title
   const contentText = `${candidate.content} ${candidate.tags.join(' ')}`
   const normalizedQuery = query.toLowerCase()
-  const sectionLower = sectionText.toLowerCase()
-  const intentQuery = /\b(nút|phím|tính năng|chức năng|menu|vô lăng|tay lái)\b/iu.test(normalizedQuery)
-  const intentSection = /\b(nút|phím|tính năng|chức năng|menu|vô lăng|tay lái)\b/iu.test(sectionLower)
-  const tableBonus = intentQuery && candidate.content.includes('|') ? 1 : 0
-  const intentBonus = intentQuery && intentSection ? 1 : 0
+  const tableBonus = candidate.content.includes('|') ? 0.15 : 0
   const warningPenalty =
     /cảnh báo|an toàn|nguy hiểm/iu.test(contentText) && !/cảnh báo|an toàn|nguy hiểm/iu.test(normalizedQuery)
-      ? 1
+      ? 0.06
       : 0
   const phraseBonus = Math.max(
     phrasePresence(queryPhrases, sectionText),
@@ -106,11 +102,10 @@ function buildRerankScore(
     coverage(queryTokens, sectionText) * 0.40 +
     coverage(queryTokens, titleText) * 0.14 +
     coverage(queryTokens, contentText) * 0.12 +
-    phraseBonus * 0.10 +
-    intentBonus * 0.08 +
-    tableBonus * 0.12 +
-    clamp01(rrfPrior) * 0.04 -
-    warningPenalty * 0.06
+    phraseBonus * 0.12 +
+    tableBonus +
+    clamp01(rrfPrior) * 0.06 -
+    warningPenalty
 
   return Number(clamp01(score).toFixed(6))
 }

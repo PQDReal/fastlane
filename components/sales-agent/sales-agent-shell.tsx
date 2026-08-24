@@ -559,7 +559,7 @@ export function SalesAgentShell() {
 
   if (!salesAgentUiEnabled || pathname?.startsWith('/admin')) return null
 
-  async function send(messageOverride?: string, interactionResponse?: { interactionId: string; selectedOptionIds: string[]; freeText?: string; continuationToken: string }) {
+  async function send(messageOverride?: string, interactionResponse?: { interactionId: string; selectedOptionIds: string[]; freeText?: string; continuationToken: string }, suggestionSelection?: SalesAgentSuggestion) {
     const message = (messageOverride ?? draft).trim()
     if (!message || sending) return
     followBottomRef.current = true
@@ -574,7 +574,18 @@ export function SalesAgentShell() {
     try {
       const response = await fetch('/api/v1/sales-agent/messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, conversationId: conversationIdRef.current, guestHistory: history, interactionResponse, locale: 'vi-VN' }),
+        body: JSON.stringify({
+          message,
+          conversationId: conversationIdRef.current,
+          guestHistory: history,
+          interactionResponse,
+          suggestionSelection: suggestionSelection ? {
+            suggestionId: suggestionSelection.suggestionId,
+            entityIds: suggestionSelection.entityIds,
+            catalogVersion: suggestionSelection.catalogVersion,
+          } : undefined,
+          locale: 'vi-VN',
+        }),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: { message?: string } } | null
@@ -952,7 +963,7 @@ export function SalesAgentShell() {
                           <SuggestionChips
                             suggestions={item.suggestions}
                             disabled={sending}
-                            onSelect={(payload) => void send(payload)}
+                            onSelect={(suggestion) => void send(suggestion.payload || suggestion.label, undefined, suggestion)}
                           />
                         )}
                       </div>

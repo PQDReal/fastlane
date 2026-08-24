@@ -19,16 +19,6 @@ function aliasesForProduct(product: CachedProduct) {
   return [...new Set([fullName, shortName, slug].filter((alias) => alias.length >= 3))]
 }
 
-export function isComparisonRequest(text: string) {
-  const normalized = ` ${normalizeProductSearchText(text)} `
-  return text.trimStart().toLowerCase().startsWith('/compare')
-    || normalized.includes(' so sanh ')
-    || normalized.includes(' khac nhau ')
-    || normalized.includes(' versus ')
-    || normalized.includes(' vs ')
-    || normalized.includes(' nen chon ')
-}
-
 /** Finds explicit catalog names in text, preferring the longest overlapping alias. */
 export function matchComparisonProducts(text: string, products: CachedProduct[]): CachedProduct[] {
   const normalized = normalizeProductSearchText(text)
@@ -64,28 +54,3 @@ export function matchComparisonProducts(text: string, products: CachedProduct[])
     .map((match) => match.product)
 }
 
-export type DeterministicComparison = {
-  result: ToolResult<CompareProductsData>
-  products: CachedProduct[]
-}
-
-export async function resolveDeterministicComparison(
-  text: string,
-  toolCallId: string,
-): Promise<DeterministicComparison | null> {
-  if (!isComparisonRequest(text)) return null
-
-  const snapshot = await catalogCacheEngine.getSnapshotAsync()
-  const products = matchComparisonProducts(
-    text,
-    snapshot.products.filter((product) => product.productType !== 'ACCESSORY'),
-  )
-  if (products.length < 2 || products.length > 3) return null
-
-  return {
-    products,
-    result: await compareProductsRepository({
-      productIds: products.map((product) => product.id),
-    }, toolCallId),
-  }
-}

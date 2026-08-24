@@ -198,9 +198,35 @@ describe('Canonical Response Composer', () => {
 
     // During clarification, no unprompted card dump!
     expect(response.blocks.length).toBe(0)
-    // Suggestion chips should offer quick comparison pairs
-    expect(response.suggestions.length).toBeGreaterThanOrEqual(3)
-    expect(response.suggestions.some((s) => s.label.includes('VF 8 vs VF 9'))).toBe(true)
+    // Clarification chips must stay generic when no verified pair exists.
+    expect(response.suggestions.length).toBeLessThanOrEqual(3)
+    expect(response.suggestions.some((s) => s.kind === 'CLARIFICATION')).toBe(true)
+  })
+
+  it('builds ambient chips from the current catalog slice instead of a fixed model pair', () => {
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{ kind: 'ADVICE', markdown: 'Bạn có thể xem danh mục xe hiện hành.' }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence: new EvidenceLedger(),
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-catalog-suggestions',
+      turnId: 'turn-catalog-suggestions',
+      messageId: 'msg-catalog-suggestions',
+      catalogProductNames: ['VinFast VF 3', 'VinFast VF 6', 'VinFast Feliz S'],
+    })
+
+    expect(response.suggestions.map((suggestion) => suggestion.label)).toEqual([
+      'Giá VinFast VF 3',
+      'So sánh VinFast VF 3 và VinFast VF 6',
+      'Thông số VinFast Feliz S',
+    ])
+    expect(response.suggestions).toHaveLength(3)
   })
 
   it('keeps knowledge citations when the same answer also contains product cards', () => {

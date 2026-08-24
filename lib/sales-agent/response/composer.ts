@@ -12,6 +12,7 @@ import { salesAgentProductUrl } from '../navigation/paths'
 import { validateResponsePlan } from './plan-validator'
 import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
 import { knowledgeMediaMarker, knowledgeMediaReference } from '../knowledge/media-reference'
+import { buildSuggestionCandidates, rankSuggestionCandidates, type SuggestionProduct } from '../suggestions/candidates'
 
 export type ComposeOptions = {
   rawPlan: unknown
@@ -21,6 +22,12 @@ export type ComposeOptions = {
   turnId: string
   messageId: string
   dataAsOf?: string
+  /** Current catalog names used only to seed contextual suggestion chips. */
+  catalogProductNames?: string[]
+  /** Active catalog slice used to validate entity-backed suggestions. */
+  catalogProducts?: SuggestionProduct[]
+  catalogStatus?: 'SYNCED' | 'INDEX_ONLY' | 'UNAVAILABLE'
+  catalogVersion?: number
 }
 
 type KnowledgeMediaItem = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>['items'][number]
@@ -150,6 +157,9 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   }
 
   const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
+  const catalogSuggestionProducts = options.catalogStatus === 'INDEX_ONLY'
+    ? []
+    : (options.catalogProducts ?? options.catalogProductNames?.map((name) => ({ name })) ?? [])
   const seenKnowledgeMedia = new Set<string>()
   const availableKnowledgeMedia = options.evidence.getAllFacts()
     .filter((fact) => fact.factPath === 'mediaPointer')
@@ -177,14 +187,10 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const finalMarkdown = attachReferencedDiagramLegends(compactMarkdown, knowledgeMedia)
   const lowerMarkdown = finalMarkdown.toLowerCase()
 
-  // Detect Clarification / Needs Input turn (e.g. asking user which models to compare)
+  // Detect Clarification / Needs Input turn strictly from plan and observation outcomes
   const isClarificationTurn =
     plan.outcome === 'NEEDS_INPUT' ||
-    finalMarkdown.includes('Bạn muốn so sánh') ||
-    finalMarkdown.includes('những mẫu nào') ||
-    finalMarkdown.includes('quan tâm ô tô hay xe máy') ||
-    finalMarkdown.includes('gửi tên 2-3 mẫu xe') ||
-    finalMarkdown.includes('Bạn đang quan tâm mẫu nào')
+    options.evidence.getAllObservations().some((observation) => observation.outcome === 'NEEDS_INPUT')
 
   // 2. Materialize Blocks from Ledgers and Known Entities (Intent-Gated)
   const blocks: AssistantBlock[] = []
@@ -214,7 +220,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         products: compProducts,
       })
     } else {
-      // Non-Comparison Turn: Render PRODUCT_LIST cards
+      // Non-Comparison Turn: Render PRODUCT_LIST cards strictly based on typed entities
       const cars = knownProducts.filter((p) => p.productType === 'CAR')
       const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
       const accessories = knownProducts.filter((p) => p.productType === 'ACCESSORY')
@@ -222,13 +228,10 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       let selectedProducts: typeof knownProducts = []
       let blockTitle = 'Danh sách sản phẩm liên quan'
 
-      const mentionsCar = lowerMarkdown.includes('ô tô') || lowerMarkdown.includes('vf ') || lowerMarkdown.includes('suv')
-      const mentionsBike = lowerMarkdown.includes('xe máy') || lowerMarkdown.includes('evo') || lowerMarkdown.includes('feliz') || lowerMarkdown.includes('amio')
-
-      if (mentionsCar && !mentionsBike && cars.length > 0) {
+      if (cars.length > 0 && bikes.length === 0) {
         selectedProducts = cars.slice(0, 8)
         blockTitle = 'Các dòng ô tô điện VinFast'
-      } else if (mentionsBike && !mentionsCar && bikes.length > 0) {
+      } else if (bikes.length > 0 && cars.length === 0) {
         selectedProducts = bikes.slice(0, 8)
         blockTitle = 'Các dòng xe máy điện VinFast'
       } else if (cars.length > 0 && bikes.length > 0) {
@@ -271,33 +274,6 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  const allFacts = options.evidence.getAllFacts()
-
-  // 2.5 Extract User Manual Images from Evidence
-  const imageFacts = allFacts.filter((f) => f.factPath === 'image_url' && f.valueHash)
-  
-  if (imageFacts.length > 0) {
-    // We NO LONGER auto-push the first image. The AI is now instructed to use Markdown `![alt](url)`
-    // to render the most relevant image based on context.
-  }
-
-  // 2.6 Extract User Manual Article References from Evidence
-  const articleFacts = allFacts.filter((f) => f.factPath === 'article_id' && f.valueHash)
-  if (articleFacts.length > 0) {
-    const firstArticleId = articleFacts[0].valueHash
-    // Find the corresponding model_id using the chunkId (which is in the factRef)
-    const chunkId = articleFacts[0].factRef.replace('fact-manual-articleId-', '')
-    const modelIdFact = allFacts.find((f) => f.factRef === `fact-manual-modelId-${chunkId}`)
-    
-    if (firstArticleId && modelIdFact && modelIdFact.valueHash) {
-      blocks.push({
-        kind: 'MANUAL_REFERENCE',
-        articleId: firstArticleId,
-        modelId: modelIdFact.valueHash,
-      })
-    }
-  }
-
   // Materialize Knowledge Citation references if available (A19-KR-408)
   const knowledgeEvidence = options.evidence.getAllEvidence().filter((e) => e.entity.kind === 'KNOWLEDGE_SNIPPET')
   if (knowledgeEvidence.length > 0) {
@@ -337,63 +313,43 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     })
 
   // 4. Compose Suggestions (Context-Aware)
-  const suggestions: SalesAgentSuggestion[] = plan.suggestionIntents.map((sug, idx) => ({
+  const suggestions: SalesAgentSuggestion[] = plan.suggestionIntents.slice(0, 3).map((sug, idx) => ({
     suggestionId: `sug-${idx + 1}-${options.turnId}`,
     label: sug.text,
-    payload: sug.payload || sug.text,
+    payload: sug.text,
+    kind: sug.category === 'CLARIFICATION' ? 'CLARIFICATION' : sug.category === 'ALTERNATIVE' ? 'CATALOG_COMPARE' : 'FOLLOW_UP',
+    ...(sug.targetEntityId ? { entityIds: [sug.targetEntityId] } : {}),
+    ...(options.catalogVersion ? { catalogVersion: options.catalogVersion } : {}),
   }))
 
-  // Smart contextual ambient suggestions
   if (suggestions.length === 0) {
-    if (isClarificationTurn) {
-      const isComparing = lowerMarkdown.includes('so sánh') || lowerMarkdown.includes('pin') || lowerMarkdown.includes('tốc độ')
-      if (isComparing) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'VF 8 vs VF 9', payload: 'So sánh VF 8 và VF 9' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'VF 3 vs VF 5', payload: 'So sánh VF 3 và VF 5' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'VF 6 vs VF 7', payload: 'So sánh VF 6 và VF 7' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Evo 200 vs Feliz', payload: 'So sánh Feliz 2025 và Flazz' },
-        )
-      } else {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các mẫu ô tô điện', payload: 'có những ô tô nào' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Xem các mẫu xe máy điện', payload: 'xe máy điện' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Ô tô dưới 500 triệu', payload: 'Tư vấn ô tô dưới 500 triệu' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Xe máy dưới 20 triệu', payload: 'Tư vấn xe máy điện dưới 20 triệu' },
-        )
-      }
-    } else {
-      const cars = knownProducts.filter((p) => p.productType === 'CAR')
-      const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
+    const hasWarrantyOrBatteryPolicy = knowledgeEvidence.some((e) => {
+      const cat = options.evidence.getFact(`fact-kb-category-${e.entity.id}`)?.valueHash
+      return cat === 'WARRANTY_BATTERY' || cat === 'WARRANTY_POLICY' || cat === 'BATTERY_POLICY'
+    })
 
-      if (cars.length > 0 && bikes.length > 0) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các mẫu ô tô điện', payload: 'có những ô tô nào' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Xem các mẫu xe máy điện', payload: 'xe máy điện' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Tư vấn mua xe trả góp', payload: 'Dự toán trả góp' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Chính sách bảo hành pin', payload: 'Chính sách bảo hành pin' },
-        )
-      } else if (knownProducts.length >= 2) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: `Dự toán trả góp ${knownProducts[0].name}`, payload: `Dự toán trả góp ${knownProducts[0].name}` },
-          { suggestionId: `sug-2-${options.turnId}`, label: `Đặt lịch lái thử ${knownProducts[0].name}`, payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
-          { suggestionId: `sug-3-${options.turnId}`, label: `Phụ kiện ${knownProducts[0].name}`, payload: `Phụ kiện cho ${knownProducts[0].name}` },
-        )
-      } else if (knownProducts.length === 1) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: `Thông số ${knownProducts[0].name}`, payload: `Thông số kỹ thuật ${knownProducts[0].name}` },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: `Dự toán trả góp ${knownProducts[0].name}` },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Đặt lịch lái thử', payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện phù hợp', payload: `Phụ kiện phù hợp cho ${knownProducts[0].name}` },
-        )
-      } else {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các dòng xe VinFast', payload: 'Các dòng xe VinFast hiện nay' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: 'Tư vấn mua xe trả góp' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Chính sách bảo hành pin', payload: 'Chính sách bảo hành pin' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện nổi bật', payload: 'Phụ kiện xe VinFast' },
-        )
-      }
+    const candidates = buildSuggestionCandidates({
+      knownProducts: knownProducts.map((product) => ({
+        id: product.id,
+        name: product.name,
+        productType: product.productType,
+      })),
+      catalogProducts: catalogSuggestionProducts,
+      isClarificationTurn,
+      isComparisonTurn,
+      hasWarrantyOrBatteryPolicy,
+    })
+
+    for (const candidate of rankSuggestionCandidates(candidates, 3)) {
+      suggestions.push({
+        suggestionId: `sug-${suggestions.length + 1}-${options.turnId}`,
+        label: candidate.label,
+        payload: candidate.payload,
+        kind: candidate.kind,
+        ...(candidate.entityIds?.length ? { entityIds: candidate.entityIds } : {}),
+        ...(candidate.entityType ? { entityType: candidate.entityType } : {}),
+        ...(options.catalogVersion ? { catalogVersion: options.catalogVersion } : {}),
+      })
     }
   }
 
@@ -414,7 +370,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     },
     blocks,
     actions,
-    suggestions: suggestions.slice(0, 4),
+    suggestions: suggestions.slice(0, 3),
     grounding: {
       dataAsOf: options.dataAsOf || new Date().toISOString(),
       warnings,

@@ -4,8 +4,6 @@ const mocks = vi.hoisted(() => ({
   streamText: vi.fn(),
   generateText: vi.fn(),
   executeDataTool: vi.fn(),
-  resolveDeterministicComparison: vi.fn(),
-  getCatalogPromptContext: vi.fn(),
   isKnowledgeEnabled: vi.fn(),
   markKeySuccess: vi.fn(),
   markKeyError: vi.fn(),
@@ -40,12 +38,6 @@ vi.mock('../providers/ai-sdk', () => ({
   createSalesAgentLanguageModel: vi.fn(),
 }))
 vi.mock('../tools/definitions', () => ({ executeDataTool: mocks.executeDataTool }))
-vi.mock('../catalog/comparison-router', () => ({
-  resolveDeterministicComparison: mocks.resolveDeterministicComparison,
-}))
-vi.mock('../cache/catalog-context', () => ({
-  getCatalogPromptContext: mocks.getCatalogPromptContext,
-}))
 vi.mock('../core/flags', () => ({
   isSalesAgentKnowledgeRagEnabled: mocks.isKnowledgeEnabled,
 }))
@@ -66,8 +58,6 @@ describe('runTurn budgets and finalization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.isKnowledgeEnabled.mockReturnValue(false)
-    mocks.resolveDeterministicComparison.mockResolvedValue(null)
-    mocks.getCatalogPromptContext.mockReturnValue('')
     mocks.streamText.mockImplementation(() => completedStream())
     mocks.generateText.mockResolvedValue({
       text: 'Câu trả lời từ finalizer.',
@@ -110,15 +100,6 @@ describe('runTurn budgets and finalization', () => {
     expect(options.timeout.toolMs).toBe(DEFAULT_RUN_BUDGET.toolTimeoutMs)
     expect(options.timeout.totalMs).toBeLessThanOrEqual(DEFAULT_RUN_BUDGET.totalTimeoutMs)
     expect(options.maxRetries).toBe(0)
-  })
-
-  it('passes the selected compact catalog context into the model instructions', async () => {
-    mocks.getCatalogPromptContext.mockReturnValue('[CATALOG_SNAPSHOT status=SYNCED]\nVF 5 Plus|468000000\n[/CATALOG_SNAPSHOT]')
-
-    await runTurn({ input: { kind: 'USER_MESSAGE', text: 'giá VF5' } })
-
-    expect(mocks.getCatalogPromptContext).toHaveBeenCalledWith('giá VF5')
-    expect(mocks.streamText.mock.calls[0][0].instructions).toContain('468000000')
   })
 
   it('returns and logs input/output usage, including cache input when reported', async () => {

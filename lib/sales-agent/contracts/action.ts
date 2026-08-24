@@ -41,9 +41,27 @@ export const suggestionIntentSchema = z.object({
 })
 export type SuggestionIntent = z.infer<typeof suggestionIntentSchema>
 
+export const suggestionKindSchema = z.enum([
+  'CATALOG_PRICE',
+  'CATALOG_COMPARE',
+  'CATALOG_SPEC',
+  'CATALOG_BROWSE',
+  'FINANCE',
+  'TEST_DRIVE',
+  'ACCESSORY',
+  'KNOWLEDGE_POLICY',
+  'CLARIFICATION',
+  'FOLLOW_UP',
+])
+export type SuggestionKind = z.infer<typeof suggestionKindSchema>
+
 export const salesAgentSuggestionSchema = z.object({
   suggestionId: z.string().trim().min(1),
   label: z.string().trim().min(1),
   payload: z.string().trim().optional(),
+  kind: suggestionKindSchema.optional(),
+  entityIds: z.array(z.string().trim().min(1)).max(4).optional(),
+  entityType: productTypeSchema.optional(),
+  catalogVersion: z.number().int().nonnegative().optional(),
 })
 export type SalesAgentSuggestion = z.infer<typeof salesAgentSuggestionSchema>

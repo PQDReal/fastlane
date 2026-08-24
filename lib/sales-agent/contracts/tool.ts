@@ -169,7 +169,7 @@ export const appliedBindingSchema = z.object({
   value: z.unknown(),
   authority: z.enum(['ENFORCED', 'CONFIRMED']),
   provenance: z.object({
-    kind: z.enum(['SIGNED_INTERACTION', 'BUSINESS_INVARIANT', 'PAGE_CONTEXT']),
+    kind: z.enum(['SIGNED_INTERACTION', 'BUSINESS_INVARIANT', 'PAGE_CONTEXT', 'SERVER_RESOLVED']),
     id: z.string().optional(),
   }),
 })
@@ -180,6 +180,18 @@ export type ToolOutcome = 'SUCCESS' | 'NO_MATCH' | 'NEEDS_INPUT' | 'REJECTED' | 
 /** Backend-only diagnostics. Never copied into the Agent evidence context. */
 export interface ToolDiagnostics {
   retrieval?: Record<string, unknown>
+  scope?: {
+    bindingId?: string
+    vehicleModel?: string
+    modelYear?: number
+    defaultedModelYear?: number
+  yearPolicy?: 'EXPLICIT' | 'ONLY_AVAILABLE' | 'LATEST' | 'AMBIGUOUS'
+    catalogStatus?: 'READY' | 'EMPTY' | 'UNAVAILABLE'
+    catalogEntryCount?: number
+    catalogEpoch?: number
+    sources?: Record<string, string>
+    ignoredRawFields?: string[]
+  }
   visualLookup?: {
     enabled: boolean
     latencyMs: number
@@ -238,7 +250,7 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
     inputSchema: discoverAccessoriesInputSchema,
   },
   search_knowledge: {
-    description: 'Tra cứu tài liệu, cẩm nang kỹ thuật, sổ tay hướng dẫn, chính sách và quy trình. Truyền vehicleModel/modelYear khi đã biết; tool sẽ yêu cầu làm rõ nếu kết quả thuộc nhiều mẫu hoặc nhiều đời xe.',
+    description: 'Tra cứu tài liệu, cẩm nang kỹ thuật, sổ tay hướng dẫn, chính sách và quy trình. vehicleModel/modelYear chỉ là gợi ý không có quyền quyết định; server sẽ dùng phạm vi mẫu xe/năm đã xác minh từ lời người dùng và yêu cầu làm rõ nếu kết quả thuộc nhiều phạm vi.',
     inputSchema: searchKnowledgeInputSchema,
   },
 }

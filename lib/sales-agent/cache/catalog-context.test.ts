@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import type { CachedCatalogSnapshot } from './catalog-cache'
-import { buildCatalogPromptContext, compileCompactCatalogContext } from './catalog-context'
+import { compileCompactCatalogContext, CATALOG_CONTEXT_CHAR_BUDGET, CATALOG_INDEX_CHAR_BUDGET } from './catalog-context'
 
 const snapshot: CachedCatalogSnapshot = {
   products: [
@@ -50,31 +50,49 @@ const snapshot: CachedCatalogSnapshot = {
 }
 
 describe('compact catalog prompt context', () => {
-  it('keeps synced product facts while excluding legacy policy and knowledge prose', () => {
+  it('builds an index-only capability context without product facts by default', () => {
+    const context = compileCompactCatalogContext(snapshot, { mode: 'INDEX' })
+
+    expect(context).toContain('status=SYNCED')
+    expect(context).toContain('INDEX:')
+    expect(context).toContain('VF 5 Plus')
+    expect(context).toContain('VF 9')
+    expect(context).not.toContain('price_vnd')
+    expect(context).not.toContain('468000000')
+  })
+
+  it('keeps synced product facts while excluding legacy policy and knowledge prose in FACTS mode', () => {
     const context = compileCompactCatalogContext(snapshot, { mode: 'FACTS' })
 
     expect(context).toContain('status=SYNCED')
     expect(context).toContain('price_vnd')
     expect(context).toContain('468000000')
+    expect(context).toContain('1984000000')
     expect(context).not.toContain('Cẩm nang')
     expect(context).not.toContain('Chính sách cốt lõi')
     expect(context.length).toBeLessThan(1800)
   })
 
-  it('uses only the model index for technical questions', () => {
-    const context = buildCatalogPromptContext('cách kết nối wifi trên VF5', snapshot)
-
-    expect(context).toContain('INDEX:')
-    expect(context).toContain('VF 5 Plus')
-    expect(context).not.toContain('price_vnd')
-  })
-
-  it('selects only explicitly mentioned models for direct fact questions', () => {
-    const context = buildCatalogPromptContext('giá VF5 hiện tại', snapshot)
+  it('allows targeted facts for specified productIds', () => {
+    const context = compileCompactCatalogContext(snapshot, { mode: 'FACTS', productIds: ['vf5'] })
 
     expect(context).toContain('price_vnd')
     expect(context).toContain('468000000')
     expect(context).not.toContain('1984000000')
+  })
+
+  it('keeps the compact snapshot within its hard character budget', () => {
+    const largeSnapshot = {
+      ...snapshot,
+      products: Array.from({ length: 80 }, (_, index) => ({
+        ...snapshot.products[0],
+        id: `vf5-${index}`,
+        name: `VinFast VF 5 Plus ${index}`,
+      })),
+    }
+    const context = compileCompactCatalogContext(largeSnapshot, { mode: 'FACTS' })
+    expect(context.length).toBeLessThanOrEqual(CATALOG_CONTEXT_CHAR_BUDGET)
+    expect(context).toContain('[/CATALOG_SNAPSHOT]')
   })
 
   it('does not expose fallback seed facts as current values', () => {
@@ -88,8 +106,5 @@ describe('compact catalog prompt context', () => {
     expect(context).not.toContain('price_vnd')
     expect(context).not.toContain('468000000')
   })
-
-  it('does not touch the catalog for unrelated questions', () => {
-    expect(buildCatalogPromptContext('cách bật điều hòa', snapshot)).toBe('')
-  })
 })
+

@@ -8,8 +8,7 @@ import { FINALIZATION_PHASE_INSTRUCTION, getSalesAgentSystemPrompt } from '../pr
 import { executeDataTool } from '../tools/definitions'
 import { isSalesAgentKnowledgeRagEnabled } from '../core/flags'
 import { recordSalesAgentDebugEvent } from '../debug-log'
-import { resolveDeterministicComparison } from '../catalog/comparison-router'
-import { getCatalogPromptContext } from '../cache/catalog-context'
+import { buildKnowledgeScopeContext } from '../knowledge/scope-context'
 import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
 import { knowledgeMediaReference } from '../knowledge/media-reference'
 import {
@@ -397,12 +396,16 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   const deadline = startedAt + budget.totalTimeoutMs
   const userText = userTextFromInput(options.input)
   const knowledgeEnabled = isSalesAgentKnowledgeRagEnabled()
-  const catalogContextQuery = [
-    ...(options.history ?? []).slice(-6).map((message) => message.content),
-    userText,
-  ].join('\n')
-  const catalogContext = getCatalogPromptContext(catalogContextQuery)
-  const basePrompt = getSalesAgentSystemPrompt({ knowledgeEnabled, catalogContext })
+  const knowledgeScope = buildKnowledgeScopeContext(userText, options.history ?? [])
+  recordSalesAgentDebugEvent('knowledge.scope.resolved', options.context, {
+    bindingId: knowledgeScope.binding?.bindingId,
+    vehicleModel: knowledgeScope.binding?.vehicleModel,
+    modelYear: knowledgeScope.binding?.modelYear,
+    sources: knowledgeScope.binding?.sources,
+    candidateModels: knowledgeScope.candidateModels,
+    candidateYears: knowledgeScope.candidateYears,
+  })
+  const basePrompt = getSalesAgentSystemPrompt({ knowledgeEnabled })
 
   let toolCallsCount = 0
   let toolCallSequence = 0
@@ -470,6 +473,16 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           rawInput: input,
           effectiveInput: bindingResult.effectiveInput,
           hasConflict: Boolean(bindingResult.conflict),
+          knowledgeScope: toolName === 'search_knowledge'
+            ? {
+                bindingId: knowledgeScope.binding?.bindingId,
+                vehicleModel: knowledgeScope.binding?.vehicleModel,
+                modelYear: knowledgeScope.binding?.modelYear,
+                sources: knowledgeScope.binding?.sources,
+                candidateModels: knowledgeScope.candidateModels,
+                candidateYears: knowledgeScope.candidateYears,
+              }
+            : undefined,
         })
 
         if (bindingResult.conflict) {
@@ -502,7 +515,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         }
 
         const toolStartedAt = Date.now()
-        const result = await executeDataTool(toolName, bindingResult.effectiveInput, toolCallId)
+        const result = await executeDataTool(
+          toolName,
+          bindingResult.effectiveInput,
+          toolCallId,
+          { knowledgeScope: toolName === 'search_knowledge' ? knowledgeScope.binding : undefined },
+        )
         ingestResult(toolName, result, Date.now() - toolStartedAt)
         return {
           outcome: result.outcome,
@@ -514,29 +532,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         }
       },
     })
-  }
-
-  // Natural text, suggestion payloads and /compare share the same deterministic path.
-  let deterministicComparison = false
-  if (toolCallsCount < budget.maxToolCalls) {
-    const directCallId = `call-compare-workflow-${Date.now()}`
-    try {
-      const directStartedAt = Date.now()
-      const direct = await withOperationTimeout(
-        resolveDeterministicComparison(userText, directCallId),
-        Math.min(budget.toolTimeoutMs, Math.max(1, deadline - Date.now())),
-      )
-      if (direct) {
-        deterministicComparison = true
-        toolCallsCount += 1
-        options.onToolCall?.('compare_products', directCallId)
-        ingestResult('compare_products', direct.result, Date.now() - directStartedAt)
-      }
-    } catch (error) {
-      recordSalesAgentDebugEvent('comparison.workflow_fallback', options.context, {
-        reason: error instanceof Error ? error.message : String(error),
-      })
-    }
   }
 
   const baseMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -552,7 +547,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     historyTurns: options.history?.length ?? 0,
     selectedProvider: options.selectedProvider || 'default',
     primaryModel: lm.provider,
-    deterministicComparison,
     availableTools: Object.keys(tools),
     budget,
   })
@@ -585,7 +579,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         ? activeModel
         : createSalesAgentLanguageModel(activeModel.config)
       const priorEvidence = evidence.getAllToolResults().length > 0
-      const forceFinalFromStart = deterministicComparison || (priorEvidence && (keyAttempt > 0 || activeModel !== lm))
+      const forceFinalFromStart = priorEvidence && (keyAttempt > 0 || activeModel !== lm)
       const evidenceContext = modelEvidenceContext(evidence)
       const messages = evidenceContext
         ? [...baseMessages, { role: 'user' as const, content: evidenceContext }]

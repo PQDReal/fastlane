@@ -12,6 +12,11 @@ export type KnowledgeAmbiguity = {
   matchedScopes: KnowledgeScopeMetadata[]
 }
 
+export type KnowledgeAmbiguityOptions = {
+  /** Require an explicit user/server model even when retrieval found one model. */
+  requireModel?: boolean
+}
+
 function normalizeModel(value: string | null | undefined) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
@@ -43,6 +48,7 @@ function yearLabel(scope: KnowledgeScopeMetadata) {
 export function detectKnowledgeAmbiguity(
   items: KnowledgeEvidenceItem[],
   requested: { vehicleModel?: string; modelYear?: number },
+  options: KnowledgeAmbiguityOptions = {},
 ): KnowledgeAmbiguity | null {
   const scopes = concreteScopes(items)
   if (scopes.length === 0) return null
@@ -53,7 +59,7 @@ export function detectKnowledgeAmbiguity(
     return [[normalizeModel(model), model] as const]
   })).values()]
 
-  if (!requested.vehicleModel && models.length > 1) {
+  if (!requested.vehicleModel && (models.length > 1 || (options.requireModel && models.length > 0))) {
     return {
       field: 'vehicleModel',
       question: `Bạn đang hỏi mẫu xe nào: ${models.join(', ')}?`,

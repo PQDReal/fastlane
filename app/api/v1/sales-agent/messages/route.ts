@@ -14,6 +14,8 @@ import { validateSalesAgentInteractionProducts, SalesAgentInteractionValidationE
 import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
 import { runTurn, type SalesAgentFinishReason } from '@/lib/sales-agent/orchestrator/run-turn'
 import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
+import { catalogCacheEngine } from '@/lib/sales-agent/cache/catalog-cache'
+import { validateSuggestionSelection } from '@/lib/sales-agent/suggestions/validation'
 import {
   evaluateInputGuardrails,
   evaluateOutputGuardrails,
@@ -114,6 +116,28 @@ export async function POST(request: Request) {
     const payload = parseSalesAgentMessageRequest(await request.json())
     const conversationId = payload.conversationId || crypto.randomUUID()
     const messageId = crypto.randomUUID()
+
+    if (payload.suggestionSelection) {
+      const selectionValidation = validateSuggestionSelection(payload.suggestionSelection, catalogCacheEngine.getSnapshot())
+      if (!selectionValidation.valid) {
+        recordSalesAgentDebugEvent('suggestion.rejected', { conversationId, messageId }, {
+          suggestionId: payload.suggestionSelection.suggestionId,
+          reason: selectionValidation.reason,
+        })
+        return NextResponse.json(
+          { error: { code: 'SUGGESTION_STALE', message: 'Gợi ý này đã thay đổi theo danh mục hiện tại. Vui lòng chọn lại.' } },
+          { status: 409 },
+        )
+      }
+      if (selectionValidation.staleCatalog) {
+        recordSalesAgentDebugEvent('suggestion.revalidated', { conversationId, messageId }, {
+          suggestionId: payload.suggestionSelection.suggestionId,
+          catalogVersion: payload.suggestionSelection.catalogVersion,
+          currentCatalogVersion: catalogCacheEngine.getSnapshot().lastRefreshedAt,
+        })
+      }
+    }
+
     let interactionSelection: Awaited<ReturnType<typeof consumeSalesAgentInteractionResponse>> | undefined
 
     if (payload.interactionResponse) {
@@ -161,9 +185,8 @@ export async function POST(request: Request) {
             blocks: [],
             actions: [],
             suggestions: [
-              { suggestionId: 'sug-vf3', label: 'Tư vấn xe VinFast VF 3' },
-              { suggestionId: 'sug-vf8', label: 'Tư vấn xe VinFast VF 8' },
-              { suggestionId: 'sug-pin', label: 'Chính sách bảo hành và thuê pin' },
+              { suggestionId: 'sug-catalog', label: 'Xem các mẫu xe đang bán', payload: 'Có những mẫu xe nào đang bán?', kind: 'CATALOG_BROWSE' },
+              { suggestionId: 'sug-advice', label: 'Tư vấn chọn xe phù hợp', payload: 'Tư vấn chọn xe phù hợp', kind: 'FOLLOW_UP' },
             ],
             grounding: {
               dataAsOf: new Date().toISOString(),
@@ -232,6 +255,11 @@ export async function POST(request: Request) {
           },
         })
 
+        const catalogSnapshot = catalogCacheEngine.getSnapshot()
+        const catalogProducts = catalogSnapshot.products
+          .filter((product) => product.productType !== 'ACCESSORY')
+          .map((product) => ({ id: product.id, name: product.name, productType: product.productType }))
+
         const viewModel = composeTurnResponse({
           rawPlan: turnResult.responsePlan,
           evidence: turnResult.evidence,
@@ -239,6 +267,16 @@ export async function POST(request: Request) {
           conversationRef: conversationId,
           turnId: messageId,
           messageId,
+          catalogProducts,
+          catalogStatus: catalogSnapshot.isSeededFallback ? 'INDEX_ONLY' : 'SYNCED',
+          catalogVersion: catalogSnapshot.lastRefreshedAt > 0 ? catalogSnapshot.lastRefreshedAt : undefined,
+        })
+
+        recordSalesAgentDebugEvent('suggestion.generated', { conversationId, messageId }, {
+          count: viewModel.suggestions.length,
+          kinds: viewModel.suggestions.map((suggestion) => suggestion.kind).filter(Boolean),
+          entityCount: viewModel.suggestions.reduce((count, suggestion) => count + (suggestion.entityIds?.length ?? 0), 0),
+          catalogVersion: catalogSnapshot.lastRefreshedAt > 0 ? catalogSnapshot.lastRefreshedAt : undefined,
         })
 
         // 3. Post-LLM Output Guardrail (Secret Redaction & PII Solicitation Prevention)
@@ -252,6 +290,10 @@ export async function POST(request: Request) {
           blocksCount: viewModel.blocks.length,
           actionsCount: viewModel.actions.length,
           suggestionsCount: viewModel.suggestions.length,
+          suggestionKinds: viewModel.suggestions.map((suggestion) => suggestion.kind).filter(Boolean),
+          suggestionEntityCount: viewModel.suggestions.reduce((count, suggestion) => count + (suggestion.entityIds?.length ?? 0), 0),
+          catalogStatus: catalogSnapshot.isSeededFallback ? 'INDEX_ONLY' : 'SYNCED',
+          catalogVersion: catalogSnapshot.lastRefreshedAt > 0 ? catalogSnapshot.lastRefreshedAt : undefined,
           usage: turnResult.usage,
         })
 

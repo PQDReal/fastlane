@@ -107,6 +107,20 @@ describe('Canonical Sales Agent message API', () => {
     expect(mocks.runTurn).not.toHaveBeenCalled()
   })
 
+  it('rejects a stale suggestion that references an inactive catalog entity', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: 'Giá xe',
+        suggestionSelection: { suggestionId: 'sug-stale', entityIds: ['removed-product'] },
+      }),
+    }))
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ error: { code: 'SUGGESTION_STALE' } })
+    expect(mocks.runTurn).not.toHaveBeenCalled()
+  })
+
   it('applies output guardrails before emitting any text delta', async () => {
     mocks.composeTurnResponse.mockReturnValueOnce({
       schemaVersion: '2.0',

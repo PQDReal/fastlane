@@ -13,7 +13,10 @@ import { isSalesAgentVisualKnowledgeRetrievalEnabled } from '../../core/flags'
 import type { KnowledgeVisualMediaPointer } from '../../knowledge/retrieval/contracts'
 import { guardUntrustedKnowledgeText } from '../../knowledge/untrusted-content'
 import { detectKnowledgeAmbiguity } from '../../knowledge/ambiguity'
+import type { KnowledgeScopeBinding } from '../../knowledge/scope-context'
+import { knowledgeScopeCatalogEngine, type KnowledgeScopeCatalogSnapshot } from '../../knowledge/scope-catalog'
 import type {
+  AppliedBinding,
   BrowseCatalogInput,
   DataToolName,
   DiscoverAccessoriesInput,
@@ -26,10 +29,144 @@ import type {
   ToolResult,
 } from '../../contracts'
 
+export type ExecuteDataToolOptions = {
+  /** Server-derived scope. Model-provided vehicleModel/modelYear are never authoritative. */
+  knowledgeScope?: KnowledgeScopeBinding | null
+}
+
+type KnowledgeScopeResolution = {
+  defaultedModelYear?: number
+  catalog?: Pick<KnowledgeScopeCatalogSnapshot, 'status' | 'entries' | 'knowledgeEpoch'>
+}
+
+async function loadKnowledgeScopeCatalog(): Promise<KnowledgeScopeCatalogSnapshot> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      knowledgeScopeCatalogEngine.getSnapshotAsync(),
+      new Promise<KnowledgeScopeCatalogSnapshot>((resolve) => {
+        timer = setTimeout(() => resolve({
+          status: 'UNAVAILABLE',
+          entries: [],
+          refreshedAt: Date.now(),
+        }), 800)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+function normalizeScopeModel(value: unknown) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+function rawModelHintForYearAmbiguity(rawModel: string | undefined, items: any[]) {
+  if (!rawModel) return undefined
+  const scopes = items.flatMap((item) => Array.isArray(item?.scopeMetadata) ? item.scopeMetadata : [])
+  const models = [...new Set(scopes
+    .map((scope: any) => normalizeScopeModel(scope?.vehicleModel))
+    .filter((model) => model && model !== 'all'))]
+  const years = [...new Set(scopes.flatMap((scope: any) => [scope.modelYearFrom, scope.modelYearTo]
+    .filter((year: unknown): year is number => Number.isInteger(year))))]
+  return models.length === 1 && years.length > 1 && models[0] === normalizeScopeModel(rawModel)
+    ? rawModel
+    : undefined
+}
+
+function selectKnowledgeScope(
+  items: any[],
+  vehicleModel: string | undefined,
+  modelYear: number | undefined,
+  catalogDefaultYear?: number,
+): { items: any[]; defaultedModelYear?: number } {
+  // Knowledge retrieval is not a sales catalog. Never choose the largest year
+  // merely because it exists; only a single active/effective year is safe to
+  // resolve automatically. Multiple years remain an explicit clarification.
+  if (!vehicleModel || modelYear != null) {
+    return { items }
+  }
+
+  if (catalogDefaultYear != null) return { items, defaultedModelYear: catalogDefaultYear }
+
+  const targetModel = normalizeScopeModel(vehicleModel)
+  const scopes = items.flatMap((item) => Array.isArray(item?.scopeMetadata) ? item.scopeMetadata : [])
+    .filter((scope: any) => {
+      const scopeModel = normalizeScopeModel(scope?.vehicleModel)
+      return scopeModel && scopeModel !== 'all' && scopeModel === targetModel
+    })
+  const years = [...new Set(scopes.flatMap((scope: any) => [scope.modelYearFrom, scope.modelYearTo]
+    .filter((year: unknown): year is number => Number.isInteger(year))))]
+    .sort((left, right) => right - left)
+
+  if (years.length === 1) return { items, defaultedModelYear: years[0] }
+
+  return { items, defaultedModelYear: undefined }
+}
+
+function applyKnowledgeScope(
+  result: ToolResult,
+  scope: KnowledgeScopeBinding | null | undefined,
+  input: SearchKnowledgeInput,
+  resolution: KnowledgeScopeResolution = {},
+): ToolResult {
+  const ignoredRawFields = [
+    input.vehicleModel ? 'vehicleModel' : undefined,
+    input.modelYear != null ? 'modelYear' : undefined,
+  ].filter((field): field is string => Boolean(field))
+
+  if (!scope && ignoredRawFields.length === 0) return result
+
+  const appliedBindings: AppliedBinding[] = []
+  if (scope?.vehicleModel) {
+    appliedBindings.push({
+      field: 'vehicleModel',
+      value: scope.vehicleModel,
+      authority: 'ENFORCED',
+      provenance: { kind: 'SERVER_RESOLVED', id: scope.bindingId },
+    })
+  }
+  if (scope?.modelYear != null) {
+    appliedBindings.push({
+      field: 'modelYear',
+      value: scope.modelYear,
+      authority: 'ENFORCED',
+      provenance: { kind: 'SERVER_RESOLVED', id: scope.bindingId },
+    })
+  }
+
+  return {
+    ...result,
+    appliedBindings: [...result.appliedBindings, ...appliedBindings],
+    diagnostics: {
+      ...result.diagnostics,
+      scope: {
+        bindingId: scope?.bindingId,
+        vehicleModel: scope?.vehicleModel,
+        modelYear: scope?.modelYear,
+        defaultedModelYear: resolution.defaultedModelYear,
+        yearPolicy: scope?.modelYear != null
+          ? 'EXPLICIT'
+          : resolution.defaultedModelYear != null
+            ? 'ONLY_AVAILABLE'
+            : undefined,
+        catalogStatus: resolution.catalog?.status,
+        catalogEntryCount: resolution.catalog?.entries.length,
+        catalogEpoch: resolution.catalog?.knowledgeEpoch,
+        sources: scope?.sources
+          ? Object.fromEntries(Object.entries(scope.sources).map(([key, value]) => [key, value]))
+          : undefined,
+        ignoredRawFields: ignoredRawFields.length > 0 ? ignoredRawFields : undefined,
+      },
+    },
+  }
+}
+
 export async function executeDataTool(
   name: DataToolName,
   args: any,
   toolCallId: string,
+  options: ExecuteDataToolOptions = {},
 ): Promise<ToolResult> {
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
@@ -99,37 +236,94 @@ export async function executeDataTool(
 
       case 'search_knowledge': {
         const input = args as SearchKnowledgeInput
-        const modelMatch = input.query.match(/\b(vf\s*\d+|vf\s*e34|vfe34)\b/i)
-        const inferredModel = input.vehicleModel || (modelMatch ? modelMatch[0].toUpperCase().replace(/\s+/g, ' ').replace('VFE34', 'VF e34').replace('VF E34', 'VF e34') : undefined)
-        const yearMatch = input.query.match(/\b(20\d{2})\b/)
-        const inferredYear = input.modelYear ?? (yearMatch ? Number(yearMatch[1]) : undefined)
+        // The model can suggest these fields, but only the server-derived scope
+        // may become a retrieval filter or an ambiguity exemption.
+        const inferredModel = options.knowledgeScope?.vehicleModel
+        const inferredYear = options.knowledgeScope?.modelYear
+        const shouldResolveCatalogYear = inferredModel && inferredYear == null
+        const scopeCatalog = shouldResolveCatalogYear
+          ? await loadKnowledgeScopeCatalog()
+          : undefined
+        const catalogYears = shouldResolveCatalogYear && inferredModel && scopeCatalog?.status === 'READY'
+          ? knowledgeScopeCatalogEngine.getAvailableYearsForModel(inferredModel)
+          : []
+        const catalogDefaultYear = catalogYears.length === 1
+          ? catalogYears[0]
+          : undefined
 
         let retrieval: any
         try {
+          const retrievalFilters = {
+            ...(inferredModel ? { vehicleModel: inferredModel } : {}),
+            ...((inferredYear ?? catalogDefaultYear) != null ? { modelYear: inferredYear ?? catalogDefaultYear } : {}),
+            ...(input.categories && input.categories.length === 1
+              ? { category: input.categories[0] as any }
+              : {}),
+          }
           retrieval = await new HybridHierarchicalRetrievalService({
             client: getSupabaseAdmin(),
           }).retrieve(
             input.query,
-            {
-              vehicleModel: inferredModel,
-              modelYear: inferredYear,
-              category: input.categories && input.categories.length === 1 ? input.categories[0] as any : undefined,
-            },
+            retrievalFilters,
             {
               retrievalMode: 'HYBRID_HIERARCHICAL',
               topK: input.topK ?? 5,
             },
           )
         } catch (retrievalErr: any) {
-          console.warn('[KNOWLEDGE RETRIEVAL] Search threw error, treating as empty:', retrievalErr?.message || retrievalErr)
-          retrieval = { status: 'NO_MATCH', items: [] }
+          console.warn('[KNOWLEDGE RETRIEVAL] Search unavailable:', retrievalErr?.message || retrievalErr)
+          retrieval = { status: 'UNAVAILABLE', items: [] }
         }
 
         if (retrieval.status === 'UNAVAILABLE' || !Array.isArray(retrieval.items)) {
-          retrieval = { status: 'NO_MATCH', items: [] }
+          return applyKnowledgeScope({
+            schemaVersion: '2.0',
+            toolCallId,
+            tool: 'search_knowledge',
+            readAt,
+            dataAsOf,
+            evidence: [],
+            observation: {
+              observationId: `obs-${toolCallId}`,
+              toolCallId,
+              outcome: 'UNAVAILABLE',
+              issueCodes: ['RESOURCE_UNAVAILABLE'],
+              inputHash: JSON.stringify(input),
+              readAt,
+            },
+            issues: [{ code: 'RESOURCE_UNAVAILABLE', message: 'Kho tài liệu tạm thời chưa phản hồi.' }],
+            appliedBindings: [],
+            outcome: 'UNAVAILABLE',
+            diagnostics: {
+              retrieval: {
+                status: retrieval.status,
+                retrievalMode: retrieval.retrievalMode,
+                totalFound: retrieval.totalFound,
+                ...retrieval.telemetry,
+              },
+            },
+            data: null,
+          }, options.knowledgeScope, input)
         }
 
-        const searchResults = retrieval.items
+        const selectedScope = selectKnowledgeScope(
+          retrieval.items,
+          inferredModel,
+          inferredYear,
+          catalogDefaultYear,
+        )
+        const scopeResolution: KnowledgeScopeResolution = {
+          defaultedModelYear: selectedScope.defaultedModelYear,
+          catalog: scopeCatalog
+            ? {
+                status: scopeCatalog.status,
+                entries: scopeCatalog.entries,
+                knowledgeEpoch: scopeCatalog.knowledgeEpoch,
+              }
+            : undefined,
+        }
+        const searchResults = selectedScope.items
+        const effectiveModelYear = inferredYear ?? scopeResolution.defaultedModelYear
         const safeSearchResults = searchResults.map((item: any) => {
           const title = guardUntrustedKnowledgeText(item.title)
           const sectionTitle = guardUntrustedKnowledgeText(item.sectionTitle)
@@ -142,9 +336,14 @@ export async function executeDataTool(
             contentSafety: title.blocked || sectionTitle.blocked || content.blocked ? 'BLOCKED' : 'SAFE',
           }
         })
+        const ambiguityModelHint = !inferredModel
+          ? rawModelHintForYearAmbiguity(input.vehicleModel, safeSearchResults)
+          : undefined
         const ambiguity = detectKnowledgeAmbiguity(safeSearchResults, {
-          vehicleModel: inferredModel,
-          modelYear: inferredYear,
+          vehicleModel: inferredModel ?? ambiguityModelHint,
+          modelYear: effectiveModelYear,
+        }, {
+          requireModel: !inferredModel && !ambiguityModelHint,
         })
         if (ambiguity) {
           const issues = [{
@@ -153,7 +352,7 @@ export async function executeDataTool(
             field: ambiguity.field,
             candidates: ambiguity.candidates,
           }]
-          return {
+          return applyKnowledgeScope({
             schemaVersion: '2.0',
             toolCallId,
             tool: 'search_knowledge',
@@ -180,7 +379,7 @@ export async function executeDataTool(
               },
             },
             data: ambiguity,
-          }
+          }, options.knowledgeScope, input, scopeResolution)
         }
         let visualPointers: KnowledgeVisualMediaPointer[] = []
         const visualLookupEnabled = isSalesAgentVisualKnowledgeRetrievalEnabled()
@@ -232,7 +431,7 @@ export async function executeDataTool(
           readAt,
         }
 
-        return {
+        return applyKnowledgeScope({
           schemaVersion: '2.0',
           toolCallId,
           tool: 'search_knowledge',
@@ -270,7 +469,7 @@ export async function executeDataTool(
               media: visualPointers.filter((pointer) => pointer.citationId === r.citationId),
             })),
           },
-        }
+        }, options.knowledgeScope, input, scopeResolution)
       }
 
       default: {
