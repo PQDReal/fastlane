@@ -5,7 +5,12 @@ const baseUrlArg = process.argv.find((arg) => arg.startsWith('--base-url='))
 const baseUrl = baseUrlArg?.slice('--base-url='.length).replace(/\/$/, '')
 const caseArg = process.argv.find((arg) => arg.startsWith('--case='))
 const caseId = caseArg?.slice('--case='.length)
-const probeManual = process.argv.includes('--probe-manual')
+const assertLive = process.argv.includes('--assert')
+const probeManual = process.argv.includes('--probe-manual') || assertLive
+
+if (assertLive && !baseUrl) {
+  throw new Error('Gate live cần --base-url=<URL sales agent đang chạy>.')
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -30,6 +35,44 @@ function groupCount(rows, keys) {
     groups[key] = (groups[key] ?? 0) + 1
     return groups
   }, {})).sort(([left], [right]) => left.localeCompare(right)))
+}
+
+function normalizeForMatch(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function evaluateLiveCase(item, liveCase) {
+  const answer = normalizeForMatch(liveCase.answer)
+  const requiredFailures = (item.requiredAnswerTermGroups ?? [])
+    .filter((alternatives) => !alternatives.some((term) => answer.includes(normalizeForMatch(term))))
+  const forbiddenMatches = (item.forbiddenAnswerTerms ?? [])
+    .filter((term) => answer.includes(normalizeForMatch(term)))
+  const expectedToolCompleted = item.expectedTool
+    ? liveCase.tools.includes(`${item.expectedTool}:complete`)
+    : true
+  const completenessMatches = item.expectedCompleteness
+    ? liveCase.completeness === item.expectedCompleteness
+    : true
+  const failures = []
+
+  if (liveCase.httpStatus !== 200) failures.push(`HTTP ${liveCase.httpStatus}`)
+  if (liveCase.error) failures.push('SSE trả event error')
+  if (!expectedToolCompleted) failures.push(`Tool ${item.expectedTool} chưa complete`)
+  if (!completenessMatches) failures.push(`Completeness ${liveCase.completeness ?? 'null'} != ${item.expectedCompleteness}`)
+  if (requiredFailures.length > 0) {
+    failures.push(`Thiếu ${requiredFailures.map((group) => group.join(' | ')).join('; ')}`)
+  }
+  if (forbiddenMatches.length > 0) {
+    failures.push(`Có nội dung cấm: ${forbiddenMatches.join(', ')}`)
+  }
+
+  return {
+    pass: failures.length === 0,
+    failures,
+  }
 }
 
 async function runLiveCase(item, index) {
@@ -102,23 +145,40 @@ const sampledDocuments = groupCount(
 
 let manualProbe = null
 if (probeManual) {
-  const [{ embed }, { createOpenAI }] = await Promise.all([import('ai'), import('@ai-sdk/openai')])
-  const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })
-  const { embedding } = await embed({
-    model: openai.embedding('text-embedding-3-small'),
-    value: 'vị trí cổng sạc VF 8',
-  })
-  const result = await supabase.rpc('match_manual_chunks', {
-    query_embedding: `[${embedding.join(',')}]`,
-    match_threshold: 0.3,
-    match_count: 3,
-    filter_model_series: 'VF 8',
-    filter_year: '2024',
-  })
-  manualProbe = {
-    queryEmbeddingDimensions: embedding.length,
-    rows: result.data?.length ?? 0,
-    error: result.error?.message ?? null,
+  try {
+    const [{ embed }, { createOpenAI }] = await Promise.all([import('ai'), import('@ai-sdk/openai')])
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })
+    const { embedding } = await embed({
+      model: openai.embedding('text-embedding-3-small'),
+      value: 'vị trí cổng sạc VF 8',
+      providerOptions: { openai: { dimensions: 512 } },
+    })
+    const result = await supabase.rpc('match_manual_chunks', {
+      query_embedding: `[${embedding.join(',')}]`,
+      match_threshold: 0.3,
+      match_count: 3,
+      filter_model_series: 'VF 8',
+      filter_year: '2024',
+    })
+    manualProbe = {
+      queryEmbeddingDimensions: embedding.length,
+      rows: result.data?.length ?? 0,
+      error: result.error?.message ?? null,
+      matches: (result.data ?? []).map((row) => ({
+        articleId: row.article_id,
+        articleTitle: row.article_title,
+        sectionTitle: row.section_title,
+        similarity: row.similarity,
+        excerpt: String(row.content ?? '').slice(0, 320),
+      })),
+    }
+  } catch (error) {
+    manualProbe = {
+      queryEmbeddingDimensions: null,
+      rows: 0,
+      error: error instanceof Error ? error.message : String(error),
+      matches: [],
+    }
   }
 }
 
@@ -126,9 +186,36 @@ const selectedLiveCases = fixture.filter((item) => item.query && (!caseId || ite
 if (caseId && selectedLiveCases.length === 0) {
   throw new Error(`Không tìm thấy audit case: ${caseId}`)
 }
-const liveCases = baseUrl
-  ? await Promise.all(selectedLiveCases.map(runLiveCase))
-  : []
+const liveCasesWithoutEvaluation = []
+if (baseUrl) {
+  for (const [index, item] of selectedLiveCases.entries()) {
+    liveCasesWithoutEvaluation.push(await runLiveCase(item, index))
+  }
+}
+const liveCases = liveCasesWithoutEvaluation.map((liveCase) => ({
+  ...liveCase,
+  evaluation: evaluateLiveCase(
+    selectedLiveCases.find((item) => item.id === liveCase.id),
+    liveCase,
+  ),
+}))
+const semanticManualProbePass = !probeManual || (
+  manualProbe?.queryEmbeddingDimensions === 512
+  && manualProbe?.rows > 0
+  && !manualProbe?.error
+)
+const failedLiveCases = liveCases.filter((item) => !item.evaluation.pass)
+const manualLiveCase = liveCases.find((item) => item.id === 'vf8-manual-charge-port')
+const manualRetrievalPass = semanticManualProbePass || manualLiveCase?.evaluation.pass === true
+const regression = {
+  assertRequested: assertLive,
+  semanticManualProbePass,
+  manualRetrievalPass,
+  totalLiveCases: liveCases.length,
+  passedLiveCases: liveCases.length - failedLiveCases.length,
+  failedCaseIds: failedLiveCases.map((item) => item.id),
+  pass: manualRetrievalPass && failedLiveCases.length === 0,
+}
 
 process.stdout.write(`${JSON.stringify({
   checkedAt: new Date().toISOString(),
@@ -157,4 +244,9 @@ process.stdout.write(`${JSON.stringify({
   manualProbe,
   expectedCases: fixture,
   liveCases,
+  regression,
 }, null, 2)}\n`)
+
+if (assertLive && !regression.pass) {
+  process.exitCode = 1
+}

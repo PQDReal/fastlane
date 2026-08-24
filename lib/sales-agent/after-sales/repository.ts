@@ -332,17 +332,24 @@ function rankFactGroups(rows: PublishedAfterSalesFactRow[], input: SearchAfterSa
 
   const selected: typeof ranked = []
   const selectedIds = new Set<string>()
+  const coveredTargets = new Set<string>()
   for (const target of targets) {
+    if (coveredTargets.has(target)) continue
     const match = ranked.find((group) => !selectedIds.has(group.id) && group.matchedTargets.has(target))
     if (!match) continue
     selected.push(match)
     selectedIds.add(match.id)
+    for (const matchedTarget of match.matchedTargets) coveredTargets.add(matchedTarget)
     if (selected.length >= input.topK) return selected
   }
-  for (const group of ranked) {
-    if (selectedIds.has(group.id)) continue
-    selected.push(group)
-    if (selected.length >= input.topK) break
+
+  // Không lấp đầy topK bằng các nhóm không liên quan khi query đã suy ra target rõ ràng.
+  if (targets.length === 0) {
+    for (const group of ranked) {
+      if (selectedIds.has(group.id)) continue
+      selected.push(group)
+      if (selected.length >= input.topK) break
+    }
   }
   return selected
 }
@@ -376,8 +383,10 @@ function factSources(value: unknown): FactSource[] {
 }
 
 function valueText(row: PublishedAfterSalesFactRow): string {
-  if (textValue(row.value_text)) return row.value_text!.trim()
-  return [row.value_numeric, row.unit].filter((value) => value !== null && value !== '').join(' ')
+  const raw = textValue(row.value_text)
+    ? row.value_text!.trim()
+    : [row.value_numeric, row.unit].filter((value) => value !== null && value !== '').join(' ')
+  return raw.replace(/(\d)(km|m|year|month|day|hour|minute)\b/gi, '$1 $2')
 }
 
 function afterSalesRoute(serviceType: SearchAfterSalesInput['serviceType'], vehicleType?: string): string {
@@ -462,7 +471,12 @@ export async function searchAfterSalesRepository(
 
   const release = releaseResult.data as PublishedReleaseRow
   const indexRows = (indexResult.data ?? []) as unknown as PublishedAfterSalesFactRow[]
+  const expectedTargets = inferTargets(input.query, input.serviceType)
   const selectedGroups = rankFactGroups(indexRows, input)
+  const coveredTargets = new Set(
+    selectedGroups.flatMap((group) => [...group.matchedTargets]),
+  )
+  const targetCoverageComplete = expectedTargets.every((target) => coveredTargets.has(target))
   const selectedFactIds = selectedGroups.flatMap((group) => group.rows.map((row) => row.fact_id))
   const observation: ToolObservationRef = {
     observationId: `obs-${toolCallId}`,
@@ -547,7 +561,7 @@ export async function searchAfterSalesRepository(
     issues: [],
     appliedBindings: [],
     outcome: 'SUCCESS',
-    completeness: groups.length === selectedGroups.length ? 'FULL' : 'PARTIAL',
+    completeness: groups.length === selectedGroups.length && targetCoverageComplete ? 'FULL' : 'PARTIAL',
     data: {
       releaseId: release.release_id,
       publishedAt: release.published_at,

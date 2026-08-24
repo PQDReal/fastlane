@@ -10,6 +10,11 @@ import { catalogCacheEngine } from '../cache/catalog-cache'
 import { chunkMarkdownDocument } from './chunker'
 import { embed } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import {
+  assertManualEmbeddingDimensions,
+  MANUAL_EMBEDDING_MODEL,
+  MANUAL_EMBEDDING_PROVIDER_OPTIONS,
+} from './manual-embedding-config'
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -596,6 +601,122 @@ export type ManualSearchResult = {
   content: string
   imageUrl?: string
   similarity: number
+  retrievalMode: 'SEMANTIC' | 'LEXICAL'
+}
+
+const MANUAL_LEXICAL_STOP_WORDS = new Set([
+  'cua', 'cho', 'voi', 'dau', 'nao', 'nhu', 'the', 'doi', 'nam', 'vinfast', 'vi', 'tri',
+  'huong', 'dan', 'su', 'dung', 'xe', 'o', 'tai', 'co', 'khong', 'mot', 'cac', 'la',
+])
+
+function normalizeManualSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+async function searchUserManualLexically(
+  query: string,
+  modelSeries?: string,
+  year?: number,
+  limit: number = 3,
+): Promise<ManualSearchResult[]> {
+  const supabase = getSupabaseAdmin()
+  let modelQuery = supabase.from('manual_models').select('id')
+  if (modelSeries) modelQuery = modelQuery.eq('model_series', modelSeries)
+  if (year) modelQuery = modelQuery.eq('year', String(year))
+  const modelResult = await modelQuery
+  if (modelResult.error) throw new Error(modelResult.error.message)
+  const modelIds = (modelResult.data ?? []).map((row) => row.id)
+  if (modelIds.length === 0) return []
+
+  const articleResult = await supabase
+    .from('manual_articles')
+    .select('id,title')
+    .in('model_id', modelIds)
+  if (articleResult.error) throw new Error(articleResult.error.message)
+  const articles = articleResult.data ?? []
+  const articleIds = articles.map((article) => article.id)
+  if (articleIds.length === 0) return []
+
+  const normalizedQuery = normalizeManualSearchText(query)
+  const terms = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])]
+    .filter((term) => {
+      const normalized = normalizeManualSearchText(term)
+      return normalized.length >= 3
+        && !MANUAL_LEXICAL_STOP_WORDS.has(normalized)
+        && !/^20\d{2}$/.test(normalized)
+    })
+    .slice(0, 6)
+  if (terms.length === 0) return []
+  const normalizedTerms = terms.map(normalizeManualSearchText)
+
+  const lexicalFilter = terms
+    .flatMap((term) => [`section_title.ilike.%${term}%`, `content.ilike.%${term}%`])
+    .join(',')
+  const keyPhrase = terms.join(' ')
+  const [phraseResult, termResult] = await Promise.all([
+    supabase
+      .from('manual_article_chunks')
+      .select('id,article_id,chunk_index,section_title,content,image_url')
+      .in('article_id', articleIds)
+      .or(`section_title.ilike.%${keyPhrase}%,content.ilike.%${keyPhrase}%`)
+      .limit(Math.max(limit * 10, 30)),
+    supabase
+      .from('manual_article_chunks')
+      .select('id,article_id,chunk_index,section_title,content,image_url')
+      .in('article_id', articleIds)
+      .or(lexicalFilter)
+      .limit(Math.max(limit * 30, 90)),
+  ])
+  if (phraseResult.error) throw new Error(phraseResult.error.message)
+  if (termResult.error) throw new Error(termResult.error.message)
+  const chunksById = new Map(
+    [...(phraseResult.data ?? []), ...(termResult.data ?? [])].map((row) => [row.id, row]),
+  )
+
+  const articleTitles = new Map(articles.map((article) => [article.id, article.title]))
+  const queryPhrases = [normalizedQuery, normalizedTerms.join(' ')]
+    .filter((phrase) => phrase.length >= 5)
+  return [...chunksById.values()]
+    .map((row) => {
+      const articleText = normalizeManualSearchText(articleTitles.get(row.article_id) ?? '')
+      const sectionText = normalizeManualSearchText(row.section_title ?? '')
+      const contentText = normalizeManualSearchText(row.content ?? '')
+      const termScore = normalizedTerms.reduce((score, term) => (
+        score
+        + (sectionText.includes(term) ? 10 : 0)
+        + (articleText.includes(term) ? 5 : 0)
+        + (contentText.includes(term) ? 2 : 0)
+      ), 0)
+      const phraseScore = queryPhrases.reduce((score, phrase) => (
+        score
+        + (sectionText.includes(phrase) ? 30 : 0)
+        + (articleText.includes(phrase) ? 18 : 0)
+        + (contentText.includes(phrase) ? 10 : 0)
+      ), 0)
+      return {
+        result: {
+          chunkId: row.id,
+          articleId: row.article_id,
+          articleTitle: articleTitles.get(row.article_id) ?? '',
+          sectionTitle: row.section_title ?? '',
+          content: row.content,
+          imageUrl: row.image_url ?? undefined,
+          similarity: 0,
+          retrievalMode: 'LEXICAL',
+        } satisfies ManualSearchResult,
+        score: termScore + phraseScore,
+        chunkIndex: row.chunk_index,
+      }
+    })
+    .sort((left, right) => right.score - left.score || left.chunkIndex - right.chunkIndex)
+    .slice(0, limit)
+    .map((item) => item.result)
 }
 
 export async function searchUserManualRepository(query: string, modelSeries?: string, year?: number, limit: number = 3): Promise<ManualSearchResult[]> {
@@ -605,9 +726,11 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
   try {
     // Generate embedding for the query
     const { embedding } = await embed({
-      model: openai.embedding('text-embedding-3-small'),
+      model: openai.embedding(MANUAL_EMBEDDING_MODEL),
       value: cleanQuery,
+      providerOptions: MANUAL_EMBEDDING_PROVIDER_OPTIONS,
     })
+    assertManualEmbeddingDimensions(embedding)
 
     const supabase = getSupabaseAdmin()
 
@@ -621,10 +744,8 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
       filter_year: year ? year.toString() : null
     })
 
-    if (error || !data) {
-      console.warn('match_manual_chunks failed:', error)
-      return []
-    }
+    if (error) throw new Error(error.message)
+    if (!data) return []
 
     return data.map((row: any) => ({
       chunkId: row.chunk_id,
@@ -633,10 +754,11 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
       sectionTitle: row.section_title,
       content: row.content,
       imageUrl: row.image_url,
-      similarity: row.similarity
+      similarity: row.similarity,
+      retrievalMode: 'SEMANTIC',
     }))
   } catch (err) {
-    console.error('searchUserManualRepository error:', err)
-    return []
+    console.warn('searchUserManualRepository semantic search failed; using lexical fallback:', err)
+    return searchUserManualLexically(cleanQuery, modelSeries, year, limit)
   }
 }

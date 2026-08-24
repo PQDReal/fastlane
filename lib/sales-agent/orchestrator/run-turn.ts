@@ -22,6 +22,14 @@ import { BindingLedger } from './ledgers/bindings'
 import { EvidenceLedger } from './ledgers/evidence'
 import { requiresWarrantyKnowledgeLookup } from './warranty-intent'
 import { requiredAfterSalesLookup } from './after-sales-intent'
+import { requiresManualLookup } from './manual-intent'
+import {
+  appendCanonicalManualReference,
+  buildDeterministicToolMarkdown,
+  buildNoEvidenceMarkdown,
+  extractEmbeddedSuggestions,
+} from '../response/grounded-output'
+import { canonicalizeRequiredToolInput } from './required-tool-input'
 
 export type RunTurnOptions = {
   input: SalesAgentTurnInput
@@ -50,9 +58,22 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   const knownEntities = new KnownEntityLedger()
   const bindings = new BindingLedger()
   const evidence = new EvidenceLedger()
+  const attemptedToolNames = new Set<DataToolName>()
+
+  const userText = options.input.kind === 'USER_MESSAGE'
+    ? options.input.text
+    : options.input.kind === 'SUGGESTION_SELECT'
+      ? `Người dùng đã chọn gợi ý: ${options.input.suggestionId}`
+      : options.input.kind === 'INTERACTION_SUBMIT'
+        ? `Người dùng đã gửi lựa chọn: ${options.input.selectedOptionIds.join(', ')}`
+        : `Người dùng kích hoạt hành động: ${options.input.actionId}`
+  const mustSearchWarrantyKnowledge = requiresWarrantyKnowledgeLookup(userText)
+  const mustSearchPublishedAfterSales = requiredAfterSalesLookup(userText)
+  const mustSearchManual = requiresManualLookup(userText)
 
   let toolCallsCount = 0
   const lm = await getSalesAgentLanguageModel(options.selectedProvider as any)
+  const prefetchedToolResults = new Map<DataToolName, ToolResult>()
 
   // Construct toolset dynamically from TOOL_CONTRACTS
   const tools: ToolSet = {}
@@ -63,11 +84,29 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
       description: contract.description,
       inputSchema: contract.inputSchema,
       execute: async (input: any) => {
+        const prefetchedResult = prefetchedToolResults.get(toolName)
+        if (prefetchedResult) {
+          return {
+            outcome: prefetchedResult.outcome,
+            completeness: (prefetchedResult as any).completeness ?? 'FULL',
+            data: prefetchedResult.data,
+            issues: prefetchedResult.issues,
+          }
+        }
+
+        attemptedToolNames.add(toolName)
         const toolCallId = `call-${toolName}-${Date.now()}-${++toolCallsCount}`
         options.onToolCall?.(toolName, toolCallId)
 
+        const canonicalInput = canonicalizeRequiredToolInput(toolName, input, {
+          userText,
+          afterSalesLookup: mustSearchPublishedAfterSales,
+          manualLookup: mustSearchManual,
+          warrantyKnowledgeLookup: mustSearchWarrantyKnowledge,
+        })
+
         // Apply bindings
-        const bindingRes = bindings.applyBindings(input)
+        const bindingRes = bindings.applyBindings(canonicalInput)
         if (bindingRes.conflict) {
           const obsId = `obs-conflict-${toolCallId}`
           const obs = {
@@ -75,7 +114,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
             toolCallId,
             outcome: 'REJECTED' as const,
             issueCodes: ['CONSTRAINT_CONFLICT'],
-            inputHash: JSON.stringify(input),
+            inputHash: JSON.stringify(canonicalInput),
             readAt: new Date().toISOString(),
           }
           evidence.recordObservation(obs)
@@ -135,14 +174,27 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })
   }
 
-  // Extract user text
-  const userText = options.input.kind === 'USER_MESSAGE'
-    ? options.input.text
-    : options.input.kind === 'SUGGESTION_SELECT'
-      ? `Người dùng đã chọn gợi ý: ${options.input.suggestionId}`
-      : options.input.kind === 'INTERACTION_SUBMIT'
-        ? `Người dùng đã gửi lựa chọn: ${options.input.selectedOptionIds.join(', ')}`
-        : `Người dùng kích hoạt hành động: ${options.input.actionId}`
+  const requiredTool: DataToolName | null = mustSearchPublishedAfterSales?.toolName
+    ?? (mustSearchWarrantyKnowledge ? 'search_knowledge' : null)
+    ?? (mustSearchManual ? 'search_user_manuals' : null)
+  if (requiredTool) {
+    const requiredInput = requiredTool === 'search_after_sales'
+      ? {
+          serviceType: mustSearchPublishedAfterSales?.toolName === 'search_after_sales'
+            ? mustSearchPublishedAfterSales.serviceType
+            : 'maintenance',
+          query: userText,
+          topK: 6,
+        }
+      : requiredTool === 'find_service_locations'
+        ? { query: userText, limit: 8 }
+        : { query: userText, topK: requiredTool === 'search_knowledge' ? 5 : 3 }
+    await (tools[requiredTool] as { execute?: (input: unknown) => Promise<unknown> }).execute?.(requiredInput)
+    const prefetchedResult = evidence.getAllToolResults().at(-1)
+    if (prefetchedResult?.tool === requiredTool) {
+      prefetchedToolResults.set(requiredTool, prefetchedResult)
+    }
+  }
 
   // Format messages
   const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -152,9 +204,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })),
     { role: 'user', content: userText },
   ]
-  const mustSearchWarrantyKnowledge = requiresWarrantyKnowledgeLookup(userText)
-  const mustSearchPublishedAfterSales = requiredAfterSalesLookup(userText)
-
   // Multi-Provider & Multi-Key Failover Engine
   const candidateModels: SalesAgentLanguageModel[] = [lm]
   const fallbacks = await getAvailableFallbackLanguageModels(lm.provider)
@@ -163,10 +212,16 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   let accumulatedText = ''
   let steps: any[] = []
   let finishReason = 'stop'
-  let generationSucceeded = false
+  const deterministicPrefetchSucceeded = [...prefetchedToolResults.values()]
+    .some((result) => result.outcome === 'SUCCESS')
+  let generationSucceeded = deterministicPrefetchSucceeded
   let lastError: any = null
 
-  for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+  if (deterministicPrefetchSucceeded) {
+    finishReason = 'tool-result'
+  }
+
+  for (let mIdx = 0; !deterministicPrefetchSucceeded && mIdx < candidateModels.length; mIdx++) {
     const activeModel = candidateModels[mIdx]
     const availableKeys = apiKeyPoolManager.parseKeysFromEnv(activeModel.config.apiKeyEnv)
     const maxKeyAttempts = Math.max(1, availableKeys.length)
@@ -195,6 +250,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
                 toolChoice: { type: 'tool', toolName: 'search_knowledge' },
               }
             }
+            if (mustSearchManual && stepNumber === 0) {
+              return {
+                activeTools: ['search_user_manuals'],
+                toolChoice: { type: 'tool', toolName: 'search_user_manuals' },
+              }
+            }
             return undefined
           },
           stopWhen: [isStepCount(budget.maxModelSteps)],
@@ -211,7 +272,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         let currentTurnText = ''
         for await (const delta of streamResult.textStream) {
           currentTurnText += delta
-          options.onTextDelta?.(delta)
         }
 
         accumulatedText = currentTurnText
@@ -245,9 +305,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   if (!generationSucceeded) {
     console.error('[ORCHESTRATOR] All primary and fallback language models failed:', lastError)
     accumulatedText = accumulatedText || 'Dạ hiện tại hệ thống kết nối AI đang bận hoặc quá tải. Quý khách vui lòng thử lại sau giây lát hoặc liên hệ hotline FASTLANE để được hỗ trợ trực tiếp.'
-    if (options.onTextDelta && accumulatedText) {
-      options.onTextDelta(accumulatedText)
-    }
   }
 
   // Extract fact pointers from current turn evidence ledger
@@ -262,6 +319,28 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })),
   )
 
+  const allObservations = evidence.getAllObservations()
+  const negativeObservations = allObservations.filter((observation) => (
+    observation.outcome === 'NO_MATCH'
+    || observation.outcome === 'REJECTED'
+    || observation.outcome === 'UNAVAILABLE'
+  ))
+  const extracted = extractEmbeddedSuggestions(
+    accumulatedText || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.',
+  )
+  let parsedSuggestions = extracted.suggestions
+  let finalMarkdown = extracted.markdown
+
+  if (negativeObservations.length > 0 && currentTurnFactPointers.length === 0) {
+    finalMarkdown = buildNoEvidenceMarkdown(attemptedToolNames, negativeObservations)
+    parsedSuggestions = []
+  } else {
+    finalMarkdown = buildDeterministicToolMarkdown(evidence.getAllToolResults()) ?? finalMarkdown
+    if (attemptedToolNames.has('search_user_manuals') && currentTurnFactPointers.length > 0) {
+      finalMarkdown = appendCanonicalManualReference(finalMarkdown, evidence.getAllFacts())
+    }
+  }
+
   const narrative: PlannedNarrativeItem[] = []
 
   if (currentTurnFactPointers.length > 0) {
@@ -272,27 +351,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })
   }
 
-  let parsedSuggestions: any[] = []
-  let finalMarkdown = accumulatedText || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.'
-  
-  // Parse embedded JSON suggestion intents if the LLM output them at the end of the text
-  const lastBracketIndex = finalMarkdown.lastIndexOf('[')
-  const lastCloseBracketIndex = finalMarkdown.lastIndexOf(']')
-  if (lastBracketIndex !== -1 && lastCloseBracketIndex > lastBracketIndex) {
-    const possibleJson = finalMarkdown.substring(lastBracketIndex, lastCloseBracketIndex + 1)
-    if (possibleJson.includes('"label"') && possibleJson.includes('"intent"')) {
-      try {
-        const parsed = JSON.parse(possibleJson)
-        if (Array.isArray(parsed) && parsed.every(p => p.label && p.intent)) {
-          parsedSuggestions = parsed.map(p => ({ text: p.label, payload: p.intent })).slice(0, 5)
-          finalMarkdown = finalMarkdown.substring(0, lastBracketIndex).trim()
-        }
-      } catch (e) {
-        // Ignore JSON parse errors
-      }
-    }
-  }
-
   narrative.push({
     kind: 'ADVICE',
     markdown: finalMarkdown,
@@ -300,8 +358,6 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     support: currentTurnFactPointers.slice(0, 5),
   })
 
-  const allObservations = evidence.getAllObservations()
-  const negativeObservations = allObservations.filter((o) => o.outcome === 'NO_MATCH' || o.outcome === 'REJECTED' || o.outcome === 'UNAVAILABLE')
   if (negativeObservations.length > 0) {
     narrative.push({
       kind: 'LIMITATION',
@@ -318,8 +374,10 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     actionIntents: [],
   }
 
+  options.onTextDelta?.(finalMarkdown)
+
   return {
-    text: accumulatedText,
+    text: finalMarkdown,
     responsePlan,
     knownEntities,
     bindings,

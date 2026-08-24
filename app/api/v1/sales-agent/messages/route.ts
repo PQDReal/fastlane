@@ -191,22 +191,17 @@ export async function POST(request: Request) {
 
         send({ type: 'tool_status', tool: 'thinking', status: 'running' })
 
-        let hasStreamedFirstDelta = false
         const turnResult = await runTurn({
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
           signal: request.signal,
-          onTextDelta: (delta) => {
-            if (request.signal?.aborted) return
-            if (!hasStreamedFirstDelta) {
-              hasStreamedFirstDelta = true
-              send({ type: 'tool_status', tool: 'composing', status: 'running' })
-            }
-            send({ type: 'text_delta', delta })
-          },
           onToolCall: (toolName) => send({ type: 'tool_status', tool: toolName, status: 'running' }),
           onToolResult: (toolName, res) => {
-            const status = res.outcome === 'SUCCESS' ? 'complete' : res.outcome === 'NO_MATCH' ? 'not_found' : 'running'
+            const status = res.outcome === 'SUCCESS'
+              ? 'complete'
+              : res.outcome === 'NO_MATCH'
+                ? 'not_found'
+                : 'error'
             send({ type: 'tool_status', tool: toolName, status: status as any })
           },
         })
@@ -223,6 +218,10 @@ export async function POST(request: Request) {
         // 3. Post-LLM Output Guardrail (Secret Redaction & PII Solicitation Prevention)
         const { sanitized: safeMarkdown } = evaluateOutputGuardrails(viewModel.answer.markdown)
         viewModel.answer.markdown = safeMarkdown
+
+        // Chỉ phát nội dung sau khi evidence composer và output guardrail đã hoàn tất.
+        send({ type: 'tool_status', tool: 'composing', status: 'running' })
+        send({ type: 'text_delta', delta: safeMarkdown })
 
         recordSalesAgentDebugEvent('turn.completed', { conversationId, messageId }, {
           text: viewModel.answer.markdown,

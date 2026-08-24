@@ -35,3 +35,25 @@ Hiện tại ứng dụng chỉ mở trực tiếp các PDF chính thức. Nội
 - Trường bảo hành trong catalog xe máy không được đưa vào evidence cho tới khi được duyệt theo cùng context.
 
 Migration `066_verified_motorbike_warranty_knowledge.sql` lưu trữ tài liệu legacy sai và xuất bản tài liệu đã xác minh. Migration này phải được triển khai theo quy trình database riêng; commit code không tự thay đổi Supabase.
+
+## Audit Sales Agent sau triển khai
+
+Kết quả live ngày 24/08/2026: **8/8 case PASS**, gồm bảo hành pin xe máy, bảo hành VF 8, bảo dưỡng ô tô, bảo dưỡng phanh xe máy điện, sửa chữa, cứu hộ, xưởng dịch vụ và HDSD VF 8. Tất cả case đều gọi đúng data tool, trả `COMPLETE`, có đủ số liệu và route bắt buộc, đồng thời không rò JSON/suggestion metadata vào câu trả lời.
+
+Các lớp deterministic đã được chốt:
+
+- Luồng bắt buộc prefetch dữ liệu trước khi gọi model; câu trả lời after-sales, xưởng, policy đã xác minh và HDSD được dựng trực tiếp từ tool result.
+- Input bắt buộc được canonicalize từ câu người dùng; model không được tự đổi service type, mẫu/đời xe hoặc thêm quận/huyện không được nêu.
+- Nhóm after-sales chỉ được chọn để che phủ target còn thiếu; không lấp `topK` bằng facts khác context.
+- HDSD dùng chung cấu hình `text-embedding-3-small` 512 chiều cho cả ingestion và query. Semantic probe trả 3 kết quả; top-1 cho câu hỏi cổng sạc là `VF 8_2024_1152109 / Cổng sạc`, similarity `0.61843935659192`.
+- Nếu embedding provider tạm lỗi, HDSD có lexical fallback theo đúng model/đời xe; nếu toàn bộ lookup không có evidence thì agent trả fail-closed và không suy đoán.
+- Composer đánh `NO_EVIDENCE` khi lookup thất bại không có fact, `PARTIAL` khi evidence chưa đầy đủ, và chỉ phát SSE sau evidence composer cùng output guardrail.
+
+Regression gate:
+
+```powershell
+npm run test:sales-agent-after-sales-regressions
+npm run audit:sales-agent-after-sales:assert -- --base-url=http://localhost:3000
+```
+
+Phạm vi PDF không đổi: ba sổ bảo hành và 40 PDF HDSD xe máy điện hiện vẫn là link tài liệu chính thức; nội dung PDF chưa được ingest vào Sales Agent.

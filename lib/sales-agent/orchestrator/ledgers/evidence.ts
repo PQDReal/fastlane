@@ -108,4 +108,8 @@ export class EvidenceLedger {
   getAllEvidence(): StoredEvidence[] {
     return Array.from(this.evidenceMap.values())
   }
+
+  getAllToolResults(): ToolResult[] {
+    return Array.from(this.toolResultsMap.values())
+  }
 }

@@ -34,7 +34,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     if (item.kind === 'ADVICE') {
       markdownParts.push(item.markdown)
     } else if (item.kind === 'LIMITATION') {
-      markdownParts.push('*(Lưu ý: Một số thông tin chưa được tìm thấy trong catalog hiện tại)*')
+      markdownParts.push('*(Lưu ý: Một phần nguồn dữ liệu FASTLANE chưa trả về evidence phù hợp trong lượt này.)*')
     }
   }
 
@@ -249,11 +249,24 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  const completeness = plan.outcome === 'ANSWER'
-    ? 'COMPLETE'
-    : plan.outcome === 'DEGRADED'
-      ? 'NO_EVIDENCE'
-      : 'PARTIAL'
+  const negativeObservations = options.evidence.getAllObservations().filter((observation) => (
+    observation.outcome === 'NO_MATCH'
+    || observation.outcome === 'REJECTED'
+    || observation.outcome === 'UNAVAILABLE'
+  ))
+  const hasFacts = options.evidence.getAllFacts().length > 0
+  const hasPartialToolResult = options.evidence.getAllToolResults().some((result) => (
+    result.outcome === 'SUCCESS' && result.completeness === 'PARTIAL'
+  ))
+  const completeness = negativeObservations.length > 0
+    ? hasFacts ? 'PARTIAL' : 'NO_EVIDENCE'
+    : hasPartialToolResult
+      ? 'PARTIAL'
+      : plan.outcome === 'ANSWER'
+        ? 'COMPLETE'
+        : plan.outcome === 'DEGRADED'
+          ? 'NO_EVIDENCE'
+          : 'PARTIAL'
 
   return {
     schemaVersion: '2.0',

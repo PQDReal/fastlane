@@ -328,8 +328,10 @@ describe('published after-sales repositories', () => {
 
     expect(result.outcome).toBe('SUCCESS')
     if (result.outcome !== 'SUCCESS') return
+    expect(result.data.groups).toHaveLength(1)
     expect(result.data.groups[0].summary).toContain('12.000 km hoặc hàng năm')
     expect(result.data.groups.some((group: any) => group.summary.includes('8.000 km'))).toBe(false)
+    expect(result.data.groups.some((group: any) => group.subject === 'engine_oil')).toBe(false)
   })
 
   it('keeps brake-fluid inspection and brake-system lubrication as separate contexts', async () => {

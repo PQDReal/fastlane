@@ -66,6 +66,8 @@
     "audit:after-sales-persistence": "node scripts/audit-after-sales-persistence.mjs",
     "audit:motorbike-warranty": "node --env-file-if-exists=.env.local scripts/audit-motorbike-warranty-state.mjs",
     "audit:sales-agent-after-sales": "node --env-file-if-exists=.env.local scripts/audit-sales-agent-after-sales-state.mjs",
+    "audit:sales-agent-after-sales:assert": "node --env-file-if-exists=.env.local scripts/audit-sales-agent-after-sales-state.mjs --assert --probe-manual",
+    "test:sales-agent-after-sales-regressions": "vitest run lib/sales-agent/evals/after-sales-access.test.ts lib/sales-agent/knowledge/manual-embedding-config.test.ts lib/sales-agent/orchestrator/manual-intent.test.ts lib/sales-agent/orchestrator/after-sales-intent.test.ts lib/sales-agent/orchestrator/warranty-intent.test.ts lib/sales-agent/orchestrator/required-tool-input.test.ts lib/sales-agent/after-sales/repository.test.ts lib/sales-agent/response/grounded-output.test.ts lib/sales-agent/response/composer.test.ts",
     "review:after-sales-admin": "node scripts/review-after-sales-admin.mjs",
     "build:after-sales-review": "node scripts/build-after-sales-review-dataset.mjs",
     "review:after-sales-fact": "node scripts/review-after-sales-fact.mjs",

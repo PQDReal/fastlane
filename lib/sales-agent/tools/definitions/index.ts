@@ -165,6 +165,7 @@ export async function executeDataTool(
             { factRef: `fact-manual-title-${k.chunkId}`, factPath: 'title', valueHash: k.articleTitle },
             { factRef: `fact-manual-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
             { factRef: `fact-manual-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
+            { factRef: `fact-manual-retrieval-${k.chunkId}`, factPath: 'retrieval_mode', valueHash: k.retrievalMode },
             { factRef: `fact-manual-articleId-${k.chunkId}`, factPath: 'article_id', valueHash: parsedArticleId },
             { factRef: `fact-manual-modelId-${k.chunkId}`, factPath: 'model_id', valueHash: parsedModelId },
           ]
@@ -200,7 +201,7 @@ export async function executeDataTool(
           issues: [],
           appliedBindings: [],
           outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
-          completeness: 'FULL',
+          completeness: searchResults.every((result) => result.retrievalMode === 'SEMANTIC') ? 'FULL' : 'PARTIAL',
           data: {
             snippets: searchResults.map((r) => {
               const lastUnderscore = r.articleId.lastIndexOf('_')
@@ -213,6 +214,7 @@ export async function executeDataTool(
                 title: `${r.articleTitle} - ${r.sectionTitle}`,
                 content: r.content,
                 imageUrl: r.imageUrl,
+                retrievalMode: r.retrievalMode,
               }
             }),
           },

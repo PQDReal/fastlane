@@ -71,11 +71,21 @@ export function validateResponsePlan(
       const validSubjects = (item.subjects ?? []).filter((subj) =>
         knownEntities.hasEntity(subj.kind as any, subj.id),
       )
+      const validSupport = (item.support ?? []).filter((pointer) => {
+        const check = evidence.validateFactPointer(pointer)
+        if (!check.valid) {
+          warnings.push({
+            code: 'INVALID_ADVICE_SUPPORT',
+            message: check.reason || `Fact pointer ${pointer.factRef} không hợp lệ.`,
+          })
+        }
+        return check.valid
+      })
       sanitizedNarrative.push({
         kind: 'ADVICE',
         markdown: item.markdown,
         subjects: validSubjects.length > 0 ? validSubjects : undefined,
-        support: item.support,
+        support: validSupport.length > 0 ? validSupport : undefined,
       })
     } else if (item.kind === 'LIMITATION') {
       const validObs = item.observations.filter((obs) =>

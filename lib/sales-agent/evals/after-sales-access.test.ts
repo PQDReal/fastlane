@@ -9,7 +9,10 @@ const root = process.cwd()
 const toolContractSource = readFileSync(join(root, 'lib/sales-agent/contracts/tool.ts'), 'utf8')
 const cacheSource = readFileSync(join(root, 'lib/sales-agent/cache/catalog-cache.ts'), 'utf8')
 const repositorySource = readFileSync(join(root, 'lib/sales-agent/knowledge/repository.ts'), 'utf8')
+const embedderSource = readFileSync(join(root, 'lib/sales-agent/knowledge/manual-embedder.ts'), 'utf8')
+const embeddingConfigSource = readFileSync(join(root, 'lib/sales-agent/knowledge/manual-embedding-config.ts'), 'utf8')
 const manualMigrationSource = readFileSync(join(root, 'migrations/061_update_embedding_dimensions.sql'), 'utf8')
+const auditSource = readFileSync(join(root, 'scripts/audit-sales-agent-after-sales-state.mjs'), 'utf8')
 
 describe('Sales Agent after-sales access audit snapshot', () => {
   it('covers every public after-sales flow plus the current PDF-link boundary', () => {
@@ -38,19 +41,31 @@ describe('Sales Agent after-sales access audit snapshot', () => {
     expect(cases.find((item) => item.flow === 'workshop')?.expectedTool).toBe('find_service_locations')
   })
 
-  it('freezes the two infrastructure limits observed during the audit', () => {
+  it('keeps the manual query and ingestion dimensions aligned with pgvector', () => {
     expect(cacheSource).toContain('.limit(200)')
-    expect(repositorySource).toContain("openai.embedding('text-embedding-3-small')")
-    expect(repositorySource).not.toContain('dimensions: 512')
+    expect(embeddingConfigSource).toContain('MANUAL_EMBEDDING_DIMENSIONS = 512')
+    expect(repositorySource).toContain('MANUAL_EMBEDDING_PROVIDER_OPTIONS')
+    expect(repositorySource).toContain('assertManualEmbeddingDimensions(embedding)')
+    expect(embedderSource).toContain('MANUAL_EMBEDDING_PROVIDER_OPTIONS')
+    expect(embedderSource).toContain('embeddings.forEach(assertManualEmbeddingDimensions)')
     expect(manualMigrationSource).toContain('vector(512)')
   })
 
-  it('keeps current verdicts explicit instead of treating missing evidence as a pass', () => {
-    expect(cases.filter((item) => item.currentStatus === 'PASS')).toHaveLength(7)
+  it('records the repaired live verdict while keeping the PDF boundary explicit', () => {
+    expect(cases.filter((item) => item.currentStatus === 'PASS')).toHaveLength(8)
     expect(cases.filter((item) => item.currentStatus === 'PARTIAL')).toHaveLength(0)
-    expect(cases.filter((item) => item.currentStatus === 'FAIL').map((item) => item.id)).toEqual([
-      'vf8-manual-charge-port',
-    ])
+    expect(cases.filter((item) => item.currentStatus === 'FAIL')).toHaveLength(0)
     expect(cases.find((item) => item.flow === 'official_pdf')?.currentStatus).toBe('LINK_ONLY')
+  })
+
+  it('defines machine-verifiable live gates for every query case', () => {
+    const queryCases = cases.filter((item) => item.query)
+    expect(queryCases.every((item) => item.expectedCompleteness === 'COMPLETE')).toBe(true)
+    expect(queryCases.every((item) => (item.requiredAnswerTermGroups ?? []).length > 0)).toBe(true)
+    expect(queryCases.every((item) => (item.forbiddenAnswerTerms ?? []).includes('suggestionIntents'))).toBe(true)
+    expect(auditSource).toContain("process.argv.includes('--assert')")
+    expect(auditSource).toContain('process.exitCode = 1')
+    expect(auditSource).toContain('queryEmbeddingDimensions === 512')
+    expect(auditSource).toContain('manualRetrievalPass')
   })
 })
