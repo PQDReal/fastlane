@@ -21,6 +21,7 @@ import { KnownEntityLedger } from './ledgers/known-entities'
 import { BindingLedger } from './ledgers/bindings'
 import { EvidenceLedger } from './ledgers/evidence'
 import { requiresWarrantyKnowledgeLookup } from './warranty-intent'
+import { requiredAfterSalesLookup } from './after-sales-intent'
 
 export type RunTurnOptions = {
   input: SalesAgentTurnInput
@@ -152,6 +153,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     { role: 'user', content: userText },
   ]
   const mustSearchWarrantyKnowledge = requiresWarrantyKnowledgeLookup(userText)
+  const mustSearchPublishedAfterSales = requiredAfterSalesLookup(userText)
 
   // Multi-Provider & Multi-Key Failover Engine
   const candidateModels: SalesAgentLanguageModel[] = [lm]
@@ -181,6 +183,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           messages,
           tools,
           prepareStep: ({ stepNumber }) => {
+            if (mustSearchPublishedAfterSales && stepNumber === 0) {
+              return {
+                activeTools: [mustSearchPublishedAfterSales.toolName],
+                toolChoice: { type: 'tool', toolName: mustSearchPublishedAfterSales.toolName },
+              }
+            }
             if (mustSearchWarrantyKnowledge && stepNumber === 0) {
               return {
                 activeTools: ['search_knowledge'],

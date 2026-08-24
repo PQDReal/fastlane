@@ -11,49 +11,49 @@
     "id": "car-warranty-vf8",
     "flow": "warranty",
     "query": "VF 8 được bảo hành xe và pin bao lâu?",
-    "expectedPublishedEvidence": "Xe 10 năm hoặc 200.000 km; pin 10 năm không giới hạn km",
-    "expectedTool": "search_knowledge",
-    "currentStatus": "PARTIAL"
+    "expectedPublishedEvidence": "Xe nguyên bản và pin nguyên bản trong điều kiện sử dụng tiêu chuẩn: 10 năm hoặc 200.000 km",
+    "expectedTool": "search_after_sales",
+    "currentStatus": "PASS"
   },
   {
     "id": "car-maintenance-schedule",
     "flow": "maintenance",
     "query": "VF 8 2024 cần bảo dưỡng định kỳ sau bao lâu hoặc bao nhiêu km?",
     "expectedPublishedEvidence": "Xe điện: 12.000 km hoặc hàng năm",
-    "expectedTool": null,
-    "currentStatus": "FAIL"
+    "expectedTool": "search_after_sales",
+    "currentStatus": "PASS"
   },
   {
     "id": "motorbike-brake-maintenance",
     "flow": "maintenance",
     "query": "Xe máy điện VinFast cần bảo dưỡng phanh sau bao lâu hoặc bao nhiêu km?",
     "expectedPublishedEvidence": "Dầu phanh: 1.000 km hoặc 6 tháng; hệ thống phanh: 5.000 km hoặc 6 tháng",
-    "expectedTool": null,
-    "currentStatus": "FAIL"
+    "expectedTool": "search_after_sales",
+    "currentStatus": "PASS"
   },
   {
     "id": "repair-appointment-window",
     "flow": "repair",
     "query": "Khi đã đặt lịch sửa chữa VinFast, khách hàng có thể đến trong khoảng bao nhiêu phút so với giờ hẹn?",
     "expectedPublishedEvidence": "Khoảng tiếp nhận lịch hẹn: 30 phút",
-    "expectedTool": null,
-    "currentStatus": "FAIL"
+    "expectedTool": "search_after_sales",
+    "currentStatus": "PASS"
   },
   {
     "id": "rescue-response-time",
     "flow": "rescue",
     "query": "Cứu hộ VinFast phản hồi yêu cầu trong bao lâu?",
     "expectedPublishedEvidence": "Chuyển điều phối: 10 phút; gọi lại và xuất phát: 15 phút",
-    "expectedTool": null,
-    "currentStatus": "FAIL"
+    "expectedTool": "search_after_sales",
+    "currentStatus": "PASS"
   },
   {
     "id": "motorbike-workshops-hcm",
     "flow": "workshop",
     "query": "Các xưởng xe máy điện VinFast tại Hồ Chí Minh mở cửa lúc mấy giờ?",
     "expectedPublishedEvidence": "5 xưởng đã publish tại Hồ Chí Minh; giờ công bố 08h00–21h00",
-    "expectedTool": null,
-    "currentStatus": "FAIL"
+    "expectedTool": "find_service_locations",
+    "currentStatus": "PASS"
   },
   {
     "id": "vf8-manual-charge-port",

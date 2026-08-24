@@ -7,15 +7,21 @@ import { compareProductsRepository } from '../../catalog/comparison'
 import { getCurrentPromotionsRepository } from '../../catalog/promotions'
 import { discoverSalesAgentAccessories } from '../../catalog/accessories'
 import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
+import {
+  findServiceLocationsRepository,
+  searchAfterSalesRepository,
+} from '../../after-sales/repository'
 import type {
   BrowseCatalogInput,
   DataToolName,
   DiscoverAccessoriesInput,
   EvidenceRecord,
   FactPointer,
+  FindServiceLocationsInput,
   GetProductDetailsInput,
   GetCurrentPromotionsInput,
   ResolveCatalogEntitiesInput,
+  SearchAfterSalesInput,
   SearchKnowledgeInput,
   SearchUserManualsInput,
   ToolObservationRef,
@@ -212,6 +218,12 @@ export async function executeDataTool(
           },
         }
       }
+
+      case 'search_after_sales':
+        return await searchAfterSalesRepository(args as SearchAfterSalesInput, toolCallId)
+
+      case 'find_service_locations':
+        return await findServiceLocationsRepository(args as FindServiceLocationsInput, toolCallId)
 
 
       default: {

@@ -18,6 +18,8 @@ describe('warranty knowledge intent', () => {
     'Pin Evo có dung lượng bao nhiêu?',
     'So sánh tốc độ Feliz và Klara',
     'Màu nào đang có sẵn?',
+    'VF 8 được bảo hành xe và pin bao lâu?',
+    'Bảo hành ô tô VinFast áp dụng thế nào?',
   ])('does not force a lookup for %s', (query) => {
     expect(requiresWarrantyKnowledgeLookup(query)).toBe(false)
   })

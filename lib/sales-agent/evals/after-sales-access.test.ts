@@ -25,15 +25,17 @@ describe('Sales Agent after-sales access audit snapshot', () => {
     expect(cases.filter((item) => item.query)).toHaveLength(8)
   })
 
-  it('records that only knowledge and manual search are exposed to the agent', () => {
+  it('records typed access to published facts and service locations', () => {
     expect(DATA_TOOL_NAMES).toContain('search_knowledge')
     expect(DATA_TOOL_NAMES).toContain('search_user_manuals')
-    expect(toolContractSource).not.toContain("'search_after_sales'")
-    expect(toolContractSource).not.toContain("'list_service_workshops'")
+    expect(DATA_TOOL_NAMES).toContain('search_after_sales')
+    expect(DATA_TOOL_NAMES).toContain('find_service_locations')
+    expect(toolContractSource).toContain("'search_after_sales'")
+    expect(toolContractSource).toContain("'find_service_locations'")
 
-    for (const flow of ['maintenance', 'repair', 'rescue', 'workshop']) {
-      expect(cases.filter((item) => item.flow === flow).every((item) => item.expectedTool === null)).toBe(true)
-    }
+    expect(cases.filter((item) => ['maintenance', 'repair', 'rescue'].includes(item.flow))
+      .every((item) => item.expectedTool === 'search_after_sales')).toBe(true)
+    expect(cases.find((item) => item.flow === 'workshop')?.expectedTool).toBe('find_service_locations')
   })
 
   it('freezes the two infrastructure limits observed during the audit', () => {
@@ -44,13 +46,11 @@ describe('Sales Agent after-sales access audit snapshot', () => {
   })
 
   it('keeps current verdicts explicit instead of treating missing evidence as a pass', () => {
-    expect(cases.filter((item) => item.currentStatus === 'PASS').map((item) => item.id)).toEqual([
-      'motorbike-warranty-context',
+    expect(cases.filter((item) => item.currentStatus === 'PASS')).toHaveLength(7)
+    expect(cases.filter((item) => item.currentStatus === 'PARTIAL')).toHaveLength(0)
+    expect(cases.filter((item) => item.currentStatus === 'FAIL').map((item) => item.id)).toEqual([
+      'vf8-manual-charge-port',
     ])
-    expect(cases.filter((item) => item.currentStatus === 'PARTIAL').map((item) => item.id)).toEqual([
-      'car-warranty-vf8',
-    ])
-    expect(cases.filter((item) => item.currentStatus === 'FAIL')).toHaveLength(6)
     expect(cases.find((item) => item.flow === 'official_pdf')?.currentStatus).toBe('LINK_ONLY')
   })
 })

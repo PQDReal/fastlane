@@ -75,7 +75,7 @@ const INJECTION_PATTERNS: Array<{ regex: RegExp; floor: number; technique: strin
     technique: 'TOOL_ENUMERATION_DETECTED',
   },
   {
-    regex: /\b(?:browse_catalog|resolve_catalog_entities|get_product_details|search_knowledge|discover_accessories|get_current_promotions)\b/i,
+    regex: /\b(?:browse_catalog|resolve_catalog_entities|get_product_details|search_knowledge|search_after_sales|find_service_locations|discover_accessories|get_current_promotions)\b/i,
     floor: 90,
     technique: 'INTERNAL_ARCHITECTURE_PROBING',
   },

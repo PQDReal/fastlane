@@ -45,8 +45,8 @@ describe('Canonical Core Contracts', () => {
     expect(DEFAULT_RUN_BUDGET.totalTimeoutMs).toBe(35000)
   })
 
-  it('has valid schemas for all 8 registered data tools', () => {
-    expect(Object.keys(TOOL_CONTRACTS).length).toBe(8)
+  it('has valid schemas for all 10 registered data tools', () => {
+    expect(Object.keys(TOOL_CONTRACTS).length).toBe(10)
     expect(TOOL_CONTRACTS.browse_catalog).toBeDefined()
     expect(TOOL_CONTRACTS.resolve_catalog_entities).toBeDefined()
     expect(TOOL_CONTRACTS.get_product_details).toBeDefined()
@@ -55,6 +55,8 @@ describe('Canonical Core Contracts', () => {
     expect(TOOL_CONTRACTS.discover_accessories).toBeDefined()
     expect(TOOL_CONTRACTS.search_knowledge).toBeDefined()
     expect(TOOL_CONTRACTS.search_user_manuals).toBeDefined()
+    expect(TOOL_CONTRACTS.search_after_sales).toBeDefined()
+    expect(TOOL_CONTRACTS.find_service_locations).toBeDefined()
   })
 
   it('validates turn view model structure', () => {

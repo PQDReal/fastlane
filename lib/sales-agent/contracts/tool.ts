@@ -103,6 +103,41 @@ export const searchUserManualsInputSchema = z.object({
 })
 export type SearchUserManualsInput = z.infer<typeof searchUserManualsInputSchema>
 
+export const afterSalesVehicleTypeSchema = z.enum(['car', 'motorbike', 'bus'])
+export type AfterSalesVehicleType = z.infer<typeof afterSalesVehicleTypeSchema>
+
+export const searchAfterSalesInputSchema = z.object({
+  serviceType: z.enum(['warranty', 'maintenance', 'repair', 'rescue'])
+    .describe('Luồng hậu mãi cần tra cứu.'),
+  vehicleType: afterSalesVehicleTypeSchema.optional()
+    .describe('Loại xe nếu người dùng đã nêu: car, motorbike hoặc bus.'),
+  model: z.string().trim().min(1).max(80).optional()
+    .describe('Tên dòng xe nếu có, ví dụ VF 8 hoặc President.'),
+  query: z.string().trim().min(1).max(300)
+    .describe('Nguyên văn phần câu hỏi về hậu mãi để repository xếp hạng facts.'),
+  topK: z.number().int().min(1).max(10).default(6)
+    .describe('Số nhóm facts tối đa cần trả về.'),
+})
+export type SearchAfterSalesInput = z.infer<typeof searchAfterSalesInputSchema>
+
+export const findServiceLocationsInputSchema = z.object({
+  vehicleType: afterSalesVehicleTypeSchema.optional()
+    .describe('Loại xe cần phục vụ nếu người dùng đã nêu.'),
+  category: z.enum([
+    'official_car_workshop',
+    'partner_car_workshop',
+    'electric_motorbike_workshop',
+  ]).optional().describe('Loại xưởng nếu cần giới hạn chính xác.'),
+  province: z.string().trim().min(1).max(100).optional()
+    .describe('Tỉnh/thành người dùng yêu cầu, ví dụ Hồ Chí Minh.'),
+  district: z.string().trim().min(1).max(100).optional()
+    .describe('Quận/huyện/phường nếu người dùng yêu cầu.'),
+  query: z.string().trim().min(1).max(300)
+    .describe('Nguyên văn phần câu hỏi về địa điểm dịch vụ.'),
+  limit: z.number().int().min(1).max(20).default(8),
+})
+export type FindServiceLocationsInput = z.infer<typeof findServiceLocationsInputSchema>
+
 // Terminal Tool Inputs
 export const submitResponseInputSchema = z.object({
   plan: agentResponsePlanSchema,
@@ -123,7 +158,14 @@ export const evidenceRecordSchema = z.object({
     resource: z.string().trim().min(1),
   }),
   entity: z.object({
-    kind: z.enum(['PRODUCT', 'PROMOTION', 'KNOWLEDGE_SNIPPET', 'ORDER']),
+    kind: z.enum([
+      'PRODUCT',
+      'PROMOTION',
+      'KNOWLEDGE_SNIPPET',
+      'ORDER',
+      'AFTER_SALES_FACT',
+      'SERVICE_LOCATION',
+    ]),
     id: z.string().trim().min(1),
   }),
   facts: z.array(z.object({
@@ -191,6 +233,8 @@ export const DATA_TOOL_NAMES = [
   'discover_accessories',
   'search_knowledge',
   'search_user_manuals',
+  'search_after_sales',
+  'find_service_locations',
 ] as const
 export type DataToolName = typeof DATA_TOOL_NAMES[number]
 
@@ -232,5 +276,13 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
   search_user_manuals: {
     description: 'Tra cứu Hướng dẫn sử dụng xe (vị trí cổng sạc, ý nghĩa đèn cảnh báo, cách khởi động, v.v.). Bắt buộc phải có thông tin năm sản xuất trước khi gọi.',
     inputSchema: searchUserManualsInputSchema,
+  },
+  search_after_sales: {
+    description: 'Tra cứu facts hậu mãi đã được admin duyệt và publish: bảo hành ô tô, lịch bảo dưỡng ô tô/xe máy điện, quy định sửa chữa và thời gian cứu hộ. Dùng query nguyên văn để giữ đúng ngữ cảnh; bảo hành pin xe máy điện vẫn dùng search_knowledge.',
+    inputSchema: searchAfterSalesInputSchema,
+  },
+  find_service_locations: {
+    description: 'Tìm xưởng dịch vụ VinFast đã được duyệt theo loại xe, loại xưởng, tỉnh/thành hoặc quận/huyện; trả địa chỉ, liên hệ, giờ hoạt động và đường đi.',
+    inputSchema: findServiceLocationsInputSchema,
   },
 }
