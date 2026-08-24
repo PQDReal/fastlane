@@ -1,15 +1,7 @@
-export type VehicleProductType = 'CAR' | 'BIKE'
+import type { CoreVehicleSpecKey } from '@/lib/catalog-intelligence/types'
 
-export type VehicleSpecKey =
-  | 'top_speed_kmh'
-  | 'range_km'
-  | 'max_power_kw'
-  | 'max_torque_nm'
-  | 'battery_capacity_kwh'
-  | 'charging_time'
-  | 'dimensions_mm'
-  | 'seats'
-  | 'drive_type'
+export type VehicleProductType = 'CAR' | 'BIKE'
+export type VehicleSpecKey = CoreVehicleSpecKey
 
 export type NormalizedVehicleSpec = {
   key: VehicleSpecKey
