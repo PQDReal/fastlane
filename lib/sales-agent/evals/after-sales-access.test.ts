@@ -25,7 +25,7 @@ describe('Sales Agent after-sales access audit snapshot', () => {
       'manual',
       'official_pdf',
     ]))
-    expect(cases.filter((item) => item.query)).toHaveLength(8)
+    expect(cases.filter((item) => item.query)).toHaveLength(9)
   })
 
   it('records typed access to published facts and service locations', () => {
@@ -52,7 +52,7 @@ describe('Sales Agent after-sales access audit snapshot', () => {
   })
 
   it('records the repaired live verdict while keeping the PDF boundary explicit', () => {
-    expect(cases.filter((item) => item.currentStatus === 'PASS')).toHaveLength(8)
+    expect(cases.filter((item) => item.currentStatus === 'PASS')).toHaveLength(9)
     expect(cases.filter((item) => item.currentStatus === 'PARTIAL')).toHaveLength(0)
     expect(cases.filter((item) => item.currentStatus === 'FAIL')).toHaveLength(0)
     expect(cases.find((item) => item.flow === 'official_pdf')?.currentStatus).toBe('LINK_ONLY')
@@ -60,7 +60,8 @@ describe('Sales Agent after-sales access audit snapshot', () => {
 
   it('defines machine-verifiable live gates for every query case', () => {
     const queryCases = cases.filter((item) => item.query)
-    expect(queryCases.every((item) => item.expectedCompleteness === 'COMPLETE')).toBe(true)
+    expect(queryCases.every((item) => ['COMPLETE', 'PARTIAL'].includes(item.expectedCompleteness ?? ''))).toBe(true)
+    expect(queryCases.find((item) => item.id === 'klara-s-official-manual')?.expectedCompleteness).toBe('PARTIAL')
     expect(queryCases.every((item) => (item.requiredAnswerTermGroups ?? []).length > 0)).toBe(true)
     expect(queryCases.every((item) => (item.forbiddenAnswerTerms ?? []).includes('suggestionIntents'))).toBe(true)
     expect(auditSource).toContain("process.argv.includes('--assert')")

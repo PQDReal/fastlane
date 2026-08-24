@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Loader2,
   MapPin,
   PhoneCall,
   Search,
@@ -110,6 +111,10 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
   const [activeTab, setActiveTab] = useState('warranty')
   const [selectedCity, setSelectedCity] = useState('all')
   const [workshopSearch, setWorkshopSearch] = useState('')
+  const [workshopsByVehicle, setWorkshopsByVehicle] = useState<Partial<Record<SupportedVehicleType, AfterSalesData['workshops']>>>({})
+  const [workshopLoading, setWorkshopLoading] = useState(false)
+  const [workshopLoadError, setWorkshopLoadError] = useState<string | null>(null)
+  const [workshopRetryNonce, setWorkshopRetryNonce] = useState(0)
   const [manualSearchQuery, setManualSearchQuery] = useState('')
   const [selectedManualModel, setSelectedManualModel] = useState('')
   const [selectedManualYear, setSelectedManualYear] = useState('')
@@ -144,6 +149,38 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
     }
   }, [])
 
+  useEffect(() => {
+    if (activeTab !== 'workshop' || workshopsByVehicle[selectedVehicleType]) return
+
+    const controller = new AbortController()
+    setWorkshopLoading(true)
+    setWorkshopLoadError(null)
+
+    void fetch(`/api/v1/after-sales/workshops?vehicle=${selectedVehicleType}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = await response.json() as {
+          success?: boolean
+          data?: AfterSalesData['workshops']
+          message?: string
+        }
+        if (!response.ok || !payload.success || !Array.isArray(payload.data)) {
+          throw new Error(payload.message || 'Không thể tải danh sách xưởng dịch vụ.')
+        }
+        setWorkshopsByVehicle((current) => ({ ...current, [selectedVehicleType]: payload.data }))
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setWorkshopLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách xưởng dịch vụ.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setWorkshopLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [activeTab, selectedVehicleType, workshopRetryNonce, workshopsByVehicle])
+
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     setToasts((previous) => [...previous, { ...toast, id: Date.now() + Math.random() }])
   }
@@ -174,8 +211,9 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
       activeTab
     ] ?? []
 
-  const cities = Array.from(new Set(initialData.workshops.map((workshop) => workshop.city)))
-  const filteredWorkshops = initialData.workshops.filter((workshop) => {
+  const workshops = workshopsByVehicle[selectedVehicleType] ?? []
+  const cities = Array.from(new Set(workshops.map((workshop) => workshop.city)))
+  const filteredWorkshops = workshops.filter((workshop) => {
     const matchesVehicle = workshop.services.includes(selectedVehicleType)
     const matchesCity = selectedCity === 'all' || workshop.city === selectedCity
     const normalizedSearch = workshopSearch.trim().toLowerCase()
@@ -527,7 +565,27 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
                   </div>
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {workshopLoading && (
+                  <div className="flex min-h-48 items-center justify-center border border-slate-200 bg-white text-sm text-slate-600" role="status">
+                    <Loader2 size={18} className="mr-2 animate-spin text-[#836100]" />
+                    Đang tải danh sách xưởng dịch vụ…
+                  </div>
+                )}
+
+                {workshopLoadError && !workshopLoading && (
+                  <div className="border border-amber-200 bg-amber-50 p-6 text-center">
+                    <p className="text-sm text-amber-900">{workshopLoadError}</p>
+                    <button
+                      type="button"
+                      onClick={() => setWorkshopRetryNonce((value) => value + 1)}
+                      className="mt-3 border border-amber-500 bg-white px-4 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                    >
+                      Thử tải lại
+                    </button>
+                  </div>
+                )}
+
+                {!workshopLoading && !workshopLoadError && <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                   {filteredWorkshops.map((workshop) => (
                     <div
                       key={workshop.id}
@@ -581,8 +639,8 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
                       </div>
                     </div>
                   ))}
-                </div>
-                {filteredWorkshops.length === 0 && (
+                </div>}
+                {!workshopLoading && !workshopLoadError && filteredWorkshops.length === 0 && (
                   <div className="border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
                     Chưa có địa điểm phù hợp với bộ lọc hiện tại.
                   </div>

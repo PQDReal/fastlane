@@ -132,6 +132,34 @@ export const MOTORBIKE_OWNER_MANUALS: readonly OfficialMotorbikeDocument[] = [
   { id: 'vinfast-kinet', label: 'HDSD xe VinFast KINET', url: 'https://static-cms-prod.vinfastauto.com/statics/ESPCNF4BOL001_02_KINET_VN_ESPC_BOL_OWNER_MANUAL_VIE.pdf' },
 ] as const
 
+function normalizeOfficialDocumentText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/([a-z])([0-9])/g, '$1 $2')
+    .replace(/([0-9])([a-z])/g, '$1 $2')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function officialManualName(document: OfficialMotorbikeDocument): string {
+  return normalizeOfficialDocumentText(document.label)
+    .replace(/^(?:hdsd|huong dan su dung)\s+xe\s+/, '')
+    .replace(/^vinfast\s+/, '')
+    .trim()
+}
+
+export function findOfficialMotorbikeOwnerManual(query: string): OfficialMotorbikeDocument | null {
+  const normalizedQuery = ` ${normalizeOfficialDocumentText(query)} `
+
+  return [...MOTORBIKE_OWNER_MANUALS]
+    .map((document) => ({ document, name: officialManualName(document) }))
+    .filter(({ name }) => name && normalizedQuery.includes(` ${name} `))
+    .sort((left, right) => right.name.length - left.name.length)[0]?.document ?? null
+}
+
 export const VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN = `# Chính sách bảo hành xe máy điện và pin VinFast
 
 Nguồn được admin xác minh ngày ${MOTORBIKE_WARRANTY_REVIEWED_AT}: ${MOTORBIKE_WARRANTY_SOURCE_URL}

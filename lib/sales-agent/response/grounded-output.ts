@@ -213,7 +213,24 @@ export function buildDeterministicToolMarkdown(results: readonly ToolResult[]): 
     result.tool === 'search_user_manuals' && result.outcome === 'SUCCESS'
   ))
   if (manual?.outcome === 'SUCCESS') {
-    const data = manual.data as { snippets?: Array<{ title?: unknown; content?: unknown; imageUrl?: unknown }> }
+    const data = manual.data as {
+      snippets?: Array<{ title?: unknown; content?: unknown; imageUrl?: unknown }>
+      officialDocuments?: Array<{ label?: unknown; url?: unknown; contentBoundary?: unknown }>
+    }
+    const officialDocument = (data.officialDocuments ?? []).find((item) => (
+      text(item.label) && text(item.url) && text(item.contentBoundary) === 'LINK_ONLY'
+    ))
+    if (officialDocument) {
+      const label = text(officialDocument.label)
+      const url = text(officialDocument.url)
+      return [
+        `Dạ, FASTLANE hiện có **${label}** dưới dạng PDF chính thức của VinFast.`,
+        'Nội dung PDF này chưa được ingest vào kho semantic, nên em chưa trích xuất hoặc diễn giải chi tiết bên trong để tránh trả lời sai.',
+        `[Mở ${label} (PDF chính thức)](${url})`,
+        '[Xem danh mục tài liệu xe máy điện](/after-sales?vehicle=motorbike&tab=warranty#official-documents)',
+      ].join('\n\n')
+    }
+
     const snippet = (data.snippets ?? []).find((item) => text(item.content))
     if (snippet) {
       const title = text(snippet.title)

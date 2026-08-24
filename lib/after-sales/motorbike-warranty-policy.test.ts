@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  findOfficialMotorbikeOwnerManual,
   MOTORBIKE_OWNER_MANUALS,
   MOTORBIKE_WARRANTY_BOOKS,
   VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
@@ -42,5 +43,12 @@ describe('verified motorbike warranty policy registry', () => {
     expect(VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN.toLowerCase()).toContain('chỉ tên mẫu xe như evo là chưa đủ')
     expect(VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN).toContain('/after-sales?vehicle=motorbike&tab=warranty#warranty-term')
     expect(VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN).not.toContain('/knowledge/')
+  })
+
+  it('resolves the longest exact official manual name without confusing nearby models', () => {
+    expect(findOfficialMotorbikeOwnerManual('Hướng dẫn sử dụng xe Klara S')?.id).toBe('klara-s')
+    expect(findOfficialMotorbikeOwnerManual('Cho tôi HDSD Klara S2')?.id).toBe('klara-s2')
+    expect(findOfficialMotorbikeOwnerManual('HDSD Evo 200 Lite')?.id).toBe('evo200-lite')
+    expect(findOfficialMotorbikeOwnerManual('HDSD VF 8')).toBeNull()
   })
 })

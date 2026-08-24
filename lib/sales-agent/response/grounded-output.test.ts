@@ -72,6 +72,41 @@ describe('grounded model output', () => {
     expect(markdown).toContain('sẽ không suy đoán')
   })
 
+  it('describes the exact link-only boundary for an official motorbike manual', () => {
+    const markdown = buildDeterministicToolMarkdown([{
+      schemaVersion: '2.0',
+      toolCallId: 'call-klara-manual',
+      tool: 'search_user_manuals',
+      readAt: new Date().toISOString(),
+      evidence: [],
+      observation: {
+        observationId: 'obs-klara-manual',
+        toolCallId: 'call-klara-manual',
+        outcome: 'SUCCESS',
+        issueCodes: ['OFFICIAL_DOCUMENT_LINK_ONLY'],
+        inputHash: '{}',
+        readAt: new Date().toISOString(),
+      },
+      issues: [],
+      appliedBindings: [],
+      outcome: 'SUCCESS',
+      completeness: 'PARTIAL',
+      data: {
+        snippets: [],
+        officialDocuments: [{
+          label: 'HDSD xe Klara S',
+          url: 'https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf',
+          contentBoundary: 'LINK_ONLY',
+        }],
+      },
+    }])
+
+    expect(markdown).toContain('HDSD xe Klara S')
+    expect(markdown).toContain('chưa được ingest')
+    expect(markdown).toContain('static-cms-prod.vinfastauto.com')
+    expect(markdown).toContain('/after-sales?vehicle=motorbike&tab=warranty#official-documents')
+  })
+
   it('renders approved after-sales groups even when the model returns no prose', () => {
     const markdown = buildDeterministicToolMarkdown([{
       schemaVersion: '2.0',

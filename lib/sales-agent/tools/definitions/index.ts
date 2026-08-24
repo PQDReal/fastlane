@@ -7,6 +7,7 @@ import { compareProductsRepository } from '../../catalog/comparison'
 import { getCurrentPromotionsRepository } from '../../catalog/promotions'
 import { discoverSalesAgentAccessories } from '../../catalog/accessories'
 import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
+import { findOfficialMotorbikeOwnerManual } from '@/lib/after-sales/motorbike-warranty-policy'
 import {
   findServiceLocationsRepository,
   searchAfterSalesRepository,
@@ -152,8 +153,65 @@ export async function executeDataTool(
       }
 
       case 'search_user_manuals': {
-        // Trigger Turbopack recompile
         const input = args as SearchUserManualsInput
+        const officialManual = findOfficialMotorbikeOwnerManual(input.query)
+        if (officialManual) {
+          const evidence: EvidenceRecord[] = [{
+            evidenceId: `ev-official-manual-${officialManual.id}-${readAt}`,
+            source: { system: 'MEMORY', resource: 'verified_motorbike_owner_manual_links' },
+            entity: { kind: 'KNOWLEDGE_SNIPPET', id: officialManual.id },
+            facts: [
+              {
+                factRef: `fact-official-manual-label-${officialManual.id}`,
+                factPath: 'official_document_label',
+                valueHash: officialManual.label,
+              },
+              {
+                factRef: `fact-official-manual-url-${officialManual.id}`,
+                factPath: 'official_document_url',
+                valueHash: officialManual.url,
+              },
+              {
+                factRef: `fact-official-manual-boundary-${officialManual.id}`,
+                factPath: 'content_boundary',
+                valueHash: 'LINK_ONLY',
+              },
+            ],
+            readAt,
+          }]
+          const observation: ToolObservationRef = {
+            observationId: `obs-${toolCallId}`,
+            toolCallId,
+            outcome: 'SUCCESS',
+            issueCodes: ['OFFICIAL_DOCUMENT_LINK_ONLY'],
+            inputHash: JSON.stringify(input),
+            readAt,
+          }
+
+          return {
+            schemaVersion: '2.0',
+            toolCallId,
+            tool: 'search_user_manuals',
+            readAt,
+            dataAsOf,
+            evidence,
+            observation,
+            issues: [],
+            appliedBindings: [],
+            outcome: 'SUCCESS',
+            completeness: 'PARTIAL',
+            data: {
+              snippets: [],
+              officialDocuments: [{
+                id: officialManual.id,
+                label: officialManual.label,
+                url: officialManual.url,
+                contentBoundary: 'LINK_ONLY',
+              }],
+            },
+          }
+        }
+
         const searchResults = await searchUserManualRepository(input.query, input.modelSeries, input.year, input.topK ?? 3)
 
         const evidence: EvidenceRecord[] = searchResults.map((k, index) => {

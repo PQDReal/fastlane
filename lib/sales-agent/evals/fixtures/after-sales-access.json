@@ -121,6 +121,22 @@
     "currentStatus": "PASS"
   },
   {
+    "id": "klara-s-official-manual",
+    "flow": "manual",
+    "query": "Hướng dẫn sử dụng xe Klara S",
+    "expectedPublishedEvidence": "PDF HDSD Klara S chính thức hiện ở trạng thái LINK_ONLY, chưa ingest nội dung",
+    "expectedTool": "search_user_manuals",
+    "expectedCompleteness": "PARTIAL",
+    "requiredAnswerTermGroups": [
+      ["HDSD xe Klara S"],
+      ["chưa được ingest"],
+      ["static-cms-prod.vinfastauto.com"],
+      ["/after-sales?vehicle=motorbike&tab=warranty#official-documents"]
+    ],
+    "forbiddenAnswerTerms": ["VF 5", "VF%205", "/user-manual/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
     "id": "official-pdf-content",
     "flow": "official_pdf",
     "query": null,

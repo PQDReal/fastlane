@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { getManualModels } from '@/lib/api/manuals-server'
 import {
   MOTORBIKE_WARRANTY_REVIEWED_AT,
   MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
@@ -15,6 +16,7 @@ import {
   MANUAL_EMBEDDING_MODEL,
   MANUAL_EMBEDDING_PROVIDER_OPTIONS,
 } from './manual-embedding-config'
+import { inferManualModelSeries } from './manual-model-resolver'
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -722,9 +724,13 @@ async function searchUserManualLexically(
 export async function searchUserManualRepository(query: string, modelSeries?: string, year?: number, limit: number = 3): Promise<ManualSearchResult[]> {
   const cleanQuery = (query || '').trim()
   if (!cleanQuery) return []
+  const manualModels = modelSeries ? [] : await getManualModels()
+  const resolvedModelSeries = modelSeries || inferManualModelSeries(
+    cleanQuery,
+    manualModels.map((model) => model.model_series),
+  )
 
   try {
-    // Generate embedding for the query
     const { embedding } = await embed({
       model: openai.embedding(MANUAL_EMBEDDING_MODEL),
       value: cleanQuery,
@@ -740,7 +746,7 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
       query_embedding: `[${embedding.join(',')}]`,
       match_threshold: 0.3,
       match_count: limit,
-      filter_model_series: modelSeries || null,
+      filter_model_series: resolvedModelSeries || null,
       filter_year: year ? year.toString() : null
     })
 
@@ -759,6 +765,6 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
     }))
   } catch (err) {
     console.warn('searchUserManualRepository semantic search failed; using lexical fallback:', err)
-    return searchUserManualLexically(cleanQuery, modelSeries, year, limit)
+    return searchUserManualLexically(cleanQuery, resolvedModelSeries, year, limit)
   }
 }

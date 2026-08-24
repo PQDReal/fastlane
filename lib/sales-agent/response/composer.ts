@@ -196,8 +196,31 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   }))
 
   // Smart contextual ambient suggestions
+  const successfulToolNames = new Set(
+    options.evidence.getAllToolResults()
+      .filter((result) => result.outcome === 'SUCCESS')
+      .map((result) => result.tool),
+  )
+  const officialManualLabel = allFacts.find((fact) => fact.factPath === 'official_document_label')?.valueHash
+  const manualModelId = allFacts.find((fact) => fact.factPath === 'model_id')?.valueHash
+  const manualContextLabel = officialManualLabel?.replace(/^HDSD xe\s+/i, '').trim()
+    || manualModelId?.replace(/_20\d{2}$/, '').trim()
+
   if (suggestions.length === 0) {
-    if (isClarificationTurn) {
+    if (successfulToolNames.has('search_user_manuals') && manualContextLabel) {
+      suggestions.push(
+        {
+          suggestionId: `sug-1-${options.turnId}`,
+          label: `Chính sách bảo hành ${manualContextLabel}`,
+          payload: `Chính sách bảo hành ${manualContextLabel}`,
+        },
+        {
+          suggestionId: `sug-2-${options.turnId}`,
+          label: 'Tìm xưởng dịch vụ',
+          payload: `Tìm xưởng dịch vụ cho ${manualContextLabel}`,
+        },
+      )
+    } else if (isClarificationTurn) {
       const isComparing = lowerMarkdown.includes('so sánh') || lowerMarkdown.includes('pin') || lowerMarkdown.includes('tốc độ')
       if (isComparing) {
         suggestions.push(

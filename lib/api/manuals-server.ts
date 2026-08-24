@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 function hasSupabaseConfig() {
@@ -29,7 +30,7 @@ export interface ManualArticle {
   sort_order: number
 }
 
-export const getManualModels = cache(async (): Promise<ManualModel[]> => {
+const getManualModelsCached = unstable_cache(async (): Promise<ManualModel[]> => {
   if (!hasSupabaseConfig()) return []
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
@@ -43,9 +44,11 @@ export const getManualModels = cache(async (): Promise<ManualModel[]> => {
   }
 
   return data as ManualModel[]
-})
+}, ['manual-models-v1'], { revalidate: 300, tags: ['manual-content'] })
 
-export const getManualModel = cache(async (modelId: string): Promise<ManualModel | undefined> => {
+export const getManualModels = cache(getManualModelsCached)
+
+const getManualModelCached = unstable_cache(async (modelId: string): Promise<ManualModel | undefined> => {
   if (!hasSupabaseConfig()) return undefined
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase.from('manual_models').select('*').eq('id', modelId).maybeSingle()
@@ -56,9 +59,11 @@ export const getManualModel = cache(async (modelId: string): Promise<ManualModel
   }
 
   return (data as ManualModel | null) ?? undefined
-})
+}, ['manual-model-v1'], { revalidate: 300, tags: ['manual-content'] })
 
-export const getManualTree = cache(async (modelId: string): Promise<ManualArticle[]> => {
+export const getManualModel = cache(getManualModelCached)
+
+const getManualTreeCached = unstable_cache(async (modelId: string): Promise<ManualArticle[]> => {
   if (!hasSupabaseConfig()) return []
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
@@ -73,9 +78,11 @@ export const getManualTree = cache(async (modelId: string): Promise<ManualArticl
   }
 
   return data as ManualArticle[]
-})
+}, ['manual-tree-v1'], { revalidate: 300, tags: ['manual-content'] })
 
-export const getManualArticle = cache(async (modelId: string, articleId: string): Promise<ManualArticle | undefined> => {
+export const getManualTree = cache(getManualTreeCached)
+
+const getManualArticleCached = unstable_cache(async (modelId: string, articleId: string): Promise<ManualArticle | undefined> => {
   if (!hasSupabaseConfig()) return undefined
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
@@ -94,10 +101,12 @@ export const getManualArticle = cache(async (modelId: string, articleId: string)
   }
 
   return data as ManualArticle
-})
+}, ['manual-article-v1'], { revalidate: 300, tags: ['manual-content'] })
+
+export const getManualArticle = cache(getManualArticleCached)
 
 // Used to get the first article (like "Introduction") to redirect or show by default
-export const getFirstArticleId = cache(async (modelId: string): Promise<string | undefined> => {
+const getFirstArticleIdCached = unstable_cache(async (modelId: string): Promise<string | undefined> => {
   if (!hasSupabaseConfig()) return undefined
   const supabase = getSupabaseAdmin()
   const { data: items, error } = await supabase
@@ -140,4 +149,6 @@ export const getFirstArticleId = cache(async (modelId: string): Promise<string |
   }
 
   return findFirstLeaf(roots)
-})
+}, ['manual-first-article-v1'], { revalidate: 300, tags: ['manual-content'] })
+
+export const getFirstArticleId = cache(getFirstArticleIdCached)

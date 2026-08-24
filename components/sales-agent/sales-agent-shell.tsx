@@ -3,7 +3,6 @@
 import { AnimatePresence, motion, useReducedMotion, useDragControls } from 'framer-motion'
 import { ArrowDown, ArrowUp, Bot, Car, Check, CheckCircle2, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
@@ -77,6 +76,14 @@ function getToolStatusLabel(tool: string): string {
       return 'Đang tìm phụ kiện tương thích…'
     case 'get_current_promotions':
       return 'Đang kiểm tra chương trình ưu đãi…'
+    case 'search_user_manuals':
+      return 'Đang tra cứu đúng hướng dẫn và phiên bản xe…'
+    case 'search_after_sales':
+      return 'Đang đối chiếu dữ liệu hậu mãi đã duyệt…'
+    case 'find_service_locations':
+      return 'Đang tìm xưởng dịch vụ phù hợp…'
+    case 'search_knowledge':
+      return 'Đang kiểm tra chính sách đã xác minh…'
     case 'composing':
       return 'Đang tổng hợp thông tin câu trả lời…'
     default:
@@ -482,24 +489,22 @@ export function SalesAgentShell() {
 
   // Find the latest user manual context to display in the right pane
   const latestManualContext = useMemo(() => {
-    // Search from newest to oldest message
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.role === 'assistant') {
-        const refBlock = msg.blocks?.find(b => b.kind === 'MANUAL_REFERENCE')
-        if (refBlock && 'articleId' in refBlock && 'modelId' in refBlock) {
-          return { modelId: String(refBlock.modelId), articleId: String(refBlock.articleId) }
-        }
-        
-        if (msg.content) {
-          const match = msg.content.match(/\/user-manual\/([^\/]+)\/([^\)\s"']+)/);
-          if (match) {
-            return { modelId: decodeURIComponent(match[1]), articleId: match[2] };
-          }
-        }
+    const msg = [...messages].reverse().find((message) => message.role === 'assistant')
+    if (!msg) return null
+
+    const refBlock = msg.blocks?.find((block) => block.kind === 'MANUAL_REFERENCE')
+    if (refBlock && 'articleId' in refBlock && 'modelId' in refBlock) {
+      return { modelId: String(refBlock.modelId), articleId: String(refBlock.articleId) }
+    }
+
+    if (msg.content) {
+      const match = msg.content.match(/\/user-manual\/([^\/]+)\/([^\)\s"']+)/)
+      if (match) {
+        return { modelId: decodeURIComponent(match[1]), articleId: match[2] }
       }
     }
-    return null;
+
+    return null
   }, [messages])
 
   // Decide whether to show manual right pane
@@ -868,7 +873,14 @@ export function SalesAgentShell() {
                     {item.role === 'assistant' ? (
                       <div className="space-y-2.5">
                         {item.content ? (
-                          <MarkdownMessage content={item.content} streaming={item.pending} />
+                          <MarkdownMessage
+                            content={item.content}
+                            streaming={item.pending}
+                            onNavigate={() => {
+                              setIsExpanded(false)
+                              setOpen(false)
+                            }}
+                          />
                         ) : item.pending ? (
                           <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
                             <span className="relative flex h-2 w-2 shrink-0">
