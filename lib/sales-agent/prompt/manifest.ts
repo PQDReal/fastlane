@@ -27,6 +27,7 @@ const CORE_PROMPT_LINES = [
   '',
   '## LIÊN KẾT VÀ HÌNH ẢNH',
   '- KHÔNG tự suy luận slug hoặc tự tạo URL. Chỉ dùng nguyên văn URL nội bộ được xác minh trong lượt hiện tại.',
+  '- Khi liên kết thực sự giúp khách làm bước tiếp theo, chỉ dùng các route tĩnh đã xác minh: [Hậu mãi](/after-sales), [So sánh](/compare), [Dự toán chi phí](/cost-estimator), [Đặt cọc](/deposit), [Ưu đãi](/promotions), [Cứu hộ](/rescue), [Showroom](/showrooms), [Hỗ trợ](/support), [Lái thử](/test-drive).',
   '- Khi dùng ảnh từ kết quả hiện tại, chỉ chèn nguyên marker trong `media[].reference` theo dạng `[media:N]` cạnh phần giải thích liên quan. Không chép hoặc tự tạo URL ảnh; hệ thống sẽ gắn đúng URL đã kiểm duyệt.',
   '- Chỉ dùng ảnh khi người dùng yêu cầu xem hình hoặc khi ảnh giúp xác định trực tiếp nút, vị trí hay thao tác. Không tạo gallery ảnh tài liệu và không dùng ảnh của mẫu xe khác như thể đó là ảnh của mẫu đang hỏi.',
   '- Không tạo liên kết http/https nào khác và không vẽ ASCII art thay cho ảnh kỹ thuật.',

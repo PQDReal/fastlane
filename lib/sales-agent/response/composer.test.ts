@@ -168,6 +168,30 @@ describe('Canonical Response Composer', () => {
     expect(response.answer.markdown).not.toContain('/financing')
   })
 
+  it('keeps the verified after-sales route from develop', () => {
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{
+          kind: 'ADVICE',
+          markdown: '[Dịch vụ hậu mãi](/after-sales) và [trang lạ](/unknown-service).',
+        }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence: new EvidenceLedger(),
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-after-sales',
+      turnId: 'turn-after-sales',
+      messageId: 'msg-after-sales',
+    })
+
+    expect(response.answer.markdown).toContain('[Dịch vụ hậu mãi](/after-sales)')
+    expect(response.answer.markdown).not.toContain('/unknown-service')
+  })
+
   it('omits product cards during clarification turns and provides comparison pair chips', () => {
     const evidence = new EvidenceLedger()
     const knownEntities = new KnownEntityLedger()

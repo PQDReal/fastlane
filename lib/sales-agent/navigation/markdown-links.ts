@@ -4,6 +4,7 @@ import { salesAgentProductUrl } from './paths'
 const VERIFIED_STATIC_ROUTES = new Set([
   '/',
   '/accessories',
+  '/after-sales',
   '/bikes',
   '/cars',
   '/compare',

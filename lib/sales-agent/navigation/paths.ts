@@ -26,4 +26,5 @@ export function salesAgentProductUrl(productType: SalesAgentNavigableProductType
 export function isSalesAgentInternalUrl(value: string) {
   return /^\/(?:cars|bikes|accessories)(?:\/[A-Za-z0-9._~%-]+)?$/.test(value)
     || value === '/compare'
+    || value === '/after-sales'
 }

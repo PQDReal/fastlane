@@ -19,6 +19,7 @@ describe('Sales Agent prompt capability gate', () => {
     expect(prompt).not.toContain('/financing')
     expect(prompt).not.toContain('/charging-stations')
     expect(prompt).not.toContain('/knowledge/[slug]')
+    expect(prompt).toContain('[Hậu mãi](/after-sales)')
   })
 
   it('gives the Agent structured visual context and leaves wording to the Agent', () => {
