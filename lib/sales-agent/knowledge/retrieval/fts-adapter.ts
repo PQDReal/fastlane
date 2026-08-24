@@ -217,6 +217,12 @@ export function extractSearchKeywords(query: string): string {
   return filtered.length >= 1 ? filtered.slice(0, 4).join(' ') : normalized
 }
 
+function isMissingRpc(error: any): boolean {
+  const code = String(error?.code || '')
+  const message = String(error?.message || error || '')
+  return code === 'PGRST202' || code === '42883' || /function.+does not exist|could not find.+function/i.test(message)
+}
+
 export class PostgresFtsAdapter {
   private client?: SupabaseClient
 
@@ -307,29 +313,44 @@ export class PostgresFtsAdapter {
     return []
   }
 
-  /**
-   * Load only the hierarchy context belonging to the selected versions.  This
-   * keeps parent/neighbor expansion available on the live DB path without
-   * allowing expansion to widen the lifecycle or generation boundary.
-   */
+  /** Load only selected chunks plus their closest parents/procedure neighbors. */
   async loadHierarchyContext(
-    versionIds: string[],
+    selectedCandidates: RawChunkCandidate[],
     filters: KnowledgeScopeFilter = {},
     options: RetrievalOptions = {}
   ): Promise<RawChunkCandidate[]> {
-    if (!this.client || versionIds.length === 0) return []
+    if (!this.client || selectedCandidates.length === 0) return []
     if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
 
     try {
-      const request = this.client.rpc('sales_agent_load_knowledge_hierarchy_context', {
-        p_version_ids: Array.from(new Set(versionIds)),
-        p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
-        p_limit: 5000,
-        p_effective_at: filters.effectiveAt || new Date().toISOString(),
+      const generationId = options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID
+      const effectiveAt = filters.effectiveAt || new Date().toISOString()
+      const chunkIds = Array.from(new Set(selectedCandidates.map((candidate) => candidate.chunkId).filter(Boolean)))
+      const versionIds = Array.from(new Set(selectedCandidates.map((candidate) => candidate.versionId).filter(Boolean)))
+      const runRpc = async (name: string, params: Record<string, unknown>) => {
+        const request = this.client!.rpc(name, params)
+        return await (options.signal && typeof (request as any).abortSignal === 'function'
+          ? (request as any).abortSignal(options.signal)
+          : request)
+      }
+
+      let { data, error } = await runRpc('sales_agent_load_knowledge_hierarchy_targets', {
+        p_chunk_ids: chunkIds,
+        p_index_generation_id: generationId,
+        p_effective_at: effectiveAt,
+        p_max_neighbors: 1,
       })
-      const { data, error } = await (options.signal && typeof (request as any).abortSignal === 'function'
-        ? (request as any).abortSignal(options.signal)
-        : request)
+
+      if (error && isMissingRpc(error)) {
+        const fallback = await runRpc('sales_agent_load_knowledge_hierarchy_context', {
+          p_version_ids: versionIds,
+          p_index_generation_id: generationId,
+          p_limit: 5000,
+          p_effective_at: effectiveAt,
+        })
+        data = fallback.data
+        error = fallback.error
+      }
       if (error) throw new KnowledgeStorageUnavailableError(error.message, error)
       if (!Array.isArray(data)) {
         throw new KnowledgeStorageUnavailableError('Hierarchy RPC returned a null or invalid result set')

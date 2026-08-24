@@ -28,6 +28,12 @@ export interface VectorSearchTelemetrySink {
   onStageChange?: (stage: VectorSearchStage) => void
 }
 
+function isMissingRpc(error: any): boolean {
+  const code = String(error?.code || '')
+  const message = String(error?.message || error || '')
+  return code === 'PGRST202' || code === '42883' || /function.+does not exist|could not find.+function/i.test(message)
+}
+
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (!vecA || !vecB || vecA.length !== vecB.length || vecA.length === 0) {
     return 0
@@ -142,7 +148,7 @@ export class VectorCandidateAdapter {
       if (this.client) {
         telemetry?.onStageChange?.('VECTOR_RPC')
         try {
-          const request = this.client.rpc('sales_agent_search_knowledge_vector', {
+          const commonParams = {
             p_query_embedding: queryEmbedding,
             p_index_generation_id: generationId,
             p_limit: limit,
@@ -154,10 +160,36 @@ export class VectorCandidateAdapter {
             p_market: filters.market || 'VN',
             p_locale: filters.locale || 'vi-VN',
             p_effective_at: filters.effectiveAt || new Date().toISOString(),
-          })
-          const { data, error } = await (options.signal && typeof (request as any).abortSignal === 'function'
-            ? (request as any).abortSignal(options.signal)
-            : request)
+          }
+          const runRpc = async (name: string, params: Record<string, unknown>) => {
+            const request = this.client!.rpc(name, params)
+            return await (options.signal && typeof (request as any).abortSignal === 'function'
+              ? (request as any).abortSignal(options.signal)
+              : request)
+          }
+
+          const candidateLimit = Math.min(2000, Math.max(100, limit * 20))
+          const hasSelectiveScope = Boolean(
+            filters.vehicleModel
+              || filters.modelYear != null
+              || filters.category
+              || (filters.vehicleType && filters.vehicleType !== 'ALL')
+          )
+          let { data, error } = hasSelectiveScope
+            ? await runRpc('sales_agent_search_knowledge_vector', commonParams)
+            : await runRpc('sales_agent_search_knowledge_vector_hnsw', {
+                ...commonParams,
+                p_candidate_limit: candidateLimit,
+              })
+
+          // Deploys may briefly run application code before PostgREST refreshes
+          // the new broad-query function. Preserve availability with the
+          // previous exact RPC only for a missing-function/schema-cache error.
+          if (!hasSelectiveScope && error && isMissingRpc(error)) {
+            const fallback = await runRpc('sales_agent_search_knowledge_vector', commonParams)
+            data = fallback.data
+            error = fallback.error
+          }
 
           if (error) {
             throw new KnowledgeStorageUnavailableError(error.message, error)

@@ -468,7 +468,7 @@ export class HybridHierarchicalRetrievalService {
     if (!hierarchyPool && this.client && selectedCandidates.length > 0) {
       try {
         hierarchyPool = await this.ftsAdapter.loadHierarchyContext(
-          selectedCandidates.map((candidate) => candidate.versionId),
+          selectedCandidates,
           filters,
           effectiveOptions
         )
