@@ -14,6 +14,7 @@ import { validateSalesAgentInteractionProducts, SalesAgentInteractionValidationE
 import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
 import { runTurn } from '@/lib/sales-agent/orchestrator/run-turn'
 import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
+import { chunkGroundedMarkdown } from '@/lib/sales-agent/response/stream-markdown'
 import {
   evaluateInputGuardrails,
   evaluateOutputGuardrails,
@@ -39,7 +40,27 @@ function responseHeaders() {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
   }
+}
+
+async function streamGroundedMarkdown(
+  markdown: string,
+  send: (value: SalesAgentSseEvent) => void,
+  signal?: AbortSignal,
+) {
+  const chunks = chunkGroundedMarkdown(markdown)
+
+  for (let index = 0; index < chunks.length; index++) {
+    if (signal?.aborted) return false
+    send({ type: 'text_delta', delta: chunks[index] })
+
+    if (index < chunks.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 12))
+    }
+  }
+
+  return true
 }
 
 function streamResponse(payload: {
@@ -145,17 +166,8 @@ export async function POST(request: Request) {
             },
           }
 
-          const words = fallbackText.split(/(\s+)/)
-          let chunkBuffer = ''
-          for (let i = 0; i < words.length; i++) {
-            chunkBuffer += words[i]
-            if (chunkBuffer.length >= 16 || i === words.length - 1) {
-              if (request.signal?.aborted) return
-              send({ type: 'text_delta', delta: chunkBuffer })
-              chunkBuffer = ''
-              await new Promise((resolve) => setTimeout(resolve, 15))
-            }
-          }
+          const streamed = await streamGroundedMarkdown(fallbackText, send, request.signal)
+          if (!streamed) return
           send({ type: 'turn_view', viewModel: safeViewModel })
           send({ type: 'done', provider: 'guardrail', model: 'defense-pipeline', finishReason: 'stop' })
           return
@@ -219,9 +231,10 @@ export async function POST(request: Request) {
         const { sanitized: safeMarkdown } = evaluateOutputGuardrails(viewModel.answer.markdown)
         viewModel.answer.markdown = safeMarkdown
 
-        // Chỉ phát nội dung sau khi evidence composer và output guardrail đã hoàn tất.
+        // Chỉ stream từng phần nhỏ sau khi evidence composer và output guardrail đã hoàn tất.
         send({ type: 'tool_status', tool: 'composing', status: 'running' })
-        send({ type: 'text_delta', delta: safeMarkdown })
+        const streamed = await streamGroundedMarkdown(safeMarkdown, send, request.signal)
+        if (!streamed) return
 
         recordSalesAgentDebugEvent('turn.completed', { conversationId, messageId }, {
           text: viewModel.answer.markdown,
