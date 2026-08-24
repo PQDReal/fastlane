@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { normalizeManualContentHtml } from '@/lib/api/manual-content'
 
 interface TocItem {
   id: string
@@ -19,14 +20,8 @@ interface ArticleContentProps {
   searchData: { id: string, title: string }[]
 }
 
-export function ArticleContent({
-  contentHtml,
-  modelId,
-  modelName,
-  modelYear,
-  articleTitle,
-  searchData,
-}: ArticleContentProps) {
+export function ArticleContent({ contentHtml, modelId, modelName, modelYear, articleTitle, searchData }: ArticleContentProps) {
+  const normalizedContentHtml = useMemo(() => normalizeManualContentHtml(contentHtml), [contentHtml])
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -61,13 +56,13 @@ export function ArticleContent({
     // Match any tag that has class="Detail-Heading" and an id attribute
     const regex = /<[^>]+class="[^"]*Detail-Heading[^"]*"[^>]*id="([^"]+)"[^>]*>(.*?)<\/[^>]+>/gi
     let match
-    while ((match = regex.exec(contentHtml)) !== null) {
+    while ((match = regex.exec(normalizedContentHtml)) !== null) {
       // Remove any inner HTML tags from the title
       const rawTitle = match[2].replace(/<[^>]+>/g, '')
       items.push({ id: match[1], title: rawTitle })
     }
     return items
-  }, [contentHtml])
+  }, [normalizedContentHtml])
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return []
@@ -163,7 +158,7 @@ export function ArticleContent({
 
       {/* Actual Content */}
       <div 
-        dangerouslySetInnerHTML={{ __html: contentHtml }} 
+        dangerouslySetInnerHTML={{ __html: normalizedContentHtml }}
       />
     </div>
   )
