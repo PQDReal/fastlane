@@ -4,7 +4,7 @@ import {
   deleteKnowledgeDocument,
   getKnowledgeDocumentById,
   updateKnowledgeDocument,
-} from '@/lib/sales-agent/knowledge/repository'
+} from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -44,6 +44,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       category: body.category,
       contentMarkdown: body.contentMarkdown,
       summary: body.summary,
+      authorId: user.id,
     })
 
     return NextResponse.json({ data: { document } })

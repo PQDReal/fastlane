@@ -43,6 +43,8 @@ const CATEGORIES: Array<{ key: KnowledgeCategory | 'ALL'; label: string }> = [
   { key: 'DEPOSIT_DELIVERY', label: 'Đặt cọc & Nhận xe' },
   { key: 'TECHNICAL_GUIDE', label: 'Cẩm nang kỹ thuật' },
   { key: 'PROMOTIONS_FINANCING', label: 'Ưu đãi & Trả góp' },
+  { key: 'CHARGING_NETWORK', label: 'Mạng lưới trạm sạc' },
+  { key: 'GENERAL_POLICY', label: 'Chính sách chung' },
 ]
 
 export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
@@ -216,8 +218,8 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
       const res = await fetch(`/api/v1/admin/knowledge/${finalId}/publish`, {
         method: 'POST',
       })
-      if (!res.ok) throw new Error('Không thể xuất bản.')
       const json = await res.json()
+      if (!res.ok) throw new Error(json.message || 'Không thể xuất bản.')
 
       showToast(
         'success',
@@ -253,7 +255,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
         method: 'DELETE',
       })
       if (!res.ok) throw new Error('Không thể xóa.')
-      showToast('success', 'Đã xóa tài liệu', `Đã xóa vĩnh viễn tài liệu "${deletingDoc.title}" và toàn bộ phân đoạn.`)
+      showToast('success', 'Đã ẩn tài liệu', `Tài liệu "${deletingDoc.title}" đã được xóa mềm và không còn xuất hiện trong tra cứu.`)
       setDeletingDoc(null)
       await refreshDocuments()
     } catch (err: any) {
@@ -540,6 +542,8 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                       <option value="DEPOSIT_DELIVERY">Quy trình đặt cọc & Nhận xe</option>
                       <option value="TECHNICAL_GUIDE">Cẩm nang & Thông số kỹ thuật</option>
                       <option value="PROMOTIONS_FINANCING">Ưu đãi & Mua xe trả góp</option>
+                      <option value="CHARGING_NETWORK">Mạng lưới trạm sạc</option>
+                      <option value="GENERAL_POLICY">Chính sách chung</option>
                     </select>
                   </div>
                 </div>

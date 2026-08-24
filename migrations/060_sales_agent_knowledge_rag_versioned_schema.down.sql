@@ -12,6 +12,9 @@ DROP TRIGGER IF EXISTS trg_prevent_knowledge_publication_event_mutation ON publi
 DROP FUNCTION IF EXISTS public.prevent_knowledge_publication_event_mutation();
 
 -- 2. DROP RPCs
+DROP FUNCTION IF EXISTS public.sales_agent_load_knowledge_hierarchy_context(UUID[], TEXT, INTEGER, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_vector(vector, TEXT, INTEGER, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_fts(TEXT, TEXT, INTEGER, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS public.sales_agent_enqueue_index_job(UUID, TEXT);
 DROP FUNCTION IF EXISTS public.sales_agent_restore_document(UUID, UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS public.sales_agent_soft_delete_document(UUID, UUID, TEXT);
@@ -63,6 +66,23 @@ ALTER TABLE IF EXISTS public.sales_agent_knowledge_documents
     DROP COLUMN IF EXISTS deleted_at,
     DROP COLUMN IF EXISTS document_key,
     DROP COLUMN IF EXISTS locale;
+
+-- Restore the 058 category invariant only when no 060-only category remains.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.sales_agent_knowledge_documents
+        WHERE category NOT IN ('WARRANTY_BATTERY', 'DEPOSIT_DELIVERY', 'TECHNICAL_GUIDE', 'PROMOTIONS_FINANCING')
+    ) THEN
+        RAISE EXCEPTION 'ROLLBACK_BLOCKED: 060-only knowledge categories remain in the preserved 058 table';
+    END IF;
+    ALTER TABLE public.sales_agent_knowledge_documents
+        DROP CONSTRAINT IF EXISTS sales_agent_knowledge_documents_category_check;
+    ALTER TABLE public.sales_agent_knowledge_documents
+        ADD CONSTRAINT sales_agent_knowledge_documents_category_check
+        CHECK (category IN ('WARRANTY_BATTERY', 'DEPOSIT_DELIVERY', 'TECHNICAL_GUIDE', 'PROMOTIONS_FINANCING'));
+END $$;
 
 ALTER TABLE IF EXISTS public.sales_agent_knowledge_chunks
     DROP COLUMN IF EXISTS version_id,

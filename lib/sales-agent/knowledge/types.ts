@@ -3,6 +3,8 @@ export type KnowledgeCategory =
   | 'DEPOSIT_DELIVERY'
   | 'TECHNICAL_GUIDE'
   | 'PROMOTIONS_FINANCING'
+  | 'CHARGING_NETWORK'
+  | 'GENERAL_POLICY'
 
 export type KnowledgeStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -50,6 +52,8 @@ export const KNOWLEDGE_CATEGORY_LABELS: Record<KnowledgeCategory, string> = {
   DEPOSIT_DELIVERY: 'Quy trình đặt cọc & Nhận xe',
   TECHNICAL_GUIDE: 'Cẩm nang & Thông số kỹ thuật',
   PROMOTIONS_FINANCING: 'Ưu đãi & Mua xe trả góp',
+  CHARGING_NETWORK: 'Mạng lưới trạm sạc',
+  GENERAL_POLICY: 'Chính sách chung',
 }
 
 export const KNOWLEDGE_STATUS_LABELS: Record<KnowledgeStatus, string> = {

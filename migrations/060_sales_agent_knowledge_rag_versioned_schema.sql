@@ -31,6 +31,25 @@ ALTER TABLE public.sales_agent_knowledge_documents
     ADD COLUMN IF NOT EXISTS lifecycle_status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (lifecycle_status IN ('ACTIVE', 'ARCHIVED', 'DELETED')),
     ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
+-- The 058 category check covered only the original four CMS categories.  The
+-- versioned model also supports charging-network and general-policy sources;
+-- widen that constraint idempotently before any new draft can be created.
+ALTER TABLE public.sales_agent_knowledge_documents
+    DROP CONSTRAINT IF EXISTS sales_agent_knowledge_documents_category_check;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'sales_agent_knowledge_documents_category_check'
+    ) THEN
+        ALTER TABLE public.sales_agent_knowledge_documents
+        ADD CONSTRAINT sales_agent_knowledge_documents_category_check
+        CHECK (category IN (
+            'WARRANTY_BATTERY', 'DEPOSIT_DELIVERY', 'TECHNICAL_GUIDE',
+            'PROMOTIONS_FINANCING', 'CHARGING_NETWORK', 'GENERAL_POLICY'
+        ));
+    END IF;
+END $$;
+
 -- Backfill document_key from slug for existing 058 documents
 UPDATE public.sales_agent_knowledge_documents
 SET document_key = slug
@@ -1018,6 +1037,379 @@ BEGIN
 END;
 $$;
 
+-- 7. BOUNDED RETRIEVAL RPCs
+-- Runtime reads must execute inside the database so lifecycle, active-version,
+-- generation, effective-date and scope predicates cannot be bypassed by a
+-- client-side post-filter.  Both functions deliberately expose the same
+-- stable candidate shape consumed by the TypeScript adapters.
+CREATE OR REPLACE FUNCTION public.sales_agent_search_knowledge_fts(
+    p_query TEXT,
+    p_index_generation_id TEXT DEFAULT 'openai-text-embedding-3-small-1536-v1',
+    p_limit INTEGER DEFAULT 20,
+    p_vehicle_model TEXT DEFAULT NULL,
+    p_vehicle_type TEXT DEFAULT NULL,
+    p_model_year INTEGER DEFAULT NULL,
+    p_market TEXT DEFAULT 'VN',
+    p_customer_segment TEXT DEFAULT 'ALL',
+    p_category TEXT DEFAULT NULL,
+    p_locale TEXT DEFAULT 'vi-VN',
+    p_effective_at TIMESTAMPTZ DEFAULT timezone('utc', now())
+)
+RETURNS TABLE (
+    id UUID,
+    document_id UUID,
+    document_key TEXT,
+    version_id UUID,
+    version_no INTEGER,
+    index_generation_id TEXT,
+    chunk_level INTEGER,
+    hierarchy_path TEXT,
+    section_anchor TEXT,
+    chunk_ordinal INTEGER,
+    section_title TEXT,
+    content TEXT,
+    content_hash TEXT,
+    token_count INTEGER,
+    tags TEXT[],
+    source_node_id TEXT,
+    image_refs JSONB,
+    title TEXT,
+    slug TEXT,
+    category TEXT,
+    effective_from TIMESTAMPTZ,
+    effective_to TIMESTAMPTZ,
+    publication_status TEXT,
+    index_status TEXT,
+    fts_score REAL,
+    scope_metadata JSONB
+)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+WITH query_term AS (
+    SELECT websearch_to_tsquery('simple', nullif(trim(p_query), '')) AS query
+)
+SELECT
+    c.id,
+    d.id,
+    d.document_key::TEXT,
+    v.id,
+    v.version_no,
+    c.index_generation_id,
+    c.chunk_level,
+    c.hierarchy_path,
+    c.section_anchor,
+    c.chunk_index,
+    c.section_title::TEXT,
+    c.content,
+    c.content_hash,
+    c.token_count,
+    c.tags,
+    c.source_node_id,
+    c.image_refs,
+    d.title::TEXT,
+    d.slug::TEXT,
+    d.category::TEXT,
+    v.effective_from,
+    v.effective_to,
+    v.publication_status::TEXT,
+    v.index_status::TEXT,
+    ts_rank_cd(c.tsv_content, query_term.query)::REAL,
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'vehicleModel', s.vehicle_model,
+            'vehicleType', s.vehicle_type,
+            'modelYearFrom', s.model_year_from,
+            'modelYearTo', s.model_year_to,
+            'market', s.market,
+            'customerSegment', s.customer_segment
+        ) ORDER BY s.id)
+        FROM public.sales_agent_knowledge_scopes s
+        WHERE s.version_id = v.id
+    ), '[]'::JSONB)
+FROM query_term
+JOIN public.sales_agent_knowledge_chunks c ON TRUE
+JOIN public.sales_agent_knowledge_versions v ON v.id = c.version_id
+JOIN public.sales_agent_knowledge_documents d ON d.id = c.document_id
+WHERE query_term.query IS NOT NULL
+  AND c.tsv_content @@ query_term.query
+  AND c.is_active = TRUE
+  AND c.index_generation_id = p_index_generation_id
+  AND d.active_version_id = v.id
+  AND d.lifecycle_status = 'ACTIVE'
+  AND d.deleted_at IS NULL
+  AND d.locale = COALESCE(p_locale, d.locale)
+  AND v.publication_status = 'PUBLISHED'
+  AND v.index_status = 'READY'
+  AND v.effective_from <= COALESCE(p_effective_at, timezone('utc', now()))
+  AND (v.effective_to IS NULL OR v.effective_to > COALESCE(p_effective_at, timezone('utc', now())))
+  AND (p_category IS NULL OR d.category = p_category)
+  AND (
+      (
+          NOT EXISTS (
+              SELECT 1 FROM public.sales_agent_knowledge_scopes sx WHERE sx.version_id = v.id
+          )
+          AND (p_vehicle_model IS NULL OR strpos(
+              lower(regexp_replace(coalesce(d.document_key, '') || ' ' || coalesce(d.title, '') || ' ' || coalesce(c.content, ''), '\s+', '', 'g')),
+              lower(regexp_replace(p_vehicle_model, '\s+', '', 'g'))
+          ) > 0)
+          AND (p_vehicle_type IS NULL OR p_vehicle_type = 'ALL')
+          AND p_model_year IS NULL
+          AND (p_market IS NULL OR p_market = 'ALL' OR upper(p_market) = 'VN')
+          AND (p_customer_segment IS NULL OR p_customer_segment = 'ALL')
+      )
+      OR EXISTS (
+          SELECT 1
+          FROM public.sales_agent_knowledge_scopes s
+          WHERE s.version_id = v.id
+            AND (p_vehicle_model IS NULL OR s.vehicle_model IS NULL OR s.vehicle_model = 'ALL'
+                 OR lower(regexp_replace(s.vehicle_model, '\s+', '', 'g')) = lower(regexp_replace(p_vehicle_model, '\s+', '', 'g')))
+            AND (p_vehicle_type IS NULL OR p_vehicle_type = 'ALL' OR s.vehicle_type IS NULL OR s.vehicle_type = 'ALL'
+                 OR s.vehicle_type = p_vehicle_type)
+            AND (p_model_year IS NULL OR (s.model_year_from IS NULL OR p_model_year >= s.model_year_from)
+                 AND (s.model_year_to IS NULL OR p_model_year <= s.model_year_to))
+            AND (p_market IS NULL OR p_market = 'ALL' OR s.market IS NULL OR s.market = 'ALL'
+                 OR upper(s.market) = upper(p_market))
+            AND (p_customer_segment IS NULL OR p_customer_segment = 'ALL' OR s.customer_segment IS NULL
+                 OR s.customer_segment = 'ALL' OR s.customer_segment = p_customer_segment)
+      )
+  )
+ORDER BY ts_rank_cd(c.tsv_content, query_term.query) DESC, c.chunk_index ASC, c.id ASC
+LIMIT greatest(1, least(coalesce(p_limit, 20), 100));
+$$;
+
+CREATE OR REPLACE FUNCTION public.sales_agent_search_knowledge_vector(
+    p_query_embedding vector(1536),
+    p_index_generation_id TEXT DEFAULT 'openai-text-embedding-3-small-1536-v1',
+    p_limit INTEGER DEFAULT 20,
+    p_vehicle_model TEXT DEFAULT NULL,
+    p_vehicle_type TEXT DEFAULT NULL,
+    p_model_year INTEGER DEFAULT NULL,
+    p_market TEXT DEFAULT 'VN',
+    p_customer_segment TEXT DEFAULT 'ALL',
+    p_category TEXT DEFAULT NULL,
+    p_locale TEXT DEFAULT 'vi-VN',
+    p_effective_at TIMESTAMPTZ DEFAULT timezone('utc', now())
+)
+RETURNS TABLE (
+    id UUID,
+    document_id UUID,
+    document_key TEXT,
+    version_id UUID,
+    version_no INTEGER,
+    index_generation_id TEXT,
+    chunk_level INTEGER,
+    hierarchy_path TEXT,
+    section_anchor TEXT,
+    chunk_ordinal INTEGER,
+    section_title TEXT,
+    content TEXT,
+    content_hash TEXT,
+    token_count INTEGER,
+    tags TEXT[],
+    source_node_id TEXT,
+    image_refs JSONB,
+    title TEXT,
+    slug TEXT,
+    category TEXT,
+    effective_from TIMESTAMPTZ,
+    effective_to TIMESTAMPTZ,
+    publication_status TEXT,
+    index_status TEXT,
+    vector_score REAL,
+    scope_metadata JSONB
+)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+SELECT
+    c.id,
+    d.id,
+    d.document_key::TEXT,
+    v.id,
+    v.version_no,
+    c.index_generation_id,
+    c.chunk_level,
+    c.hierarchy_path,
+    c.section_anchor,
+    c.chunk_index,
+    c.section_title::TEXT,
+    c.content,
+    c.content_hash,
+    c.token_count,
+    c.tags,
+    c.source_node_id,
+    c.image_refs,
+    d.title::TEXT,
+    d.slug::TEXT,
+    d.category::TEXT,
+    v.effective_from,
+    v.effective_to,
+    v.publication_status::TEXT,
+    v.index_status::TEXT,
+    (1 - (c.embedding <=> p_query_embedding))::REAL,
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'vehicleModel', s.vehicle_model,
+            'vehicleType', s.vehicle_type,
+            'modelYearFrom', s.model_year_from,
+            'modelYearTo', s.model_year_to,
+            'market', s.market,
+            'customerSegment', s.customer_segment
+        ) ORDER BY s.id)
+        FROM public.sales_agent_knowledge_scopes s
+        WHERE s.version_id = v.id
+    ), '[]'::JSONB)
+FROM public.sales_agent_knowledge_chunks c
+JOIN public.sales_agent_knowledge_versions v ON v.id = c.version_id
+JOIN public.sales_agent_knowledge_documents d ON d.id = c.document_id
+WHERE p_query_embedding IS NOT NULL
+  AND c.embedding IS NOT NULL
+  AND c.is_active = TRUE
+  AND c.index_generation_id = p_index_generation_id
+  AND d.active_version_id = v.id
+  AND d.lifecycle_status = 'ACTIVE'
+  AND d.deleted_at IS NULL
+  AND d.locale = COALESCE(p_locale, d.locale)
+  AND v.publication_status = 'PUBLISHED'
+  AND v.index_status = 'READY'
+  AND v.effective_from <= COALESCE(p_effective_at, timezone('utc', now()))
+  AND (v.effective_to IS NULL OR v.effective_to > COALESCE(p_effective_at, timezone('utc', now())))
+  AND (p_category IS NULL OR d.category = p_category)
+  AND (
+      (
+          NOT EXISTS (
+              SELECT 1 FROM public.sales_agent_knowledge_scopes sx WHERE sx.version_id = v.id
+          )
+          AND (p_vehicle_model IS NULL OR strpos(
+              lower(regexp_replace(coalesce(d.document_key, '') || ' ' || coalesce(d.title, '') || ' ' || coalesce(c.content, ''), '\s+', '', 'g')),
+              lower(regexp_replace(p_vehicle_model, '\s+', '', 'g'))
+          ) > 0)
+          AND (p_vehicle_type IS NULL OR p_vehicle_type = 'ALL')
+          AND p_model_year IS NULL
+          AND (p_market IS NULL OR p_market = 'ALL' OR upper(p_market) = 'VN')
+          AND (p_customer_segment IS NULL OR p_customer_segment = 'ALL')
+      )
+      OR EXISTS (
+          SELECT 1
+          FROM public.sales_agent_knowledge_scopes s
+          WHERE s.version_id = v.id
+            AND (p_vehicle_model IS NULL OR s.vehicle_model IS NULL OR s.vehicle_model = 'ALL'
+                 OR lower(regexp_replace(s.vehicle_model, '\s+', '', 'g')) = lower(regexp_replace(p_vehicle_model, '\s+', '', 'g')))
+            AND (p_vehicle_type IS NULL OR p_vehicle_type = 'ALL' OR s.vehicle_type IS NULL OR s.vehicle_type = 'ALL'
+                 OR s.vehicle_type = p_vehicle_type)
+            AND (p_model_year IS NULL OR (s.model_year_from IS NULL OR p_model_year >= s.model_year_from)
+                 AND (s.model_year_to IS NULL OR p_model_year <= s.model_year_to))
+            AND (p_market IS NULL OR p_market = 'ALL' OR s.market IS NULL OR s.market = 'ALL'
+                 OR upper(s.market) = upper(p_market))
+            AND (p_customer_segment IS NULL OR p_customer_segment = 'ALL' OR s.customer_segment IS NULL
+                 OR s.customer_segment = 'ALL' OR s.customer_segment = p_customer_segment)
+      )
+  )
+ORDER BY c.embedding <=> p_query_embedding, c.chunk_index ASC, c.id ASC
+LIMIT greatest(1, least(coalesce(p_limit, 20), 100));
+$$;
+
+-- Fetch the bounded hierarchy context for already-selected version IDs.  It is
+-- intentionally separate from the ranked search RPC so expansion cannot widen
+-- the corpus beyond the versions/generation that produced the direct hits.
+CREATE OR REPLACE FUNCTION public.sales_agent_load_knowledge_hierarchy_context(
+    p_version_ids UUID[],
+    p_index_generation_id TEXT DEFAULT 'openai-text-embedding-3-small-1536-v1',
+    p_limit INTEGER DEFAULT 1000,
+    p_effective_at TIMESTAMPTZ DEFAULT timezone('utc', now())
+)
+RETURNS TABLE (
+    id UUID,
+    document_id UUID,
+    document_key TEXT,
+    version_id UUID,
+    version_no INTEGER,
+    index_generation_id TEXT,
+    chunk_level INTEGER,
+    hierarchy_path TEXT,
+    section_anchor TEXT,
+    chunk_ordinal INTEGER,
+    section_title TEXT,
+    content TEXT,
+    content_hash TEXT,
+    token_count INTEGER,
+    tags TEXT[],
+    source_node_id TEXT,
+    image_refs JSONB,
+    title TEXT,
+    slug TEXT,
+    category TEXT,
+    effective_from TIMESTAMPTZ,
+    effective_to TIMESTAMPTZ,
+    publication_status TEXT,
+    index_status TEXT,
+    scope_metadata JSONB
+)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+SELECT
+    c.id,
+    d.id,
+    d.document_key::TEXT,
+    v.id,
+    v.version_no,
+    c.index_generation_id,
+    c.chunk_level,
+    c.hierarchy_path,
+    c.section_anchor,
+    c.chunk_index,
+    c.section_title::TEXT,
+    c.content,
+    c.content_hash,
+    c.token_count,
+    c.tags,
+    c.source_node_id,
+    c.image_refs,
+    d.title::TEXT,
+    d.slug::TEXT,
+    d.category::TEXT,
+    v.effective_from,
+    v.effective_to,
+    v.publication_status::TEXT,
+    v.index_status::TEXT,
+    COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'vehicleModel', s.vehicle_model,
+            'vehicleType', s.vehicle_type,
+            'modelYearFrom', s.model_year_from,
+            'modelYearTo', s.model_year_to,
+            'market', s.market,
+            'customerSegment', s.customer_segment
+        ) ORDER BY s.id)
+        FROM public.sales_agent_knowledge_scopes s
+        WHERE s.version_id = v.id
+    ), '[]'::JSONB)
+FROM public.sales_agent_knowledge_chunks c
+JOIN public.sales_agent_knowledge_versions v ON v.id = c.version_id
+JOIN public.sales_agent_knowledge_documents d ON d.id = c.document_id
+WHERE p_version_ids IS NOT NULL
+  AND v.id = ANY(p_version_ids)
+  AND c.is_active = TRUE
+  AND c.index_generation_id = p_index_generation_id
+  AND d.active_version_id = v.id
+  AND d.lifecycle_status = 'ACTIVE'
+  AND d.deleted_at IS NULL
+  AND v.publication_status = 'PUBLISHED'
+  AND v.index_status = 'READY'
+  AND v.effective_from <= COALESCE(p_effective_at, timezone('utc', now()))
+  AND (v.effective_to IS NULL OR v.effective_to > COALESCE(p_effective_at, timezone('utc', now())))
+ORDER BY v.id, c.hierarchy_path, c.chunk_index ASC, c.id ASC
+LIMIT greatest(1, least(coalesce(p_limit, 1000), 5000));
+$$;
+
 -- RPC SECURITY PRIVILEGES (Least Privilege: Revoke public, grant to service_role)
 REVOKE EXECUTE ON FUNCTION public.sales_agent_activate_version(UUID, UUID, UUID, TEXT) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.sales_agent_rollback_version(UUID, UUID, UUID, TEXT) FROM PUBLIC;
@@ -1032,3 +1424,11 @@ GRANT EXECUTE ON FUNCTION public.sales_agent_archive_document(UUID, UUID, TEXT) 
 GRANT EXECUTE ON FUNCTION public.sales_agent_soft_delete_document(UUID, UUID, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.sales_agent_restore_document(UUID, UUID, UUID, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.sales_agent_enqueue_index_job(UUID, TEXT) TO service_role;
+
+REVOKE EXECUTE ON FUNCTION public.sales_agent_search_knowledge_fts(TEXT, TEXT, INTEGER, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.sales_agent_search_knowledge_vector(vector, TEXT, INTEGER, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.sales_agent_load_knowledge_hierarchy_context(UUID[], TEXT, INTEGER, TIMESTAMPTZ) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.sales_agent_search_knowledge_fts(TEXT, TEXT, INTEGER, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sales_agent_search_knowledge_vector(vector, TEXT, INTEGER, TEXT, TEXT, INTEGER, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sales_agent_load_knowledge_hierarchy_context(UUID[], TEXT, INTEGER, TIMESTAMPTZ) TO service_role;

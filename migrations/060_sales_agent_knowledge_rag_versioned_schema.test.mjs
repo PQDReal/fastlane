@@ -28,6 +28,7 @@ describe('Migration 060: Safe Schema Evolution, Triggers & Invariants (A19-KR-10
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS image_refs JSONB')
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS tsv_content TSVECTOR')
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS embedding vector(1536)')
+    expect(sql).toContain("'CHARGING_NETWORK', 'GENERAL_POLICY'")
     expect(sql).toContain("v.index_status = 'READY'")
   })
 
@@ -103,6 +104,27 @@ describe('Migration 060: Safe Schema Evolution, Triggers & Invariants (A19-KR-10
     expect(sql).toContain('REVIEW_REQUIRED: Version ID % has no reviewer')
   })
 
+  it('verifies production retrieval RPCs enforce lifecycle, generation, scope and least-privilege grants', () => {
+    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
+
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sales_agent_search_knowledge_fts')
+    expect(sql).toContain('websearch_to_tsquery')
+    expect(sql).toContain('c.tsv_content @@ query_term.query')
+    expect(sql).toContain("v.publication_status = 'PUBLISHED'")
+    expect(sql).toContain("v.index_status = 'READY'")
+    expect(sql).toContain('c.index_generation_id = p_index_generation_id')
+    expect(sql).toContain('p_vehicle_type')
+    expect(sql).toContain('p_customer_segment')
+
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sales_agent_search_knowledge_vector')
+    expect(sql).toContain('c.embedding <=> p_query_embedding')
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sales_agent_load_knowledge_hierarchy_context')
+    expect(sql).toContain('v.id = ANY(p_version_ids)')
+
+    expect(sql).toContain('REVOKE EXECUTE ON FUNCTION public.sales_agent_search_knowledge_fts')
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.sales_agent_search_knowledge_vector')
+  })
+
   it('verifies down migration cleanly removes triggers, RPCs and columns without dropping 058 tables', () => {
     const downSql = fs.readFileSync(downMigrationPath, 'utf-8')
 
@@ -111,6 +133,10 @@ describe('Migration 060: Safe Schema Evolution, Triggers & Invariants (A19-KR-10
     expect(downSql).toContain('DROP TRIGGER IF EXISTS trg_sync_knowledge_chunk_tsv')
     expect(downSql).toContain('DROP TRIGGER IF EXISTS trg_enforce_knowledge_version_immutability')
     expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_activate_version')
+    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_fts')
+    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_vector')
+    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_load_knowledge_hierarchy_context')
+    expect(downSql).toContain('ROLLBACK_BLOCKED: 060-only knowledge categories remain')
     expect(downSql).toContain('DROP POLICY IF EXISTS "Public and auth users can view active documents"')
     expect(downSql).toContain('DROP POLICY IF EXISTS "Public and auth users can view active chunks"')
   })

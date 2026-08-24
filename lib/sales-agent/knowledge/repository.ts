@@ -17,6 +17,16 @@ import type {
   KnowledgeStatus,
 } from './types'
 
+/**
+ * Legacy 058 compatibility repository.
+ *
+ * Production admin routes and runtime retrieval use
+ * `versioned-admin-repository.ts` / `retrieval-service.ts`.  These exports are
+ * retained only for migration-era callers and tests; do not wire new code to
+ * the direct chunk delete/insert path below because it bypasses 060 lifecycle
+ * gates and immutable versions.
+ */
+
 // Timeout guard to prevent hanging requests when DB is degraded
 const KNOWLEDGE_DB_TIMEOUT_MS = 3_000
 

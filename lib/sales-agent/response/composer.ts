@@ -150,8 +150,6 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-
-
   const allFacts = options.evidence.getAllFacts()
 
   // 2.5 Extract User Manual Images from Evidence
@@ -174,7 +172,26 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       blocks.push({
         kind: 'MANUAL_REFERENCE',
         articleId: firstArticleId,
-        modelId: modelIdFact.valueHash
+        modelId: modelIdFact.valueHash,
+      })
+    }
+  }
+
+  // Materialize Knowledge Citation references if available (A19-KR-408)
+  const knowledgeEvidence = options.evidence.getAllEvidence().filter((e) => e.entity.kind === 'KNOWLEDGE_SNIPPET')
+  if (knowledgeEvidence.length > 0 && blocks.length === 0) {
+    const citationFacts = knowledgeEvidence.slice(0, 3).map((e, idx) => {
+      const titleFact = options.evidence.getFact(`fact-kb-title-${e.entity.id}`)?.valueHash || 'Tài liệu hướng dẫn'
+      const secFact = options.evidence.getFact(`fact-kb-section-${e.entity.id}`)?.valueHash || 'Chi tiết'
+      return {
+        label: `Nguồn tham chiếu [${idx + 1}]`,
+        value: `${titleFact} — ${secFact}`,
+      }
+    })
+    if (citationFacts.length > 0) {
+      blocks.push({
+        kind: 'FACT_SUMMARY',
+        facts: citationFacts,
       })
     }
   }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/current-user'
-import { archiveKnowledgeDocument } from '@/lib/sales-agent/knowledge/repository'
+import { archiveKnowledgeDocument } from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 
 type RouteContext = {
   params: Promise<{ id: string }>

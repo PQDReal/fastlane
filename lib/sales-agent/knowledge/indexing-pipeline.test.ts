@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { KnowledgeIndexingPipeline } from './indexing-pipeline'
+import { describe, it, expect, vi } from 'vitest'
+import { KnowledgeIndexingPipeline, persistIndexedChunks } from './indexing-pipeline'
 import type { DocumentTreeInput } from './hierarchical-chunker'
 
 describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
@@ -76,5 +76,54 @@ describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
     } finally {
       if (originalKey) process.env.OPENAI_API_KEY = originalKey
     }
+  })
+
+  it('persists validated hierarchical chunks and parent links through the worker-facing writer', async () => {
+    const report = await pipeline.processDocumentTree({
+      documentKey: 'vinfast:VF7:2025:vi-VN',
+      title: 'Sổ tay VF 7',
+      category: 'TECHNICAL_GUIDE',
+      vehicleModel: 'VF 7',
+      modelYear: 2025,
+      sections: [{
+        chapterTitle: 'Sạc',
+        sectionTitle: 'Hướng dẫn',
+        contentMarkdown: 'Bước 1 cắm sạc. Bước 2 kiểm tra đèn báo.',
+      }],
+    })
+
+    const chunkRows = report.chunks.map((chunk, index) => ({
+      id: `chunk-${index}`,
+      chunk_index: chunk.chunkIndex,
+      hierarchy_path: chunk.hierarchyPath,
+    }))
+    const versionUpdate = {
+      update: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          in: vi.fn(() => Promise.resolve({ error: null })),
+        })),
+      })),
+    }
+    const chunkTable = {
+      upsert: vi.fn(() => ({ select: vi.fn(() => Promise.resolve({ data: chunkRows, error: null })) })),
+      update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) })),
+    }
+    const client = {
+      from: vi.fn((table: string) => table === 'sales_agent_knowledge_versions' ? versionUpdate : chunkTable),
+    } as any
+
+    const result = await persistIndexedChunks({
+      client,
+      documentId: 'doc-1',
+      versionId: 'ver-1',
+      versionNo: 1,
+      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      chunks: report.chunks,
+    })
+
+    expect(result.persistedChunkCount).toBe(report.chunks.length)
+    expect(result.parentLinks).toBeGreaterThan(0)
+    expect(chunkTable.upsert).toHaveBeenCalledOnce()
+    expect(versionUpdate.update).toHaveBeenCalledWith({ index_status: 'READY' })
   })
 })

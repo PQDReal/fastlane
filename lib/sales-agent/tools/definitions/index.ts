@@ -7,6 +7,8 @@ import { compareProductsRepository } from '../../catalog/comparison'
 import { getCurrentPromotionsRepository } from '../../catalog/promotions'
 import { discoverSalesAgentAccessories } from '../../catalog/accessories'
 import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { HybridHierarchicalRetrievalService } from '../../knowledge/retrieval/retrieval-service'
 import type {
   BrowseCatalogInput,
   DataToolName,
@@ -98,19 +100,38 @@ export async function executeDataTool(
 
       case 'search_knowledge': {
         const input = args as SearchKnowledgeInput
-        const searchResults = await searchKnowledgeRepository(input.query, input.topK ?? 4)
+        const retrieval = await new HybridHierarchicalRetrievalService({
+          client: getSupabaseAdmin(),
+        }).retrieve(
+          input.query,
+          {},
+          {
+            retrievalMode: 'HYBRID_HIERARCHICAL',
+            topK: input.topK ?? 4,
+          },
+        )
 
-        const evidence: EvidenceRecord[] = searchResults.map((k) => ({
-          evidenceId: `ev-kb-${k.chunkId}-${readAt}`,
-          source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
-          entity: { kind: 'KNOWLEDGE_SNIPPET', id: k.chunkId },
-          facts: [
-            { factRef: `fact-kb-title-${k.chunkId}`, factPath: 'title', valueHash: k.documentTitle },
-            { factRef: `fact-kb-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
-            { factRef: `fact-kb-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
-          ],
-          readAt,
-        }))
+        if (retrieval.status === 'UNAVAILABLE') {
+          throw new Error('Knowledge retrieval is unavailable')
+        }
+
+        const searchResults = retrieval.items
+
+        const evidence: EvidenceRecord[] = searchResults.map((k) => {
+          return {
+            evidenceId: `ev-kb-${k.chunkId}-${readAt}`,
+            source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
+            entity: { kind: 'KNOWLEDGE_SNIPPET', id: k.chunkId },
+            facts: [
+              { factRef: `fact-kb-title-${k.chunkId}`, factPath: 'title', valueHash: k.title },
+              { factRef: `fact-kb-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
+              { factRef: `fact-kb-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
+              { factRef: `fact-kb-citation-${k.chunkId}`, factPath: 'citationId', valueHash: k.citationId },
+              { factRef: `fact-kb-evidence-ref-${k.chunkId}`, factPath: 'evidenceRef', valueHash: k.evidenceRef },
+            ],
+            readAt,
+          }
+        })
 
         const observation: ToolObservationRef = {
           observationId: `obs-${toolCallId}`,
@@ -136,10 +157,11 @@ export async function executeDataTool(
           data: {
             snippets: searchResults.map((r) => ({
               id: r.chunkId,
-              documentSlug: r.documentSlug,
-              title: `${r.documentTitle} - ${r.sectionTitle}`,
+              documentSlug: r.documentKey,
+              title: `${r.title} - ${r.sectionTitle}`,
               content: r.content,
-              category: r.category,
+              category: r.category ?? 'TECHNICAL_GUIDE',
+              citationPointer: r.citationId,
             })),
           },
         }

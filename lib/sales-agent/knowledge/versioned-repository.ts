@@ -104,6 +104,13 @@ export class VersionedKnowledgeRepository {
         category: input.category,
         title: input.title,
         slug: input.slug,
+        // Migration 060 evolves the non-null legacy 058 columns in place.
+        // Keep their compatibility snapshot populated while the immutable
+        // version row becomes the source of truth for runtime reads.
+        status: 'DRAFT',
+        published_version: 0,
+        content_markdown: input.contentMarkdown,
+        summary: input.summary || null,
         active_version_id: null,
         lifecycle_status: 'ACTIVE',
       })
@@ -147,6 +154,13 @@ export class VersionedKnowledgeRepository {
     })
 
     if (auditError) {
+      try {
+        await this.client.from('sales_agent_knowledge_versions').delete().eq('id', ver.id)
+        await this.client.from('sales_agent_knowledge_documents').delete().eq('id', doc.id)
+      } catch {
+        // Preserve the audit failure as the primary error; an operator can
+        // reconcile any orphaned draft through the append-only ledger tooling.
+      }
       throw new Error(`Failed to record initial draft audit event: ${auditError.message}`)
     }
 
@@ -235,6 +249,11 @@ export class VersionedKnowledgeRepository {
     })
 
     if (auditError) {
+      try {
+        await this.client.from('sales_agent_knowledge_versions').delete().eq('id', ver.id)
+      } catch {
+        // Preserve the audit failure as the primary error.
+      }
       throw new Error(`Failed to record draft version audit event: ${auditError.message}`)
     }
 
@@ -332,7 +351,7 @@ export class VersionedKnowledgeRepository {
     }
 
     const epoch = Number(data.epoch)
-    if (!Number.isFinite(epoch)) {
+    if (!Number.isSafeInteger(epoch) || epoch < 1) {
       throw new Error(`Failed to activate version: RPC returned invalid non-finite epoch (${data.epoch})`)
     }
 
@@ -363,7 +382,7 @@ export class VersionedKnowledgeRepository {
     }
 
     const epoch = Number(data.epoch)
-    if (!Number.isFinite(epoch)) {
+    if (!Number.isSafeInteger(epoch) || epoch < 1) {
       throw new Error(`Failed to rollback version: RPC returned invalid non-finite epoch (${data.epoch})`)
     }
 
@@ -392,7 +411,7 @@ export class VersionedKnowledgeRepository {
     }
 
     const epoch = Number(data.epoch)
-    if (!Number.isFinite(epoch)) {
+    if (!Number.isSafeInteger(epoch) || epoch < 1) {
       throw new Error(`Failed to archive document: RPC returned invalid non-finite epoch (${data.epoch})`)
     }
 
@@ -421,7 +440,7 @@ export class VersionedKnowledgeRepository {
     }
 
     const epoch = Number(data.epoch)
-    if (!Number.isFinite(epoch)) {
+    if (!Number.isSafeInteger(epoch) || epoch < 1) {
       throw new Error(`Failed to soft-delete document: RPC returned invalid non-finite epoch (${data.epoch})`)
     }
 
@@ -452,7 +471,7 @@ export class VersionedKnowledgeRepository {
     }
 
     const epoch = Number(data.epoch)
-    if (!Number.isFinite(epoch)) {
+    if (!Number.isSafeInteger(epoch) || epoch < 1) {
       throw new Error(`Failed to restore document: RPC returned invalid non-finite epoch (${data.epoch})`)
     }
 
