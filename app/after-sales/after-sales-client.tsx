@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -57,6 +57,7 @@ const SECTION_NAV = {
       { id: 'accessory-warranty', label: 'Bảo hành phụ kiện' },
       { id: 'warranty-exclusions', label: 'Các hạng mục không bảo hành' },
       { id: 'warranty-faq', label: 'Câu hỏi thường gặp' },
+      { id: 'official-documents', label: 'Sổ bảo hành & Hướng dẫn sử dụng' },
       { id: 'warranty-support', label: 'Thông tin hỗ trợ' },
     ],
     maintenance: [
@@ -87,6 +88,7 @@ const SECTION_NAV = {
       { id: 'replacement-parts', label: 'Bảo hành phụ tùng' },
       { id: 'warranty-exclusions', label: 'Các hạng mục không bảo hành' },
       { id: 'warranty-faq', label: 'Câu hỏi thường gặp' },
+      { id: 'official-documents', label: 'Sổ bảo hành & Hướng dẫn sử dụng' },
       { id: 'warranty-support', label: 'Thông tin hỗ trợ' },
     ],
     maintenance: [
@@ -112,6 +114,35 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
   const [selectedManualModel, setSelectedManualModel] = useState('')
   const [selectedManualYear, setSelectedManualYear] = useState('')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const requestedVehicle = searchParams.get('vehicle')
+    const requestedTab = searchParams.get('tab')
+    const supportedTabs = new Set(TABS.map((tab) => tab.id))
+
+    if (requestedVehicle === 'car' || requestedVehicle === 'motorbike') {
+      setSelectedVehicleType(requestedVehicle)
+    }
+    if (
+      requestedTab
+      && supportedTabs.has(requestedTab)
+      && !(requestedVehicle === 'motorbike' && requestedTab === 'rescue')
+    ) {
+      setActiveTab(requestedTab)
+    }
+
+    if (window.location.hash) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView({
+            behavior: 'auto',
+            block: 'start',
+          })
+        })
+      })
+    }
+  }, [])
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     setToasts((previous) => [...previous, { ...toast, id: Date.now() + Math.random() }])
@@ -311,7 +342,6 @@ export function AfterSalesClient({ initialData, manualModels }: AfterSalesClient
             )}
             {activeTab === 'warranty' && selectedVehicleType === 'motorbike' && (
               <MotorbikeWarrantyContent
-                warranties={filteredWarranties}
                 onOpenManuals={() => selectTab('manual')}
                 onOpenWorkshops={() => selectTab('workshop')}
               />

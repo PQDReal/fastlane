@@ -34,7 +34,12 @@ vi.mock('@/lib/supabase-admin', () => {
       description: 'Xe máy điện quốc dân',
       product_type: 'BIKE',
       displayed_price: 18000000,
-      specifications: { range_km: '203', top_speed_kmh: '70' },
+      specifications: {
+        range_km: '203',
+        top_speed_kmh: '70',
+        warranty: '5 năm không giới hạn km',
+        bao_hanh_pin: '8 năm',
+      },
       is_active: true,
       updated_at: '2026-08-01T00:00:00Z',
       product_variants: [
@@ -137,5 +142,21 @@ describe('Canonical Catalog Repositories', () => {
 
     expect(res.outcome).toBe('NO_MATCH')
     expect(res.issues[0].code).toBe('UNKNOWN_ENTITY_REFERENCE')
+  })
+
+  it('does not expose unverified motorbike warranty fields as product evidence', async () => {
+    const res = await getProductDetailsRepository(
+      { productIds: ['prod-evo200'] },
+      'call-test-bike-details',
+    )
+
+    expect(res.outcome).toBe('SUCCESS')
+    if (res.outcome === 'SUCCESS') {
+      expect(res.data.products[0].specs).not.toHaveProperty('warranty')
+      expect(res.data.products[0].specs).not.toHaveProperty('bao_hanh_pin')
+      expect(res.data.products[0].specs).toHaveProperty('range_km')
+      expect(res.evidence[0].facts.some((fact) => fact.factPath.includes('warranty'))).toBe(false)
+      expect(res.evidence[0].facts.some((fact) => fact.factPath.includes('bao_hanh'))).toBe(false)
+    }
   })
 })

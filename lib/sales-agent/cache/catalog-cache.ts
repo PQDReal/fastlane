@@ -1,6 +1,10 @@
 import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import {
+  MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+  MOTORBIKE_WARRANTY_REVIEWED_AT,
+} from '@/lib/after-sales/motorbike-warranty-policy'
 import type { ProductType } from '../contracts'
 
 export const CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutes
@@ -119,12 +123,11 @@ function compileDynamicSummaryPrompt(
     const s = b.specifications || {}
     const range = s.range_km ? `Quãng đường ~${s.range_km} km/sạc` : ''
     const speed = s.top_speed_kmh ? `Tốc độ tối đa ${s.top_speed_kmh} km/h` : ''
-    const battery = s.battery || 'Pin LFP 3.5 kWh'
+    const battery = s.battery ? `Pin ${s.battery}` : ''
     const power = s.power_w ? `Động cơ ${s.power_w}W` : ''
     const trunk = s.trunk_liters ? `Cốp ${s.trunk_liters}L` : ''
-    const warranty = s.warranty || 'Bảo hành 5 năm không giới hạn km'
 
-    const details = [battery, range, speed, power, trunk, warranty].filter(Boolean).join(' | ')
+    const details = [battery, range, speed, power, trunk].filter(Boolean).join(' | ')
     return `| **${b.name}** | ${formatVnd(b.displayedPrice)} | ${details} |`
   })
 
@@ -132,7 +135,14 @@ function compileDynamicSummaryPrompt(
     .map((a) => `- **${a.name}** (${formatVnd(a.price)}): ${a.description || a.categoryName}`)
     .join('\n')
 
-  const docs = knowledgeDocs && knowledgeDocs.length > 0 ? knowledgeDocs : INITIAL_SEEDED_KNOWLEDGE_DOCS
+  const sourceDocs = knowledgeDocs && knowledgeDocs.length > 0 ? knowledgeDocs : INITIAL_SEEDED_KNOWLEDGE_DOCS
+  const docs = [
+    ...INITIAL_SEEDED_KNOWLEDGE_DOCS.filter((document) => document.id === MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID),
+    ...sourceDocs.filter((document) =>
+      document.id !== '00000000-0000-4000-8000-000000000001'
+      && document.id !== MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+    ),
+  ]
   const knowledgeLines = docs.map((d) => {
     const catLabel =
       d.category === 'WARRANTY_BATTERY' ? 'Bảo hành & Pin' :
@@ -153,7 +163,7 @@ function compileDynamicSummaryPrompt(
     '',
     '### 2. Bảng thông số Xe máy điện VinFast chính hãng (Slash Route: `/bikes/[slug]`):',
     `Danh sách Slash Routes: ${bikes.map(b => `\`[${b.name}](/bikes/${b.slug})\``).join(', ')}`,
-    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Loại Pin, Quãng đường km, Tốc độ tối đa km/h, Cốp, Bảo hành) |',
+    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Loại Pin, Quãng đường km, Tốc độ tối đa km/h, Cốp) |',
     '| :--- | :--- | :--- |',
     bikeLines.length > 0 ? bikeLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
     '',
@@ -165,13 +175,13 @@ function compileDynamicSummaryPrompt(
     '',
     '### 5. Chính sách cốt lõi:',
     '- **Bảo hành ô tô:** VF 3 bảo hành xe 7 năm / 160.000 km, pin mua kèm 8 năm; Các dòng VF 5, VF 6, VF 7, VF 8, VF 9, VF e34 bảo hành xe 10 năm / 200.000 km, pin mua kèm bảo hành 10 năm không giới hạn km.',
-    '- **Bảo hành xe máy điện:** 5 năm không giới hạn số km cho toàn bộ các dòng Evo 200, Feliz S, Klara S, Vento S, Theon S.',
+    `- **Bảo hành xe máy điện:** Không có một mốc chung theo tên mẫu xe. Chính sách đã xác minh ngày ${MOTORBIKE_WARRANTY_REVIEWED_AT} phải được tra theo công nghệ pin, ngày xuất hóa đơn và sổ bảo hành được cấp cho xe.`,
     '- **Chính sách thuê pin:** Bảo dưỡng, sửa chữa và thay pin mới miễn phí hoàn toàn khi dung lượng tiếp nhận sạc tối đa (SoH) giảm dưới 70%.',
     '- **Hạ tầng trạm sạc & Cứu hộ:** Trạm sạc V-GREEN chuẩn CCS2 toàn quốc, cứu hộ pin lưu động 24/7.',
     '',
     '## QUY TẮC TƯ VẤN PHẢN HỒI TỐC ĐỘ CAO (SINGLE-TURN FAST PROTOCOL):',
-    '- Khi người dùng hỏi so sánh thông số (pin, tốc độ, quãng đường, giá bán, công suất, bảo hành), hỏi đặt cọc, trả góp hoặc tra cứu các chủ đề trong Danh mục Tri thức CMS ở trên: BẠN ĐÃ CÓ TOÀN BỘ SỐ LIỆU CHÍNH XÁC. HÃY TRẢ LỜI NGAY LẬP TỨC TRONG 1 LƯỢT DUY NHẤT MÀ KHÔNG CẦN GỌI TOOL.',
-    '- CHỈ gọi tool `search_knowledge` khi người dùng hỏi các dòng xe/tài liệu lạ chưa có trong bảng trên (ví dụ: "thông số xe zzed"), hoặc khi cần tra cứu nội dung chi tiết sâu hơn.',
+    '- Khi người dùng hỏi so sánh thông số kỹ thuật, giá bán, đặt cọc hoặc trả góp: có thể trả lời từ dữ liệu tương ứng ở trên.',
+    '- Ngoại lệ bắt buộc: mọi câu hỏi về chính sách bảo hành hoặc pin phải gọi `search_knowledge`; không được trả lời từ bảng sản phẩm hay mốc mặc định.',
   ].join('\n')
 }
 
@@ -336,7 +346,6 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
       top_speed_kmh: '70',
       power_w: '2500',
       trunk_liters: '22',
-      warranty: '5 năm không giới hạn km',
     },
     updatedAt: new Date().toISOString(),
     variants: [{ id: 'var-evo', name: 'Evo 200', sku: 'EVO-200', originalPrice: 18000000, salePrice: 18000000, isActive: true }],
@@ -357,7 +366,6 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
       top_speed_kmh: '78',
       power_w: '3000',
       trunk_liters: '25',
-      warranty: '5 năm không giới hạn km',
     },
     updatedAt: new Date().toISOString(),
     variants: [{ id: 'var-feliz', name: 'Feliz S', sku: 'FELIZ-S', originalPrice: 27000000, salePrice: 27000000, isActive: true }],
@@ -378,7 +386,6 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
       top_speed_kmh: '78',
       power_w: '3000',
       trunk_liters: '23',
-      warranty: '5 năm không giới hạn km',
     },
     updatedAt: new Date().toISOString(),
     variants: [{ id: 'var-klara', name: 'Klara S', sku: 'KLARA-S', originalPrice: 35000000, salePrice: 35000000, isActive: true }],
@@ -395,11 +402,11 @@ const INITIAL_SEEDED_ACCESSORIES: CachedAccessory[] = [
 
 const INITIAL_SEEDED_KNOWLEDGE_DOCS: CachedKnowledgeDoc[] = [
   {
-    id: '00000000-0000-4000-8000-000000000001',
-    slug: 'chinh-sach-bao-hanh-xe-dien-vinfast',
-    title: 'Chính Sách Bảo Hành Xe Điện & Pin VinFast',
+    id: MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+    slug: 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast',
+    title: 'Chính sách bảo hành pin xe máy điện VinFast đã xác minh',
     category: 'WARRANTY_BATTERY',
-    summary: 'Bảo hành ô tô VF 5-9 là 10 năm/200.000km, pin 10 năm không giới hạn km; VF 3 bảo hành 7 năm/160.000km, pin 8 năm; Xe máy điện bảo hành 5 năm.',
+    summary: 'Tra theo công nghệ pin, ngày xuất hóa đơn và sổ bảo hành; không dùng một mốc chung theo tên mẫu xe.',
   },
   {
     id: '00000000-0000-4000-8000-000000000002',

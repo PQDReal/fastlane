@@ -1,6 +1,11 @@
 import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import {
+  MOTORBIKE_WARRANTY_REVIEWED_AT,
+  MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+  VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
+} from '@/lib/after-sales/motorbike-warranty-policy'
 import { catalogCacheEngine } from '../cache/catalog-cache'
 import { chunkMarkdownDocument } from './chunker'
 import { embed } from 'ai'
@@ -17,17 +22,47 @@ import type {
   KnowledgeStatus,
 } from './types'
 
-// In-memory fallback seeds if database table is not yet migrated in local dev environment
-const FALLBACK_SEEDED_DOCS: KnowledgeDocument[] = [
+const UNVERIFIED_LEGACY_DOCUMENT_IDS = new Set(['00000000-0000-4000-8000-000000000001'])
+
+function isExplicitCarKnowledgeQuery(query: string) {
+  const normalized = query
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .toLowerCase()
+
+  return /\b(?:o to|car|vf\s*[-_]?\s*\d+|vf\s*e34|e34|fadil|lux\s+a|lux\s+sa|president|herio|limo|minio|nerio|ec\s+van)\b/i
+    .test(normalized)
+}
+
+const VERIFIED_BUILTIN_DOCS: KnowledgeDocument[] = [
   {
-    id: '00000000-0000-4000-8000-000000000001',
-    slug: 'chinh-sach-bao-hanh-xe-dien-vinfast',
-    title: 'Chính sách bảo hành ô tô & pin xe điện VinFast',
+    id: MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+    slug: 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast',
+    title: 'Chính sách bảo hành pin xe máy điện VinFast đã xác minh',
     category: 'WARRANTY_BATTERY',
     status: 'PUBLISHED',
     publishedVersion: 1,
-    summary: 'Quy định chi tiết về thời hạn bảo hành xe 10 năm/200.000km và chính sách bảo hành pin cao áp không giới hạn km.',
-    contentMarkdown: `# Chính Sách Bảo Hành Xe Điện VinFast\n\n## 1. Thời hạn bảo hành xe\n- Các dòng ô tô điện VinFast (VF 5, VF 6, VF 7, VF 8, VF 9, VF e34) được áp dụng chính sách bảo hành chính hãng **10 năm hoặc 200.000 km** (tùy điều kiện nào đến trước).\n- Dòng xe mini-SUV VinFast VF 3 được bảo hành chính hãng **7 năm hoặc 160.000 km**.\n- Các dòng xe máy điện (Evo 200, Feliz S, Klara S, Vento S, Theon S) được bảo hành **5 năm hoặc không giới hạn số km**.\n\n## 2. Chính sách bảo hành pin cao áp\n- Đối với khách hàng mua xe kèm pin: Pin cao áp được bảo hành **10 năm không giới hạn số km** cho các dòng ô tô VF 5, VF 6, VF 7, VF 8, VF 9; và **8 năm không giới hạn km** cho VF 3.\n- Đối với khách hàng thuê pin: VinFast cam kết bảo dưỡng, sửa chữa và thay mới pin miễn phí hoàn toàn khi dung lượng tiếp nhận sạc tối đa (SoH) giảm xuống dưới 70%.\n\n## 3. Dịch vụ cứu hộ & sạc lưu động\n- Dịch vụ cứu hộ 24/7 hoàn toàn miễn phí trong suốt thời gian bảo hành.\n- Hỗ trợ cứu hộ pin lưu động (Mobile Charging) và sửa chữa lưu động (Mobile Service) tại 63 tỉnh thành trên toàn quốc.`,
+    summary: 'Chính sách đã đối chiếu theo công nghệ pin, ngày xuất hóa đơn và sổ bảo hành chính thức.',
+    contentMarkdown: VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
+    createdAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
+    updatedAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
+    publishedAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
+  },
+]
+
+// In-memory fallback seeds if database table is not yet migrated in local dev environment
+const FALLBACK_SEEDED_DOCS: KnowledgeDocument[] = [
+  ...VERIFIED_BUILTIN_DOCS,
+  {
+    id: '00000000-0000-4000-8000-000000000001',
+    slug: 'chinh-sach-bao-hanh-xe-dien-vinfast',
+    title: 'Tài liệu bảo hành legacy đã lưu trữ',
+    category: 'WARRANTY_BATTERY',
+    status: 'ARCHIVED',
+    publishedVersion: 1,
+    summary: 'Không sử dụng: dữ liệu cũ đã bị lưu trữ vì trộn nhiều loại xe và làm mất context chính sách.',
+    contentMarkdown: '# Tài liệu đã lưu trữ\n\nKhông sử dụng tài liệu legacy này để tư vấn bảo hành.',
     createdAt: '2026-08-15T00:00:00.000Z',
     updatedAt: '2026-08-15T00:00:00.000Z',
     publishedAt: '2026-08-15T00:00:00.000Z',
@@ -441,9 +476,15 @@ export async function searchKnowledgeRepository(query: string, limit: number = 4
       return searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
     }
 
+    const verifiedResults = isExplicitCarKnowledgeQuery(cleanQuery)
+      ? []
+      : searchSeededDocs(VERIFIED_BUILTIN_DOCS, cleanQuery, queryTerms, limit)
+        .map((result) => ({ ...result, score: result.score + 1_000 }))
+
     // Rank chunks by relevance score
     const scored: KnowledgeSearchResult[] = []
     for (const chunk of chunks) {
+      if (UNVERIFIED_LEGACY_DOCUMENT_IDS.has(chunk.documentId)) continue
       const contentLower = (chunk.content || '').toLowerCase()
       const titleLower = (chunk.sectionTitle || '').toLowerCase()
       const docTitleLower = (chunk.documentTitle || '').toLowerCase()
@@ -479,21 +520,28 @@ export async function searchKnowledgeRepository(query: string, limit: number = 4
       }
     }
 
-    if (scored.length === 0) {
-      return searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
-    }
+    const merged = [...verifiedResults, ...scored]
+      .sort((a, b) => b.score - a.score)
+      .filter((result, index, items) => items.findIndex((candidate) =>
+        candidate.documentId === result.documentId && candidate.sectionTitle === result.sectionTitle,
+      ) === index)
 
-    scored.sort((a, b) => b.score - a.score)
-    return scored.slice(0, limit)
+    if (merged.length === 0) return searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
+    return merged.slice(0, limit)
   } catch {
     return searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
   }
 }
 
-function searchFallbackSeededDocs(cleanQuery: string, queryTerms: string[], limit: number): KnowledgeSearchResult[] {
+function searchSeededDocs(
+  documents: readonly KnowledgeDocument[],
+  cleanQuery: string,
+  queryTerms: string[],
+  limit: number,
+): KnowledgeSearchResult[] {
   const scored: KnowledgeSearchResult[] = []
 
-  for (const doc of FALLBACK_SEEDED_DOCS.filter((d) => d.status === 'PUBLISHED')) {
+  for (const doc of documents.filter((d) => d.status === 'PUBLISHED')) {
     const chunks = chunkMarkdownDocument(doc.contentMarkdown, doc.title)
     for (const chunk of chunks) {
       const contentLower = chunk.content.toLowerCase()
@@ -531,6 +579,13 @@ function searchFallbackSeededDocs(cleanQuery: string, queryTerms: string[], limi
 
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, limit)
+}
+
+function searchFallbackSeededDocs(cleanQuery: string, queryTerms: string[], limit: number): KnowledgeSearchResult[] {
+  const documents = isExplicitCarKnowledgeQuery(cleanQuery)
+    ? FALLBACK_SEEDED_DOCS.filter((document) => document.id !== MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID)
+    : FALLBACK_SEEDED_DOCS
+  return searchSeededDocs(documents, cleanQuery, queryTerms, limit)
 }
 
 export type ManualSearchResult = {

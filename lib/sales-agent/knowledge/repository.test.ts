@@ -19,11 +19,18 @@ describe('Knowledge Repository', () => {
     expect(res.documents.some((d) => d.slug.includes('bao-hanh'))).toBe(true)
   })
 
-  it('searches knowledge facts accurately by keyword', async () => {
-    const results = await searchKnowledgeRepository('bảo hành pin VF 8', 3)
+  it('prioritizes verified motorbike battery-warranty context', async () => {
+    const results = await searchKnowledgeRepository('bảo hành pin Evo', 4)
     expect(results.length).toBeGreaterThan(0)
-    expect(results[0].content.toLowerCase()).toContain('pin')
+    expect(results[0].documentSlug).toBe('chinh-sach-bao-hanh-pin-xe-may-dien-vinfast')
+    expect(results.map((result) => result.content).join('\n')).toContain('ngày xuất hóa đơn')
+    expect(results.some((result) => result.documentId === '00000000-0000-4000-8000-000000000001')).toBe(false)
     expect(results[0].score).toBeGreaterThan(0)
+  })
+
+  it('does not apply motorbike policy to an explicitly named car', async () => {
+    const results = await searchKnowledgeRepository('bảo hành pin VF 8', 4)
+    expect(results.some((result) => result.documentId === '00000000-0000-4000-8000-000000000005')).toBe(false)
   })
 
   it('supports full lifecycle: create, update, publish, and delete with cascade', async () => {

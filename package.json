@@ -64,6 +64,7 @@
     "audit:after-sales-semantic-coverage": "node scripts/audit-after-sales-semantic-coverage.mjs",
     "audit:after-sales-identity": "node scripts/audit-after-sales-identity.mjs",
     "audit:after-sales-persistence": "node scripts/audit-after-sales-persistence.mjs",
+    "audit:motorbike-warranty": "node --env-file-if-exists=.env.local scripts/audit-motorbike-warranty-state.mjs",
     "review:after-sales-admin": "node scripts/review-after-sales-admin.mjs",
     "build:after-sales-review": "node scripts/build-after-sales-review-dataset.mjs",
     "review:after-sales-fact": "node scripts/review-after-sales-fact.mjs",

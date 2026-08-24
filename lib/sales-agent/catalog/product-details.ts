@@ -41,6 +41,16 @@ export type GetProductDetailsData = {
   products: ProductDetailsSnapshot[]
 }
 
+function isMotorbikeWarrantyField(key: string) {
+  const normalized = key
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+  return normalized.includes('warranty') || normalized.includes('bao hanh')
+}
+
 export async function getProductDetailsRepository(
   input: GetProductDetailsInput,
   toolCallId: string = `call-details-${Date.now()}`,
@@ -92,6 +102,7 @@ export async function getProductDetailsRepository(
     const specs: ProductDetailsSnapshot['specs'] = {}
     const rawSpecs = (row.specifications && typeof row.specifications === 'object') ? row.specifications : {}
     for (const [key, val] of Object.entries(rawSpecs)) {
+      if (pType === 'BIKE' && isMotorbikeWarrantyField(key)) continue
       const factRef = `fact-spec-${row.id}-${key}`
       const displayVal = String(val)
       specs[key] = {

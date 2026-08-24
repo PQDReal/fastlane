@@ -20,6 +20,7 @@ import {
 import { KnownEntityLedger } from './ledgers/known-entities'
 import { BindingLedger } from './ledgers/bindings'
 import { EvidenceLedger } from './ledgers/evidence'
+import { requiresWarrantyKnowledgeLookup } from './warranty-intent'
 
 export type RunTurnOptions = {
   input: SalesAgentTurnInput
@@ -150,6 +151,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })),
     { role: 'user', content: userText },
   ]
+  const mustSearchWarrantyKnowledge = requiresWarrantyKnowledgeLookup(userText)
 
   // Multi-Provider & Multi-Key Failover Engine
   const candidateModels: SalesAgentLanguageModel[] = [lm]
@@ -178,6 +180,15 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           system: getSalesAgentSystemPrompt(),
           messages,
           tools,
+          prepareStep: ({ stepNumber }) => {
+            if (mustSearchWarrantyKnowledge && stepNumber === 0) {
+              return {
+                activeTools: ['search_knowledge'],
+                toolChoice: { type: 'tool', toolName: 'search_knowledge' },
+              }
+            }
+            return undefined
+          },
           stopWhen: [isStepCount(budget.maxModelSteps)],
           abortSignal: options.signal,
           maxOutputTokens: budget.maxOutputTokens,

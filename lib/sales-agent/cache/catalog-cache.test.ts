@@ -14,7 +14,9 @@ describe('Catalog Cache Engine', () => {
     expect(snapshot.dynamicSummaryPrompt).toContain('VinFast VF 3')
     expect(snapshot.dynamicSummaryPrompt).toContain('VinFast VF 8')
     expect(snapshot.dynamicSummaryPrompt).toContain('Knowledge Base CMS')
-    expect(snapshot.dynamicSummaryPrompt).toContain('Chính Sách Bảo Hành Xe Điện & Pin VinFast')
+    expect(snapshot.dynamicSummaryPrompt).toContain('Chính sách bảo hành pin xe máy điện VinFast đã xác minh')
+    expect(snapshot.dynamicSummaryPrompt).toContain('Không có một mốc chung theo tên mẫu xe')
+    expect(snapshot.dynamicSummaryPrompt).not.toContain('Xe máy điện bảo hành 5 năm')
     expect(snapshot.knowledgeDocs.length).toBeGreaterThan(0)
   })
 
