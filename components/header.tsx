@@ -81,6 +81,10 @@ export function Header({ initialProfile }: { initialProfile?: CustomerProfile | 
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
+    // Browsers can restore a previous scroll position before this listener
+    // is attached. Read it once immediately so the header does not briefly
+    // remain transparent over a light section after a reload.
+    handleScroll()
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])

@@ -49,7 +49,12 @@ function VehicleMetric({
   return (
     <div className="min-w-0 border-l border-black/10 pl-4 first:border-l-0 first:pl-0 sm:pl-6">
       <Icon aria-hidden="true" className="mb-3 h-5 w-5 text-[#a87908]" strokeWidth={1.7} />
-      <p className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">{value}</p>
+      <p
+        className="min-h-[2.5rem] whitespace-normal break-words text-lg font-bold leading-tight tracking-tight text-foreground sm:text-2xl"
+        title={value}
+      >
+        {value}
+      </p>
       <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-[10px]">
         {label}
       </p>

@@ -159,8 +159,10 @@ function trendDate(timestamp: number, period: MonitoringPeriod) {
     : { day: '2-digit', month: '2-digit' }).format(date)
 }
 
-function TrendPanel({ title, trend, period, icon: Icon }: { title: string; trend: MonitoringTrend; period: MonitoringPeriod; icon: typeof Monitor }) {
-  const chartData = useMemo(() => trend.points.map((point, index) => ({
+function TrendPanel({ title, trend, period, icon: Icon }: { title: string; trend: any; period: MonitoringPeriod; icon: typeof Monitor }) {
+  return null
+
+  const chartData = useMemo(() => trend.points.map((point: MonitoringTrend['points'][number], index: number) => ({
     ...point,
     label: trendDate(point.timestamp, period),
     previousP95Ms: trend.previousPoints[index]?.p95Ms ?? null,
