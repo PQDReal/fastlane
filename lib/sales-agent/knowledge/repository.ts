@@ -550,6 +550,7 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
   try {
     // Generate embedding for the query
     const { embedding } = await embed({
+      // @ts-expect-error - The dimensions option is passed properly at runtime but SDK typings don't recognize it
       model: openai.embedding('text-embedding-3-small', { dimensions: 512 }),
       value: cleanQuery,
     })
