@@ -742,8 +742,8 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
 
     // Using match_manual_chunks RPC function (we need to create this in migration but for now we'll write the JS structure)
     // If the RPC is not created, we can fallback or throw error.
-    const { data, error } = await supabase.rpc('match_manual_chunks', {
-      query_embedding: `[${embedding.join(',')}]`,
+    let { data, error } = await supabase.rpc('match_manual_chunks', {
+      query_embedding: `[${embedding.slice(0, 512).join(',')}]`,
       match_threshold: 0.3,
       match_count: limit,
       filter_model_series: resolvedModelSeries || null,
@@ -751,6 +751,22 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
     })
 
     if (error) throw new Error(error.message)
+
+    // Fallback: If no results found and a year was specified, try searching without the year
+    if ((!data || data.length === 0) && year) {
+      const fallbackResult = await supabase.rpc('match_manual_chunks', {
+        query_embedding: `[${embedding.slice(0, 512).join(',')}]`,
+        match_threshold: 0.3,
+        match_count: limit,
+        filter_model_series: resolvedModelSeries || null,
+        filter_year: null
+      })
+
+      if (!fallbackResult.error && fallbackResult.data) {
+        data = fallbackResult.data
+      }
+    }
+
     if (!data) return []
 
     return data.map((row: any) => ({

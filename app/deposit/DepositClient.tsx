@@ -843,11 +843,11 @@ export function DepositClient({
       }
       if (!exactInventoryRow?.product_variant_id || Number(exactInventoryRow.inventory?.on_hand_quantity ?? 0) <= 0) {
         const selectedVehicle = availableCars.find((vehicle) => vehicle.name === selectedCarId) || availableCars[0]
-        const fallbackDetailHref = selectedVehicle?.product_type === 'motorbike' && selectedVehicle?.slug
+        const fallbackDetailHref = initialReturnTo || (selectedVehicle?.product_type === 'motorbike' && selectedVehicle?.slug
           ? `/bikes/${encodeURIComponent(selectedVehicle.slug)}`
           : typeof selectedVehicle?.url === 'string' && selectedVehicle.url.startsWith('/') && !selectedVehicle.url.startsWith('//')
             ? selectedVehicle.url
-            : initialReturnTo || '/cars'
+            : '/cars')
         setOutOfStockNotice({
           productType: vehicleType === 'motorbike' ? 'motorbike' : 'car',
           productName: selectedVehicle?.name || selectedCarId,

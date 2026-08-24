@@ -15,7 +15,7 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 async function main() {
-  console.log('Fetching manual articles...')
+  console.log('Fetching VF 6 manual articles...')
   let allArticles = []
   let hasMore = true
   let page = 0
@@ -25,6 +25,7 @@ async function main() {
     const { data: articles, error } = await supabase
       .from('manual_articles')
       .select('id, title, model_id')
+      .like('model_id', '%VF 6%')
       .order('created_at', { ascending: false })
       .range(page * pageSize, (page + 1) * pageSize - 1)
 
@@ -42,7 +43,7 @@ async function main() {
   }
 
   const articles = allArticles
-  console.log(`Found ${articles.length} articles to process.`)
+  console.log(`Found ${articles.length} VF 6 articles to process.`)
 
   let successCount = 0
   let skipCount = 0
@@ -51,8 +52,9 @@ async function main() {
   for (const article of articles) {
     try {
       console.log(`Processing article: ${article.title} (${article.id})`)
+
       const chunkCount = await embedManualArticle(article.id)
-      
+
       if (chunkCount > 0) {
         console.log(`  -> Generated ${chunkCount} chunks.`)
         successCount++
@@ -73,7 +75,4 @@ async function main() {
   console.log(`Errors: ${errorCount}`)
 }
 
-main().catch((err) => {
-  console.error('Unhandled error:', err)
-  process.exit(1)
-})
+main().catch(console.error)

@@ -99,7 +99,13 @@ export function MarkdownMessage({
   streaming?: boolean
   onNavigate?: () => void
 }) {
-  const markdown = normalizeMathDelimiters(completeMarkdownTable(completeCodeFence(content, streaming), streaming))
+  let displayContent = content
+  const suggestionStartIndex = displayContent.search(/\[\s*\{\s*"(label|intent)"/)
+  if (suggestionStartIndex !== -1) {
+    displayContent = displayContent.substring(0, suggestionStartIndex).trim()
+  }
+
+  const markdown = normalizeMathDelimiters(completeMarkdownTable(completeCodeFence(displayContent, streaming), streaming))
 
   return (
     <div className="min-w-0 max-w-full [overflow-wrap:anywhere] [&_.katex-display]:my-2 [&_.katex-display]:box-content [&_.katex-display]:max-w-full [&_.katex-display]:overflow-x-auto [&_.katex-display]:py-3 [&_.katex-display]:[scrollbar-width:thin] [&_.katex-display>.katex]:min-w-max">

@@ -160,7 +160,7 @@ export async function embedManualArticle(articleId: string): Promise<number> {
     section_title: chunk.sectionTitle,
     content: chunk.content,
     image_url: chunk.imageUrl || null,
-    embedding: `[${embeddings[i].join(',')}]`, // vector format
+    embedding: `[${embeddings[i].slice(0, 512).join(',')}]`, // vector format
   }))
 
   const { error: insertError } = await supabase.from('manual_article_chunks').insert(insertData)
