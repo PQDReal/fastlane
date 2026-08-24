@@ -21,7 +21,10 @@ describe('Canonical Response Composer', () => {
         readAt,
       },
     ])
-    knownEntities.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8')
+    knownEntities.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8', 'BROWSE', 'CAR', {
+      slug: 'vf-8',
+      thumbnailUrl: '/images/products/vf8.png',
+    })
 
     const rawPlan = {
       schemaVersion: '2.0',
@@ -96,7 +99,10 @@ describe('Canonical Response Composer', () => {
   it('composes TurnViewModel with blocks, actions and suggestions', () => {
     const evidence = new EvidenceLedger()
     const knownEntities = new KnownEntityLedger()
-    knownEntities.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8')
+    knownEntities.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8', 'BROWSE', 'CAR', {
+      slug: 'vf-8',
+      thumbnailUrl: '/images/products/vf8.png',
+    })
 
     const rawPlan = {
       schemaVersion: '2.0',
@@ -109,7 +115,7 @@ describe('Canonical Response Composer', () => {
       ],
       views: [],
       suggestionIntents: [
-        { text: 'Tìm hiểu thông số pin VF 8' },
+        { text: 'Tìm hiểu thông số pin VF 8', payload: 'Pin VF 8 có dung lượng và thời gian sạc thế nào?' },
       ],
       actionIntents: [
         { actionKey: 'OPEN_COMPARE' },
@@ -130,10 +136,14 @@ describe('Canonical Response Composer', () => {
     expect(response.answer.completeness).toBe('COMPLETE')
     expect(response.blocks.length).toBe(1)
     expect(response.blocks[0].kind).toBe('PRODUCT_LIST')
+    if (response.blocks[0].kind === 'PRODUCT_LIST') {
+      expect(response.blocks[0].items[0].thumbnailUrl).toBe('/images/products/vf8.png')
+    }
     expect(response.actions.length).toBe(1)
     expect(response.actions[0].actionKey).toBe('OPEN_COMPARE')
     expect(response.suggestions.length).toBe(1)
     expect(response.suggestions[0].label).toBe('Tìm hiểu thông số pin VF 8')
+    expect(response.suggestions[0].payload).toBe('Pin VF 8 có dung lượng và thời gian sạc thế nào?')
   })
 
   it('rewrites guessed product links to catalog URLs and removes unknown routes', () => {
@@ -250,6 +260,76 @@ describe('Canonical Response Composer', () => {
       'Thông số VinFast Feliz S',
     ])
     expect(response.suggestions).toHaveLength(3)
+  })
+
+  it('uses verified RAG scope for product navigation and contextual suggestions', () => {
+    const evidence = new EvidenceLedger()
+    const readAt = new Date().toISOString()
+    evidence.recordToolResult('call-vf5-guide', {
+      schemaVersion: '2.0',
+      toolCallId: 'call-vf5-guide',
+      tool: 'search_knowledge',
+      readAt,
+      dataAsOf: readAt,
+      evidence: [{
+        evidenceId: 'ev-vf5-guide',
+        source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
+        entity: { kind: 'KNOWLEDGE_SNIPPET', id: 'chunk-vf5-guide' },
+        facts: [
+          { factRef: 'fact-kb-title-vf5', factPath: 'title', valueHash: 'Hướng dẫn VF 5' },
+          { factRef: 'fact-kb-section-vf5', factPath: 'section', valueHash: 'Sử dụng xe' },
+        ],
+        readAt,
+      }],
+      observation: {
+        observationId: 'obs-vf5-guide',
+        toolCallId: 'call-vf5-guide',
+        outcome: 'SUCCESS',
+        issueCodes: [],
+        inputHash: '{}',
+        readAt,
+      },
+      issues: [],
+      appliedBindings: [],
+      diagnostics: { scope: { vehicleModel: 'VF 5', modelYear: 2024, catalogStatus: 'READY' } },
+      outcome: 'SUCCESS',
+      completeness: 'FULL',
+      data: { snippets: [] },
+    })
+
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{
+          kind: 'ADVICE',
+          markdown: 'Xem [VinFast VF 5](http://localhost:3000/cars/link-tu-model) để biết thêm.',
+        }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence,
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-vf5-guide',
+      turnId: 'turn-vf5-guide',
+      messageId: 'msg-vf5-guide',
+      catalogProducts: [
+        { id: 'vf3-id', name: 'VinFast VF 3', productType: 'CAR', slug: 'vinfast-vf-3' },
+        { id: 'vf5-id', name: 'VinFast VF 5 Plus', productType: 'CAR', slug: 'vinfast-vf-5' },
+      ],
+      catalogStatus: 'SYNCED',
+    })
+
+    expect(response.answer.markdown).toContain('[VinFast VF 5](/cars/vf-5)')
+    expect(response.answer.markdown).toContain('[Dịch vụ hậu mãi](/after-sales)')
+    expect(response.answer.markdown).not.toContain('localhost:3000')
+    expect(response.answer.markdown).not.toContain('/user-manual')
+    expect(response.suggestions.map((suggestion) => suggestion.label)).toEqual([
+      'Thông số VinFast VF 5 Plus',
+      'Dự toán trả góp VinFast VF 5 Plus',
+      'Đặt lịch lái thử VinFast VF 5 Plus',
+    ])
   })
 
   it('surfaces a canonical warning when general retrieval ran without a scope catalog', () => {

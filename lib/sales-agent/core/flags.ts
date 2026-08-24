@@ -43,10 +43,10 @@ export function isSalesAgentVisualKnowledgeRetrievalEnabled() {
 }
 
 /**
- * Allows visual knowledge retrieval to use AI_DRAFT annotations before manual review.
- * Draft content is opt-in outside production and always rejected in production.
+ * AI_DRAFT is the admin "chờ duyệt" state. Product requirements allow both
+ * pending and approved visuals; the retrieval RPC still excludes annotations
+ * explicitly rejected, ignored, stale, decorative, or marked EXCLUDE.
  */
 export function isSalesAgentVisualKnowledgeDraftsAllowed() {
-  if (process.env.NODE_ENV === 'production') return false
-  return process.env.SALES_AGENT_VISUAL_KNOWLEDGE_ALLOW_DRAFTS === 'true'
+  return true
 }

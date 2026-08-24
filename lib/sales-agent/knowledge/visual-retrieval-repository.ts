@@ -33,9 +33,9 @@ function withTimeout<T>(operation: PromiseLike<T>): Promise<T> {
 }
 
 /**
- * Resolves context-linked media through the approved RPC by default. Local
- * development may opt into the separate draft RPC for test-only retrieval.
- * REJECTED/IGNORED/STALE rows are never eligible.
+ * Resolves context-linked media through the RPC that accepts APPROVED and
+ * AI_DRAFT (admin "chờ duyệt") annotations. REJECTED/IGNORED/STALE rows are
+ * never eligible, and the SQL gate still excludes decorative/EXCLUDE media.
  */
 export async function findApprovedVisualKnowledge(
   client: SupabaseClient,

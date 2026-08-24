@@ -1,5 +1,6 @@
 -- Development-only visual retrieval path.
--- The application calls this RPC only when SALES_AGENT_VISUAL_KNOWLEDGE_ALLOW_DRAFTS=true.
+-- The application uses this RPC for APPROVED and AI_DRAFT (admin pending-review)
+-- annotations; explicit REJECTED/IGNORED/STALE states remain ineligible.
 -- It prefers the approved active revision and falls back to the latest AI_DRAFT revision
 -- when no approved active pointer exists. REJECTED/IGNORED/STALE are never eligible.
 

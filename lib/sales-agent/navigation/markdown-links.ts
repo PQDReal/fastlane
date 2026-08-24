@@ -1,6 +1,11 @@
 import type { KnownEntityRecord } from '../orchestrator/ledgers/known-entities'
 import { salesAgentProductUrl } from './paths'
 
+export type VerifiedMarkdownProduct = Pick<
+  KnownEntityRecord,
+  'kind' | 'name' | 'slug' | 'productType'
+>
+
 const VERIFIED_STATIC_ROUTES = new Set([
   '/',
   '/accessories',
@@ -47,7 +52,7 @@ function verifiedStaticHref(href: string) {
  * catalog URL when their label identifies a known entity, otherwise they are
  * reduced to plain text.
  */
-export function sanitizeSalesAgentMarkdownLinks(markdown: string, knownProducts: KnownEntityRecord[]) {
+export function sanitizeSalesAgentMarkdownLinks(markdown: string, knownProducts: VerifiedMarkdownProduct[]) {
   const canonicalProducts = knownProducts.flatMap((entity) => {
     if (entity.kind !== 'PRODUCT' || !entity.slug || !entity.productType) return []
     if (!['CAR', 'BIKE', 'ACCESSORY'].includes(entity.productType)) return []

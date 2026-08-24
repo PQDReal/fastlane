@@ -391,7 +391,12 @@ export async function POST(request: Request) {
         const catalogSnapshot = catalogCacheEngine.getSnapshot()
         const catalogProducts = catalogSnapshot.products
           .filter((product) => product.productType !== 'ACCESSORY')
-          .map((product) => ({ id: product.id, name: product.name, productType: product.productType }))
+          .map((product) => ({
+            id: product.id,
+            name: product.name,
+            productType: product.productType,
+            slug: product.slug,
+          }))
 
         const latestKnowledgeResult = typeof (turnResult.evidence as any)?.getLatestToolResult === 'function'
           ? (turnResult.evidence as any).getLatestToolResult('search_knowledge')

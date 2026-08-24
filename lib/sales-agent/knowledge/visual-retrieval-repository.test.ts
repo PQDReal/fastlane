@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('server-only', () => ({}))
+
 import { mapApprovedVisualRowsToPointers } from './visual-retrieval-mapper'
+import { findApprovedVisualKnowledge } from './visual-retrieval-repository'
 import {
   buildVisualRetrievalScope,
   selectVisualEvidenceItems,
@@ -47,6 +51,20 @@ const evidence = [{
 }] as KnowledgeEvidenceItem[]
 
 describe('approved visual knowledge pointer mapping', () => {
+  it('queries the RPC that accepts approved and pending-review annotations', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null })
+    const pendingEligibleEvidence = visualEvidence({
+      imageRefs: ['https://om.vinfastauto.com/pending-review.png'],
+    })
+
+    await findApprovedVisualKnowledge({ rpc } as any, 'vị trí nút', [pendingEligibleEvidence], 3)
+
+    expect(rpc).toHaveBeenCalledWith(
+      'sales_agent_search_knowledge_visuals_with_drafts',
+      expect.objectContaining({ p_limit: 3 }),
+    )
+  })
+
   it('only allows visuals on the primary direct hit or an adjacent chunk in the same section', () => {
     const primary = visualEvidence({
       chunkId: 'wifi-p3',

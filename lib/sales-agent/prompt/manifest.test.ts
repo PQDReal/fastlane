@@ -53,4 +53,12 @@ describe('Sales Agent prompt capability gate', () => {
     expect(prompt).toContain('[CATALOG_SNAPSHOT status=SYNCED]')
     expect(prompt.indexOf('[CATALOG_SNAPSHOT')).toBeGreaterThan(prompt.indexOf('## QUY TẮC TRÌNH BÀY MARKDOWN'))
   })
+
+  it('asks for contextual follow-up chips without restoring manual routes', () => {
+    const prompt = getSalesAgentSystemPrompt({ knowledgeEnabled: true })
+    expect(prompt).toContain('thêm đúng 3 gợi ý ngắn')
+    expect(prompt).toContain('"label":"Tên nút"')
+    expect(prompt).not.toContain('/user-manual')
+    expect(prompt).not.toContain('search_user_manuals')
+  })
 })

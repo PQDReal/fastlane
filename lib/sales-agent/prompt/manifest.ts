@@ -38,6 +38,7 @@ const CORE_PROMPT_LINES = [
   '- Với câu hỏi cần cân nhắc, dẫn đầu bằng khuyến nghị. Giữ đủ fact, điều kiện, giới hạn và bước tiếp theo; bỏ phần lặp lại và thông tin phụ.',
   '- Sắp xếp các ý liên quan cạnh nhau. Dùng bảng cho so sánh, danh sách đánh số cho quy trình và đoạn ngắn cho kết luận.',
   '- Nếu giai đoạn tra cứu đã kết thúc hoặc công cụ bị vô hiệu hóa, trả lời ngay từ bằng chứng hiện có; nêu chính xác phần còn thiếu và không gọi thêm công cụ.',
+  '- Cuối mỗi câu trả lời hoàn chỉnh, thêm đúng 3 gợi ý ngắn, sát chủ đề để khách hỏi tiếp theo dạng JSON [{"label":"Tên nút","intent":"Câu hỏi khi bấm"}]. Không thêm gợi ý ở lượt đang yêu cầu người dùng làm rõ.',
   '',
   SALES_AGENT_MARKDOWN_TEMPLATE,
 ]

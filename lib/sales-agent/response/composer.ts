@@ -99,6 +99,50 @@ function mediaIsReferenced(markdown: string, item: KnowledgeMediaItem) {
   return Boolean(filename && markdown.toLowerCase().includes(filename.toLowerCase()))
 }
 
+function normalizeVehicleName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\bvinfast\b/gi, '')
+    .replace(/\bplus\b/gi, '')
+    .replace(/[^a-z0-9]+/gi, '')
+    .toLowerCase()
+}
+
+function findScopedCatalogProduct(
+  vehicleModel: string | undefined,
+  products: SuggestionProduct[],
+) {
+  const normalizedModel = normalizeVehicleName(vehicleModel || '')
+  if (!normalizedModel) return undefined
+
+  return products.find((product) => {
+    const normalizedProduct = normalizeVehicleName(product.name)
+    return normalizedProduct === normalizedModel
+      || normalizedProduct.includes(normalizedModel)
+      || normalizedModel.includes(normalizedProduct)
+  })
+}
+
+function appendKnowledgeNavigation(
+  markdown: string,
+  hasKnowledgeEvidence: boolean,
+  scopedProduct: SuggestionProduct | undefined,
+) {
+  if (!hasKnowledgeEvidence) return markdown
+
+  const links: string[] = []
+  if (scopedProduct?.slug && scopedProduct.productType) {
+    const href = salesAgentProductUrl(scopedProduct.productType as 'CAR' | 'BIKE' | 'ACCESSORY', scopedProduct.slug)
+    if (!markdown.includes(href)) links.push(`[${scopedProduct.name}](${href})`)
+  }
+  if (!markdown.includes('/after-sales')) links.push('[Dịch vụ hậu mãi](/after-sales)')
+
+  return links.length > 0
+    ? `${markdown}\n\nAnh/chị có thể xem thêm ${links.join(' và ')}.`
+    : markdown
+}
+
 function compactKnowledgeMediaReferences(markdown: string, media: KnowledgeMediaItem[]) {
   let result = markdown
   for (const item of media) {
@@ -156,9 +200,18 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   }
 
   const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
-  const catalogSuggestionProducts = options.catalogStatus === 'INDEX_ONLY'
+  const catalogSuggestionProducts: SuggestionProduct[] = options.catalogStatus === 'INDEX_ONLY'
     ? []
     : (options.catalogProducts ?? options.catalogProductNames?.map((name) => ({ name })) ?? [])
+  const scopedCatalogProduct = findScopedCatalogProduct(
+    scopeDiagnostics?.vehicleModel,
+    catalogSuggestionProducts,
+  )
+  const hasKnowledgeEvidence = latestKnowledgeResult?.outcome === 'SUCCESS'
+    && options.evidence.getAllEvidence().some((record) => record.entity.kind === 'KNOWLEDGE_SNIPPET')
+  const isClarificationTurn =
+    plan.outcome === 'NEEDS_INPUT' ||
+    options.evidence.getAllObservations().some((observation) => observation.outcome === 'NEEDS_INPUT')
   const seenKnowledgeMedia = new Set<string>()
   const availableKnowledgeMedia = options.evidence.getAllFacts()
     .filter((fact) => fact.factPath === 'mediaPointer')
@@ -172,9 +225,24 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     ...item,
     reference: knowledgeMediaReference(index + 1),
   }))
-  const sanitizedMarkdown = sanitizeSalesAgentMarkdownLinks(
-    markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.',
-    knownProducts,
+  const rawMarkdown = markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.'
+  const verifiedCatalogProducts = catalogSuggestionProducts.flatMap((product) => (
+    product.slug && product.productType
+      ? [{
+          kind: 'PRODUCT' as const,
+          name: product.name,
+          slug: product.slug,
+          productType: product.productType,
+        }]
+      : []
+  ))
+  const sanitizedMarkdown = appendKnowledgeNavigation(
+    sanitizeSalesAgentMarkdownLinks(
+      rawMarkdown,
+      [...knownProducts, ...verifiedCatalogProducts],
+    ),
+    hasKnowledgeEvidence && !isClarificationTurn,
+    scopedCatalogProduct,
   )
   const compactMarkdown = compactKnowledgeMediaReferences(
     sanitizedMarkdown,
@@ -188,11 +256,6 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   // copied from the annotation summary.
   const finalMarkdown = compactMarkdown
   const lowerMarkdown = finalMarkdown.toLowerCase()
-
-  // Detect Clarification / Needs Input turn strictly from plan and observation outcomes
-  const isClarificationTurn =
-    plan.outcome === 'NEEDS_INPUT' ||
-    options.evidence.getAllObservations().some((observation) => observation.outcome === 'NEEDS_INPUT')
 
   // 2. Materialize Blocks from Ledgers and Known Entities (Intent-Gated)
   const blocks: AssistantBlock[] = []
@@ -318,7 +381,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const suggestions: SalesAgentSuggestion[] = isClarificationTurn ? [] : plan.suggestionIntents.slice(0, 3).map((sug, idx) => ({
     suggestionId: `sug-${idx + 1}-${options.turnId}`,
     label: sug.text,
-    payload: sug.text,
+    payload: sug.payload || sug.text,
     kind: sug.category === 'CLARIFICATION' ? 'CLARIFICATION' : sug.category === 'ALTERNATIVE' ? 'CATALOG_COMPARE' : 'FOLLOW_UP',
     ...(sug.targetEntityId ? { entityIds: [sug.targetEntityId] } : {}),
     ...(options.catalogVersion ? { catalogVersion: options.catalogVersion } : {}),
@@ -336,7 +399,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         name: product.name,
         productType: product.productType,
       })),
-      catalogProducts: catalogSuggestionProducts,
+      catalogProducts: scopedCatalogProduct ? [scopedCatalogProduct] : catalogSuggestionProducts,
       isClarificationTurn,
       isComparisonTurn,
       hasWarrantyOrBatteryPolicy,

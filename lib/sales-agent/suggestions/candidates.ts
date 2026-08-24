@@ -26,6 +26,7 @@ export type SuggestionProduct = {
   id?: string
   name: string
   productType?: ProductType
+  slug?: string
 }
 
 export type SuggestionCandidateOptions = {
