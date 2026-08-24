@@ -5,18 +5,22 @@ type KnowledgeCitationBlockProps = Extract<AssistantBlock, { kind: 'FACT_SUMMARY
 /** Renders server-controlled knowledge source pointers returned with a chat turn. */
 export function KnowledgeCitationBlock({ facts }: KnowledgeCitationBlockProps) {
   return (
-    <aside className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3" aria-label="Nguồn tham chiếu tri thức">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Nguồn tham chiếu</p>
-      <ul className="space-y-1.5">
+    <details className="group mt-2 rounded-lg border border-slate-200/80 bg-slate-50/70 text-xs text-slate-600">
+      <summary className="cursor-pointer list-none rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+        <span>Nguồn tham khảo ({facts.length})</span>
+        <span aria-hidden="true" className="ml-1 inline-block transition-transform group-open:rotate-90">›</span>
+      </summary>
+      <ul className="space-y-1.5 border-t border-slate-200/80 px-3 py-2.5">
         {facts.map((fact) => (
-          <li key={`${fact.label}-${fact.citationId ?? fact.value}`} className="text-xs leading-relaxed text-slate-600">
-            <span className="font-medium text-slate-700">{fact.label}:</span> {fact.value}
-            {fact.citationId ? (
-              <code className="ml-1 break-all rounded bg-white px-1 py-0.5 text-[10px] text-slate-500">{fact.citationId}</code>
-            ) : null}
+          <li
+            key={`${fact.label}-${fact.citationId ?? fact.value}`}
+            data-citation-id={fact.citationId}
+            className="leading-relaxed text-slate-600"
+          >
+            {fact.value}
           </li>
         ))}
       </ul>
-    </aside>
+    </details>
   )
 }

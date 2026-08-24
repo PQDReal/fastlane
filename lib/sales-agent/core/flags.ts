@@ -30,9 +30,9 @@ export function isSalesAgentVisualKnowledgeRetrievalEnabled() {
 
 /**
  * Allows visual knowledge retrieval to use AI_DRAFT annotations before manual review.
- * Permitted by default unless explicitly disabled.
+ * Draft content is opt-in outside production and always rejected in production.
  */
 export function isSalesAgentVisualKnowledgeDraftsAllowed() {
-  if (process.env.SALES_AGENT_VISUAL_KNOWLEDGE_ALLOW_DRAFTS === 'false') return false
-  return true
+  if (process.env.NODE_ENV === 'production') return false
+  return process.env.SALES_AGENT_VISUAL_KNOWLEDGE_ALLOW_DRAFTS === 'true'
 }

@@ -4,6 +4,7 @@ import {
   CHUNK_HARD_MAX_TOKENS,
   estimateTokenCount,
   splitSectionIntoLeaves,
+  splitSectionIntoLeavesWithContext,
   type DocumentTreeInput,
 } from './hierarchical-chunker'
 
@@ -136,5 +137,27 @@ describe('Hierarchical Chunker v1 (A19-KR-203)', () => {
       // Must not exceed hard max tokens
       expect(estimateTokenCount(leaf)).toBeLessThanOrEqual(CHUNK_HARD_MAX_TOKENS)
     }
+  })
+
+  it('inherits the nearest sub-heading across leaf boundaries without inflating leaf content', () => {
+    const markdown = [
+      '# Vô lăng',
+      '',
+      'Đoạn mô tả ngắn về khu vực vô lăng.',
+      '',
+      '### Các phím chức năng',
+      '',
+      '| Nút | Tác vụ |',
+      '| --- | --- |',
+      '| Menu trái | Mở menu |',
+      ...Array.from({ length: 35 }, (_, i) => `| ${i + 1} | Điều khiển trên vô lăng VF 5 |`),
+    ].join('\n')
+
+    const leaves = splitSectionIntoLeavesWithContext(markdown)
+    const tableLeaves = leaves.filter((leaf) => leaf.content.includes('| Menu trái |'))
+
+    expect(tableLeaves.length).toBeGreaterThan(0)
+    expect(tableLeaves.every((leaf) => leaf.nearestHeading === 'Các phím chức năng')).toBe(true)
+    expect(tableLeaves.every((leaf) => estimateTokenCount(leaf.content) <= CHUNK_HARD_MAX_TOKENS)).toBe(true)
   })
 })

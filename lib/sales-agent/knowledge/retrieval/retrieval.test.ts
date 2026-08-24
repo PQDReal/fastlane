@@ -271,6 +271,26 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       const ids = items.map((i) => i.chunkId)
       expect(new Set(ids).size).toBe(ids.length)
     })
+
+    it('caps total Agent-facing evidence, including hierarchy support, at topK', () => {
+      const candidates = [
+        { ...sampleDocTreePool[0], rrfScore: 0.04, expansionProvenance: 'DIRECT' as const },
+        { ...sampleDocTreePool[1], rrfScore: 0.03, expansionProvenance: 'DIRECT' as const },
+        { ...sampleDocTreePool[2], rrfScore: 0.02, expansionProvenance: 'PARENT' as const },
+        {
+          ...sampleDocTreePool[2],
+          chunkId: 'chunk-vf8-neighbor',
+          contentHash: 'hash-neighbor',
+          rrfScore: 0.01,
+          expansionProvenance: 'NEIGHBOR' as const,
+        },
+      ]
+
+      const { items } = buildEvidenceContext(candidates, { topK: 2, tokenBudget: 5000 })
+
+      expect(items).toHaveLength(2)
+      expect(items.every((item) => item.expansionProvenance === 'DIRECT')).toBe(true)
+    })
   })
 
   describe('6. Citation Ledger & Pointer Validation (A19-KR-307)', () => {
@@ -354,7 +374,16 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
 
       expect(response.status).toBe('SUCCESS')
       expect(response.items.length).toBeGreaterThan(0)
+      expect(response.items.length).toBeLessThanOrEqual(5)
       expect(response.telemetry.ftsCandidateCount).toBeGreaterThan(0)
+      expect(response.telemetry.rerankEnabled).toBe(true)
+      expect(response.telemetry.rerankCandidateCount).toBeGreaterThan(0)
+      expect(response.telemetry.runtimeStateLatencyMs).toBeGreaterThanOrEqual(0)
+      expect(response.telemetry.hierarchyLoadLatencyMs).toBeGreaterThanOrEqual(0)
+      expect(response.telemetry.contextBuildLatencyMs).toBeGreaterThanOrEqual(0)
+      expect(response.telemetry.candidateLimit).toBe(10)
+      expect(response.telemetry.finalLimit).toBe(5)
+      expect(response.telemetry.rerankLatencyMs).toBeGreaterThanOrEqual(0)
       expect(response.telemetry.totalLatencyMs).toBeGreaterThanOrEqual(0)
     })
 

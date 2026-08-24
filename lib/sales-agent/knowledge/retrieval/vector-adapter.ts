@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { performance } from 'node:perf_hooks'
 import {
   OPENAI_EMBEDDING_DIMENSIONS,
   OPENAI_EMBEDDING_GENERATION_ID,
@@ -17,6 +18,11 @@ import { matchesScope } from './fts-adapter'
 
 export interface VectorIndexedCandidate extends RawChunkCandidate {
   embedding: number[]
+}
+
+export interface VectorSearchTelemetrySink {
+  onEmbeddingLatency?: (durationMs: number) => void
+  onVectorSearchLatency?: (durationMs: number) => void
 }
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -72,7 +78,8 @@ export class VectorCandidateAdapter {
     query: string,
     filters: KnowledgeScopeFilter = {},
     options: RetrievalOptions = {},
-    inMemoryPool?: VectorIndexedCandidate[]
+    inMemoryPool?: VectorIndexedCandidate[],
+    telemetry?: VectorSearchTelemetrySink,
   ): Promise<VectorCandidate[]> {
     const limit = Math.max(1, Math.min(options.vectorCandidateLimit ?? 20, 100))
     const generationId = options.generationId ?? this.defaultGenerationId
@@ -83,6 +90,7 @@ export class VectorCandidateAdapter {
 
     // 1. Nhúng vector cho câu truy vấn
     let queryEmbedding: number[]
+    const embeddingStartedAt = performance.now()
     try {
       const adapter = this.getEmbeddingAdapter()
       const resp = await adapter.generateEmbeddings([query.trim()])
@@ -104,81 +112,88 @@ export class VectorCandidateAdapter {
     } catch (err: any) {
       // Re-throw with clear message for fail-closed or degraded handling
       throw new Error(`Query embedding failed: ${err.message || 'Unknown embedding error'}`)
+    } finally {
+      telemetry?.onEmbeddingLatency?.(performance.now() - embeddingStartedAt)
     }
 
-    // 2. Nếu có in-memory vector pool (evaluation / unit tests)
-    if (inMemoryPool && inMemoryPool.length > 0) {
-      return this.searchInMemoryVectorPool(
-        inMemoryPool,
-        queryEmbedding,
-        filters,
-        limit,
-        generationId
-      )
-    }
-
-    // 3. Nếu có Supabase Client kết nối DB pgvector
-    if (this.client) {
-      try {
-        const { data, error } = await this.client.rpc('sales_agent_search_knowledge_vector', {
-          p_query_embedding: queryEmbedding,
-          p_index_generation_id: generationId,
-          p_limit: limit,
-          p_vehicle_model: filters.vehicleModel || null,
-          p_vehicle_type: filters.vehicleType || null,
-          p_model_year: filters.modelYear ?? null,
-          p_customer_segment: filters.customerSegment || 'ALL',
-          p_category: filters.category || null,
-          p_market: filters.market || 'VN',
-          p_locale: filters.locale || 'vi-VN',
-          p_effective_at: filters.effectiveAt || new Date().toISOString(),
-        })
-
-        if (error) {
-          throw new KnowledgeStorageUnavailableError(error.message, error)
-        }
-        if (!Array.isArray(data)) {
-          throw new KnowledgeStorageUnavailableError('Vector RPC returned a null or invalid result set')
-        }
-
-        return data
-          .filter((row: any) => String(row.index_generation_id) === generationId)
-          .map((row: any, idx: number) => ({
-            chunkId: String(row.id),
-            documentId: String(row.document_id),
-            documentKey: String(row.document_key),
-            versionId: String(row.version_id),
-            versionNo: Number(row.version_no),
-            indexGenerationId: String(row.index_generation_id),
-            chunkLevel: Number(row.chunk_level),
-            hierarchyPath: String(row.hierarchy_path),
-            sectionAnchor: String(row.section_anchor),
-            sectionTitle: String(row.section_title),
-            content: String(row.content),
-            contentHash: String(row.content_hash || ''),
-            tokenCount: Number(row.token_count || 0),
-            chunkOrdinal: row.chunk_ordinal == null ? null : Number(row.chunk_ordinal),
-            scopeMetadata: Array.isArray(row.scope_metadata) ? row.scope_metadata : undefined,
-            tags: Array.isArray(row.tags) ? row.tags : [],
-            sourceNodeId: row.source_node_id ?? null,
-            imageRefs: Array.isArray(row.image_refs) ? row.image_refs : [],
-            title: String(row.title),
-            slug: String(row.slug || ''),
-            category: row.category,
-            effectiveFrom: String(row.effective_from),
-            effectiveTo: row.effective_to ?? null,
-            publicationStatus: row.publication_status,
-            indexStatus: row.index_status,
-            vectorRank: idx + 1,
-            vectorScore: Number(row.vector_score ?? row.similarity ?? 0),
-          }))
-      } catch (err: any) {
-        if (err instanceof KnowledgeStorageUnavailableError) throw err
-        throw new KnowledgeStorageUnavailableError(err?.message || 'Vector RPC query failed', err)
+    const vectorSearchStartedAt = performance.now()
+    try {
+      // 2. Nếu có in-memory vector pool (evaluation / unit tests)
+      if (inMemoryPool && inMemoryPool.length > 0) {
+        return this.searchInMemoryVectorPool(
+          inMemoryPool,
+          queryEmbedding,
+          filters,
+          limit,
+          generationId
+        )
       }
-    }
 
-    return []
+      // 3. Nếu có Supabase Client kết nối DB pgvector
+      if (this.client) {
+        try {
+          const { data, error } = await this.client.rpc('sales_agent_search_knowledge_vector', {
+            p_query_embedding: queryEmbedding,
+            p_index_generation_id: generationId,
+            p_limit: limit,
+            p_vehicle_model: filters.vehicleModel || null,
+            p_vehicle_type: filters.vehicleType || null,
+            p_model_year: filters.modelYear ?? null,
+            p_customer_segment: filters.customerSegment || 'ALL',
+            p_category: filters.category || null,
+            p_market: filters.market || 'VN',
+            p_locale: filters.locale || 'vi-VN',
+            p_effective_at: filters.effectiveAt || new Date().toISOString(),
+          })
+
+          if (error) {
+            throw new KnowledgeStorageUnavailableError(error.message, error)
+          }
+          if (!Array.isArray(data)) {
+            throw new KnowledgeStorageUnavailableError('Vector RPC returned a null or invalid result set')
+          }
+
+          return data
+            .filter((row: any) => String(row.index_generation_id) === generationId)
+            .map((row: any, idx: number) => ({
+              chunkId: String(row.id),
+              documentId: String(row.document_id),
+              documentKey: String(row.document_key),
+              versionId: String(row.version_id),
+              versionNo: Number(row.version_no),
+              indexGenerationId: String(row.index_generation_id),
+              chunkLevel: Number(row.chunk_level),
+              hierarchyPath: String(row.hierarchy_path),
+              sectionAnchor: String(row.section_anchor),
+              sectionTitle: String(row.section_title),
+              content: String(row.content),
+              contentHash: String(row.content_hash || ''),
+              tokenCount: Number(row.token_count || 0),
+              chunkOrdinal: row.chunk_ordinal == null ? null : Number(row.chunk_ordinal),
+              scopeMetadata: Array.isArray(row.scope_metadata) ? row.scope_metadata : undefined,
+              tags: Array.isArray(row.tags) ? row.tags : [],
+              sourceNodeId: row.source_node_id ?? null,
+              imageRefs: Array.isArray(row.image_refs) ? row.image_refs : [],
+              title: String(row.title),
+              slug: String(row.slug || ''),
+              category: row.category,
+              effectiveFrom: String(row.effective_from),
+              effectiveTo: row.effective_to ?? null,
+              publicationStatus: row.publication_status,
+              indexStatus: row.index_status,
+              vectorRank: idx + 1,
+              vectorScore: Number(row.vector_score ?? row.similarity ?? 0),
+            }))
+        } catch (err: any) {
+          if (err instanceof KnowledgeStorageUnavailableError) throw err
+          throw new KnowledgeStorageUnavailableError(err?.message || 'Vector RPC query failed', err)
+        }
+      }
+
+      return []
+    } finally {
+      telemetry?.onVectorSearchLatency?.(performance.now() - vectorSearchStartedAt)
+    }
   }
 
   private searchInMemoryVectorPool(

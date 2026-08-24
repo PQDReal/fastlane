@@ -171,6 +171,11 @@ export const assistantBlockSchema = z.discriminatedUnion('kind', [
       height: z.number().int().positive().nullable(),
       safetyCritical: z.boolean(),
       citationId: z.string().trim().min(1),
+      reference: z.string().trim().regex(/^media:\d+$/).optional(),
+      diagramLabels: z.array(z.object({
+        marker: z.string().trim().min(1),
+        description: z.string().trim().min(1),
+      })).max(30).optional(),
     })).min(1).max(6),
   }),
   z.object({

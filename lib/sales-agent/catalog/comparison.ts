@@ -25,6 +25,7 @@ export type CompareProductsData = {
   products: Array<{
     productId: string
     name: string
+    productType: 'CAR' | 'BIKE' | 'ACCESSORY'
     slug: string
     thumbnailUrl: string | null
     url: string
@@ -60,7 +61,10 @@ export async function compareProductsRepository(
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
 
-  const detailsRes = await getProductDetailsRepository({ productIds: input.productIds }, toolCallId)
+  const detailsRes = await getProductDetailsRepository({
+    productIds: input.productIds,
+    productMentions: input.productMentions,
+  }, toolCallId)
 
   if (detailsRes.outcome !== 'SUCCESS') {
     return {
@@ -81,7 +85,7 @@ export async function compareProductsRepository(
       issues: detailsRes.issues,
       appliedBindings: [],
       outcome: detailsRes.outcome,
-      data: null as any,
+      data: detailsRes.data as any,
     }
   }
 
@@ -164,6 +168,7 @@ export async function compareProductsRepository(
       products: products.map((p) => ({
         productId: p.productId,
         name: p.name,
+        productType: p.productType,
         slug: p.slug,
         thumbnailUrl: p.thumbnailUrl,
         url: p.publication.url,

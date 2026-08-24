@@ -246,7 +246,7 @@ describe('Canonical Response Composer', () => {
     }
   })
 
-  it('materializes deduplicated approved media pointers with their source citation', () => {
+  it('materializes only approved media explicitly referenced by the answer', () => {
     const evidence = new EvidenceLedger()
     const knownEntities = new KnownEntityLedger()
     const readAt = new Date().toISOString()
@@ -262,6 +262,10 @@ describe('Canonical Response Composer', () => {
       height: 480,
       safetyCritical: true,
       citationId: 'cite:vinfast:VF8:2025:vi-VN:v1:emergency_door',
+      diagramLabels: [
+        { marker: '1', description: 'Nút mở cửa khẩn cấp ở tay vịn cửa' },
+        { marker: '2', description: 'Nắp che cơ cấu mở cửa' },
+      ],
     }
     evidence.recordEvidence([{
       evidenceId: 'ev-kb-media-1',
@@ -281,7 +285,10 @@ describe('Canonical Response Composer', () => {
       rawPlan: {
         schemaVersion: '2.0',
         outcome: 'ANSWER',
-        narrative: [{ kind: 'ADVICE', markdown: 'Đây là vị trí mở cửa khẩn cấp theo sổ tay.' }],
+        narrative: [{
+          kind: 'ADVICE',
+          markdown: 'Đây là vị trí mở cửa khẩn cấp theo sổ tay.\n\n[media:1]',
+        }],
         views: [],
         suggestionIntents: [],
         actionIntents: [],
@@ -300,6 +307,141 @@ describe('Canonical Response Composer', () => {
       expect(mediaBlock.items[0].annotationId).toBe('annotation-approved-1')
       expect(mediaBlock.items[0].citationId).toBe(pointer.citationId)
       expect(mediaBlock.items[0].safetyCritical).toBe(true)
+      expect(mediaBlock.items[0].reference).toBe('media:1')
+      expect(mediaBlock.items[0].url).toBe(pointer.url)
+      expect(mediaBlock.items[0].diagramLabels).toEqual(pointer.diagramLabels)
+    }
+    expect(response.answer.markdown).toContain('[media:1]')
+    expect(response.answer.markdown).not.toContain(pointer.url)
+    expect(response.answer.markdown).toContain('**(1)** Nút mở cửa khẩn cấp')
+    expect(response.answer.markdown).toContain('**(2)** Nắp che cơ cấu mở cửa')
+  })
+
+  it('keeps unreferenced knowledge media out of the customer-facing response', () => {
+    const evidence = new EvidenceLedger()
+    const knownEntities = new KnownEntityLedger()
+    const readAt = new Date().toISOString()
+    const pointer = {
+      assetId: 'asset-unused',
+      annotationId: 'annotation-unused',
+      title: 'Ảnh cài đặt của mẫu xe khác',
+      summary: 'Ảnh không được dùng trong câu trả lời.',
+      alt: 'Ảnh cài đặt',
+      url: 'https://om.vinfastauto.com/assets/unused-settings.png',
+      mimeType: 'image/png',
+      width: 640,
+      height: 480,
+      safetyCritical: false,
+      citationId: 'cite:vinfast:other-model:settings',
+      diagramLabels: [],
+    }
+    evidence.recordEvidence([{
+      evidenceId: 'ev-kb-media-unused',
+      source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
+      entity: { kind: 'KNOWLEDGE_SNIPPET', id: 'chunk-media-unused' },
+      facts: [
+        { factRef: 'fact-kb-title-chunk-media-unused', factPath: 'title', valueHash: 'Sổ tay mẫu khác' },
+        { factRef: 'fact-kb-section-chunk-media-unused', factPath: 'section', valueHash: 'Cài đặt' },
+        { factRef: 'fact-kb-citation-chunk-media-unused', factPath: 'citationId', valueHash: pointer.citationId },
+        { factRef: 'fact-kb-media-unused', factPath: 'mediaPointer', valueHash: JSON.stringify(pointer) },
+      ],
+      readAt,
+    }])
+
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{ kind: 'ADVICE', markdown: 'Bạn mở Cài đặt rồi chọn Wi-Fi.' }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence,
+      knownEntities,
+      conversationRef: 'conv-no-media',
+      turnId: 'turn-no-media',
+      messageId: 'msg-no-media',
+    })
+
+    expect(response.answer.markdown).not.toContain(pointer.url)
+    expect(response.blocks.some((block) => block.kind === 'KNOWLEDGE_MEDIA')).toBe(false)
+  })
+
+  it('renders canonical compare_products rows instead of fabricated criteria', () => {
+    const evidence = new EvidenceLedger()
+    const knownEntities = new KnownEntityLedger()
+    const readAt = new Date().toISOString()
+    knownEntities.addEntity('PRODUCT', 'vf8-id', 'VinFast VF 8', 'DETAILS', 'CAR', { slug: 'vf-8' })
+    knownEntities.addEntity('PRODUCT', 'vf9-id', 'VinFast VF 9', 'DETAILS', 'CAR', { slug: 'vf-9' })
+    evidence.recordToolResult('call-compare', {
+      schemaVersion: '2.0',
+      toolCallId: 'call-compare',
+      tool: 'compare_products',
+      readAt,
+      dataAsOf: readAt,
+      evidence: [],
+      observation: {
+        observationId: 'obs-compare',
+        toolCallId: 'call-compare',
+        outcome: 'SUCCESS',
+        issueCodes: [],
+        inputHash: '{}',
+        readAt,
+      },
+      issues: [],
+      appliedBindings: [],
+      outcome: 'SUCCESS',
+      completeness: 'FULL',
+      data: {
+        products: [
+          { productId: 'vf8-id', name: 'VinFast VF 8', productType: 'CAR', slug: 'vf-8', thumbnailUrl: null, url: '/cars/vf-8', price: 1_000_000_000 },
+          { productId: 'vf9-id', name: 'VinFast VF 9', productType: 'CAR', slug: 'vf-9', thumbnailUrl: null, url: '/cars/vf-9', price: 1_500_000_000 },
+        ],
+        rows: [
+          {
+            criterion: 'price',
+            label: 'Giá khởi điểm',
+            values: [
+              { productId: 'vf8-id', productName: 'VinFast VF 8', value: '1.000.000.000 VNĐ', factRef: 'price-vf8' },
+              { productId: 'vf9-id', productName: 'VinFast VF 9', value: '1.500.000.000 VNĐ', factRef: 'price-vf9' },
+            ],
+          },
+          {
+            criterion: 'top_speed_kmh',
+            label: 'Tốc độ tối đa',
+            values: [
+              { productId: 'vf8-id', productName: 'VinFast VF 8', value: '200 km/h', factRef: 'speed-vf8' },
+              { productId: 'vf9-id', productName: 'VinFast VF 9', value: '200 km/h', factRef: 'speed-vf9' },
+            ],
+          },
+        ],
+        highlights: [],
+      },
+    })
+
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{ kind: 'ADVICE', markdown: 'So sánh nhanh VF 8 và VF 9.' }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence,
+      knownEntities,
+      conversationRef: 'conv-compare',
+      turnId: 'turn-compare',
+      messageId: 'msg-compare',
+    })
+
+    const comparison = response.blocks.find((block) => block.kind === 'COMPARISON_TABLE')
+    expect(comparison?.kind).toBe('COMPARISON_TABLE')
+    if (comparison?.kind === 'COMPARISON_TABLE') {
+      expect(comparison.criteria).toEqual(['Giá khởi điểm', 'Tốc độ tối đa'])
+      expect(comparison.criteria).not.toContain('Dung lượng pin')
+      expect(comparison.products[0].values['Tốc độ tối đa']).toBe('200 km/h')
     }
   })
 })

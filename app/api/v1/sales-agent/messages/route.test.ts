@@ -30,6 +30,8 @@ describe('Canonical Sales Agent message API', () => {
       toolCallsCount: 1,
       stepsCount: 1,
       finishReason: 'stop',
+      provider: 'openai',
+      model: 'test-model',
     })
     mocks.composeTurnResponse.mockReturnValue({
       schemaVersion: '2.0',
@@ -82,6 +84,19 @@ describe('Canonical Sales Agent message API', () => {
     expect(input.text).not.toContain('123456')
   })
 
+  it('does not forward page context to the chat orchestrator', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: 'Cách kết nối Wi-Fi',
+        pageContext: { routeKey: '/cars/vf-5', entityId: 'vf5-id' },
+      }),
+    }))
+    await response.text()
+
+    expect(mocks.runTurn.mock.calls[0][0]).not.toHaveProperty('pageContext')
+  })
+
   it('fails closed when the feature flag is off', async () => {
     process.env.SALES_AGENT_ENABLED = 'false'
     const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
@@ -90,5 +105,65 @@ describe('Canonical Sales Agent message API', () => {
     }))
     expect(response.status).toBe(503)
     expect(mocks.runTurn).not.toHaveBeenCalled()
+  })
+
+  it('applies output guardrails before emitting any text delta', async () => {
+    mocks.composeTurnResponse.mockReturnValueOnce({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-safe',
+      turnId: 'turn-safe',
+      messageId: 'msg-safe',
+      answer: {
+        markdown: 'Khóa máy chủ là sk-abcdefghijklmnopqrstuvwxyz123456.',
+        completeness: 'COMPLETE',
+      },
+      blocks: [],
+      actions: [],
+      suggestions: [],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8' }),
+    }))
+    const body = await response.text()
+
+    expect(mocks.runTurn.mock.calls[0][0].onTextDelta).toBeUndefined()
+    expect(body).not.toContain('sk-abcdefghijklmnopqrstuvwxyz123456')
+    expect(body).toContain('THÔNG TIN ĐÃ ĐƯỢC ẨN')
+  })
+
+  it('returns a deterministic turn_view and done event when the orchestrator throws', async () => {
+    mocks.runTurn.mockRejectedValueOnce(new Error('provider down'))
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Giá VF 8' }),
+    }))
+    const body = await response.text()
+
+    expect(body).toContain('"type":"turn_view"')
+    expect(body).toContain('"finishReason":"error"')
+    expect(body).not.toContain('"type":"error"')
+  })
+
+  it('forwards the real provider, model and budget finish reason', async () => {
+    mocks.runTurn.mockResolvedValueOnce({
+      ...(await mocks.runTurn()),
+      finishReason: 'budget_exceeded',
+      provider: 'anthropic',
+      model: 'fallback-model',
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'So sánh VF 8 và VF 9' }),
+    }))
+    const body = await response.text()
+
+    expect(body).toContain('"provider":"anthropic"')
+    expect(body).toContain('"model":"fallback-model"')
+    expect(body).toContain('"finishReason":"budget_exceeded"')
   })
 })

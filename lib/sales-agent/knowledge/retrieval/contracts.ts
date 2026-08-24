@@ -27,6 +27,10 @@ export interface KnowledgeVisualMediaPointer {
   height: number | null
   safetyCritical: boolean
   citationId: string
+  diagramLabels?: Array<{
+    marker: string
+    description: string
+  }>
 }
 
 export interface KnowledgeScopeFilter {
@@ -51,6 +55,10 @@ export interface RetrievalOptions {
     vector: number
   }
   minScoreThreshold?: number
+  /** Maximum number of fused candidates kept for backend reranking. */
+  rerankCandidateLimit?: number
+  /** Allows a safe rollout/fallback to the pre-rerank RRF ordering. */
+  enableRerank?: boolean
   topK?: number
   tokenBudget?: number
   enableHierarchyExpansion?: boolean
@@ -125,6 +133,7 @@ export interface KnowledgeEvidenceItem {
   excerpt: string
   tokenCount: number
   tags: string[]
+  scopeMetadata?: KnowledgeScopeMetadata[]
   sourceId?: string
   citationId: string
   sourceNodeId?: string
@@ -145,13 +154,23 @@ export interface KnowledgeEvidenceItem {
 export interface KnowledgeRetrievalTelemetry {
   epoch: number
   indexGenerationId: string
+  runtimeStateLatencyMs: number
   ftsLatencyMs: number
+  embeddingLatencyMs: number
+  vectorSearchLatencyMs: number
   vectorLatencyMs: number
   fusionLatencyMs: number
+  rerankLatencyMs: number
+  hierarchyLoadLatencyMs: number
   expansionLatencyMs: number
+  contextBuildLatencyMs: number
   totalLatencyMs: number
+  candidateLimit: number
+  finalLimit: number
   ftsCandidateCount: number
   vectorCandidateCount: number
+  rerankCandidateCount: number
+  rerankEnabled: boolean
   totalEvidenceCount: number
   tokensUsed: number
   degradedReason?: string

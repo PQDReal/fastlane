@@ -91,11 +91,6 @@ export const createSalesAgentTurnRequestSchema = z.object({
   conversationId: z.string().trim().min(1).optional(),
   clientTurnId: z.string().trim().min(1),
   input: salesAgentTurnInputSchema,
-  pageContext: z.object({
-    routeKey: z.string().trim().min(1).optional(),
-    currentProductId: z.string().trim().min(1).optional(),
-    currentProductType: productTypeSchema.optional(),
-  }).optional(),
   locale: z.literal('vi-VN').default('vi-VN'),
 })
 export type CreateSalesAgentTurnRequest = z.infer<typeof createSalesAgentTurnRequestSchema>
@@ -117,7 +112,6 @@ export type SalesAgentMessageRequest = {
     freeText?: string
     continuationToken: string
   }
-  pageContext?: { routeKey: string; entityId?: string }
   locale?: 'vi-VN'
 }
 
@@ -137,23 +131,11 @@ export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessage
     return content ? [{ role: row.role, content } as SalesAgentMessage] : []
   }))
 
-  const pageContext = input.pageContext && typeof input.pageContext === 'object'
-    ? {
-        routeKey: typeof (input.pageContext as Record<string, unknown>).routeKey === 'string'
-          ? String((input.pageContext as Record<string, unknown>).routeKey).slice(0, 120)
-          : '',
-        entityId: typeof (input.pageContext as Record<string, unknown>).entityId === 'string'
-          ? String((input.pageContext as Record<string, unknown>).entityId).slice(0, 120)
-          : undefined,
-      }
-    : undefined
-
   return {
     conversationId: typeof input.conversationId === 'string' ? input.conversationId.slice(0, 120) : undefined,
     message,
     guestHistory,
     interactionResponse: input.interactionResponse as any,
-    pageContext,
     locale: input.locale === 'vi-VN' || input.locale == null ? 'vi-VN' : undefined,
   }
 }

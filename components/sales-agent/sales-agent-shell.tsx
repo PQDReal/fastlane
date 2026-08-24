@@ -574,7 +574,7 @@ export function SalesAgentShell() {
     try {
       const response = await fetch('/api/v1/sales-agent/messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, conversationId: conversationIdRef.current, guestHistory: history, interactionResponse, pageContext: { routeKey: pathname }, locale: 'vi-VN' }),
+      body: JSON.stringify({ message, conversationId: conversationIdRef.current, guestHistory: history, interactionResponse, locale: 'vi-VN' }),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: { message?: string } } | null
@@ -930,7 +930,9 @@ export function SalesAgentShell() {
                                 const unreferencedItems = block.items.filter((media) => {
                                   if (!media.url) return true
                                   const filename = media.url.split('/').pop()?.replace(/\.png$/i, '')
-                                  const isEmbedded = content.includes(media.url) || Boolean(filename && content.includes(filename))
+                                  const isEmbedded = Boolean(media.reference && content.includes(`[${media.reference}]`))
+                                    || content.includes(media.url)
+                                    || Boolean(filename && content.includes(filename))
                                   return !isEmbedded
                                 })
 

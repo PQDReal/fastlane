@@ -89,6 +89,35 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('Cổng sạc CCS2')
   })
 
+  it('resolves compact media references to the exact approved URL', () => {
+    const url = 'https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png'
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Sơ đồ cổng sạc VF 9:\n\n[media:2]\n\nChi tiết phần AC và DC.'}
+        mediaItems={[
+          {
+            assetId: 'asset-2',
+            annotationId: 'ann-2',
+            title: 'Cổng sạc CCS2',
+            summary: 'Sơ đồ cổng sạc',
+            url,
+            alt: 'Cổng sạc CCS2',
+            mimeType: 'image/png',
+            width: 690,
+            height: 388,
+            safetyCritical: false,
+            citationId: 'cite:vinfast:vf-9',
+            reference: 'media:2',
+          },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain(`src="${url}"`)
+    expect(markup).not.toContain('[media:2]')
+  })
+
   it('preprocesses raw [img: ...] tags into inline images using mediaItems', () => {
     const markup = renderToStaticMarkup(
       <MarkdownMessage

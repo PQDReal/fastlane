@@ -59,20 +59,11 @@ export interface CachedKnowledgeChunk {
   tags: string[]
 }
 
-export interface CachedKnowledgeDoc {
-  id: string
-  slug: string
-  title: string
-  category: string
-  summary?: string
-}
-
 export interface CachedCatalogSnapshot {
   products: CachedProduct[]
   accessories: CachedAccessory[]
-  knowledgeDocs: CachedKnowledgeDoc[]
-  knowledgeChunks: CachedKnowledgeChunk[]
-  dynamicSummaryPrompt: string
+  /** Legacy compatibility only. The catalog cache no longer loads knowledge chunks. */
+  knowledgeChunks?: CachedKnowledgeChunk[]
   lastRefreshedAt: number
   isSeededFallback: boolean
 }
@@ -85,108 +76,12 @@ function mapDatabaseProductType(type: string): ProductType {
   return 'CAR'
 }
 
-import { extractCanonicalVehicleSpecs } from '../catalog/spec-extractor'
-
-function formatVnd(amount: number | null | undefined): string {
-  if (!amount || isNaN(amount)) return 'Liên hệ'
-  return `${amount.toLocaleString('vi-VN')} VNĐ`
-}
-
-function compileDynamicSummaryPrompt(
-  products: CachedProduct[],
-  accessories: CachedAccessory[],
-  knowledgeDocs?: CachedKnowledgeDoc[],
-): string {
-  const cars = products.filter((p) => p.productType === 'CAR')
-  const bikes = products.filter((p) => p.productType === 'BIKE')
-
-  const carLines = cars.map((c) => {
-    const cs = extractCanonicalVehicleSpecs(c)
-    const seats = cs.seats ? `${cs.seats} chỗ` : ''
-    const battery = cs.battery ? `Pin ${cs.battery}` : ''
-    const range = cs.range ? `Tầm xa ${cs.range}` : ''
-    const speed = cs.topSpeed ? `Tốc độ ${cs.topSpeed}` : ''
-    const power = cs.power ? `Công suất ${cs.power}` : ''
-    const weight = cs.weight ? `Khối lượng ${cs.weight}` : ''
-    const charge = cs.chargingTime ? `Sạc ${cs.chargingTime}` : ''
-    const warranty = cs.warranty ? `Bảo hành ${cs.warranty}` : ''
-
-    const details = [seats, battery, range, speed, power, weight, charge, warranty]
-      .filter(Boolean)
-      .join(' | ')
-
-    return `| **${c.name}** | ${formatVnd(c.displayedPrice)} | ${details || 'Đang cập nhật'} |`
-  })
-
-  const bikeLines = bikes.map((b) => {
-    const bs = extractCanonicalVehicleSpecs(b)
-    const battery = bs.battery ? `Pin: ${bs.battery}` : ''
-    const range = bs.range ? `Tầm xa: ${bs.range}` : ''
-    const speed = bs.topSpeed ? `Tốc độ: ${bs.topSpeed}` : ''
-    const weight = bs.weight ? `Trọng lượng: ${bs.weight}` : ''
-    const power = bs.power ? `Động cơ: ${bs.power}` : ''
-    const trunk = bs.trunk ? `Cốp: ${bs.trunk}` : ''
-    const warranty = bs.warranty ? `Bảo hành: ${bs.warranty}` : ''
-
-    const details = [battery, range, speed, weight, power, trunk, warranty].filter(Boolean).join(' | ')
-    return `| **${b.name}** | ${formatVnd(b.displayedPrice)} | ${details || 'Đang cập nhật'} |`
-  })
-
-  const topAccList = accessories
-    .map((a) => `- **${a.name}** (${formatVnd(a.price)}): ${a.description || a.categoryName}`)
-    .join('\n')
-
-  const docs = knowledgeDocs && knowledgeDocs.length > 0 ? knowledgeDocs : []
-  const knowledgeLines = docs.map((d) => {
-    const catLabel =
-      d.category === 'WARRANTY_BATTERY' ? 'Bảo hành & Pin' :
-      d.category === 'DEPOSIT_DELIVERY' ? 'Đặt cọc & Bàn giao' :
-      d.category === 'PROMOTIONS_FINANCING' ? 'Ưu đãi & Trả góp' :
-      d.category === 'TECHNICAL_GUIDE' ? 'Cẩm nang kỹ thuật' : d.category
-    return `- **[${catLabel}] ${d.title}**: ${d.summary || 'Tài liệu hướng dẫn và chính sách chính thức.'}`
-  })
-
-  return [
-    '## BẢNG THÔNG SỐ VÀ DANH MỤC TÓM TẮT CHÍNH XÁC (TỰ ĐỘNG CẬP NHẬT TỪ CACHE HỆ THỐNG):',
-    '',
-    '### 1. Bảng thông số Ô tô điện VinFast chính hãng (Slash Route: `/cars/[slug]`):',
-    `Danh sách Slash Routes: ${cars.map(c => `\`[${c.name}](/cars/${c.slug})\``).join(', ')}`,
-    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Chỗ, Pin kWh, Quãng đường km, Công suất, Tốc độ, Khối lượng, Sạc nhanh, Bảo hành) |',
-    '| :--- | :--- | :--- |',
-    carLines.length > 0 ? carLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
-    '',
-    '### 2. Bảng thông số Xe máy điện VinFast chính hãng (Slash Route: `/bikes/[slug]`):',
-    `Danh sách Slash Routes: ${bikes.map(b => `\`[${b.name}](/bikes/${b.slug})\``).join(', ')}`,
-    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Loại Pin/Dung lượng, Quãng đường km, Tốc độ tối đa km/h, Trọng lượng, Động cơ, Cốp, Bảo hành) |',
-    '| :--- | :--- | :--- |',
-    bikeLines.length > 0 ? bikeLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
-    '',
-    '### 3. Phụ kiện chính hãng tiêu biểu:',
-    topAccList || '- Đang cập nhật phụ kiện.',
-    '',
-    '### 4. Danh mục Cẩm nang & Tri thức hỗ trợ (Knowledge Base CMS):',
-    knowledgeLines.join('\n'),
-    '',
-    '### 5. Chính sách cốt lõi:',
-    '- **Bảo hành ô tô:** VF 3 bảo hành xe 7 năm / 160.000 km, pin mua kèm 8 năm; Các dòng VF 5, VF 6, VF 7, VF 8, VF 9, VF e34 bảo hành xe 10 năm / 200.000 km, pin mua kèm bảo hành 10 năm không giới hạn km.',
-    '- **Bảo hành xe máy điện:** 5 năm không giới hạn số km cho toàn bộ các dòng xe máy điện VinFast chính hãng.',
-    '- **Chính sách thuê pin:** Bảo dưỡng, sửa chữa và thay pin mới miễn phí hoàn toàn khi dung lượng tiếp nhận sạc tối đa (SoH) giảm dưới 70%.',
-    '- **Hạ tầng trạm sạc & Cứu hộ:** Trạm sạc V-GREEN chuẩn CCS2 toàn quốc, cứu hộ pin lưu động 24/7.',
-    '',
-    '## QUY TẮC TƯ VẤN THÔNG SỐ VÀ SỬ DỤNG TOOL CHÍNH XÁC:',
-    '- Khi người dùng hỏi tổng quan về bảng giá, chính sách hoặc các thông số đã có trong bảng tóm tắt: Bạn có thể tổng hợp trả lời nhanh chóng dựa trên số liệu chuẩn trong bảng.',
-    '- Khi người dùng hỏi so sánh chi tiết, đối chiếu thông số kỹ thuật (pin, tốc độ, trọng lượng, kích thước...) hoặc hỏi sâu về 2 hay nhiều mẫu xe: BẠN HÃY GỌI TOOL `compare_products` hoặc `get_product_details` để trích xuất đầy đủ facts và đối chiếu chính xác.',
-    '- TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT THÔNG SỐ: Nếu một thông số nào chưa có trong catalog hoặc bảng tóm tắt, hãy thông báo trung thực là thông số đó đang được cập nhật.',
-    '- Gọi tool `search_knowledge` khi người dùng hỏi các tài liệu hướng dẫn kỹ thuật, cẩm nang cứu hộ, chính sách chuyên sâu hoặc khi catalog không có thông tin.',
-  ].join('\n')
-}
-
 // Default Seeded Fallback Snapshot in case DB is unreachable
 const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-3',
     name: 'VinFast VF 3',
-    slug: 'vf-3',
+    slug: 'vinfast-vf-3',
     description: 'Mini-SUV điện thông minh, linh hoạt cho đô thị.',
     productType: 'CAR',
     displayedPrice: 240000000,
@@ -210,7 +105,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-5',
     name: 'VinFast VF 5 Plus',
-    slug: 'vf-5',
+    slug: 'vinfast-vf-5-plus',
     description: 'SUV đô thị cỡ A năng động, tối ưu chi phí vận hành.',
     productType: 'CAR',
     displayedPrice: 468000000,
@@ -234,7 +129,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-6',
     name: 'VinFast VF 6',
-    slug: 'vf-6',
+    slug: 'vinfast-vf-6',
     description: 'Crossover hạng B thời thượng, tiện nghi cho gia đình trẻ.',
     productType: 'CAR',
     displayedPrice: 675000000,
@@ -258,7 +153,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-7',
     name: 'VinFast VF 7',
-    slug: 'vf-7',
+    slug: 'vinfast-vf-7',
     description: 'SUV điện cỡ C phong cách vũ trụ phi đối xứng, vận hành vượt trội.',
     productType: 'CAR',
     displayedPrice: 850000000,
@@ -282,7 +177,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-8',
     name: 'VinFast VF 8',
-    slug: 'vf-8',
+    slug: 'vinfast-vf-8',
     description: 'SUV điện phân khúc D đẳng cấp quốc tế, trang bị ADAS cao cấp.',
     productType: 'CAR',
     displayedPrice: 1090000000,
@@ -306,7 +201,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-vf-9',
     name: 'VinFast VF 9',
-    slug: 'vf-9',
+    slug: 'vinfast-vf-9',
     description: 'SUV điện full-size phân khúc E hạng sang, 7 chỗ hoặc 6 chỗ cơ trưởng.',
     productType: 'CAR',
     displayedPrice: 1984000000,
@@ -330,7 +225,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-evo-200',
     name: 'VinFast Evo 200',
-    slug: 'evo-200',
+    slug: 'vinfast-evo-200',
     description: 'Xe máy điện quốc dân đi xa tới 205 km/lần sạc.',
     productType: 'BIKE',
     displayedPrice: 18000000,
@@ -351,7 +246,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-feliz-s',
     name: 'VinFast Feliz S',
-    slug: 'feliz-s',
+    slug: 'vinfast-feliz-s',
     description: 'Xe máy điện thanh lịch, động cơ 3000W mạnh mẽ, cốp rộng 25L.',
     productType: 'BIKE',
     displayedPrice: 27000000,
@@ -372,7 +267,7 @@ const INITIAL_SEEDED_PRODUCTS: CachedProduct[] = [
   {
     id: 'prod-klara-s',
     name: 'VinFast Klara S',
-    slug: 'klara-s',
+    slug: 'vinfast-klara-s',
     description: 'Xe máy điện thanh lịch, cốp rộng, pin LFP bền bỉ.',
     productType: 'BIKE',
     displayedPrice: 35000000,
@@ -399,37 +294,6 @@ const INITIAL_SEEDED_ACCESSORIES: CachedAccessory[] = [
   { productId: 'acc-4', name: 'Áo mưa cánh dơi một mũ', slug: 'ao-mua-mot-mu', description: 'Áo mưa chống thấm có lỗ xỏ gương xe máy', price: 150000, categoryName: 'Xe máy', imageUrls: [], updatedAt: new Date().toISOString() },
 ]
 
-const INITIAL_SEEDED_KNOWLEDGE_DOCS: CachedKnowledgeDoc[] = [
-  {
-    id: '00000000-0000-4000-8000-000000000001',
-    slug: 'chinh-sach-bao-hanh-xe-dien-vinfast',
-    title: 'Chính Sách Bảo Hành Xe Điện & Pin VinFast',
-    category: 'WARRANTY_BATTERY',
-    summary: 'Bảo hành ô tô VF 5-9 là 10 năm/200.000km, pin 10 năm không giới hạn km; VF 3 bảo hành 7 năm/160.000km, pin 8 năm; Xe máy điện bảo hành 5 năm.',
-  },
-  {
-    id: '00000000-0000-4000-8000-000000000002',
-    slug: 'chinh-sach-thue-pin-va-he-thong-tram-sac',
-    title: 'Chính sách thuê pin & Hệ thống trạm sạc V-GREEN',
-    category: 'WARRANTY_BATTERY',
-    summary: 'Gói thuê pin linh hoạt/cố định, bảo dưỡng đổi pin miễn phí khi SoH < 70%, trạm sạc nhanh CCS2 toàn quốc.',
-  },
-  {
-    id: '00000000-0000-4000-8000-000000000003',
-    slug: 'quy-trinh-dat-coc-va-nhan-xe-fastlane',
-    title: 'Quy trình đặt cọc online & Bàn giao xe tại FASTLANE',
-    category: 'DEPOSIT_DELIVERY',
-    summary: 'Đặt cọc trực tuyến qua OTP; Tiền cọc: VF 3 là 15 triệu, VF 5/6/7 là 30 triệu, VF 8/9 là 50 triệu, Xe máy điện là 2 triệu.',
-  },
-  {
-    id: '00000000-0000-4000-8000-000000000004',
-    slug: 'chinh-sach-tra-gop-va-uu-dai-tai-chinh',
-    title: 'Chính sách mua xe trả góp & Ưu đãi tài chính FASTLANE',
-    category: 'PROMOTIONS_FINANCING',
-    summary: 'Hỗ trợ vay ngân hàng đến 80% giá trị xe, thời hạn 1-8 năm, thủ tục duyệt online trong 4-8 giờ.',
-  },
-]
-
 export class CatalogCacheEngine {
   private static instance: CatalogCacheEngine
   private snapshot: CachedCatalogSnapshot
@@ -440,13 +304,6 @@ export class CatalogCacheEngine {
     this.snapshot = {
       products: INITIAL_SEEDED_PRODUCTS,
       accessories: INITIAL_SEEDED_ACCESSORIES,
-      knowledgeDocs: INITIAL_SEEDED_KNOWLEDGE_DOCS,
-      knowledgeChunks: [],
-      dynamicSummaryPrompt: compileDynamicSummaryPrompt(
-        INITIAL_SEEDED_PRODUCTS,
-        INITIAL_SEEDED_ACCESSORIES,
-        INITIAL_SEEDED_KNOWLEDGE_DOCS,
-      ),
       lastRefreshedAt: 0, // 0 forces initial background refresh
       isSeededFallback: true,
     }
@@ -477,10 +334,6 @@ export class CatalogCacheEngine {
     return this.snapshot
   }
 
-  public getDynamicSummaryPrompt(): string {
-    return this.getSnapshot().dynamicSummaryPrompt
-  }
-
   public async forceRefresh(): Promise<CachedCatalogSnapshot> {
     return this.revalidateAsync(true)
   }
@@ -498,8 +351,6 @@ export class CatalogCacheEngine {
       carsCount: this.snapshot.products.filter((p) => p.productType === 'CAR').length,
       bikesCount: this.snapshot.products.filter((p) => p.productType === 'BIKE').length,
       accessoriesCount: this.snapshot.accessories.length,
-      knowledgeDocsCount: this.snapshot.knowledgeDocs.length,
-      knowledgeChunksCount: this.snapshot.knowledgeChunks.length,
     }
   }
 
@@ -565,39 +416,12 @@ export class CatalogCacheEngine {
       .eq('is_active', true)
       .order('displayed_price', { ascending: true })
 
-    // 2. Fetch active knowledge chunks for PUBLISHED docs
-    const chunksPromise = supabase
-      .from('sales_agent_knowledge_chunks')
-      .select(`
-        id,
-        document_id,
-        version,
-        chunk_index,
-        section_title,
-        content,
-        tags,
-        is_active,
-        sales_agent_knowledge_documents!inner (
-          id,
-          slug,
-          title,
-          category,
-          status
-        )
-      `)
-      .eq('is_active', true)
-      .eq('sales_agent_knowledge_documents.status', 'PUBLISHED')
-      .limit(200)
-
     // Timeout guard (3.5s) to avoid hanging server
     const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
       setTimeout(() => resolve({ data: null, error: new Error('Supabase cache fetch timeout') }), 3500),
     )
 
-    const [productsResult, chunksResult] = await Promise.all([
-      Promise.race([productsPromise, timeoutPromise]),
-      Promise.race([chunksPromise, timeoutPromise]),
-    ])
+    const productsResult = await Promise.race([productsPromise, timeoutPromise])
 
     const fetchedProducts: CachedProduct[] = []
     const fetchedAccessories: CachedAccessory[] = []
@@ -655,45 +479,9 @@ export class CatalogCacheEngine {
     const finalProducts = fetchedProducts.length > 0 ? fetchedProducts : INITIAL_SEEDED_PRODUCTS
     const finalAccessories = fetchedAccessories.length > 0 ? fetchedAccessories : INITIAL_SEEDED_ACCESSORIES
 
-    const fetchedChunks: CachedKnowledgeChunk[] = []
-    const fetchedDocs: CachedKnowledgeDoc[] = []
-    const docMap = new Map<string, CachedKnowledgeDoc>()
-
-    if (chunksResult.data && Array.isArray(chunksResult.data)) {
-      for (const row of chunksResult.data as any[]) {
-        const doc = row.sales_agent_knowledge_documents
-        if (doc && !docMap.has(doc.id)) {
-          const mappedDoc: CachedKnowledgeDoc = {
-            id: String(doc.id),
-            slug: doc.slug,
-            title: doc.title,
-            category: doc.category,
-          }
-          docMap.set(doc.id, mappedDoc)
-          fetchedDocs.push(mappedDoc)
-        }
-        fetchedChunks.push({
-          chunkId: String(row.id),
-          documentId: String(row.document_id),
-          documentSlug: doc?.slug || 'doc',
-          documentTitle: doc?.title || 'Tài liệu kiến thức',
-          category: doc?.category || 'TECHNICAL_GUIDE',
-          sectionTitle: row.section_title,
-          content: row.content,
-          tags: Array.isArray(row.tags) ? row.tags : [],
-        })
-      }
-    }
-
-    const finalDocs = fetchedDocs.length > 0 ? fetchedDocs : INITIAL_SEEDED_KNOWLEDGE_DOCS
-    const dynamicPrompt = compileDynamicSummaryPrompt(finalProducts, finalAccessories, finalDocs)
-
     return {
       products: finalProducts,
       accessories: finalAccessories,
-      knowledgeDocs: finalDocs,
-      knowledgeChunks: fetchedChunks,
-      dynamicSummaryPrompt: dynamicPrompt,
       lastRefreshedAt: Date.now(),
       isSeededFallback: fetchedProducts.length === 0,
     }

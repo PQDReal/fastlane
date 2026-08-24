@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { performance } from 'node:perf_hooks'
 import type { EmbeddingAdapterConfig, EmbeddingProvider } from '../embedding-adapter'
 import { OPENAI_EMBEDDING_GENERATION_ID } from '../embedding-adapter'
 import type {
@@ -13,6 +14,7 @@ import { KnowledgeStorageUnavailableError } from './contracts'
 import { PostgresFtsAdapter } from './fts-adapter'
 import { VectorCandidateAdapter, type VectorIndexedCandidate } from './vector-adapter'
 import { fuseRrfCandidates, type FusedCandidate } from './rrf-fusion'
+import { rerankFusedCandidates } from './reranker'
 import { expandHierarchyCandidates, type ExpandedCandidate } from './hierarchy-expansion'
 import { buildEvidenceContext } from './context-builder'
 import { RetrievalTelemetryTracker } from './retrieval-telemetry'
@@ -97,14 +99,32 @@ export class HybridHierarchicalRetrievalService {
 
     const mode: RetrievalMode = options.retrievalMode ?? 'HYBRID_HIERARCHICAL'
     const cleanQuery = query?.trim() || ''
+    const finalK = Math.max(1, options.topK ?? 5)
+    const candidateK = Math.max(
+      finalK,
+      Math.min(options.rerankCandidateLimit ?? 10, 50),
+    )
 
+    const retrievalStartedAt = Date.now()
+    const tracker = new RetrievalTelemetryTracker(
+      1,
+      options.generationId ?? this.defaultGenerationId,
+      retrievalStartedAt,
+    )
+    tracker.recordLimits(candidateK, finalK)
+    const runtimeStateStartedAt = performance.now()
     const runtime = cleanQuery
       ? await this.resolveRuntimeState(options.generationId)
       : { epoch: 1, generationId: options.generationId ?? this.defaultGenerationId }
-    const tracker = new RetrievalTelemetryTracker(runtime.epoch, runtime.generationId)
+    tracker.recordRuntimeState(performance.now() - runtimeStateStartedAt)
+    tracker.setRuntimeState(runtime.epoch, runtime.generationId)
     const effectiveOptions: RetrievalOptions = {
       ...options,
       generationId: runtime.generationId,
+      // Keep each first-stage source bounded to the internal rerank pool unless
+      // a caller explicitly requests a wider candidate window.
+      ftsCandidateLimit: options.ftsCandidateLimit ?? candidateK,
+      vectorCandidateLimit: options.vectorCandidateLimit ?? candidateK,
     }
 
     if (!cleanQuery) {
@@ -152,7 +172,11 @@ export class HybridHierarchicalRetrievalService {
           cleanQuery,
           filters,
           effectiveOptions,
-          inMemoryPool
+          inMemoryPool,
+          {
+            onEmbeddingLatency: (durationMs) => tracker.recordEmbedding(durationMs),
+            onVectorSearchLatency: (durationMs) => tracker.recordVectorSearch(durationMs),
+          },
         )
       } catch (err: any) {
         vectorError = err
@@ -170,12 +194,12 @@ export class HybridHierarchicalRetrievalService {
       if (vectorError) {
         throw new KnowledgeStorageUnavailableError(`Vector search failed: ${vectorError.message}`, vectorError)
       }
-      fusedCandidates = vectorCandidates.map((vec) => ({
+      fusedCandidates = vectorCandidates.slice(0, candidateK).map((vec) => ({
         ...vec,
         rrfScore: 1.0 / (60 + vec.vectorRank),
       }))
     } else if (mode === 'FTS') {
-      fusedCandidates = ftsCandidates.map((fts) => ({
+      fusedCandidates = ftsCandidates.slice(0, candidateK).map((fts) => ({
         ...fts,
         rrfScore: 1.0 / (60 + fts.ftsRank),
       }))
@@ -185,7 +209,7 @@ export class HybridHierarchicalRetrievalService {
         // Degrade to FTS-only (A19-KR-308)
         actualRetrievalMode = 'DEGRADED_FTS'
         tracker.recordDegradation(`Vector search failed: ${vectorError.message}`)
-        fusedCandidates = ftsCandidates.map((fts) => ({
+        fusedCandidates = ftsCandidates.slice(0, candidateK).map((fts) => ({
           ...fts,
           rrfScore: 1.0 / (60 + fts.ftsRank),
         }))
@@ -201,7 +225,7 @@ export class HybridHierarchicalRetrievalService {
           weightFts: options.rrfWeights?.fts ?? 1.0,
           weightVector: options.rrfWeights?.vector ?? 1.0,
           minScoreThreshold: options.minScoreThreshold ?? 0.0,
-          limit: (options.topK ?? 4) * 3, // Fetch sufficient candidates for hierarchy expansion
+          limit: candidateK,
         })
       }
     }
@@ -235,18 +259,44 @@ export class HybridHierarchicalRetrievalService {
       }
     }
 
-    // 5. Hierarchy Expansion Phase (A19-KR-304)
-    const expansionStart = Date.now()
-    let expandedCandidates: ExpandedCandidate[] = fusedCandidates.map((c) => ({
+    // 5. Backend reranking phase. Only the small candidate set is reranked;
+    // the raw DB result is never sent to the Agent.
+    const rerankEnabled = options.enableRerank !== false
+    const rerankStart = performance.now()
+    let rankedCandidates: FusedCandidate[] = fusedCandidates.slice(0, candidateK)
+    if (rerankEnabled) {
+      try {
+        rankedCandidates = rerankFusedCandidates(cleanQuery, rankedCandidates, {
+          limit: candidateK,
+          filters,
+        })
+      } catch (err: any) {
+        // Rerank is an optimization layer; preserve grounded RRF results if it
+        // ever fails so retrieval remains available.
+        tracker.recordDegradation(`Rerank unavailable: ${err?.message || 'unknown error'}`)
+      }
+    }
+    tracker.recordRerank(performance.now() - rerankStart, rankedCandidates.length, rerankEnabled)
+
+    // The Agent-facing context is always bounded by finalK. Hierarchy
+    // expansion runs only for reranked winners to avoid reintroducing low-
+    // relevance candidates after reranking.
+    const selectedCandidates = rankedCandidates.slice(0, finalK)
+
+    // 6. Hierarchy Expansion Phase (A19-KR-304)
+    const expansionStart = performance.now()
+    let expandedCandidates: ExpandedCandidate[] = selectedCandidates.map((c) => ({
       ...c,
       expansionProvenance: 'DIRECT' as const,
     }))
 
     let hierarchyPool: RawChunkCandidate[] | undefined = inMemoryPool
-    if (!hierarchyPool && this.client && fusedCandidates.length > 0) {
+    const hierarchyLoadStart = performance.now()
+    let hierarchyLoadLatencyMs = 0
+    if (!hierarchyPool && this.client && selectedCandidates.length > 0) {
       try {
         hierarchyPool = await this.ftsAdapter.loadHierarchyContext(
-          fusedCandidates.map((candidate) => candidate.versionId),
+          selectedCandidates.map((candidate) => candidate.versionId),
           filters,
           effectiveOptions
         )
@@ -257,10 +307,12 @@ export class HybridHierarchicalRetrievalService {
         hierarchyPool = []
       }
     }
+    hierarchyLoadLatencyMs = performance.now() - hierarchyLoadStart
+    tracker.recordHierarchyLoad(hierarchyLoadLatencyMs)
 
     if (actualRetrievalMode === 'HYBRID_HIERARCHICAL' && options.enableHierarchyExpansion !== false) {
       expandedCandidates = expandHierarchyCandidates(
-        fusedCandidates,
+        selectedCandidates,
         hierarchyPool,
         {
           enableParentExpansion: true,
@@ -269,14 +321,16 @@ export class HybridHierarchicalRetrievalService {
         }
       )
     }
-    tracker.recordExpansion(Date.now() - expansionStart)
+    tracker.recordExpansion(Math.max(0, performance.now() - expansionStart - hierarchyLoadLatencyMs))
 
     // 6. Context Deduplication & Token Budgeting (A19-KR-305)
+    const contextBuildStart = performance.now()
     const { items, totalTokensUsed } = buildEvidenceContext(expandedCandidates, {
-      topK: options.topK ?? 4,
+      topK: finalK,
       tokenBudget: options.tokenBudget ?? 2500,
       retrievalMode: actualRetrievalMode,
     })
+    tracker.recordContextBuild(performance.now() - contextBuildStart)
 
     const status =
       items.length === 0

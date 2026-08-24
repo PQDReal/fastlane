@@ -12,7 +12,7 @@ import {
 import { consumeSalesAgentInteractionResponse, validateSalesAgentInteractionResponse } from '@/lib/sales-agent/interactions/token'
 import { validateSalesAgentInteractionProducts, SalesAgentInteractionValidationError } from '@/lib/sales-agent/interactions/validation'
 import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
-import { runTurn } from '@/lib/sales-agent/orchestrator/run-turn'
+import { runTurn, type SalesAgentFinishReason } from '@/lib/sales-agent/orchestrator/run-turn'
 import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
 import {
   evaluateInputGuardrails,
@@ -27,7 +27,7 @@ export type SalesAgentSseEvent =
   | { type: 'tool_status'; tool: string; status: 'running' | 'complete' | 'not_found' | 'error' | 'OK' }
   | { type: 'text_delta'; delta: string }
   | { type: 'turn_view'; viewModel: TurnViewModel }
-  | { type: 'done'; provider: string; model: string; finishReason: 'stop' | 'requires_input' }
+  | { type: 'done'; provider: string; model: string; finishReason: SalesAgentFinishReason }
   | { type: 'error'; code: string; message: string; retryable: boolean }
 
 function event(value: SalesAgentSseEvent) {
@@ -39,6 +39,25 @@ function responseHeaders() {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
+  }
+}
+
+function fallbackViewModel(conversationId: string, messageId: string, markdown: string): TurnViewModel {
+  return {
+    schemaVersion: '2.0',
+    conversationRef: conversationId,
+    turnId: messageId,
+    messageId,
+    answer: { markdown, completeness: 'NO_EVIDENCE' },
+    blocks: [],
+    actions: [],
+    suggestions: [
+      { suggestionId: `retry-${messageId}`, label: 'Thử lại câu hỏi', payload: 'Vui lòng thử lại câu hỏi vừa rồi' },
+    ],
+    grounding: {
+      dataAsOf: new Date().toISOString(),
+      warnings: [{ code: 'INTERNAL_FALLBACK', message: 'Hệ thống đã dùng phản hồi dự phòng an toàn.' }],
+    },
   }
 }
 
@@ -61,7 +80,14 @@ function streamResponse(payload: {
         recordSalesAgentDebugEvent('stream.failed', { conversationId: payload.conversationId, messageId: payload.messageId }, {
           error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
         })
-        send({ type: 'error', code: 'PROVIDER_UNAVAILABLE', message: 'Agent tạm thời chưa thể trả lời. Bạn thử lại sau nhé.', retryable: true })
+        if (!payload.signal?.aborted) {
+          const fallbackText = 'Hệ thống tư vấn AI tạm thời chưa thể hoàn tất câu trả lời. Bạn vui lòng thử lại sau ít phút; FASTLANE sẽ không suy đoán khi chưa có dữ liệu xác minh.'
+          const { sanitized } = evaluateOutputGuardrails(fallbackText)
+          send({ type: 'tool_status', tool: 'fallback', status: 'error' })
+          send({ type: 'text_delta', delta: sanitized })
+          send({ type: 'turn_view', viewModel: fallbackViewModel(payload.conversationId, payload.messageId, sanitized) })
+          send({ type: 'done', provider: 'fallback', model: 'deterministic', finishReason: 'error' })
+        }
       } finally {
         controller.close()
       }
@@ -171,7 +197,6 @@ export async function POST(request: Request) {
         recordSalesAgentDebugEvent('request.accepted', { conversationId, messageId }, {
           message: redactSalesAgentInput(payload.message),
           history,
-          pageContext: payload.pageContext,
         })
 
         const redactedUserText = redactSalesAgentInput(payload.message)
@@ -191,24 +216,19 @@ export async function POST(request: Request) {
 
         send({ type: 'tool_status', tool: 'thinking', status: 'running' })
 
-        let hasStreamedFirstDelta = false
         const turnResult = await runTurn({
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
           signal: request.signal,
           context: { conversationId, messageId },
-          onTextDelta: (delta) => {
-            if (request.signal?.aborted) return
-            if (!hasStreamedFirstDelta) {
-              hasStreamedFirstDelta = true
-              send({ type: 'tool_status', tool: 'composing', status: 'running' })
-            }
-            send({ type: 'text_delta', delta })
-          },
           onToolCall: (toolName) => send({ type: 'tool_status', tool: toolName, status: 'running' }),
           onToolResult: (toolName, res) => {
-            const status = res.outcome === 'SUCCESS' ? 'complete' : res.outcome === 'NO_MATCH' ? 'not_found' : 'running'
-            send({ type: 'tool_status', tool: toolName, status: status as any })
+            const status = res.outcome === 'SUCCESS' || res.outcome === 'NEEDS_INPUT'
+              ? 'complete'
+              : res.outcome === 'NO_MATCH'
+                ? 'not_found'
+                : 'error'
+            send({ type: 'tool_status', tool: toolName, status })
           },
         })
 
@@ -223,7 +243,7 @@ export async function POST(request: Request) {
 
         // 3. Post-LLM Output Guardrail (Secret Redaction & PII Solicitation Prevention)
         const { sanitized: safeMarkdown } = evaluateOutputGuardrails(viewModel.answer.markdown)
-        viewModel.answer.markdown = safeMarkdown
+        viewModel.answer.markdown = safeMarkdown || 'FASTLANE chưa có nội dung đủ an toàn để hiển thị cho lượt này.'
 
         recordSalesAgentDebugEvent('turn.completed', { conversationId, messageId }, {
           text: viewModel.answer.markdown,
@@ -232,11 +252,19 @@ export async function POST(request: Request) {
           blocksCount: viewModel.blocks.length,
           actionsCount: viewModel.actions.length,
           suggestionsCount: viewModel.suggestions.length,
+          usage: turnResult.usage,
         })
 
-        // Stream structured turn_view (cards, comparisons, suggestions) after text finishes
+        // Buffer first, then expose only the completed attempt after output guardrails.
+        send({ type: 'tool_status', tool: 'composing', status: 'running' })
+        send({ type: 'text_delta', delta: viewModel.answer.markdown })
         send({ type: 'turn_view', viewModel })
-        send({ type: 'done', provider: 'default', model: 'orchestrator', finishReason: 'stop' })
+        send({
+          type: 'done',
+          provider: turnResult.provider,
+          model: turnResult.model,
+          finishReason: turnResult.finishReason,
+        })
       },
     })
   } catch (error) {

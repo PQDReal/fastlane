@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   browseCatalogInputSchema,
+  compareProductsInputSchema,
   createSalesAgentTurnRequestSchema,
   DEFAULT_RUN_BUDGET,
   getAvailableToolContracts,
+  getProductDetailsInputSchema,
+  searchKnowledgeInputSchema,
   TOOL_CONTRACTS,
   turnViewModelSchema,
 } from './index'
@@ -46,15 +49,33 @@ describe('Canonical Core Contracts', () => {
     expect(DEFAULT_RUN_BUDGET.totalTimeoutMs).toBe(35000)
   })
 
-  it('has valid schemas for all 7 registered data tools', () => {
-    expect(Object.keys(TOOL_CONTRACTS).length).toBe(7)
+  it('has valid schemas for all 6 registered runtime data tools', () => {
+    expect(Object.keys(TOOL_CONTRACTS).length).toBe(6)
     expect(TOOL_CONTRACTS.browse_catalog).toBeDefined()
-    expect(TOOL_CONTRACTS.resolve_catalog_entities).toBeDefined()
+    expect(TOOL_CONTRACTS).not.toHaveProperty('resolve_catalog_entities')
     expect(TOOL_CONTRACTS.get_product_details).toBeDefined()
     expect(TOOL_CONTRACTS.compare_products).toBeDefined()
     expect(TOOL_CONTRACTS.get_current_promotions).toBeDefined()
     expect(TOOL_CONTRACTS.discover_accessories).toBeDefined()
     expect(TOOL_CONTRACTS.search_knowledge).toBeDefined()
+  })
+
+  it('lets detail and comparison tools accept product names directly', () => {
+    expect(getProductDetailsInputSchema.safeParse({ productMentions: ['VF 9'] }).success).toBe(true)
+    expect(compareProductsInputSchema.safeParse({ productMentions: ['VF 8', 'VF 9'] }).success).toBe(true)
+    expect(compareProductsInputSchema.safeParse({ productMentions: ['VF 9'] }).success).toBe(false)
+  })
+
+  it('supports explicit vehicle scope for knowledge retrieval', () => {
+    const parsed = searchKnowledgeInputSchema.safeParse({
+      query: 'Cách kết nối Wi-Fi',
+      vehicleModel: 'VF 9',
+      modelYear: 2026,
+    })
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.topK).toBe(5)
+    }
   })
 
   it('keeps Knowledge RAG out of the model toolset until explicitly enabled', () => {

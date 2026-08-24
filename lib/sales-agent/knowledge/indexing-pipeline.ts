@@ -43,12 +43,19 @@ export interface PersistIndexedChunksInput {
 }
 
 export function buildEmbeddingInput(doc: DocumentTreeInput, chunk: HierarchicalChunk): string {
+  const contentKind = chunk.isTable
+    ? 'bảng'
+    : chunk.isProcedure
+      ? 'quy trình'
+      : chunk.isWarning
+        ? 'cảnh báo'
+        : 'nội dung hướng dẫn'
+
   return [
-    `Dòng xe: ${doc.vehicleModel || 'Tất cả'}`,
-    `Năm sản xuất: ${doc.modelYear || 'Tất cả'}`,
-    `Thị trường: ${doc.market || 'VN'}`,
+    `Dòng xe: ${doc.vehicleModel || 'Tất cả'} | Năm: ${doc.modelYear || 'Tất cả'} | Thị trường: ${doc.market || 'VN'}`,
     `Tài liệu: ${doc.title}`,
-    `Mục: ${chunk.sectionTitle}`,
+    `Vị trí: ${chunk.sectionTitle}`,
+    `Dạng: ${contentKind}`,
     `Nội dung: ${chunk.content}`,
   ].join('\n')
 }

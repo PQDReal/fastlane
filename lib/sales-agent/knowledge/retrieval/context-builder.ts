@@ -32,7 +32,7 @@ export function buildEvidenceContext(
   candidates: ExpandedCandidate[],
   options: ContextBuilderOptions = {}
 ): { items: KnowledgeEvidenceItem[]; totalTokensUsed: number } {
-  const topK = options.topK ?? 4
+  const topK = options.topK ?? 5
   const tokenBudget = options.tokenBudget ?? 2500
   const retrievalMode = options.retrievalMode ?? 'HYBRID_HIERARCHICAL'
   const dataAsOf = options.dataAsOf ?? new Date().toISOString()
@@ -92,6 +92,7 @@ export function buildEvidenceContext(
       excerpt: generateExcerpt(candidate.content),
       tokenCount: chunkTokens,
       tags: candidate.tags || [],
+      scopeMetadata: candidate.scopeMetadata,
       citationId,
       sourceNodeId: candidate.sourceNodeId || undefined,
       imageRefs: candidate.imageRefs || [],
@@ -111,6 +112,13 @@ export function buildEvidenceContext(
 
   // 3. Add supporting EXPANDED hits (parents / neighbors) if budget allows
   for (const candidate of expandedHits) {
+    // `topK` is the hard Agent-facing evidence limit. Hierarchy expansion may
+    // add useful support, but it must never turn a final top-5 retrieval into
+    // an unbounded prompt payload.
+    if (selectedItems.length >= topK) {
+      break
+    }
+
     if (seenChunkIds.has(candidate.chunkId) || seenContentHashes.has(candidate.contentHash)) {
       continue
     }
@@ -150,6 +158,7 @@ export function buildEvidenceContext(
       excerpt: generateExcerpt(candidate.content),
       tokenCount: chunkTokens,
       tags: candidate.tags || [],
+      scopeMetadata: candidate.scopeMetadata,
       citationId,
       sourceNodeId: candidate.sourceNodeId || undefined,
       imageRefs: candidate.imageRefs || [],

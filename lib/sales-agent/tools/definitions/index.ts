@@ -1,17 +1,18 @@
 import 'server-only'
 
+import { performance } from 'node:perf_hooks'
 import { browseCatalogRepository } from '../../catalog/browse'
-import { resolveCatalogEntitiesRepository } from '../../catalog/identity'
 import { getProductDetailsRepository } from '../../catalog/product-details'
 import { compareProductsRepository } from '../../catalog/comparison'
 import { getCurrentPromotionsRepository } from '../../catalog/promotions'
 import { discoverSalesAgentAccessories } from '../../catalog/accessories'
-import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { HybridHierarchicalRetrievalService } from '../../knowledge/retrieval/retrieval-service'
 import { findApprovedVisualKnowledge } from '../../knowledge/visual-retrieval-repository'
 import { isSalesAgentVisualKnowledgeRetrievalEnabled } from '../../core/flags'
 import type { KnowledgeVisualMediaPointer } from '../../knowledge/retrieval/contracts'
+import { guardUntrustedKnowledgeText } from '../../knowledge/untrusted-content'
+import { detectKnowledgeAmbiguity } from '../../knowledge/ambiguity'
 import type {
   BrowseCatalogInput,
   DataToolName,
@@ -20,9 +21,7 @@ import type {
   FactPointer,
   GetProductDetailsInput,
   GetCurrentPromotionsInput,
-  ResolveCatalogEntitiesInput,
   SearchKnowledgeInput,
-  SearchUserManualsInput,
   ToolObservationRef,
   ToolResult,
 } from '../../contracts'
@@ -39,9 +38,6 @@ export async function executeDataTool(
     switch (name) {
       case 'browse_catalog':
         return await browseCatalogRepository(args as BrowseCatalogInput, toolCallId)
-
-      case 'resolve_catalog_entities':
-        return await resolveCatalogEntitiesRepository(args as ResolveCatalogEntitiesInput, toolCallId)
 
       case 'get_product_details':
         return await getProductDetailsRepository(args as GetProductDetailsInput, toolCallId)
@@ -104,7 +100,9 @@ export async function executeDataTool(
       case 'search_knowledge': {
         const input = args as SearchKnowledgeInput
         const modelMatch = input.query.match(/\b(vf\s*\d+|vf\s*e34|vfe34)\b/i)
-        const inferredModel = modelMatch ? modelMatch[0].toUpperCase().replace(/\s+/g, ' ').replace('VFE34', 'VF e34').replace('VF E34', 'VF e34') : undefined
+        const inferredModel = input.vehicleModel || (modelMatch ? modelMatch[0].toUpperCase().replace(/\s+/g, ' ').replace('VFE34', 'VF e34').replace('VF E34', 'VF e34') : undefined)
+        const yearMatch = input.query.match(/\b(20\d{2})\b/)
+        const inferredYear = input.modelYear ?? (yearMatch ? Number(yearMatch[1]) : undefined)
 
         let retrieval: any
         try {
@@ -114,11 +112,12 @@ export async function executeDataTool(
             input.query,
             {
               vehicleModel: inferredModel,
+              modelYear: inferredYear,
               category: input.categories && input.categories.length === 1 ? input.categories[0] as any : undefined,
             },
             {
               retrievalMode: 'HYBRID_HIERARCHICAL',
-              topK: input.topK ?? 4,
+              topK: input.topK ?? 5,
             },
           )
         } catch (retrievalErr: any) {
@@ -131,8 +130,62 @@ export async function executeDataTool(
         }
 
         const searchResults = retrieval.items
+        const safeSearchResults = searchResults.map((item: any) => {
+          const title = guardUntrustedKnowledgeText(item.title)
+          const sectionTitle = guardUntrustedKnowledgeText(item.sectionTitle)
+          const content = guardUntrustedKnowledgeText(item.content)
+          return {
+            ...item,
+            title: title.text || 'Tài liệu FASTLANE',
+            sectionTitle: sectionTitle.text || 'Nội dung tham chiếu',
+            content: content.text,
+            contentSafety: title.blocked || sectionTitle.blocked || content.blocked ? 'BLOCKED' : 'SAFE',
+          }
+        })
+        const ambiguity = detectKnowledgeAmbiguity(safeSearchResults, {
+          vehicleModel: inferredModel,
+          modelYear: inferredYear,
+        })
+        if (ambiguity) {
+          const issues = [{
+            code: 'AMBIGUOUS_REFERENCE' as const,
+            message: ambiguity.question,
+            field: ambiguity.field,
+            candidates: ambiguity.candidates,
+          }]
+          return {
+            schemaVersion: '2.0',
+            toolCallId,
+            tool: 'search_knowledge',
+            readAt,
+            dataAsOf,
+            evidence: [],
+            observation: {
+              observationId: `obs-${toolCallId}`,
+              toolCallId,
+              outcome: 'NEEDS_INPUT',
+              issueCodes: ['AMBIGUOUS_REFERENCE'],
+              inputHash: JSON.stringify(input),
+              readAt,
+            },
+            issues,
+            appliedBindings: [],
+            outcome: 'NEEDS_INPUT',
+            diagnostics: {
+              retrieval: {
+                status: retrieval.status,
+                retrievalMode: retrieval.retrievalMode,
+                totalFound: retrieval.totalFound,
+                ...retrieval.telemetry,
+              },
+            },
+            data: ambiguity,
+          }
+        }
         let visualPointers: KnowledgeVisualMediaPointer[] = []
-        if (isSalesAgentVisualKnowledgeRetrievalEnabled()) {
+        const visualLookupEnabled = isSalesAgentVisualKnowledgeRetrievalEnabled()
+        const visualLookupStartedAt = performance.now()
+        if (visualLookupEnabled) {
           try {
             visualPointers = await findApprovedVisualKnowledge(
               getSupabaseAdmin(),
@@ -146,8 +199,9 @@ export async function executeDataTool(
             console.warn('[VISUAL KNOWLEDGE] Approved media lookup unavailable:', visualError?.message || visualError)
           }
         }
+        const visualLookupLatencyMs = Math.max(0, Math.round((performance.now() - visualLookupStartedAt) * 100) / 100)
 
-        const evidence: EvidenceRecord[] = searchResults.map((k: any) => {
+        const evidence: EvidenceRecord[] = safeSearchResults.map((k: any) => {
           const media = visualPointers.filter((pointer) => pointer.citationId === k.citationId)
           return {
             evidenceId: `ev-kb-${k.chunkId}-${readAt}`,
@@ -190,88 +244,34 @@ export async function executeDataTool(
           appliedBindings: [],
           outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
           completeness: 'FULL',
+          diagnostics: {
+            retrieval: {
+              status: retrieval.status,
+              retrievalMode: retrieval.retrievalMode,
+              totalFound: retrieval.totalFound,
+              ...retrieval.telemetry,
+            },
+            visualLookup: {
+              enabled: visualLookupEnabled,
+              latencyMs: visualLookupLatencyMs,
+              pointerCount: visualPointers.length,
+            },
+          },
           data: {
-            snippets: searchResults.map((r: any) => ({
+            snippets: safeSearchResults.map((r: any) => ({
               id: r.chunkId,
               documentSlug: r.documentKey,
               title: `${r.title} - ${r.sectionTitle}`,
               content: r.content,
               category: r.category ?? 'TECHNICAL_GUIDE',
               citationPointer: r.citationId,
+              contentSafety: r.contentSafety,
+              scopeMetadata: r.scopeMetadata,
               media: visualPointers.filter((pointer) => pointer.citationId === r.citationId),
             })),
           },
         }
       }
-
-      case 'search_user_manuals': {
-        // Trigger Turbopack recompile
-        const input = args as SearchUserManualsInput
-        const searchResults = await searchUserManualRepository(input.query, input.modelSeries, input.year, input.topK ?? 3)
-
-        const evidence: EvidenceRecord[] = searchResults.map((k, index) => {
-          const lastUnderscore = k.articleId.lastIndexOf('_')
-          const parsedModelId = lastUnderscore > 0 ? k.articleId.substring(0, lastUnderscore) : ''
-          const parsedArticleId = lastUnderscore > 0 ? k.articleId.substring(lastUnderscore + 1) : k.articleId
-
-          const facts = [
-            { factRef: `fact-manual-title-${k.chunkId}`, factPath: 'title', valueHash: k.articleTitle },
-            { factRef: `fact-manual-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
-            { factRef: `fact-manual-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
-            { factRef: `fact-manual-articleId-${k.chunkId}`, factPath: 'article_id', valueHash: parsedArticleId },
-            { factRef: `fact-manual-modelId-${k.chunkId}`, factPath: 'model_id', valueHash: parsedModelId },
-          ]
-          if (k.imageUrl) {
-            facts.push({ factRef: `fact-manual-image-${k.chunkId}`, factPath: 'image_url', valueHash: k.imageUrl })
-          }
-          return {
-            evidenceId: `ev-manual-${k.chunkId}-${readAt}`,
-            source: { system: 'SUPABASE', resource: 'manual_article_chunks' },
-            entity: { kind: 'KNOWLEDGE_SNIPPET', id: k.chunkId },
-            facts,
-            readAt,
-          }
-        })
-
-        const observation: ToolObservationRef = {
-          observationId: `obs-${toolCallId}`,
-          toolCallId,
-          outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
-          issueCodes: [],
-          inputHash: JSON.stringify(input),
-          readAt,
-        }
-
-        return {
-          schemaVersion: '2.0',
-          toolCallId,
-          tool: 'search_user_manuals',
-          readAt,
-          dataAsOf,
-          evidence,
-          observation,
-          issues: [],
-          appliedBindings: [],
-          outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
-          completeness: 'FULL',
-          data: {
-            snippets: searchResults.map((r) => {
-              const lastUnderscore = r.articleId.lastIndexOf('_')
-              const parsedModelId = lastUnderscore > 0 ? r.articleId.substring(0, lastUnderscore) : ''
-              const parsedArticleId = lastUnderscore > 0 ? r.articleId.substring(lastUnderscore + 1) : r.articleId
-              return {
-                id: r.chunkId,
-                articleId: parsedArticleId,
-                modelId: parsedModelId,
-                title: `${r.articleTitle} - ${r.sectionTitle}`,
-                content: r.content,
-                imageUrl: r.imageUrl,
-              }
-            }),
-          },
-        }
-      }
-
 
       default: {
         const exhaustiveCheck: never = name

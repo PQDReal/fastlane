@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { KnowledgeIndexingPipeline, persistIndexedChunks } from './indexing-pipeline'
+import { buildEmbeddingInput, KnowledgeIndexingPipeline, persistIndexedChunks } from './indexing-pipeline'
 import {
   OPENAI_EMBEDDING_DIMENSIONS,
   OPENAI_EMBEDDING_GENERATION_ID,
@@ -25,6 +25,36 @@ describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
   const pipeline = new KnowledgeIndexingPipeline({
     indexGenerationId: OPENAI_EMBEDDING_GENERATION_ID,
     embeddingProvider: testEmbeddingProvider,
+  })
+
+  it('keeps compact breadcrumb and content-kind metadata in the embedding input', () => {
+    const input = buildEmbeddingInput({
+      documentKey: 'vinfast:VF5:2025:vi-VN',
+      title: 'Sổ tay VinFast VF 5',
+      category: 'TECHNICAL_GUIDE',
+      vehicleModel: 'VF 5',
+      modelYear: 2025,
+      market: 'VN',
+      sections: [],
+    }, {
+      chunkIndex: 110,
+      chunkLevel: 3,
+      hierarchyPath: 'root/c06/s03/leaf_02',
+      sectionAnchor: 'vinfast:VF5:2025:vi-VN#node-1-p2',
+      sectionTitle: 'Lái xe > Vô lăng > Các phím chức năng (Phần 2)',
+      parentHierarchyPath: 'root/c06/s03',
+      content: '| Nhấn và giữ | Kiểm soát hành trình BẬT/TẮT |',
+      contentHash: 'hash',
+      tokenCount: 12,
+      tags: ['vf5'],
+      isWarning: false,
+      isTable: true,
+      isProcedure: false,
+    })
+
+    expect(input).toContain('Vị trí: Lái xe > Vô lăng > Các phím chức năng (Phần 2)')
+    expect(input).toContain('Dạng: bảng')
+    expect(input).toContain('Kiểm soát hành trình BẬT/TẮT')
   })
 
   it('runs complete indexing pipeline with 512-dim embeddings and smoke test', async () => {

@@ -170,6 +170,16 @@ function isHeadingLine(text: string): boolean {
   return /^#{1,6}\s+[^\n]+$/.test(text.trim())
 }
 
+function headingText(text: string): string {
+  const match = text.trim().match(/^#{1,6}\s+(.+?)\s*#*$/)
+  return match?.[1]?.trim() || ''
+}
+
+export interface SectionLeaf {
+  content: string
+  nearestHeading: string | null
+}
+
 function overlapTail(text: string, overlapTokens: number): string {
   if (!text?.trim() || overlapTokens <= 0) return ''
   const lines = text.trim().split(/\n+/)
@@ -211,12 +221,12 @@ function overlapTail(text: string, overlapTokens: number): string {
   return words.slice(-overlapWords).join(' ')
 }
 
-export function splitSectionIntoLeaves(
+export function splitSectionIntoLeavesWithContext(
   markdown: string,
   targetTokens = CHUNK_TARGET_TOKENS,
   hardMaxTokens = CHUNK_HARD_MAX_TOKENS,
   overlapTokens = CHUNK_OVERLAP_TOKENS,
-): string[] {
+): SectionLeaf[] {
   if (!(targetTokens > overlapTokens && hardMaxTokens >= targetTokens)) {
     throw new Error('Invalid hierarchical chunk size configuration')
   }
@@ -227,9 +237,10 @@ export function splitSectionIntoLeaves(
     .filter(Boolean)
     .flatMap((block) => splitOversizedBlock(block, targetTokens))
 
-  const leaves: string[] = []
+  const leaves: SectionLeaf[] = []
   let current = ''
   let previous = ''
+  let currentHeading = ''
 
   const flush = () => {
     let value = current.trim()
@@ -244,15 +255,20 @@ export function splitSectionIntoLeaves(
 
     if (!value && carryOverHeading) {
       current = carryOverHeading
+      currentHeading = headingText(carryOverHeading) || currentHeading
       return
     }
 
     if (estimateTokenCount(value) > hardMaxTokens) {
       throw new Error(`Chunk hard cap exceeded: ${estimateTokenCount(value)} > ${hardMaxTokens}`)
     }
-    leaves.push(value)
+    leaves.push({
+      content: value,
+      nearestHeading: currentHeading || null,
+    })
     previous = value
     current = carryOverHeading
+    currentHeading = headingText(carryOverHeading) || currentHeading
   }
 
   for (const block of logicalBlocks) {
@@ -265,6 +281,8 @@ export function splitSectionIntoLeaves(
     } else if (isHeading && current && estimateTokenCount(current) > targetTokens * 0.5) {
       flush()
     }
+
+    if (isHeading) currentHeading = headingText(block) || currentHeading
 
     const candidate = current ? `${current}\n\n${block}` : block
     if (current && estimateTokenCount(candidate) > targetTokens) {
@@ -291,6 +309,16 @@ export function splitSectionIntoLeaves(
   }
   flush()
   return leaves
+}
+
+export function splitSectionIntoLeaves(
+  markdown: string,
+  targetTokens = CHUNK_TARGET_TOKENS,
+  hardMaxTokens = CHUNK_HARD_MAX_TOKENS,
+  overlapTokens = CHUNK_OVERLAP_TOKENS,
+): string[] {
+  return splitSectionIntoLeavesWithContext(markdown, targetTokens, hardMaxTokens, overlapTokens)
+    .map((leaf) => leaf.content)
 }
 
 function makeChunkContentHash(content: string): string {
@@ -399,8 +427,9 @@ export function buildHierarchicalChunks(doc: DocumentTreeInput): HierarchicalChu
           extractedImages: [],
         })
 
-        const leaves = splitSectionIntoLeaves(canonical.normalizedMarkdown)
-        leaves.forEach((leafContent, index) => {
+        const leaves = splitSectionIntoLeavesWithContext(canonical.normalizedMarkdown)
+        leaves.forEach((leaf, index) => {
+          const leafContent = leaf.content
           const leafOrdinal = index + 1
           const leafPath = `${sectionPath}/leaf_${String(leafOrdinal).padStart(2, '0')}`
           const leafImages = canonical.extractedImages.filter((image) => {
@@ -409,12 +438,16 @@ export function buildHierarchicalChunks(doc: DocumentTreeInput): HierarchicalChu
             const hasUrl = leafContent.includes(image.url)
             return hasPlaceholder || hasUrl
           })
+          const headingSuffix = leaf.nearestHeading
+            && leaf.nearestHeading.toLocaleLowerCase() !== section.sectionTitle.toLocaleLowerCase()
+            ? ` > ${leaf.nearestHeading}`
+            : ''
           pushChunk({
             ...common,
             chunkLevel: 3,
             hierarchyPath: leafPath,
             sectionAnchor: `${sectionAnchor}-p${leafOrdinal}`,
-            sectionTitle: `${common.sectionTitle} (Phần ${leafOrdinal})`,
+            sectionTitle: `${common.sectionTitle}${headingSuffix} (Phần ${leafOrdinal})`,
             parentHierarchyPath: sectionPath,
             content: leafContent,
             isWarning: /CẢNH BÁO|THẬN TRỌNG|LƯU Ý/i.test(leafContent),

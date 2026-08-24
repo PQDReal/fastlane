@@ -10,6 +10,8 @@ import { resolveNavigationAction } from '../navigation/action-registry'
 import { sanitizeSalesAgentMarkdownLinks } from '../navigation/markdown-links'
 import { salesAgentProductUrl } from '../navigation/paths'
 import { validateResponsePlan } from './plan-validator'
+import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
+import { knowledgeMediaMarker, knowledgeMediaReference } from '../knowledge/media-reference'
 
 export type ComposeOptions = {
   rawPlan: unknown
@@ -27,8 +29,7 @@ function parseKnowledgeMediaPointer(value: string): KnowledgeMediaItem | null {
   try {
     const candidate = JSON.parse(value) as Record<string, unknown>
     const url = String(candidate.url || '')
-    const parsedUrl = new URL(url)
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return null
+    if (!isAllowedKnowledgeMediaUrl(url)) return null
     const required = ['assetId', 'annotationId', 'title', 'summary', 'alt', 'mimeType', 'citationId']
     if (required.some((key) => typeof candidate[key] !== 'string' || !String(candidate[key]).trim())) {
       return null
@@ -45,10 +46,89 @@ function parseKnowledgeMediaPointer(value: string): KnowledgeMediaItem | null {
       height: candidate.height == null ? null : Number(candidate.height),
       safetyCritical: candidate.safetyCritical === true,
       citationId: String(candidate.citationId),
+      diagramLabels: Array.isArray(candidate.diagramLabels)
+        ? candidate.diagramLabels.flatMap((label) => {
+            if (!label || typeof label !== 'object') return []
+            const row = label as Record<string, unknown>
+            const marker = typeof row.marker === 'string' ? row.marker.trim() : ''
+            const description = typeof row.description === 'string' ? row.description.trim() : ''
+            return marker && description ? [{ marker, description }] : []
+          }).slice(0, 30)
+        : [],
     }
   } catch {
     return null
   }
+}
+
+type ComparisonData = {
+  products: Array<{
+    productId: string
+    name: string
+    thumbnailUrl: string | null
+    url?: string
+  }>
+  rows: Array<{
+    label: string
+    values: Array<{ productId: string; value: string }>
+  }>
+}
+
+function readComparisonData(evidence: EvidenceLedger): ComparisonData | null {
+  const result = evidence.getLatestToolResult('compare_products')
+  if (!result || result.outcome !== 'SUCCESS' || !result.data || typeof result.data !== 'object') return null
+  const data = result.data as Partial<ComparisonData>
+  if (!Array.isArray(data.products) || data.products.length < 2 || !Array.isArray(data.rows)) return null
+  return data as ComparisonData
+}
+
+function markerAppears(markdown: string, marker: string) {
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?:\\(${escaped}\\)|(?:^|\\n)\\s*${escaped}[.)])`, 'u').test(markdown)
+}
+
+function diagramLegendMarkdown(item: KnowledgeMediaItem) {
+  if (!item.diagramLabels?.length) return ''
+  return [
+    `**Chú giải — ${item.title}**`,
+    ...item.diagramLabels.map((label) => `- **(${label.marker})** ${label.description}`),
+  ].join('\n')
+}
+
+function mediaIsReferenced(markdown: string, item: KnowledgeMediaItem) {
+  if (item.reference && markdown.includes(knowledgeMediaMarker(item.reference))) return true
+  if (markdown.includes(item.url)) return true
+  const filename = item.url.split(/[?#]/, 1)[0]?.split('/').pop()
+  return Boolean(filename && markdown.toLowerCase().includes(filename.toLowerCase()))
+}
+
+function compactKnowledgeMediaReferences(markdown: string, media: KnowledgeMediaItem[]) {
+  let result = markdown
+  for (const item of media) {
+    if (!item.reference) continue
+    const escapedUrl = item.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    result = result.replace(
+      new RegExp(`!\\[[^\\]]*\\]\\(${escapedUrl}\\)`, 'g'),
+      knowledgeMediaMarker(item.reference),
+    )
+  }
+
+  return result.replace(/\[media:\s*(\d+)\]/gi, (marker, rawPosition: string) => {
+    const reference = knowledgeMediaReference(Number(rawPosition))
+    return media.some((item) => item.reference === reference)
+      ? knowledgeMediaMarker(reference)
+      : ''
+  })
+}
+
+function attachReferencedDiagramLegends(markdown: string, media: KnowledgeMediaItem[]) {
+  let result = markdown
+  for (const item of media) {
+    if (!item.diagramLabels?.length) continue
+    const needsLegend = !item.diagramLabels.every((label) => markerAppears(result, label.marker))
+    if (needsLegend) result = `${result}\n\n${diagramLegendMarkdown(item)}`
+  }
+  return result
 }
 
 export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
@@ -70,10 +150,31 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   }
 
   const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
-  const finalMarkdown = sanitizeSalesAgentMarkdownLinks(
+  const seenKnowledgeMedia = new Set<string>()
+  const availableKnowledgeMedia = options.evidence.getAllFacts()
+    .filter((fact) => fact.factPath === 'mediaPointer')
+    .flatMap((fact) => {
+      const pointer = parseKnowledgeMediaPointer(fact.valueHash)
+      if (!pointer || seenKnowledgeMedia.has(pointer.assetId)) return []
+      seenKnowledgeMedia.add(pointer.assetId)
+      return [pointer]
+    })
+  const availableIndexedKnowledgeMedia = availableKnowledgeMedia.map((item, index) => ({
+    ...item,
+    reference: knowledgeMediaReference(index + 1),
+  }))
+  const sanitizedMarkdown = sanitizeSalesAgentMarkdownLinks(
     markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.',
     knownProducts,
   )
+  const compactMarkdown = compactKnowledgeMediaReferences(
+    sanitizedMarkdown,
+    availableIndexedKnowledgeMedia,
+  )
+  const knowledgeMedia = availableIndexedKnowledgeMedia
+    .filter((item) => mediaIsReferenced(compactMarkdown, item))
+    .slice(0, 3)
+  const finalMarkdown = attachReferencedDiagramLegends(compactMarkdown, knowledgeMedia)
   const lowerMarkdown = finalMarkdown.toLowerCase()
 
   // Detect Clarification / Needs Input turn (e.g. asking user which models to compare)
@@ -88,37 +189,24 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   // 2. Materialize Blocks from Ledgers and Known Entities (Intent-Gated)
   const blocks: AssistantBlock[] = []
   // Detect if this turn is a direct comparison between 2-3 specific products
-  const isComparisonTurn =
-    !isClarificationTurn &&
-    knownProducts.length >= 2 &&
-    knownProducts.length <= 3 &&
-    (lowerMarkdown.includes('so sánh') ||
-      plan.narrative.some((n) => n.kind === 'ADVICE' && n.markdown.toLowerCase().includes('so sánh')))
+  const comparisonData = readComparisonData(options.evidence)
+  const isComparisonTurn = !isClarificationTurn && Boolean(comparisonData)
 
   // Only render product blocks if NOT a clarification turn and products exist
   if (!isClarificationTurn && knownProducts.length > 0) {
     if (isComparisonTurn) {
-      // Comparison Turn: Render ONLY the side-by-side COMPARISON_TABLE to avoid duplicate images
-      const criteria = ['Giá khởi điểm', 'Dung lượng pin', 'Quãng đường', 'Công suất', 'Số chỗ ngồi']
-      const compProducts = knownProducts.map((entity) => {
-        const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
-        const factSlug = options.evidence.getFact(`fact-slug-${entity.id}`)
-        const slug = entity.slug || (factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-'))
-        const pType = entity.productType || 'CAR'
-        const factPriceVal = (entity.price != null || factPrice)
-          ? `${(entity.price ?? Number(factPrice?.valueHash)).toLocaleString('vi-VN')} VNĐ`
-          : 'Liên hệ'
-
-        return {
-          productId: entity.id,
-          name: entity.name,
-          thumbnailUrl: entity.thumbnailUrl || null,
-          url: salesAgentProductUrl(pType as any, slug),
-          values: {
-            'Giá khởi điểm': factPriceVal,
-          },
-        }
-      })
+      // Use the canonical comparison rows returned by the repository verbatim.
+      const criteria = comparisonData!.rows.map((row) => row.label)
+      const compProducts = comparisonData!.products.map((product) => ({
+        productId: product.productId,
+        name: product.name,
+        thumbnailUrl: product.thumbnailUrl,
+        url: product.url,
+        values: Object.fromEntries(comparisonData!.rows.map((row) => [
+          row.label,
+          row.values.find((value) => value.productId === product.productId)?.value || 'Chưa cập nhật',
+        ])),
+      }))
 
       blocks.push({
         kind: 'COMPARISON_TABLE',
@@ -231,20 +319,10 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  const seenKnowledgeMedia = new Set<string>()
-  const knowledgeMedia = options.evidence.getAllFacts()
-    .filter((fact) => fact.factPath === 'mediaPointer')
-    .flatMap((fact) => {
-      const pointer = parseKnowledgeMediaPointer(fact.valueHash)
-      if (!pointer || seenKnowledgeMedia.has(pointer.assetId)) return []
-      seenKnowledgeMedia.add(pointer.assetId)
-      return [pointer]
-    })
-    .slice(0, 3)
   if (knowledgeMedia.length > 0) {
     blocks.push({
       kind: 'KNOWLEDGE_MEDIA',
-      title: 'Hình minh họa từ tài liệu',
+      title: 'Hình hướng dẫn liên quan',
       items: knowledgeMedia,
     })
   }

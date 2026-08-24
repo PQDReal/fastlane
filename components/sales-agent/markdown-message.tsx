@@ -9,6 +9,9 @@ import remarkMath from 'remark-math'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShieldAlert, X, ZoomIn } from 'lucide-react'
 import type { AssistantBlock } from '@/lib/sales-agent/contracts'
+import { DiagramLegend } from './diagram-legend'
+import { isAllowedKnowledgeMediaUrl } from '@/lib/sales-agent/knowledge/media-url'
+import { knowledgeMediaReference } from '@/lib/sales-agent/knowledge/media-reference'
 
 export type KnowledgeMediaItem = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>['items'][number]
 
@@ -23,16 +26,7 @@ function safeInternalHref(href?: string, streaming = false) {
 function safeImageUrl(src?: string) {
   if (!src) return null
   const trimmed = src.trim()
-  if (
-    trimmed.startsWith('/') ||
-    trimmed.startsWith('https://om.vinfastauto.com/') ||
-    trimmed.startsWith('https://res.cloudinary.com/') ||
-    trimmed.startsWith('https://fastlane.') ||
-    trimmed.startsWith('http://localhost')
-  ) {
-    return trimmed
-  }
-  return null
+  return isAllowedKnowledgeMediaUrl(trimmed) ? trimmed : null
 }
 
 function preprocessInlineKnowledgeImages(content: string, mediaItems?: KnowledgeMediaItem[]): string {
@@ -41,6 +35,14 @@ function preprocessInlineKnowledgeImages(content: string, mediaItems?: Knowledge
 
   // Replace raw [img: itemXXXXX.png] tags with matching media URLs if available
   if (mediaItems && mediaItems.length > 0) {
+    result = result.replace(/\[media:\s*(\d+)\]/gi, (match, rawPosition: string) => {
+      const reference = knowledgeMediaReference(Number(rawPosition))
+      const matchedItem = mediaItems.find((item) => item.reference === reference)
+        || mediaItems[Number(rawPosition) - 1]
+      if (!matchedItem?.url || !isAllowedKnowledgeMediaUrl(matchedItem.url)) return match
+      return `\n\n![${matchedItem.title || matchedItem.alt || 'Hình minh họa'}](${matchedItem.url})\n\n`
+    })
+
     result = result.replace(/\[img:\s*([^\]]+)\]/gi, (match, rawName: string) => {
       const cleanName = rawName.trim().replace(/\.png$/i, '')
       const matchedItem = mediaItems.find((item) => {
@@ -182,7 +184,6 @@ function InlineImage({
           )}
         </figcaption>
       )}
-
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -226,6 +227,7 @@ function InlineImage({
                 {matchedMeta?.summary && (
                   <p className="text-sm leading-6 text-slate-700">{matchedMeta.summary}</p>
                 )}
+                <DiagramLegend labels={matchedMeta?.diagramLabels} />
                 {matchedMeta?.safetyCritical && (
                   <p className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
                     <ShieldAlert className="h-4 w-4 shrink-0" />
