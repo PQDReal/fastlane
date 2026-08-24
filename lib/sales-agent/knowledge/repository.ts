@@ -3,12 +3,6 @@ import 'server-only'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { catalogCacheEngine } from '../cache/catalog-cache'
 import { chunkMarkdownDocument } from './chunker'
-import { embed } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-})
 import type {
   KnowledgeCategory,
   KnowledgeChunk,
@@ -394,55 +388,3 @@ export async function searchKnowledgeRepository(
   return scored.slice(0, limit)
 }
 
-export type ManualSearchResult = {
-  chunkId: string
-  articleId: string
-  articleTitle: string
-  sectionTitle: string
-  content: string
-  imageUrl?: string
-  similarity: number
-}
-
-export async function searchUserManualRepository(query: string, modelSeries?: string, year?: number, limit: number = 3): Promise<ManualSearchResult[]> {
-  const cleanQuery = (query || '').trim()
-  if (!cleanQuery) return []
-
-  try {
-    // Generate embedding for the query
-    const { embedding } = await embed({
-      model: openai.embedding('text-embedding-3-small'),
-      value: cleanQuery,
-    })
-
-    const supabase = getSupabaseAdmin()
-
-    // Using match_manual_chunks RPC function (we need to create this in migration but for now we'll write the JS structure)
-    // If the RPC is not created, we can fallback or throw error.
-    const { data, error } = await supabase.rpc('match_manual_chunks', {
-      query_embedding: `[${embedding.join(',')}]`,
-      match_threshold: 0.3,
-      match_count: limit,
-      filter_model_series: modelSeries || null,
-      filter_year: year ? year.toString() : null
-    })
-
-    if (error || !data) {
-      console.warn('match_manual_chunks failed:', error)
-      return []
-    }
-
-    return data.map((row: any) => ({
-      chunkId: row.chunk_id,
-      articleId: row.article_id,
-      articleTitle: row.article_title,
-      sectionTitle: row.section_title,
-      content: row.content,
-      imageUrl: row.image_url,
-      similarity: row.similarity
-    }))
-  } catch (err) {
-    console.error('searchUserManualRepository error:', err)
-    return []
-  }
-}

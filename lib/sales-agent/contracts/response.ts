@@ -60,8 +60,6 @@ export const plannedViewItemSchema = z.object({
     'PROMOTION_CARDS',
     'ACCESSORY_CARDS',
     'INTERACTION_CHOICE',
-    'MANUAL_IMAGE',
-    'MANUAL_REFERENCE',
   ]),
   title: z.string().trim().optional(),
   dataRefs: z.array(toolDataRefSchema).min(1),
@@ -137,16 +135,6 @@ export const assistantBlockSchema = z.discriminatedUnion('kind', [
       compatibility: z.string().optional(),
       url: z.string(),
     })),
-  }),
-  z.object({
-    kind: z.literal('MANUAL_IMAGE'),
-    imageUrl: z.string(),
-    caption: z.string().optional(),
-  }),
-  z.object({
-    kind: z.literal('MANUAL_REFERENCE'),
-    modelId: z.string(),
-    articleId: z.string(),
   }),
   z.object({
     kind: z.literal('FACT_SUMMARY'),
