@@ -23,9 +23,9 @@ export interface ManualArticle {
   title: string
   slug: string
   level: number
-  content_html: string | null
-  content_text: string | null
-  thumbnail: string | null
+  content_html?: string | null
+  content_text?: string | null
+  thumbnail?: string | null
   sort_order: number
 }
 
@@ -63,7 +63,7 @@ export const getManualTree = cache(async (modelId: string): Promise<ManualArticl
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('manual_articles')
-    .select('*')
+    .select('id, original_id, model_id, parent_id, title, slug, level, sort_order')
     .eq('model_id', modelId)
     .order('sort_order', { ascending: true })
 
@@ -86,6 +86,9 @@ export const getManualArticle = cache(async (modelId: string, articleId: string)
     .single()
 
   if (error) {
+    if (error.code === 'PGRST116') {
+      return undefined // Not found, no need to spam logs
+    }
     console.error('Error fetching manual article from DB:', error)
     return undefined
   }

@@ -273,10 +273,14 @@ export function SalesAgentShell() {
   let chatY = isMounted && !isExpanded ? position.y : 0
   if (typeof window !== 'undefined' && !isExpanded && isMounted) {
     const minY = 720 - window.innerHeight
+    const maxY = window.innerHeight - 100
     if (chatY < minY) chatY = minY
+    if (chatY > maxY) chatY = maxY
     
     const minX = 460 - window.innerWidth
+    const maxX = window.innerWidth - 100
     if (chatX < minX) chatX = minX
+    if (chatX > maxX) chatX = maxX
   }
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
@@ -595,6 +599,7 @@ export function SalesAgentShell() {
             const vm = payload.viewModel as TurnViewModel
             setMessages((items) => items.map((item) => item.id === assistantId ? {
               ...item,
+              content: vm.answer.markdown,
               blocks: vm.blocks,
               actions: vm.actions,
               suggestions: vm.suggestions,
@@ -625,6 +630,7 @@ export function SalesAgentShell() {
             const vm = payload.viewModel as TurnViewModel
             setMessages((items) => items.map((item) => item.id === assistantId ? {
               ...item,
+              content: vm.answer.markdown,
               blocks: vm.blocks,
               actions: vm.actions,
               suggestions: vm.suggestions,

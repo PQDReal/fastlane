@@ -196,14 +196,19 @@ export async function executeDataTool(
           outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
           completeness: 'FULL',
           data: {
-            snippets: searchResults.map((r) => ({
-              id: r.chunkId,
-              articleId: r.articleId,
-              modelId: `${input.modelSeries}_${input.year}`,
-              title: `${r.articleTitle} - ${r.sectionTitle}`,
-              content: r.content,
-              imageUrl: r.imageUrl,
-            })),
+            snippets: searchResults.map((r) => {
+              const lastUnderscore = r.articleId.lastIndexOf('_')
+              const parsedModelId = lastUnderscore > 0 ? r.articleId.substring(0, lastUnderscore) : ''
+              const parsedArticleId = lastUnderscore > 0 ? r.articleId.substring(lastUnderscore + 1) : r.articleId
+              return {
+                id: r.chunkId,
+                articleId: parsedArticleId,
+                modelId: parsedModelId,
+                title: `${r.articleTitle} - ${r.sectionTitle}`,
+                content: r.content,
+                imageUrl: r.imageUrl,
+              }
+            }),
           },
         }
       }
