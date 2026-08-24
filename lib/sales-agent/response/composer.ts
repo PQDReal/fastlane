@@ -192,7 +192,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const suggestions: SalesAgentSuggestion[] = plan.suggestionIntents.map((sug, idx) => ({
     suggestionId: `sug-${idx + 1}-${options.turnId}`,
     label: sug.text,
-    payload: sug.text,
+    payload: sug.payload || sug.text,
   }))
 
   // Smart contextual ambient suggestions
