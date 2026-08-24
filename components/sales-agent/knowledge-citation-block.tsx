@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { AssistantBlock } from '@/lib/sales-agent/contracts'
 
 type KnowledgeCitationBlockProps = Extract<AssistantBlock, { kind: 'FACT_SUMMARY' }>
@@ -17,7 +18,14 @@ export function KnowledgeCitationBlock({ facts }: KnowledgeCitationBlockProps) {
             data-citation-id={fact.citationId}
             className="leading-relaxed text-slate-600"
           >
-            {fact.value}
+            {fact.href ? (
+              <Link
+                href={fact.href}
+                className="block rounded-md px-1 py-0.5 text-brand-700 transition hover:bg-white hover:text-brand-800 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                {fact.value}
+              </Link>
+            ) : fact.value}
           </li>
         ))}
       </ul>

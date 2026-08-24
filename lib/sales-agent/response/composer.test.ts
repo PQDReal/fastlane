@@ -265,6 +265,7 @@ describe('Canonical Response Composer', () => {
   it('uses verified RAG scope for product navigation and contextual suggestions', () => {
     const evidence = new EvidenceLedger()
     const readAt = new Date().toISOString()
+    const chunkId = '951985cc-7f87-4d8e-97ce-f6ecda1a15c0'
     evidence.recordToolResult('call-vf5-guide', {
       schemaVersion: '2.0',
       toolCallId: 'call-vf5-guide',
@@ -274,10 +275,11 @@ describe('Canonical Response Composer', () => {
       evidence: [{
         evidenceId: 'ev-vf5-guide',
         source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
-        entity: { kind: 'KNOWLEDGE_SNIPPET', id: 'chunk-vf5-guide' },
+        entity: { kind: 'KNOWLEDGE_SNIPPET', id: chunkId },
         facts: [
-          { factRef: 'fact-kb-title-vf5', factPath: 'title', valueHash: 'Hướng dẫn VF 5' },
-          { factRef: 'fact-kb-section-vf5', factPath: 'section', valueHash: 'Sử dụng xe' },
+          { factRef: `fact-kb-title-${chunkId}`, factPath: 'title', valueHash: 'Hướng dẫn VF 5' },
+          { factRef: `fact-kb-section-${chunkId}`, factPath: 'section', valueHash: 'Sử dụng xe' },
+          { factRef: `fact-kb-citation-${chunkId}`, factPath: 'citationId', valueHash: 'cite:vinfast:vf-5:2024:vi-VN:v1:su_dung_xe' },
         ],
         readAt,
       }],
@@ -322,6 +324,9 @@ describe('Canonical Response Composer', () => {
     })
 
     expect(response.answer.markdown).toContain('[VinFast VF 5](/cars/vf-5)')
+    expect(response.answer.markdown).toContain(
+      `[Hướng dẫn sử dụng VF 5 đời 2024](/knowledge/source/${chunkId})`,
+    )
     expect(response.answer.markdown).toContain('[Dịch vụ hậu mãi](/after-sales)')
     expect(response.answer.markdown).not.toContain('localhost:3000')
     expect(response.answer.markdown).not.toContain('/user-manual')
@@ -330,6 +335,9 @@ describe('Canonical Response Composer', () => {
       'Dự toán trả góp VinFast VF 5 Plus',
       'Đặt lịch lái thử VinFast VF 5 Plus',
     ])
+    const citationBlock = response.blocks.find((block) => block.kind === 'FACT_SUMMARY')
+    expect(citationBlock?.kind === 'FACT_SUMMARY' ? citationBlock.facts[0].href : null)
+      .toBe(`/knowledge/source/${chunkId}`)
   })
 
   it('surfaces a canonical warning when general retrieval ran without a scope catalog', () => {

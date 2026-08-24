@@ -39,11 +39,29 @@ describe('knowledge scope context', () => {
     })
   })
 
-  it('canonicalizes catalog aliases without turning one product name into two models', () => {
+  it('maps the commercial VF 5 Plus name to the VF 5 technical scope', () => {
     const scope = buildKnowledgeScopeContext('Thông số VF 5 Plus', [])
 
-    expect(scope.binding?.vehicleModel).toBe('VF 5 Plus')
-    expect(scope.candidateModels).toEqual(['VF 5 Plus'])
+    expect(scope.binding?.vehicleModel).toBe('VF 5')
+    expect(scope.candidateModels).toEqual(['VF 5'])
+  })
+
+  it('recognizes the base VF 5 alias even when a seeded product contains the Plus suffix', () => {
+    const scope = buildKnowledgeScopeContext('Hướng dẫn sạc VinFast VF 5', [])
+
+    expect(scope.binding).toMatchObject({
+      vehicleModel: 'VF 5',
+      sources: { vehicleModel: 'CURRENT_USER' },
+    })
+    expect(scope.candidateModels).toEqual(['VF 5'])
+  })
+
+  it('keeps the dedicated VF 8 MY26 knowledge scope distinct from base VF 8', () => {
+    const baseScope = buildKnowledgeScopeContext('Hướng dẫn sạc VF8', [])
+    const my26Scope = buildKnowledgeScopeContext('Hướng dẫn sạc VF 8 MY26', [])
+
+    expect(baseScope.binding?.vehicleModel).toBe('VF 8')
+    expect(my26Scope.binding?.vehicleModel).toBe('VF 8 - MY26')
   })
 
   it('leaves neutral how-to queries unbound with empty history', () => {

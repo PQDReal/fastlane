@@ -142,6 +142,7 @@ export const assistantBlockSchema = z.discriminatedUnion('kind', [
       label: z.string(),
       value: z.string(),
       citationId: z.string().trim().min(1).optional(),
+      href: z.string().trim().regex(/^\/knowledge\/source\/[0-9a-f-]{36}$/i).optional(),
     })),
   }),
   z.object({

@@ -8,7 +8,7 @@ import type { EvidenceLedger } from '../orchestrator/ledgers/evidence'
 import type { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
 import { resolveNavigationAction } from '../navigation/action-registry'
 import { sanitizeSalesAgentMarkdownLinks } from '../navigation/markdown-links'
-import { salesAgentProductUrl } from '../navigation/paths'
+import { salesAgentKnowledgeSourceUrl, salesAgentProductUrl } from '../navigation/paths'
 import { validateResponsePlan } from './plan-validator'
 import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
 import { knowledgeMediaMarker, knowledgeMediaReference } from '../knowledge/media-reference'
@@ -128,6 +128,7 @@ function appendKnowledgeNavigation(
   markdown: string,
   hasKnowledgeEvidence: boolean,
   scopedProduct: SuggestionProduct | undefined,
+  knowledgeSource: { href: string; label: string } | null,
 ) {
   if (!hasKnowledgeEvidence) return markdown
 
@@ -135,6 +136,9 @@ function appendKnowledgeNavigation(
   if (scopedProduct?.slug && scopedProduct.productType) {
     const href = salesAgentProductUrl(scopedProduct.productType as 'CAR' | 'BIKE' | 'ACCESSORY', scopedProduct.slug)
     if (!markdown.includes(href)) links.push(`[${scopedProduct.name}](${href})`)
+  }
+  if (knowledgeSource && !markdown.includes(knowledgeSource.href)) {
+    links.push(`[${knowledgeSource.label}](${knowledgeSource.href})`)
   }
   if (!markdown.includes('/after-sales')) links.push('[Dịch vụ hậu mãi](/after-sales)')
 
@@ -207,8 +211,26 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     scopeDiagnostics?.vehicleModel,
     catalogSuggestionProducts,
   )
+  const knowledgeEvidence = options.evidence.getAllEvidence()
+    .filter((record) => record.entity.kind === 'KNOWLEDGE_SNIPPET')
   const hasKnowledgeEvidence = latestKnowledgeResult?.outcome === 'SUCCESS'
-    && options.evidence.getAllEvidence().some((record) => record.entity.kind === 'KNOWLEDGE_SNIPPET')
+    && knowledgeEvidence.length > 0
+  const primaryKnowledgeEvidence = knowledgeEvidence[0]
+  const primaryKnowledgeHref = primaryKnowledgeEvidence
+    ? salesAgentKnowledgeSourceUrl(primaryKnowledgeEvidence.entity.id)
+    : null
+  const effectiveModelYear = scopeDiagnostics?.modelYear ?? scopeDiagnostics?.defaultedModelYear
+  const primaryKnowledgeTitle = primaryKnowledgeEvidence
+    ? options.evidence.getFact(`fact-kb-title-${primaryKnowledgeEvidence.entity.id}`)?.valueHash
+    : undefined
+  const primaryKnowledgeSource = primaryKnowledgeHref
+    ? {
+        href: primaryKnowledgeHref,
+        label: scopeDiagnostics?.vehicleModel
+          ? `Hướng dẫn sử dụng ${scopeDiagnostics.vehicleModel}${effectiveModelYear ? ` đời ${effectiveModelYear}` : ''}`
+          : primaryKnowledgeTitle || 'Tài liệu hướng dẫn đã tham chiếu',
+      }
+    : null
   const isClarificationTurn =
     plan.outcome === 'NEEDS_INPUT' ||
     options.evidence.getAllObservations().some((observation) => observation.outcome === 'NEEDS_INPUT')
@@ -243,6 +265,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     ),
     hasKnowledgeEvidence && !isClarificationTurn,
     scopedCatalogProduct,
+    primaryKnowledgeSource,
   )
   const compactMarkdown = compactKnowledgeMediaReferences(
     sanitizedMarkdown,
@@ -340,14 +363,15 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   }
 
   // Materialize Knowledge Citation references if available (A19-KR-408)
-  const knowledgeEvidence = options.evidence.getAllEvidence().filter((e) => e.entity.kind === 'KNOWLEDGE_SNIPPET')
   if (knowledgeEvidence.length > 0) {
     const citationFacts = knowledgeEvidence.slice(0, 3).map((e, idx) => {
       const titleFact = options.evidence.getFact(`fact-kb-title-${e.entity.id}`)?.valueHash || 'Tài liệu hướng dẫn'
       const secFact = options.evidence.getFact(`fact-kb-section-${e.entity.id}`)?.valueHash || 'Chi tiết'
       const citationId = options.evidence.getFact(`fact-kb-citation-${e.entity.id}`)?.valueHash
+      const sourceHref = salesAgentKnowledgeSourceUrl(e.entity.id)
       return {
         ...(citationId ? { citationId } : {}),
+        ...(sourceHref ? { href: sourceHref } : {}),
         label: `Nguồn tham chiếu [${idx + 1}]`,
         value: `${titleFact} — ${secFact}`,
       }

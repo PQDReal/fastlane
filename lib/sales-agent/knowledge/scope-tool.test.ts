@@ -31,12 +31,45 @@ vi.mock('../core/flags', () => ({
 }))
 
 import { executeDataTool } from '../tools/definitions'
+import { buildKnowledgeScopeContext } from './scope-context'
 
 describe('search_knowledge server scope enforcement', () => {
   beforeEach(() => {
     retrieveMock.mockClear()
     scopeCatalogMock.status = 'EMPTY'
     scopeCatalogMock.entries = []
+  })
+
+  it('prefills VF 5 from the user query and asks only for the document year', async () => {
+    scopeCatalogMock.status = 'READY'
+    scopeCatalogMock.entries = [2023, 2024, 2025, 2026].map((year) => ({
+      documentId: `vf5-${year}`,
+      documentKey: `vf5-${year}`,
+      vehicleModel: 'VF 5',
+      modelYearFrom: year,
+      modelYearTo: year,
+      versionId: `v5-${year}`,
+      versionNo: 1,
+    }))
+    const scope = buildKnowledgeScopeContext('Hướng dẫn sạc VinFast VF 5')
+
+    const result = await executeDataTool('search_knowledge', {
+      query: 'Hướng dẫn sạc VinFast VF 5',
+      categories: ['TECHNICAL_GUIDE'],
+    }, 'call-vf5-prefilled-scope', {
+      knowledgeScope: scope.binding,
+    })
+
+    expect(scope.binding?.vehicleModel).toBe('VF 5')
+    expect(result.outcome).toBe('NEEDS_INPUT')
+    if (result.outcome === 'NEEDS_INPUT') {
+      expect(result.data.field).toBe('modelYear')
+      expect(result.data.fields[0].options).toEqual([
+        expect.objectContaining({ label: 'VF 5', value: 'VF 5' }),
+      ])
+      expect(result.data.fields[1].options.map((option: any) => option.value))
+        .toEqual(['2023', '2024', '2025', '2026'])
+    }
   })
 
   it('asks for the vehicle line before unscoped retrieval when active knowledge spans lines', async () => {

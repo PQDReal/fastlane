@@ -2,6 +2,7 @@ import 'server-only'
 
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import { catalogCacheEngine } from '../cache/catalog-cache'
+import { knowledgeScopeCatalogEngine } from './scope-catalog'
 
 export type KnowledgeScopeSource = 'CURRENT_USER' | 'USER_HISTORY' | 'SIGNED_INTERACTION' | 'CATALOG'
 
@@ -37,50 +38,100 @@ type VehicleAliasEntry = {
 }
 
 function getKnownVehicleAliases(): VehicleAliasEntry[] {
-  const snapshot = catalogCacheEngine.getSnapshot()
-  const entries: VehicleAliasEntry[] = []
-  const seen = new Set<string>()
+  const productSnapshot = catalogCacheEngine.getSnapshot()
+  const knowledgeSnapshot = knowledgeScopeCatalogEngine.getSnapshot()
+  const aliasesByNormalizedValue = new Map<string, VehicleAliasEntry>()
+  const knowledgeModels = [...new Set(
+    knowledgeSnapshot.entries.flatMap((entry) => entry.vehicleModel ? [entry.vehicleModel.trim()] : []),
+  )]
+  const knowledgeModelByNormalizedName = new Map(
+    knowledgeModels.map((model) => [normalizeProductSearchText(model), model]),
+  )
+  const baseKnowledgeModelByVfCode = new Map<string, string>()
 
-  for (const product of snapshot.products) {
-    if (product.productType === 'ACCESSORY') continue
-    const cleanName = product.name.replace(/^vinfast\s+/iu, '').trim() || product.name.trim()
-    const canonical = cleanName
-    const normalizedClean = normalizeProductSearchText(cleanName)
-    const aliases = new Set<string>()
+  for (const model of knowledgeModels) {
+    const normalizedModel = normalizeProductSearchText(model)
+    const baseMatch = normalizedModel.match(/^vf\s*(e34|\d+)$/i)
+    if (baseMatch) {
+      const code = baseMatch[1].toLowerCase() === 'e34' ? 'e34' : baseMatch[1]
+      baseKnowledgeModelByVfCode.set(code, model)
+    }
+  }
 
-    aliases.add(normalizedClean)
-    aliases.add(normalizeProductSearchText(product.name))
-    if (product.slug) aliases.add(normalizeProductSearchText(product.slug))
+  const registerAlias = (canonical: string, alias: string) => {
+    const normalizedAlias = normalizeProductSearchText(alias)
+    if (normalizedAlias.length < 2 || aliasesByNormalizedValue.has(normalizedAlias)) return
+    aliasesByNormalizedValue.set(normalizedAlias, { canonical, alias, normalizedAlias })
+  }
 
-    const vfMatch = normalizedClean.match(/^vf\s*(e34|\d+)(.*)$/i)
-    if (vfMatch) {
-      const num = vfMatch[1].toLowerCase() === 'e34' ? 'e34' : vfMatch[1]
-      const rest = vfMatch[2] ? ` ${vfMatch[2].trim()}` : ''
-      aliases.add(`vf ${num}${rest}`.trim())
-      aliases.add(`vf${num}${rest}`.trim())
-      if (num === 'e34') {
-        aliases.add(`vf 34${rest}`.trim())
-        aliases.add(`vf34${rest}`.trim())
-      }
+  const registerVfAliases = (
+    canonical: string,
+    normalizedName: string,
+    includeBaseAliases: boolean,
+  ) => {
+    const vfMatch = normalizedName.match(/^vf\s*(e34|\d+)(.*)$/i)
+    if (!vfMatch) return
+
+    const code = vfMatch[1].toLowerCase() === 'e34' ? 'e34' : vfMatch[1]
+    const rest = vfMatch[2] ? ` ${vfMatch[2].trim()}` : ''
+    registerAlias(canonical, `vf ${code}${rest}`.trim())
+    registerAlias(canonical, `vf${code}${rest}`.trim())
+    registerAlias(canonical, `vinfast vf ${code}${rest}`.trim())
+    registerAlias(canonical, `vinfast vf${code}${rest}`.trim())
+
+    if (includeBaseAliases) {
+      registerAlias(canonical, `vf ${code}`)
+      registerAlias(canonical, `vf${code}`)
+      registerAlias(canonical, `vinfast vf ${code}`)
+      registerAlias(canonical, `vinfast vf${code}`)
     }
 
-    const suffixMatch = normalizedClean.match(/^([a-z0-9]+)\s+s$/i)
-    if (suffixMatch && suffixMatch[1].length >= 3) {
-      aliases.add(suffixMatch[1])
-    }
-
-    for (const alias of aliases) {
-      const normalizedAlias = normalizeProductSearchText(alias)
-      const key = `${canonical}:${normalizedAlias}`
-      if (normalizedAlias.length >= 2 && !seen.has(key)) {
-        seen.add(key)
-        entries.push({ canonical, alias, normalizedAlias })
+    if (code === 'e34') {
+      registerAlias(canonical, `vf 34${rest}`.trim())
+      registerAlias(canonical, `vf34${rest}`.trim())
+      if (includeBaseAliases) {
+        registerAlias(canonical, 'vf 34')
+        registerAlias(canonical, 'vf34')
       }
     }
   }
 
+  // The knowledge catalog is authoritative for technical scope. In particular,
+  // manuals are indexed under "VF 5" even when the commercial catalog exposes
+  // a "VF 5 Plus" product or variant.
+  for (const model of knowledgeModels) {
+    const normalizedModel = normalizeProductSearchText(model)
+    registerAlias(model, normalizedModel)
+    registerAlias(model, `vinfast ${normalizedModel}`)
+    registerVfAliases(model, normalizedModel, baseKnowledgeModelByVfCode.has(
+      normalizedModel.match(/^vf\s*(e34|\d+)$/i)?.[1]?.toLowerCase() || '',
+    ))
+  }
+
+  for (const product of productSnapshot.products) {
+    if (product.productType === 'ACCESSORY') continue
+    const cleanName = product.name.replace(/^vinfast\s+/iu, '').trim() || product.name.trim()
+    const normalizedClean = normalizeProductSearchText(cleanName)
+    const vfMatch = normalizedClean.match(/^vf\s*(e34|\d+)(.*)$/i)
+    const vfCode = vfMatch?.[1]?.toLowerCase()
+    const canonical = knowledgeModelByNormalizedName.get(normalizedClean)
+      ?? (vfCode ? baseKnowledgeModelByVfCode.get(vfCode) : undefined)
+      ?? cleanName
+
+    registerAlias(canonical, normalizedClean)
+    registerAlias(canonical, product.name)
+    if (product.slug) registerAlias(canonical, product.slug)
+    registerVfAliases(canonical, normalizedClean, Boolean(vfCode && baseKnowledgeModelByVfCode.has(vfCode)))
+
+    const suffixMatch = normalizedClean.match(/^([a-z0-9]+)\s+s$/i)
+    if (suffixMatch && suffixMatch[1].length >= 3) {
+      registerAlias(canonical, suffixMatch[1])
+    }
+  }
+
   // Sort by alias length descending so longer aliases match first (e.g. "VF 5 Plus" before "VF 5")
-  return entries.sort((a, b) => b.normalizedAlias.length - a.normalizedAlias.length)
+  return [...aliasesByNormalizedValue.values()]
+    .sort((a, b) => b.normalizedAlias.length - a.normalizedAlias.length)
 }
 
 function extractModels(text: string): string[] {
