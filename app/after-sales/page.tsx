@@ -23,7 +23,7 @@ export default async function AfterSalesPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[#f8fafc]">
       <Header />
-      <main className="flex-1">
+      <main className="flex-1 pt-[74px]">
         <AfterSalesClient initialData={afterSalesData} manualModels={manualModels} />
       </main>
       <Footer />
