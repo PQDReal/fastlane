@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const baseUrlArg = process.argv.find((arg) => arg.startsWith('--base-url='))
 const baseUrl = baseUrlArg?.slice('--base-url='.length).replace(/\/$/, '')
+const caseArg = process.argv.find((arg) => arg.startsWith('--case='))
+const caseId = caseArg?.slice('--case='.length)
 const probeManual = process.argv.includes('--probe-manual')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -120,8 +122,12 @@ if (probeManual) {
   }
 }
 
+const selectedLiveCases = fixture.filter((item) => item.query && (!caseId || item.id === caseId))
+if (caseId && selectedLiveCases.length === 0) {
+  throw new Error(`Không tìm thấy audit case: ${caseId}`)
+}
 const liveCases = baseUrl
-  ? await Promise.all(fixture.filter((item) => item.query).map(runLiveCase))
+  ? await Promise.all(selectedLiveCases.map(runLiveCase))
   : []
 
 process.stdout.write(`${JSON.stringify({
