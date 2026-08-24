@@ -46,9 +46,9 @@ const KNOWLEDGE_PROMPT_LINES = [
   '## TÀI LIỆU, SƠ ĐỒ VÀ HÌNH CÓ KÝ HIỆU',
   '- Với câu hỏi kỹ thuật, cẩm nang, cứu hộ, sơ đồ vị trí hoặc khi catalog thiếu dữ liệu, dùng `search_knowledge` một lần với truy vấn cụ thể.',
   '- `vehicleModel` và `modelYear` trong lời gọi `search_knowledge` chỉ là gợi ý; server chỉ áp dụng binding đã xác minh từ lời người dùng. Không tự điền mẫu xe/năm từ câu trả lời trước, catalog snapshot hoặc suy đoán. Nếu kết quả trả `NEEDS_INPUT`, hỏi nguyên văn một câu làm rõ ngắn gọn và không trộn nội dung giữa các biến thể.',
-  '- Khi thực sự dùng một ảnh có ký hiệu số/chữ như (1), (2), (3), đọc `media[].summary` và `media[].diagramLabels` của chính ảnh đó; đặt ảnh ngay cạnh chú giải.',
-  '- Liệt kê đầy đủ ký hiệu được nguồn giải nghĩa, đúng thứ tự, theo dạng “(số) Tên bộ phận — vị trí/mô tả trong tài liệu”. Không trộn chú giải giữa nhiều ảnh.',
-  '- Chỉ nêu tên, chức năng và vị trí có trong summary hoặc đoạn tài liệu cùng citationId. Nếu nguồn thiếu ký hiệu, nói “Tài liệu hiện chưa có chú giải cho ký hiệu …”; không tự điền.',
+  '- Khi thực sự dùng một ảnh có ký hiệu số/chữ như (1), (2), (3), đọc `media[].visualDescription`, `media[].diagramLabels` và `media[].usageHint` của chính ảnh đó để hiểu ngữ cảnh; tự sắp xếp cách diễn đạt tự nhiên theo câu hỏi.',
+  '- Chỉ chèn marker nguyên văn trong `media[].reference` cạnh phần giải thích liên quan. Chỉ nhắc marker cần thiết, diễn giải ngắn gọn theo `diagramLabels`, không chép lại toàn bộ mô tả ảnh và không tạo phần “Chú giải” riêng nếu câu trả lời không cần.',
+  '- Chỉ nêu tên, chức năng và vị trí có trong `media[].visualDescription`, `media[].diagramLabels` hoặc đoạn tài liệu cùng citationId. Nếu nguồn thiếu ký hiệu, nói “Tài liệu hiện chưa có chú giải cho ký hiệu …”; không tự điền.',
   '- Nếu `safetyCritical=true`, thêm một lưu ý ngắn yêu cầu đối chiếu đúng mẫu xe và phiên bản tài liệu.',
 ]
 
@@ -63,11 +63,11 @@ function buildPrompt(knowledgeEnabled: boolean, catalogContext = '') {
 export const FINALIZATION_PHASE_INSTRUCTION = [
   'Giai đoạn tra cứu đã kết thúc. Không gọi thêm công cụ.',
   'Hãy trả lời ngay bằng tiếng Việt, chỉ dựa trên bằng chứng đã thu thập trong lượt này.',
-  'Giữ các fact bắt buộc, chú giải hình ảnh và giới hạn dữ liệu. Nếu thiếu bằng chứng, nêu chính xác phần còn thiếu; không suy đoán.',
+  'Giữ các fact bắt buộc, marker hình ảnh chỉ khi đã dùng trong câu trả lời và giới hạn dữ liệu. Nếu thiếu bằng chứng, nêu chính xác phần còn thiếu; không suy đoán.',
 ].join('\n')
 
 export const SALES_AGENT_PROMPT_MANIFEST = {
-  version: '3.0.0',
+  version: '3.1.0',
   systemPrompt: buildPrompt(true),
 }
 

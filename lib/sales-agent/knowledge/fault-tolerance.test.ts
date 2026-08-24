@@ -135,6 +135,77 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
     expect(res.items[0].documentKey).toBe('vinfast:VF8:2025:vi-VN')
   })
 
+  it('returns bounded FTS results when the vector branch times out', async () => {
+    let vectorAborted = false
+    const slowEmbeddingProvider: EmbeddingProvider = {
+      async generateEmbeddings(_texts, options = {}) {
+        return await new Promise<never>((_resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('slow vector provider')), 250)
+          const abort = () => {
+            vectorAborted = true
+            clearTimeout(timer)
+            reject(new Error('aborted'))
+          }
+          if (options.signal?.aborted) abort()
+          else options.signal?.addEventListener('abort', abort, { once: true })
+        })
+      },
+    }
+    const service = new HybridHierarchicalRetrievalService({
+      embeddingProvider: slowEmbeddingProvider,
+    })
+    const startedAt = Date.now()
+    const res = await service.retrieve(
+      'bảo dưỡng pin VF 8',
+      {},
+      { retrievalMode: 'HYBRID_HIERARCHICAL', vectorTimeoutMs: 25 },
+      sampleCorpus,
+    )
+
+    expect(Date.now() - startedAt).toBeLessThan(180)
+    expect(vectorAborted).toBe(true)
+    expect(res.status).toBe('DEGRADED_FTS')
+    expect(res.items.length).toBeGreaterThan(0)
+    expect(res.telemetry.degradedReason).toContain('Vector embedding request')
+    expect(res.telemetry.embeddingLatencyMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('reports the exact vector timeout stage when FTS is empty', async () => {
+    const slowEmbeddingProvider: EmbeddingProvider = {
+      async generateEmbeddings(_texts, options = {}) {
+        return await new Promise<never>((_resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('slow vector provider')), 250)
+          const abort = () => {
+            clearTimeout(timer)
+            reject(new Error('aborted'))
+          }
+          if (options.signal?.aborted) abort()
+          else options.signal?.addEventListener('abort', abort, { once: true })
+        })
+      },
+    }
+    const service = new HybridHierarchicalRetrievalService({
+      embeddingProvider: slowEmbeddingProvider,
+    })
+
+    await expect(
+      service.retrieve(
+        'query-without-a-lexical-match',
+        {},
+        { retrievalMode: 'HYBRID_HIERARCHICAL', vectorTimeoutMs: 25 },
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('Vector embedding request timed out after 25ms'),
+      details: {
+        stage: 'EMBEDDING',
+        reason: 'TIMEOUT',
+        timeoutMs: 25,
+        ftsStatus: 'EMPTY',
+        ftsCandidateCount: 0,
+      },
+    })
+  })
+
   it('returns NO_MATCH when no candidates match in FTS mode and never hallucinates fake data', async () => {
     const service = new HybridHierarchicalRetrievalService()
 
@@ -163,6 +234,16 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
         { retrievalMode: 'HYBRID_HIERARCHICAL' },
         sampleCorpus
       )
-    ).rejects.toThrow(KnowledgeStorageUnavailableError)
+    ).rejects.toMatchObject({
+      name: 'KnowledgeStorageUnavailableError',
+      details: {
+        phase: 'CANDIDATE_SEARCH',
+        stage: 'EMBEDDING',
+        reason: 'ERROR',
+        ftsStatus: 'EMPTY',
+        ftsCandidateCount: 0,
+        vectorStatus: 'ERROR',
+      },
+    })
   })
 })

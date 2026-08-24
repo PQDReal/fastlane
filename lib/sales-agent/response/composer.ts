@@ -13,6 +13,7 @@ import { validateResponsePlan } from './plan-validator'
 import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
 import { knowledgeMediaMarker, knowledgeMediaReference } from '../knowledge/media-reference'
 import { buildSuggestionCandidates, rankSuggestionCandidates, type SuggestionProduct } from '../suggestions/candidates'
+import type { SalesAgentInteraction } from '../contracts/interaction'
 
 export type ComposeOptions = {
   rawPlan: unknown
@@ -28,6 +29,8 @@ export type ComposeOptions = {
   catalogProducts?: SuggestionProduct[]
   catalogStatus?: 'SYNCED' | 'INDEX_ONLY' | 'UNAVAILABLE'
   catalogVersion?: number
+  /** A server-materialized interaction, normally backed by a signed scope token. */
+  interaction?: SalesAgentInteraction
 }
 
 type KnowledgeMediaItem = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>['items'][number]
@@ -89,19 +92,6 @@ function readComparisonData(evidence: EvidenceLedger): ComparisonData | null {
   return data as ComparisonData
 }
 
-function markerAppears(markdown: string, marker: string) {
-  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(?:\\(${escaped}\\)|(?:^|\\n)\\s*${escaped}[.)])`, 'u').test(markdown)
-}
-
-function diagramLegendMarkdown(item: KnowledgeMediaItem) {
-  if (!item.diagramLabels?.length) return ''
-  return [
-    `**Chú giải — ${item.title}**`,
-    ...item.diagramLabels.map((label) => `- **(${label.marker})** ${label.description}`),
-  ].join('\n')
-}
-
 function mediaIsReferenced(markdown: string, item: KnowledgeMediaItem) {
   if (item.reference && markdown.includes(knowledgeMediaMarker(item.reference))) return true
   if (markdown.includes(item.url)) return true
@@ -128,22 +118,31 @@ function compactKnowledgeMediaReferences(markdown: string, media: KnowledgeMedia
   })
 }
 
-function attachReferencedDiagramLegends(markdown: string, media: KnowledgeMediaItem[]) {
-  let result = markdown
-  for (const item of media) {
-    if (!item.diagramLabels?.length) continue
-    const needsLegend = !item.diagramLabels.every((label) => markerAppears(result, label.marker))
-    if (needsLegend) result = `${result}\n\n${diagramLegendMarkdown(item)}`
-  }
-  return result
-}
-
 export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
-  const { plan, warnings } = validateResponsePlan(
+  const { plan, warnings: planWarnings } = validateResponsePlan(
     options.rawPlan,
     options.evidence,
     options.knownEntities,
   )
+  const warnings = [...planWarnings]
+
+  // A catalog outage must be visible even when bounded general retrieval
+  // still returns useful evidence. The model-facing prompt intentionally does
+  // not receive backend diagnostics, so surface this as a canonical grounding
+  // warning instead of relying on the model to remember the limitation.
+  const latestKnowledgeResult = options.evidence.getLatestToolResult('search_knowledge')
+  const retrievalDiagnostics = latestKnowledgeResult?.diagnostics?.retrieval
+  const scopeDiagnostics = latestKnowledgeResult?.diagnostics?.scope
+  const scopeCatalogStatus = scopeDiagnostics?.catalogStatus
+    ?? (typeof retrievalDiagnostics?.scopePreflightStatus === 'string'
+      ? retrievalDiagnostics.scopePreflightStatus
+      : undefined)
+  if (scopeCatalogStatus === 'UNAVAILABLE' || scopeCatalogStatus === 'EMPTY') {
+    warnings.push({
+      code: scopeCatalogStatus === 'UNAVAILABLE' ? 'SCOPE_CATALOG_UNAVAILABLE' : 'SCOPE_CATALOG_EMPTY',
+      message: 'Danh mục phạm vi tài liệu hiện chưa đầy đủ; kết quả chung chỉ mang tính tham khảo và không xác nhận một mẫu xe cụ thể.',
+    })
+  }
 
   // 1. Compose Narrative Markdown
   const markdownParts: string[] = []
@@ -184,7 +183,10 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const knowledgeMedia = availableIndexedKnowledgeMedia
     .filter((item) => mediaIsReferenced(compactMarkdown, item))
     .slice(0, 3)
-  const finalMarkdown = attachReferencedDiagramLegends(compactMarkdown, knowledgeMedia)
+  // The Agent owns placement and wording of visual guidance. The server only
+  // materializes verified media metadata and must not append a generic legend
+  // copied from the annotation summary.
+  const finalMarkdown = compactMarkdown
   const lowerMarkdown = finalMarkdown.toLowerCase()
 
   // Detect Clarification / Needs Input turn strictly from plan and observation outcomes
@@ -313,7 +315,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     })
 
   // 4. Compose Suggestions (Context-Aware)
-  const suggestions: SalesAgentSuggestion[] = plan.suggestionIntents.slice(0, 3).map((sug, idx) => ({
+  const suggestions: SalesAgentSuggestion[] = isClarificationTurn ? [] : plan.suggestionIntents.slice(0, 3).map((sug, idx) => ({
     suggestionId: `sug-${idx + 1}-${options.turnId}`,
     label: sug.text,
     payload: sug.text,
@@ -322,7 +324,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     ...(options.catalogVersion ? { catalogVersion: options.catalogVersion } : {}),
   }))
 
-  if (suggestions.length === 0) {
+  if (suggestions.length === 0 && !isClarificationTurn) {
     const hasWarrantyOrBatteryPolicy = knowledgeEvidence.some((e) => {
       const cat = options.evidence.getFact(`fact-kb-category-${e.entity.id}`)?.valueHash
       return cat === 'WARRANTY_BATTERY' || cat === 'WARRANTY_POLICY' || cat === 'BATTERY_POLICY'
@@ -371,6 +373,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     blocks,
     actions,
     suggestions: suggestions.slice(0, 3),
+    ...(options.interaction ? { interaction: options.interaction } : {}),
     grounding: {
       dataAsOf: options.dataAsOf || new Date().toISOString(),
       warnings,

@@ -28,7 +28,7 @@ export interface BatchEmbeddingResponse {
 }
 
 export interface EmbeddingProvider {
-  generateEmbeddings(texts: string[]): Promise<BatchEmbeddingResponse>
+  generateEmbeddings(texts: string[], options?: { signal?: AbortSignal }): Promise<BatchEmbeddingResponse>
 }
 
 interface OpenAIEmbeddingResponse {
@@ -96,7 +96,7 @@ export class OpenAIEmbeddingAdapter implements EmbeddingProvider {
     }
   }
 
-  async generateEmbeddings(texts: string[]): Promise<BatchEmbeddingResponse> {
+  async generateEmbeddings(texts: string[], options: { signal?: AbortSignal } = {}): Promise<BatchEmbeddingResponse> {
     if (!Array.isArray(texts)) throw new Error('Embedding inputs must be an array')
     if (texts.length === 0) {
       return {
@@ -114,7 +114,7 @@ export class OpenAIEmbeddingAdapter implements EmbeddingProvider {
     let totalTokens = 0
     for (let offset = 0; offset < texts.length; offset += this.maxBatchSize) {
       const batch = texts.slice(offset, offset + this.maxBatchSize)
-      const response = await this.callOpenAIWithRetry(batch, offset)
+      const response = await this.callOpenAIWithRetry(batch, offset, options.signal)
       embeddings.push(...response.embeddings)
       totalTokens += response.totalTokens
     }
@@ -128,12 +128,17 @@ export class OpenAIEmbeddingAdapter implements EmbeddingProvider {
   private async callOpenAIWithRetry(
     batch: string[],
     offset: number,
+    externalSignal?: AbortSignal,
   ): Promise<{ embeddings: EmbeddingResult[]; totalTokens: number }> {
     let lastError: Error | undefined
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (externalSignal?.aborted) throw new Error('Embedding request aborted')
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs)
+      const abortExternal = () => controller.abort()
+      externalSignal?.addEventListener('abort', abortExternal, { once: true })
+      if (externalSignal?.aborted) controller.abort()
       try {
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -194,15 +199,36 @@ export class OpenAIEmbeddingAdapter implements EmbeddingProvider {
         return { embeddings: ordered, totalTokens }
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
+        // A vector branch timeout or client disconnect must stop retries as
+        // well as the in-flight fetch. Without this guard an already-aborted
+        // signal could still enter the exponential backoff loop and keep the
+        // retrieval turn alive after its budget has expired.
+        if (externalSignal?.aborted) throw new Error('Embedding request aborted')
         const status = error instanceof OpenAIHttpError ? error.status : undefined
         const retryable = !(error instanceof EmbeddingValidationError) &&
           (status === undefined || status === 408 || status === 409 || status === 429 || status >= 500)
         if (!retryable || attempt >= this.maxRetries) break
         const baseDelay = status === 429 ? 6_000 : 500
         const delayMs = Math.min(15_000, baseDelay * 2 ** attempt) + Math.floor(Math.random() * 500)
-        await new Promise((resolve) => setTimeout(resolve, delayMs))
+        await new Promise<void>((resolve, reject) => {
+          if (externalSignal?.aborted) {
+            reject(new Error('Embedding request aborted'))
+            return
+          }
+          const timer = setTimeout(() => {
+            externalSignal?.removeEventListener('abort', abort)
+            resolve()
+          }, delayMs)
+          const abort = () => {
+            clearTimeout(timer)
+            externalSignal?.removeEventListener('abort', abort)
+            reject(new Error('Embedding request aborted'))
+          }
+          externalSignal?.addEventListener('abort', abort, { once: true })
+        })
       } finally {
         clearTimeout(timeoutId)
+        externalSignal?.removeEventListener('abort', abortExternal)
       }
     }
 

@@ -18,6 +18,20 @@ export function isSalesAgentKnowledgeRagEnabled() {
   return process.env.SALES_AGENT_KNOWLEDGE_RAG_ENABLED === 'true'
 }
 
+/** One-submit, server-signed vehicle/year scope form. Enabled by default outside production. */
+export function isSalesAgentScopeInteractionEnabled() {
+  if (process.env.SALES_AGENT_SCOPE_INTERACTION_ENABLED === 'false') return false
+  if (process.env.SALES_AGENT_SCOPE_INTERACTION_ENABLED === 'true') return true
+  return process.env.NODE_ENV !== 'production'
+}
+
+/** Provisional model token stream with a final turn_view reconciliation. */
+export function isSalesAgentProvisionalStreamEnabled() {
+  if (process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED === 'false') return false
+  if (process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED === 'true') return true
+  return process.env.NODE_ENV !== 'production'
+}
+
 /**
  * Enables approved visual pointers on top of Knowledge RAG results.
  * Allows visual retrieval when enabled or in development.

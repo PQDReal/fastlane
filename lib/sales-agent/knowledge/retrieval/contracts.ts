@@ -46,6 +46,10 @@ export interface KnowledgeScopeFilter {
 }
 
 export interface RetrievalOptions {
+  /** Cancels embedding, RPC and hierarchy work when the request disconnects. */
+  signal?: AbortSignal
+  /** Maximum wait for the vector branch before hybrid retrieval degrades to FTS. */
+  vectorTimeoutMs?: number
   retrievalMode?: RetrievalMode
   ftsCandidateLimit?: number
   vectorCandidateLimit?: number
@@ -124,6 +128,8 @@ export interface KnowledgeEvidenceItem {
   versionNo: number
   indexGenerationId: string
   chunkLevel: number
+  /** Stable source order retained for position-aware visual attachment. */
+  chunkOrdinal?: number | null
   hierarchyPath: string
   sectionAnchor: string
   title: string
@@ -176,6 +182,34 @@ export interface KnowledgeRetrievalTelemetry {
   degradedReason?: string
 }
 
+export type KnowledgeRetrievalFailurePhase = 'RUNTIME_STATE' | 'CANDIDATE_SEARCH' | 'FUSION'
+export type KnowledgeRetrievalFailureStage =
+  | 'RUNTIME_STATE_RPC'
+  | 'FTS_RPC'
+  | 'EMBEDDING'
+  | 'VECTOR_RPC'
+  | 'IN_MEMORY_VECTOR'
+  | 'CANDIDATE_FUSION'
+
+export interface KnowledgeRetrievalFailureDetails {
+  phase: KnowledgeRetrievalFailurePhase
+  stage: KnowledgeRetrievalFailureStage
+  reason: 'ERROR' | 'TIMEOUT' | 'ABORTED'
+  message: string
+  elapsedMs?: number
+  timeoutMs?: number
+  ftsStatus?: 'NOT_RUN' | 'SUCCESS' | 'EMPTY' | 'ERROR'
+  ftsCandidateCount?: number
+  ftsLatencyMs?: number
+  ftsError?: string
+  vectorStatus?: 'NOT_RUN' | 'SUCCESS' | 'ERROR'
+  vectorCandidateCount?: number
+  vectorLatencyMs?: number
+  vectorStageLatencyMs?: number
+  vectorError?: string
+  telemetry?: KnowledgeRetrievalTelemetry
+}
+
 export interface KnowledgeRetrievalResponse {
   status: 'SUCCESS' | 'NO_MATCH' | 'DEGRADED_FTS' | 'UNAVAILABLE'
   query: string
@@ -188,9 +222,11 @@ export interface KnowledgeRetrievalResponse {
 
 export class KnowledgeStorageUnavailableError extends Error {
   readonly code = 'UNAVAILABLE'
-  constructor(message: string, cause?: unknown) {
+  readonly details?: KnowledgeRetrievalFailureDetails
+  constructor(message: string, cause?: unknown, details?: KnowledgeRetrievalFailureDetails) {
     super(`Knowledge storage unavailable: ${message}`)
     this.name = 'KnowledgeStorageUnavailableError'
+    this.details = details
     if (cause) {
       this.cause = cause
     }

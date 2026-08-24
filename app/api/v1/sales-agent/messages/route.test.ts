@@ -64,6 +64,64 @@ describe('Canonical Sales Agent message API', () => {
     expect(body).toContain('"type":"done"')
   })
 
+  it('emits provisional text before the canonical turn_view and reconciles it', async () => {
+    process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED = 'true'
+    mocks.composeTurnResponse.mockReturnValueOnce({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-stream',
+      turnId: 'turn-stream',
+      messageId: 'msg-stream',
+      answer: { markdown: 'Bản trả lời đã chuẩn hóa.', completeness: 'COMPLETE' },
+      blocks: [],
+      actions: [],
+      suggestions: [],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+    mocks.runTurn.mockImplementationOnce(async (options: any) => {
+      options.onTextDelta?.('Bản nháp chưa kiểm duyệt.', { provisional: true, attempt: 1 })
+      return {
+        text: 'Bản nháp chưa kiểm duyệt.',
+        responsePlan: {
+          schemaVersion: '2.0',
+          outcome: 'ANSWER',
+          narrative: [{ kind: 'ADVICE', markdown: 'Bản nháp chưa kiểm duyệt.' }],
+          views: [],
+          suggestionIntents: [],
+          actionIntents: [],
+        },
+        knownEntities: { getAllEntities: () => [] },
+        bindings: { getAllBindings: () => [] },
+        evidence: { getAllEvidence: () => [], getAllObservations: () => [] },
+        toolCallsCount: 0,
+        stepsCount: 1,
+        finishReason: 'stop',
+        provider: 'openai',
+        model: 'test-model',
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      }
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8', locale: 'vi-VN' }),
+    }))
+    const body = await response.text()
+    const events = body
+      .split('\n\n')
+      .filter((chunk) => chunk.startsWith('data: '))
+      .map((chunk) => JSON.parse(chunk.slice(6)) as Record<string, any>)
+    const firstDelta = events.findIndex((item) => item.type === 'text_delta')
+    const reset = events.findIndex((item) => item.type === 'text_reset')
+    const view = events.findIndex((item) => item.type === 'turn_view')
+    expect(firstDelta).toBeGreaterThanOrEqual(0)
+    expect(events[firstDelta]).toMatchObject({ provisional: true, delta: 'Bản nháp chưa kiểm duyệt.' })
+    expect(reset).toBeGreaterThan(firstDelta)
+    expect(events[reset]).toMatchObject({ reason: 'final_reconciliation' })
+    expect(view).toBeGreaterThan(reset)
+    expect(events[view].viewModel.answer.markdown).toBe('Bản trả lời đã chuẩn hóa.')
+    expect(events.find((item) => item.type === 'text_delta' && item.provisional === false)?.delta).toBe('Bản trả lời đã chuẩn hóa.')
+  })
+
   it('rejects empty messages before calling orchestrator', async () => {
     const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
       method: 'POST',
@@ -143,7 +201,7 @@ describe('Canonical Sales Agent message API', () => {
     }))
     const body = await response.text()
 
-    expect(mocks.runTurn.mock.calls[0][0].onTextDelta).toBeUndefined()
+    expect(mocks.runTurn.mock.calls[0][0].onTextDelta).toEqual(expect.any(Function))
     expect(body).not.toContain('sk-abcdefghijklmnopqrstuvwxyz123456')
     expect(body).toContain('THÔNG TIN ĐÃ ĐƯỢC ẨN')
   })

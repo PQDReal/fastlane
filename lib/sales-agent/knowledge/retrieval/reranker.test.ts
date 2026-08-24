@@ -35,6 +35,44 @@ function candidate(
 }
 
 describe('Knowledge deterministic reranker', () => {
+  it('ranks the Wi-Fi procedure above a generic touchscreen icon table', () => {
+    const ranked = rerankFusedCandidates('cách kết nối Wi-Fi, minh họa', [
+      candidate(
+        'vf5-touchscreen-icons',
+        'Màn hình, kết nối và điều hòa > Màn hình cảm ứng',
+        '| Wi-Fi | Biểu tượng này được hiển thị khi Wi-Fi được kết nối. |',
+        0.035,
+      ),
+      candidate(
+        'vf5-wifi-procedure',
+        'Màn hình, kết nối và điều hòa > Cài đặt > Kết nối thiết bị',
+        'Wi-Fi. Để kết nối với một mạng Wi-Fi: chọn một mạng khả dụng, nhập mật khẩu mạng nếu cần. Mạng được kết nối sẽ hiển thị trong danh sách Đã kết nối.',
+        0.03,
+      ),
+    ], { limit: 2 })
+
+    expect(ranked[0].chunkId).toBe('vf5-wifi-procedure')
+  })
+
+  it('keeps the Wi-Fi icon legend first when the user asks about the status icon', () => {
+    const ranked = rerankFusedCandidates('biểu tượng Wi-Fi trên thanh trạng thái là gì', [
+      candidate(
+        'vf5-touchscreen-icons',
+        'Màn hình, kết nối và điều hòa > Màn hình cảm ứng',
+        '| Wi-Fi | Biểu tượng này được hiển thị khi Wi-Fi được kết nối. |',
+        0.03,
+      ),
+      candidate(
+        'vf5-wifi-procedure',
+        'Màn hình, kết nối và điều hòa > Cài đặt > Kết nối thiết bị',
+        'Để kết nối Wi-Fi, chọn một mạng khả dụng rồi nhập mật khẩu nếu cần.',
+        0.035,
+      ),
+    ], { limit: 2 })
+
+    expect(ranked[0].chunkId).toBe('vf5-touchscreen-icons')
+  })
+
   it('promotes an inherited function heading for a paraphrased button query', () => {
     const candidates = [
       candidate(

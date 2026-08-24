@@ -3,12 +3,14 @@ export type DiagramLabel = {
   description: string
 }
 
-const PARENTHESIZED_MARKER = /\(([0-9]{1,3}|[A-Za-z])\)/g
+const EXPLICIT_MARKER = /(?:\(([0-9]{1,3}|[A-Za-z])\)|\b(?:đánh\s+)?(?:số|vị\s+trí|nhãn)(?:\s+số)?\s+([0-9]{1,3}|[A-Za-z])(?=\s*(?:chỉ|là|tương ứng|[:.)-])))/giu
 const NON_DESCRIPTION_SEGMENTS = /^(?:đến|tới|đến số|tới số|bao gồm|gồm|lần lượt|từ)?\s*[:;,.-]*$/iu
 
 function cleanDescription(value: string) {
   return value
     .replace(/^[\s:;,.–—-]+/u, '')
+    .replace(/^(?:chỉ|là|tương ứng(?: với)?)\s+/iu, '')
+    .replace(/[\s,;]+(?:và|hoặc)\s*$/iu, '')
     .replace(/[\s;,]+$/u, '')
     .trim()
 }
@@ -19,11 +21,11 @@ function cleanDescription(value: string) {
  * fields that the source did not structure.
  */
 export function extractDiagramLabels(summary: string): DiagramLabel[] {
-  const matches = Array.from(summary.matchAll(PARENTHESIZED_MARKER))
+  const matches = Array.from(summary.matchAll(EXPLICIT_MARKER))
   if (matches.length === 0) return []
 
   const candidates = matches.flatMap((match, index) => {
-    const marker = match[1]
+    const marker = match[1] ?? match[2]
     const start = (match.index ?? 0) + match[0].length
     const end = matches[index + 1]?.index ?? summary.length
     const description = cleanDescription(summary.slice(start, end))

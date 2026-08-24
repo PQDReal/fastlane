@@ -10,6 +10,12 @@ const MAX_ARRAY_LENGTH = 20
 const MAX_DEPTH = 8
 const SENSITIVE_KEY_SUFFIXES = ['token', 'secret', 'signature', 'authorization', 'apikey', 'cookie']
 
+export type SalesAgentDebugContext = {
+  requestId?: string
+  conversationId?: string
+  messageId?: string
+}
+
 export function salesAgentDebugLogsEnabled() {
   if (process.env.SALES_AGENT_DEBUG_LOGS_ENABLED === 'false') return false
   if (process.env.SALES_AGENT_DEBUG_LOGS_ENABLED === 'true') return true
@@ -31,7 +37,7 @@ function safeValue(value: unknown, key = '', depth = 0): unknown {
 
 export function recordSalesAgentDebugEvent(
   event: string,
-  context: { conversationId?: string; messageId?: string } = {},
+  context: SalesAgentDebugContext = {},
   data?: unknown,
 ) {
   if (!salesAgentDebugLogsEnabled()) return false

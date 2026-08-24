@@ -74,6 +74,14 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
 }
 
+function hasProcedureIntent(query: string): boolean {
+  return /\b(cách|làm sao|thao tác|quy trình|kết nối|ghép nối|cài đặt|bật|tắt|mở)\b/iu.test(query)
+}
+
+function countProcedureSignals(text: string): number {
+  return text.match(/\b(nhấn|chọn|nhập|gạt|bật|tắt|mở|truy cập|kết nối|xác nhận)\b/giu)?.length ?? 0
+}
+
 function buildRerankScore(
   candidate: FusedCandidate,
   query: string,
@@ -85,7 +93,19 @@ function buildRerankScore(
   const titleText = candidate.title
   const contentText = `${candidate.content} ${candidate.tags.join(' ')}`
   const normalizedQuery = query.toLowerCase()
-  const tableBonus = candidate.content.includes('|') ? 0.15 : 0
+  const procedureIntent = hasProcedureIntent(normalizedQuery)
+  const procedureSignals = countProcedureSignals(contentText)
+  const tableBonus = candidate.content.includes('|')
+    ? (procedureIntent ? 0.03 : 0.15)
+    : 0
+  const procedureBonus = procedureIntent
+    ? Math.min(0.18, procedureSignals * 0.045)
+    : 0
+  const legendPenalty = procedureIntent
+    && /biểu tượng|trạng thái/iu.test(contentText)
+    && procedureSignals < 2
+    ? 0.10
+    : 0
   const warningPenalty =
     /cảnh báo|an toàn|nguy hiểm/iu.test(contentText) && !/cảnh báo|an toàn|nguy hiểm/iu.test(normalizedQuery)
       ? 0.06
@@ -104,7 +124,9 @@ function buildRerankScore(
     coverage(queryTokens, contentText) * 0.12 +
     phraseBonus * 0.12 +
     tableBonus +
+    procedureBonus +
     clamp01(rrfPrior) * 0.06 -
+    legendPenalty -
     warningPenalty
 
   return Number(clamp01(score).toFixed(6))

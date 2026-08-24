@@ -34,8 +34,10 @@ export async function getCurrentPromotionsRepository(
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
   const client = getSupabaseAdmin()
+  const queryStartedAt = Date.now()
 
   let rows: any[] | null = null
+  let queryError: { name: string; message: string } | undefined
   try {
     const now = new Date().toISOString()
     const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
@@ -49,11 +51,16 @@ export async function getCurrentPromotionsRepository(
       .gte('valid_until', now)
 
     const res = await Promise.race([fetchPromise, timeoutPromise])
-    if (res.data && Array.isArray(res.data)) {
+    if (res.error) {
+      queryError = { name: 'PromotionsQueryError', message: res.error.message || String(res.error) }
+    } else if (res.data && Array.isArray(res.data)) {
       rows = res.data
     }
   } catch (err) {
     console.warn('[PROMOTIONS_REPO] Supabase promotions query failed, returning empty list:', err)
+    queryError = err instanceof Error
+      ? { name: err.name, message: err.message }
+      : { name: 'UNKNOWN_ERROR', message: String(err) }
   }
 
   // If promotions table is empty or error, fallback gracefully with empty list
@@ -102,6 +109,16 @@ export async function getCurrentPromotionsRepository(
     appliedBindings: [],
     outcome: 'SUCCESS',
     completeness: 'FULL',
+    diagnostics: queryError
+      ? {
+          execution: {
+            status: 'FALLBACK' as const,
+            phase: 'promotions_query',
+            elapsedMs: Date.now() - queryStartedAt,
+            error: queryError,
+          },
+        }
+      : undefined,
     data: { promotions },
   }
 }

@@ -5,16 +5,35 @@ vi.mock('server-only', () => ({}))
 const getSupabaseAdminMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/supabase-admin', () => ({ getSupabaseAdmin: getSupabaseAdminMock }))
 
-import { KnowledgeScopeCatalogEngine } from './scope-catalog'
+import {
+  KnowledgeScopeCatalogEngine,
+  INITIAL_SEEDED_SCOPE_ENTRIES,
+  SCOPE_CATALOG_TTL_MS,
+} from './scope-catalog'
 
-describe('knowledge scope catalog', () => {
+describe('knowledge scope catalog engine', () => {
   let engine: KnowledgeScopeCatalogEngine
 
   beforeEach(() => {
+    vi.clearAllMocks()
     engine = new KnowledgeScopeCatalogEngine()
   })
 
-  it('keeps only active published ready effective versions', async () => {
+  it('initializes with baseline seeded entries immediately (cold-start ready)', () => {
+    const snapshot = engine.getSnapshot()
+    expect(snapshot.status).toBe('READY')
+    expect(snapshot.entries.length).toBeGreaterThanOrEqual(25)
+    expect(snapshot.isSeededFallback).toBe(true)
+
+    const status = engine.getStatus()
+    expect(status.isSeededFallback).toBe(true)
+    expect(status.entriesCount).toBe(snapshot.entries.length)
+    expect(status.modelsCount).toBeGreaterThan(0)
+    expect(engine.getAvailableModels()).toContain('VF 8')
+    expect(engine.getAvailableYearsForModel('VF 5')).toContain(2026)
+  })
+
+  it('keeps only active published ready effective versions upon DB refresh', async () => {
     const now = new Date().toISOString()
     const client = {
       rpc: vi.fn().mockResolvedValue({ data: { knowledge_epoch: 7, active_index_generation_id: 'gen-7' }, error: null }),
@@ -55,6 +74,7 @@ describe('knowledge scope catalog', () => {
     expect(snapshot.entries[0]).toMatchObject({ vehicleModel: 'VF 8', modelYearFrom: 2026, versionNo: 3 })
     expect(snapshot.knowledgeEpoch).toBe(7)
     expect(snapshot.indexGenerationId).toBe('gen-7')
+    expect(snapshot.isSeededFallback).toBe(false)
   })
 
   it('returns the latest model year from the ready inventory', async () => {
@@ -75,5 +95,35 @@ describe('knowledge scope catalog', () => {
     await engine.getSnapshotAsync()
 
     expect(engine.getLatestYearForModel('VF 8')).toBe(2026)
+  })
+
+  it('supports force refresh without throwing on network failure', async () => {
+    getSupabaseAdminMock.mockImplementation(() => {
+      throw new Error('Supabase unreachable')
+    })
+
+    const refreshed = await engine.forceRefresh()
+    expect(refreshed.status).toBe('READY')
+    expect(refreshed.entries.length).toBeGreaterThan(0)
+
+    const status = engine.getStatus()
+    expect(status.status).toBe('READY')
+    expect(status.entriesCount).toBeGreaterThan(0)
+  })
+
+  it('triggers background revalidation on getSnapshot when TTL expires', async () => {
+    // Set timestamp to now (within TTL)
+    ;(engine as any).snapshot.refreshedAt = Date.now()
+    const revalidateSpy = vi.spyOn(engine, 'revalidateAsync')
+
+    // Within TTL: does not revalidate
+    engine.getSnapshot()
+    expect(revalidateSpy).not.toHaveBeenCalled()
+
+    // Simulate expired timestamp
+    ;(engine as any).snapshot.refreshedAt = Date.now() - (SCOPE_CATALOG_TTL_MS + 1000)
+
+    engine.getSnapshot()
+    expect(revalidateSpy).toHaveBeenCalledWith(false)
   })
 })

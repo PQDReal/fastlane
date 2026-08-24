@@ -10,7 +10,10 @@ import {
   type ApprovedVisualRow,
 } from './visual-retrieval-mapper'
 import { isSalesAgentVisualKnowledgeDraftsAllowed } from '../core/flags'
-import { buildVisualRetrievalScope } from './visual-retrieval-scope'
+import {
+  buildVisualRetrievalScope,
+  selectVisualEvidenceItems,
+} from './visual-retrieval-scope'
 
 const VISUAL_QUERY_TIMEOUT_MS = 8_000
 
@@ -42,7 +45,10 @@ export async function findApprovedVisualKnowledge(
 ): Promise<KnowledgeVisualMediaPointer[]> {
   if (!evidenceItems.length) return []
 
-  const { versionIds, sourceNodeIds, sectionAnchors } = buildVisualRetrievalScope(evidenceItems)
+  const visualEvidenceItems = selectVisualEvidenceItems(evidenceItems)
+  if (!visualEvidenceItems.length) return []
+
+  const { versionIds, sourceNodeIds, sectionAnchors } = buildVisualRetrievalScope(visualEvidenceItems)
 
   const rpcName = isSalesAgentVisualKnowledgeDraftsAllowed()
     ? 'sales_agent_search_knowledge_visuals_with_drafts'
@@ -61,6 +67,6 @@ export async function findApprovedVisualKnowledge(
 
   return mapApprovedVisualRowsToPointers(
     (data || []) as ApprovedVisualRow[],
-    evidenceItems,
+    visualEvidenceItems,
   ).slice(0, limit)
 }

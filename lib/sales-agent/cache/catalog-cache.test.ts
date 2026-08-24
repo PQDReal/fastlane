@@ -35,4 +35,16 @@ describe('Catalog Cache Engine', () => {
     expect(refreshed.products.length).toBeGreaterThan(0)
     expect(refreshed).not.toHaveProperty('knowledgeChunks')
   })
+
+  it('triggers background revalidation on getSnapshot when TTL expires', () => {
+    ;(catalogCacheEngine as any).snapshot.lastRefreshedAt = Date.now()
+    const revalidateSpy = vi.spyOn(catalogCacheEngine, 'revalidateAsync')
+
+    catalogCacheEngine.getSnapshot()
+    expect(revalidateSpy).not.toHaveBeenCalled()
+
+    ;(catalogCacheEngine as any).snapshot.lastRefreshedAt = Date.now() - (CACHE_TTL_MS + 1000)
+    catalogCacheEngine.getSnapshot()
+    expect(revalidateSpy).toHaveBeenCalledWith(false)
+  })
 })

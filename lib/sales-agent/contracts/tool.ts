@@ -185,7 +185,7 @@ export interface ToolDiagnostics {
     vehicleModel?: string
     modelYear?: number
     defaultedModelYear?: number
-  yearPolicy?: 'EXPLICIT' | 'ONLY_AVAILABLE' | 'LATEST' | 'AMBIGUOUS'
+    yearPolicy?: 'EXPLICIT' | 'ONLY_AVAILABLE' | 'LATEST' | 'AMBIGUOUS'
     catalogStatus?: 'READY' | 'EMPTY' | 'UNAVAILABLE'
     catalogEntryCount?: number
     catalogEpoch?: number
@@ -196,6 +196,14 @@ export interface ToolDiagnostics {
     enabled: boolean
     latencyMs: number
     pointerCount: number
+    status?: 'COMPLETED' | 'UNAVAILABLE'
+    error?: { name: string; message: string }
+  }
+  execution?: {
+    status: 'FAILED' | 'FALLBACK'
+    phase?: string
+    elapsedMs: number
+    error: { name: string; message: string }
   }
 }
 

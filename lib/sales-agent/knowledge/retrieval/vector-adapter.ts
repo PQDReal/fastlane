@@ -20,9 +20,12 @@ export interface VectorIndexedCandidate extends RawChunkCandidate {
   embedding: number[]
 }
 
+export type VectorSearchStage = 'EMBEDDING' | 'VECTOR_RPC' | 'IN_MEMORY_VECTOR'
+
 export interface VectorSearchTelemetrySink {
   onEmbeddingLatency?: (durationMs: number) => void
   onVectorSearchLatency?: (durationMs: number) => void
+  onStageChange?: (stage: VectorSearchStage) => void
 }
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -81,6 +84,7 @@ export class VectorCandidateAdapter {
     inMemoryPool?: VectorIndexedCandidate[],
     telemetry?: VectorSearchTelemetrySink,
   ): Promise<VectorCandidate[]> {
+    if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
     const limit = Math.max(1, Math.min(options.vectorCandidateLimit ?? 20, 100))
     const generationId = options.generationId ?? this.defaultGenerationId
 
@@ -89,12 +93,14 @@ export class VectorCandidateAdapter {
     }
 
     // 1. Nhúng vector cho câu truy vấn
+    telemetry?.onStageChange?.('EMBEDDING')
     let queryEmbedding: number[]
     const embeddingStartedAt = performance.now()
     try {
       const adapter = this.getEmbeddingAdapter()
-      const resp = await adapter.generateEmbeddings([query.trim()])
+      const resp = await adapter.generateEmbeddings([query.trim()], { signal: options.signal })
       const emb = resp.embeddings[0]?.embedding
+      if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
       if (!emb || emb.length !== OPENAI_EMBEDDING_DIMENSIONS) {
         throw new Error('Embedding service returned invalid vector dimensions')
       }
@@ -120,19 +126,23 @@ export class VectorCandidateAdapter {
     try {
       // 2. Nếu có in-memory vector pool (evaluation / unit tests)
       if (inMemoryPool && inMemoryPool.length > 0) {
-        return this.searchInMemoryVectorPool(
+        telemetry?.onStageChange?.('IN_MEMORY_VECTOR')
+        const candidates = this.searchInMemoryVectorPool(
           inMemoryPool,
           queryEmbedding,
           filters,
           limit,
           generationId
         )
+        if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
+        return candidates
       }
 
       // 3. Nếu có Supabase Client kết nối DB pgvector
       if (this.client) {
+        telemetry?.onStageChange?.('VECTOR_RPC')
         try {
-          const { data, error } = await this.client.rpc('sales_agent_search_knowledge_vector', {
+          const request = this.client.rpc('sales_agent_search_knowledge_vector', {
             p_query_embedding: queryEmbedding,
             p_index_generation_id: generationId,
             p_limit: limit,
@@ -145,6 +155,9 @@ export class VectorCandidateAdapter {
             p_locale: filters.locale || 'vi-VN',
             p_effective_at: filters.effectiveAt || new Date().toISOString(),
           })
+          const { data, error } = await (options.signal && typeof (request as any).abortSignal === 'function'
+            ? (request as any).abortSignal(options.signal)
+            : request)
 
           if (error) {
             throw new KnowledgeStorageUnavailableError(error.message, error)

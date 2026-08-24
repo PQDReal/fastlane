@@ -125,9 +125,11 @@ export type SalesAgentSuggestionSelection = {
 export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessageRequest {
   if (!value || typeof value !== 'object') throw new SalesAgentRequestError('Request phải là JSON object.')
   const input = value as Record<string, unknown>
-  const message = typeof input.message === 'string' ? input.message.trim() : ''
-  if (!message) throw new SalesAgentRequestError('Vui lòng nhập câu hỏi cho agent.')
-  if (message.length > SALES_AGENT_MESSAGE_MAX_CHARS) throw new SalesAgentRequestError('Câu hỏi tối đa 2.000 ký tự.')
+  const rawMessage = typeof input.message === 'string' ? input.message.trim() : ''
+  const hasInteractionResponse = Boolean(input.interactionResponse && typeof input.interactionResponse === 'object')
+  if (!rawMessage && !hasInteractionResponse) throw new SalesAgentRequestError('Vui lòng nhập câu hỏi cho agent.')
+  if (rawMessage.length > SALES_AGENT_MESSAGE_MAX_CHARS) throw new SalesAgentRequestError('Câu hỏi tối đa 2.000 ký tự.')
+  const message = rawMessage || 'Người dùng đã gửi lựa chọn tương tác.'
 
   const history = Array.isArray(input.guestHistory) ? input.guestHistory : []
   const guestHistory = limitSalesAgentHistory(history.slice(-SALES_AGENT_MAX_HISTORY_MESSAGES).flatMap((item) => {

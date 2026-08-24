@@ -19,4 +19,15 @@ describe('diagram label extraction', () => {
       { marker: '1', description: 'Nắp cổng sạc.' },
     ])
   })
+
+  it('extracts conservative textual markers and ignores measurements', () => {
+    expect(extractDiagramLabels(
+      'Màn hình Âm lượng, đánh số 6 chỉ thanh trượt Dẫn đường (Navigation) và số 7 chỉ thanh trượt Nhạc/Giải trí (Media).',
+    )).toEqual([
+      { marker: '6', description: 'thanh trượt Dẫn đường (Navigation)' },
+      { marker: '7', description: 'thanh trượt Nhạc/Giải trí (Media).' },
+    ])
+
+    expect(extractDiagramLabels('Màn hình hiển thị áp suất lốp 47 psi màu vàng.')).toEqual([])
+  })
 })

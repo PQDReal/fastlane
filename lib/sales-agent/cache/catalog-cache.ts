@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { recordSalesAgentDebugEvent } from '../debug-log'
+
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import type { ProductType } from '../contracts'
 
@@ -318,8 +320,10 @@ export class CatalogCacheEngine {
 
   public getSnapshot(): CachedCatalogSnapshot {
     const now = Date.now()
+    const ageMs = this.snapshot.lastRefreshedAt === 0 ? 0 : now - this.snapshot.lastRefreshedAt
     // Stale-While-Revalidate: Trigger background refresh if older than 30 minutes
     if (now - this.snapshot.lastRefreshedAt > CACHE_TTL_MS && !this.isRefreshing) {
+      console.log(`[CATALOG CACHE ENGINE] Cache expired (age: ${Math.floor(ageMs / 1000)}s, TTL: ${CACHE_TTL_MS / 1000}s), triggering background revalidation...`)
       void this.revalidateAsync(false)
     }
     return this.snapshot
@@ -327,6 +331,7 @@ export class CatalogCacheEngine {
 
   public async getSnapshotAsync(): Promise<CachedCatalogSnapshot> {
     if (this.snapshot.lastRefreshedAt === 0) {
+      console.log('[CATALOG CACHE ENGINE] Initial cold-start access (lastRefreshedAt: 0), awaiting revalidation from DB...')
       await this.revalidateAsync(true)
     } else if (Date.now() - this.snapshot.lastRefreshedAt > CACHE_TTL_MS && !this.isRefreshing) {
       void this.revalidateAsync(false)
@@ -335,6 +340,7 @@ export class CatalogCacheEngine {
   }
 
   public async forceRefresh(): Promise<CachedCatalogSnapshot> {
+    console.log('[CATALOG CACHE ENGINE] Force refresh requested.')
     return this.revalidateAsync(true)
   }
 
@@ -359,6 +365,11 @@ export class CatalogCacheEngine {
       return this.refreshPromise
     }
 
+    const startTime = Date.now()
+    console.log(`[CATALOG CACHE ENGINE] Revalidation started (force: ${force})...`)
+    recordSalesAgentDebugEvent('catalog.cache.refresh.started', {}, {
+      force,
+    })
     this.isRefreshing = true
     this.refreshPromise = this.fetchFromDatabase()
       .then((newSnapshot) => {
@@ -366,10 +377,31 @@ export class CatalogCacheEngine {
         this.snapshot = newSnapshot
         this.isRefreshing = false
         this.refreshPromise = null
+        const elapsed = Date.now() - startTime
+        const cars = newSnapshot.products.filter((p) => p.productType === 'CAR').length
+        const bikes = newSnapshot.products.filter((p) => p.productType === 'BIKE').length
+        console.log(`[CATALOG CACHE ENGINE] Revalidation succeeded in ${elapsed}ms -> ${newSnapshot.products.length} products (${cars} cars, ${bikes} bikes), ${newSnapshot.accessories.length} accessories (isSeeded: ${newSnapshot.isSeededFallback})`)
+        recordSalesAgentDebugEvent('catalog.cache.refresh.completed', {}, {
+          force,
+          productCount: newSnapshot.products.length,
+          carCount: cars,
+          bikeCount: bikes,
+          accessoryCount: newSnapshot.accessories.length,
+          isSeededFallback: newSnapshot.isSeededFallback,
+          elapsedMs: elapsed,
+        })
         return newSnapshot
       })
       .catch((err) => {
-        console.warn('[CATALOG CACHE ENGINE] Background revalidation failed gracefully, keeping existing snapshot:', err?.message || err)
+        const elapsed = Date.now() - startTime
+        console.warn(`[CATALOG CACHE ENGINE] Background revalidation failed gracefully after ${elapsed}ms, keeping existing snapshot:`, err?.message || err)
+        recordSalesAgentDebugEvent('catalog.cache.refresh.failed', {}, {
+          force,
+          retainedProductCount: this.snapshot.products.length,
+          retainedAccessoryCount: this.snapshot.accessories.length,
+          elapsedMs: elapsed,
+          error: err instanceof Error ? { name: err.name, message: err.message } : String(err),
+        })
         this.isRefreshing = false
         this.refreshPromise = null
         this.snapshot.lastRefreshedAt = Date.now() - (CACHE_TTL_MS - 60000) // retry in 1 minute
@@ -381,6 +413,7 @@ export class CatalogCacheEngine {
 
   private async fetchFromDatabase(): Promise<CachedCatalogSnapshot> {
     const supabase = getSupabaseAdmin()
+    const queryStart = Date.now()
 
     // 1. Fetch active products with variants
     const productsPromise = supabase
@@ -416,12 +449,16 @@ export class CatalogCacheEngine {
       .eq('is_active', true)
       .order('displayed_price', { ascending: true })
 
-    // Timeout guard (3.5s) to avoid hanging server
+    // Timeout guard (8s) for background revalidation
     const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
-      setTimeout(() => resolve({ data: null, error: new Error('Supabase cache fetch timeout') }), 3500),
+      setTimeout(() => resolve({ data: null, error: new Error('Supabase cache fetch timeout') }), 8000),
     )
 
     const productsResult = await Promise.race([productsPromise, timeoutPromise])
+    if (productsResult.error) {
+      throw productsResult.error
+    }
+    console.log(`[CATALOG CACHE ENGINE] DB query completed in ${Date.now() - queryStart}ms`)
 
     const fetchedProducts: CachedProduct[] = []
     const fetchedAccessories: CachedAccessory[] = []

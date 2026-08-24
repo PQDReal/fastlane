@@ -233,6 +233,7 @@ export class PostgresFtsAdapter {
     options: RetrievalOptions = {},
     inMemoryPool?: RawChunkCandidate[]
   ): Promise<FtsCandidate[]> {
+    if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
     const limit = Math.max(1, Math.min(options.ftsCandidateLimit ?? 20, 100))
     const normalizedQuery = normalizeVietnameseSearchQuery(query)
     const tokens = tokenizeQuery(normalizedQuery)
@@ -243,7 +244,9 @@ export class PostgresFtsAdapter {
 
     // 1. Nếu có in-memory candidates pool (cho evaluation/unit tests)
     if (inMemoryPool && inMemoryPool.length > 0) {
-      return this.searchInMemoryPool(inMemoryPool, tokens, normalizedQuery, filters, limit)
+      const candidates = this.searchInMemoryPool(inMemoryPool, tokens, normalizedQuery, filters, limit)
+      if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
+      return candidates
     }
 
     // 2. Production path: execute the bounded PostgreSQL FTS RPC. The RPC
@@ -252,37 +255,31 @@ export class PostgresFtsAdapter {
     if (this.client) {
       try {
         let targetQuery = normalizedQuery
-        let { data, error } = await this.client.rpc('sales_agent_search_knowledge_fts', {
-          p_query: targetQuery,
-          p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
-          p_limit: limit,
-          p_vehicle_model: filters.vehicleModel || null,
-          p_vehicle_type: filters.vehicleType || null,
-          p_model_year: filters.modelYear ?? null,
-          p_market: filters.market || 'VN',
-          p_customer_segment: filters.customerSegment || 'ALL',
-          p_category: filters.category || null,
-          p_locale: filters.locale || 'vi-VN',
-          p_effective_at: filters.effectiveAt || new Date().toISOString(),
-        })
+        const runRpc = (query: string) => {
+          const request = this.client!.rpc('sales_agent_search_knowledge_fts', {
+            p_query: query,
+            p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
+            p_limit: limit,
+            p_vehicle_model: filters.vehicleModel || null,
+            p_vehicle_type: filters.vehicleType || null,
+            p_model_year: filters.modelYear ?? null,
+            p_market: filters.market || 'VN',
+            p_customer_segment: filters.customerSegment || 'ALL',
+            p_category: filters.category || null,
+            p_locale: filters.locale || 'vi-VN',
+            p_effective_at: filters.effectiveAt || new Date().toISOString(),
+          })
+          return options.signal && typeof (request as any).abortSignal === 'function'
+            ? (request as any).abortSignal(options.signal)
+            : request
+        }
+        let { data, error } = await runRpc(targetQuery)
 
         // Retry with extracted core keywords if sentence was too long for strict tsquery
         if ((!data || data.length === 0) && !error) {
           const keywordQuery = extractSearchKeywords(normalizedQuery)
           if (keywordQuery !== normalizedQuery) {
-            const retryRes = await this.client.rpc('sales_agent_search_knowledge_fts', {
-              p_query: keywordQuery,
-              p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
-              p_limit: limit,
-              p_vehicle_model: filters.vehicleModel || null,
-              p_vehicle_type: filters.vehicleType || null,
-              p_model_year: filters.modelYear ?? null,
-              p_market: filters.market || 'VN',
-              p_customer_segment: filters.customerSegment || 'ALL',
-              p_category: filters.category || null,
-              p_locale: filters.locale || 'vi-VN',
-              p_effective_at: filters.effectiveAt || new Date().toISOString(),
-            })
+            const retryRes = await runRpc(keywordQuery)
             if (Array.isArray(retryRes.data) && retryRes.data.length > 0) {
               data = retryRes.data
             }
@@ -321,14 +318,18 @@ export class PostgresFtsAdapter {
     options: RetrievalOptions = {}
   ): Promise<RawChunkCandidate[]> {
     if (!this.client || versionIds.length === 0) return []
+    if (options.signal?.aborted) throw new Error('Knowledge retrieval aborted')
 
     try {
-      const { data, error } = await this.client.rpc('sales_agent_load_knowledge_hierarchy_context', {
+      const request = this.client.rpc('sales_agent_load_knowledge_hierarchy_context', {
         p_version_ids: Array.from(new Set(versionIds)),
         p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
         p_limit: 5000,
         p_effective_at: filters.effectiveAt || new Date().toISOString(),
       })
+      const { data, error } = await (options.signal && typeof (request as any).abortSignal === 'function'
+        ? (request as any).abortSignal(options.signal)
+        : request)
       if (error) throw new KnowledgeStorageUnavailableError(error.message, error)
       if (!Array.isArray(data)) {
         throw new KnowledgeStorageUnavailableError('Hierarchy RPC returned a null or invalid result set')

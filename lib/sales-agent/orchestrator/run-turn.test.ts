@@ -210,7 +210,7 @@ describe('runTurn budgets and finalization', () => {
             assetId: 'asset-wifi',
             annotationId: 'annotation-wifi',
             title: 'Màn hình Wi-Fi',
-            summary: 'Vị trí mục Wi-Fi',
+            summary: 'Ảnh chụp màn hình cài đặt Wi-Fi trên xe VF 5. Phần hiển thị khác không liên quan đến thao tác.',
             alt: 'Màn hình Wi-Fi',
             url: mediaUrl,
             mimeType: 'image/png',
@@ -218,7 +218,7 @@ describe('runTurn budgets and finalization', () => {
             height: 480,
             safetyCritical: false,
             citationId: 'cite:wifi',
-            diagramLabels: [],
+            diagramLabels: [{ marker: '1', description: 'Biểu tượng Wi-Fi trên thanh điều hướng' }],
           }],
         }],
       },
@@ -238,10 +238,17 @@ describe('runTurn budgets and finalization', () => {
     expect(modelToolResult).toMatchObject({
       outcome: 'SUCCESS',
       data: {
-        snippets: [{ media: [{ reference: 'media:1', title: 'Màn hình Wi-Fi' }] }],
+        snippets: [{ media: [{
+          reference: 'media:1',
+          title: 'Màn hình Wi-Fi',
+          visualDescription: 'Ảnh chụp màn hình cài đặt Wi-Fi trên xe VF 5.',
+          usageHint: expect.stringContaining('[media:1]'),
+          diagramLabels: [{ marker: '1', description: 'Biểu tượng Wi-Fi trên thanh điều hướng' }],
+        }] }],
       },
     })
     expect(JSON.stringify(modelToolResult)).not.toContain(mediaUrl)
+    expect(JSON.stringify(modelToolResult)).not.toContain('Phần hiển thị khác không liên quan')
   })
 
   it('logs retrieval phase diagnostics without exposing them to the model', async () => {
@@ -464,5 +471,57 @@ describe('runTurn budgets and finalization', () => {
     expect(result.text).toContain('Bạn có thể thử theo hướng dẫn sau')
     expect(result.text).not.toContain('VF 5')
     expect(result.text).not.toContain('đã tìm thấy tài liệu')
+  })
+
+  it('preserves a structured NEEDS_INPUT question when model finalization times out', async () => {
+    mocks.isKnowledgeEnabled.mockReturnValue(true)
+    mocks.executeDataTool.mockImplementation(async (toolName, _input, toolCallId) => ({
+      schemaVersion: '2.0',
+      toolCallId,
+      tool: toolName,
+      readAt: new Date().toISOString(),
+      dataAsOf: new Date().toISOString(),
+      evidence: [],
+      observation: {
+        observationId: `obs-${toolCallId}`,
+        toolCallId,
+        outcome: 'NEEDS_INPUT',
+        issueCodes: ['AMBIGUOUS_REFERENCE'],
+        inputHash: '{}',
+        readAt: new Date().toISOString(),
+      },
+      issues: [{
+        code: 'AMBIGUOUS_REFERENCE',
+        message: 'Bạn đang hỏi dòng xe nào: VF 3, VF 8, VF 9?',
+        field: 'vehicleModel',
+      }],
+      appliedBindings: [],
+      outcome: 'NEEDS_INPUT',
+      data: {
+        field: 'vehicleModel',
+        question: 'Bạn đang hỏi dòng xe nào: VF 3, VF 8, VF 9?',
+        candidates: [
+          { vehicleModel: 'VF 3', label: 'VF 3' },
+          { vehicleModel: 'VF 8', label: 'VF 8' },
+          { vehicleModel: 'VF 9', label: 'VF 9' },
+        ],
+      },
+    }))
+    mocks.streamText.mockImplementation((options) => ({
+      text: (async () => {
+        await options.tools.search_knowledge.execute({ query: 'Cách kết nối Wi-Fi' })
+        return ''
+      })(),
+      steps: Promise.resolve([]),
+      finishReason: Promise.resolve('error'),
+    }))
+    mocks.generateText.mockRejectedValueOnce(new Error('provider timeout'))
+
+    const result = await runTurn({
+      input: { kind: 'USER_MESSAGE', text: 'Cách kết nối Wi-Fi' },
+    })
+
+    expect(result.text).toBe('Bạn đang hỏi dòng xe nào: VF 3, VF 8, VF 9?')
+    expect(result.text).not.toContain('Hệ thống tư vấn AI đang bận')
   })
 })

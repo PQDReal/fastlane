@@ -8,7 +8,7 @@ import { FINALIZATION_PHASE_INSTRUCTION, getSalesAgentSystemPrompt } from '../pr
 import { executeDataTool } from '../tools/definitions'
 import { isSalesAgentKnowledgeRagEnabled } from '../core/flags'
 import { recordSalesAgentDebugEvent } from '../debug-log'
-import { buildKnowledgeScopeContext } from '../knowledge/scope-context'
+import { buildKnowledgeScopeContext, type KnowledgeScopeBinding } from '../knowledge/scope-context'
 import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
 import { knowledgeMediaReference } from '../knowledge/media-reference'
 import {
@@ -42,8 +42,12 @@ export type RunTurnOptions = {
   selectedProvider?: string
   signal?: AbortSignal
   context?: { conversationId?: string; messageId?: string }
+  /** Values derived from a validated, signed scope interaction. */
+  trustedScope?: KnowledgeScopeBinding | null
   onToolCall?: (toolName: string, callId: string) => void
   onToolResult?: (toolName: string, result: ToolResult) => void
+  onTextDelta?: (delta: string, metadata: { provisional: true; attempt: number }) => void
+  onTextReset?: (reason: 'retry' | 'final_reconciliation') => void
 }
 
 export type RunTurnResult = {
@@ -60,7 +64,36 @@ export type RunTurnResult = {
   usage: SalesAgentTokenUsage
 }
 
-function summarizeToolData(toolName: string, data: any): unknown {
+function compactVisualDescription(value: unknown, fallback = 'Hình minh họa trong tài liệu') {
+  const normalized = typeof value === 'string'
+    ? value.replace(/\s+/gu, ' ').trim()
+    : ''
+  if (!normalized) return fallback
+
+  const firstSentence = normalized.split(/(?<=[.!?])\s+/u)[0]?.trim() || normalized
+  if (firstSentence.length <= 280) return firstSentence
+  return `${firstSentence.slice(0, 277).trimEnd()}…`
+}
+
+function visualUsageHint(reference: string, labels: unknown) {
+  const markers = Array.isArray(labels)
+    ? labels
+      .flatMap((label) => {
+        if (!label || typeof label !== 'object') return []
+        const marker = (label as Record<string, unknown>).marker
+        return typeof marker === 'string' && marker.trim() ? [marker.trim()] : []
+      })
+      .slice(0, 8)
+    : []
+
+  if (markers.length > 0) {
+    return `Nếu ảnh giúp làm rõ thao tác, chèn [${reference}] gần câu liên quan; chỉ nhắc marker (${markers.join('), (')}) khi cần và diễn đạt ngắn gọn.`
+  }
+
+  return `Nếu ảnh giúp làm rõ thao tác, chèn [${reference}] gần câu liên quan; không tự tạo hoặc suy đoán ký hiệu.`
+}
+
+function summarizeToolData(toolName: string, data: any, forModel = false): unknown {
   if (!data) return null
   if (toolName === 'browse_catalog' && Array.isArray(data.items)) {
     return {
@@ -103,7 +136,9 @@ function summarizeToolData(toolName: string, data: any): unknown {
               return [{
                 reference,
                 title: item.title,
-                summary: item.summary,
+                ...(!forModel && typeof item.summary === 'string' ? { summary: item.summary } : {}),
+                visualDescription: compactVisualDescription(item.summary, item.title),
+                usageHint: visualUsageHint(reference, item.diagramLabels),
                 alt: item.alt,
                 safetyCritical: item.safetyCritical === true,
                 citationId: item.citationId,
@@ -119,6 +154,7 @@ function summarizeToolData(toolName: string, data: any): unknown {
       question: data.question,
       field: data.field,
       candidates: Array.isArray(data.candidates) ? data.candidates.slice(0, 8) : [],
+      fields: Array.isArray(data.fields) ? data.fields.slice(0, 2) : [],
     }
   }
   if (toolName === 'get_current_promotions' && Array.isArray(data.promotions)) {
@@ -136,7 +172,7 @@ function modelEvidenceContext(evidence: EvidenceLedger): string {
     outcome: result.outcome,
     completeness: result.outcome === 'SUCCESS' ? result.completeness : undefined,
     data: result.outcome === 'SUCCESS' || result.outcome === 'NEEDS_INPUT' || result.outcome === 'NO_MATCH'
-      ? summarizeToolData(result.tool, result.data)
+      ? summarizeToolData(result.tool, result.data, true)
       : null,
     issues: result.issues,
     dataAsOf: result.dataAsOf,
@@ -189,6 +225,13 @@ function groundedKnowledgeFallback(snippets: any[]) {
 }
 
 function deterministicFallback(evidence: EvidenceLedger): string {
+  const needsInput = [...evidence.getAllToolResults()]
+    .reverse()
+    .find((result) => result.outcome === 'NEEDS_INPUT')
+  if (needsInput && typeof needsInput.data?.question === 'string' && needsInput.data.question.trim()) {
+    return needsInput.data.question.trim()
+  }
+
   const comparison = evidence.getLatestToolResult('compare_products')
   if (comparison?.outcome === 'SUCCESS' && Array.isArray(comparison.data?.products)) {
     const names = comparison.data.products.map((product: any) => product.name).filter(Boolean)
@@ -387,6 +430,12 @@ function rejectedToolCallResult(
   }
 }
 
+function debugError(error: unknown) {
+  return error instanceof Error
+    ? { name: error.name, message: error.message }
+    : { name: 'UNKNOWN_ERROR', message: String(error) }
+}
+
 export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   const budget = options.budget ?? DEFAULT_RUN_BUDGET
   const knownEntities = new KnownEntityLedger()
@@ -394,9 +443,14 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   const evidence = new EvidenceLedger()
   const startedAt = Date.now()
   const deadline = startedAt + budget.totalTimeoutMs
+  const turnAbortController = new AbortController()
+  const forwardRequestAbort = () => turnAbortController.abort()
+  options.signal?.addEventListener('abort', forwardRequestAbort, { once: true })
   const userText = userTextFromInput(options.input)
   const knowledgeEnabled = isSalesAgentKnowledgeRagEnabled()
-  const knowledgeScope = buildKnowledgeScopeContext(userText, options.history ?? [])
+  const knowledgeScope = options.trustedScope
+    ? { binding: options.trustedScope, candidateModels: options.trustedScope.vehicleModel ? [options.trustedScope.vehicleModel] : [], candidateYears: options.trustedScope.modelYear ? [options.trustedScope.modelYear] : [] }
+    : buildKnowledgeScopeContext(userText, options.history ?? [])
   recordSalesAgentDebugEvent('knowledge.scope.resolved', options.context, {
     bindingId: knowledgeScope.binding?.bindingId,
     vehicleModel: knowledgeScope.binding?.vehicleModel,
@@ -410,7 +464,19 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   let toolCallsCount = 0
   let toolCallSequence = 0
   const executedToolCounts = new Map<DataToolName, number>()
-  const lm = await getSalesAgentLanguageModel(options.selectedProvider as any)
+  const providerInitStartedAt = Date.now()
+  let lm: SalesAgentLanguageModel
+  try {
+    lm = await getSalesAgentLanguageModel(options.selectedProvider as any, options.context)
+  } catch (error) {
+    recordSalesAgentDebugEvent('run.initialization.failed', options.context, {
+      phase: 'provider_initialization',
+      selectedProvider: options.selectedProvider || 'default',
+      elapsedMs: Date.now() - providerInitStartedAt,
+      error: debugError(error),
+    })
+    throw error
+  }
 
   const ingestResult = (toolName: string, result: ToolResult, durationMs: number) => {
     evidence.recordToolResult(result.toolCallId, result)
@@ -429,6 +495,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     })
   }
 
+  let needsInputDetected = false
   const tools: ToolSet = {}
   const availableToolContracts = getAvailableToolContracts(knowledgeEnabled)
 
@@ -437,7 +504,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     tools[key] = tool({
       description: contract.description,
       inputSchema: contract.inputSchema,
-      execute: async (input: any) => {
+      execute: async (input: any, toolContext?: { abortSignal?: AbortSignal }) => {
         const toolCallId = `call-${toolName}-${Date.now()}-${++toolCallSequence}`
 
         if (toolCallsCount >= budget.maxToolCalls) {
@@ -459,6 +526,8 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           recordSalesAgentDebugEvent('tool.duplicate_rejected', options.context, {
             tool: toolName,
             toolCallId,
+            outcome: rejected.outcome,
+            reasonCode: 'DUPLICATE_TOOL_CALL',
           })
           return { outcome: rejected.outcome, data: null, issues: rejected.issues }
         }
@@ -519,14 +588,24 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           toolName,
           bindingResult.effectiveInput,
           toolCallId,
-          { knowledgeScope: toolName === 'search_knowledge' ? knowledgeScope.binding : undefined },
+          {
+            knowledgeScope: toolName === 'search_knowledge' ? knowledgeScope.binding : undefined,
+            signal: toolContext?.abortSignal ?? options.signal,
+          },
         )
         ingestResult(toolName, result, Date.now() - toolStartedAt)
+        if (result.outcome === 'NEEDS_INPUT') {
+          needsInputDetected = true
+          // There is no useful second model step for a server-owned form.
+          // Abort the in-flight stream so the route can materialize the form
+          // immediately from the structured tool result.
+          turnAbortController.abort()
+        }
         return {
           outcome: result.outcome,
           completeness: result.outcome === 'SUCCESS' ? result.completeness : undefined,
-          data: toolName === 'search_knowledge'
-            ? summarizeToolData(toolName, result.data)
+            data: toolName === 'search_knowledge'
+              ? summarizeToolData(toolName, result.data, true)
             : result.data,
           issues: result.issues,
         }
@@ -552,7 +631,24 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   })
 
   const candidateModels: SalesAgentLanguageModel[] = [lm]
-  candidateModels.push(...await getAvailableFallbackLanguageModels(lm.provider))
+  const fallbackDiscoveryStartedAt = Date.now()
+  try {
+    const fallbackModels = await getAvailableFallbackLanguageModels(lm.provider, options.context)
+    candidateModels.push(...fallbackModels)
+    recordSalesAgentDebugEvent('provider.fallback.discovery.completed', options.context, {
+      primaryProvider: lm.provider,
+      fallbackCount: fallbackModels.length,
+      fallbackProviders: fallbackModels.map((model) => model.provider),
+      elapsedMs: Date.now() - fallbackDiscoveryStartedAt,
+    })
+  } catch (error) {
+    recordSalesAgentDebugEvent('provider.fallback.discovery.failed', options.context, {
+      primaryProvider: lm.provider,
+      fallbackCount: 0,
+      elapsedMs: Date.now() - fallbackDiscoveryStartedAt,
+      error: debugError(error),
+    })
+  }
 
   let accumulatedText = ''
   let steps: any[] = []
@@ -561,6 +657,17 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   let lastError: any = null
   let completedProvider = lm.provider
   let completedModel = lm.modelId
+  let streamAttempt = 0
+  let provisionalDeltaCount = 0
+  const providerAttempts: Array<{
+    attempt: number
+    provider: string
+    model: string
+    keyAttempt: number
+    outcome: 'SUCCESS' | 'NEEDS_INPUT' | 'FAILED'
+    elapsedMs: number
+    reasonCode?: string
+  }> = []
   const tokenUsage: MutableSalesAgentTokenUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -585,6 +692,18 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         ? [...baseMessages, { role: 'user' as const, content: evidenceContext }]
         : baseMessages
 
+      const attempt = ++streamAttempt
+      const attemptStartedAt = Date.now()
+      recordSalesAgentDebugEvent('model.attempt.started', options.context, {
+        attempt,
+        provider: currentModel.provider,
+        model: currentModel.modelId,
+        keyAttempt: keyAttempt + 1,
+        providerAttempt: candidateModels.indexOf(activeModel) + 1,
+        forceFinalFromStart,
+        remainingTotalMs: Math.max(0, deadline - attemptStartedAt),
+      })
+
       try {
         const remainingTotalMs = Math.max(250, deadline - Date.now())
         const streamResult = streamText({
@@ -595,7 +714,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           activeTools: forceFinalFromStart ? [] : undefined,
           toolChoice: forceFinalFromStart ? 'none' : 'auto',
           stopWhen: [isStepCount(budget.maxModelSteps)],
-          abortSignal: options.signal,
+          abortSignal: turnAbortController.signal,
           timeout: {
             totalMs: remainingTotalMs,
             stepMs: Math.min(budget.stepTimeoutMs, remainingTotalMs),
@@ -603,6 +722,11 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           },
           maxRetries: 0,
           maxOutputTokens: Math.max(100, budget.maxOutputTokens - budget.finalResponseTokens),
+          onChunk: ({ chunk }: { chunk: { type?: string; text?: string } }) => {
+            if (chunk.type !== 'text-delta' || !chunk.text || needsInputDetected) return
+            provisionalDeltaCount += 1
+            options.onTextDelta?.(chunk.text, { provisional: true, attempt })
+          },
           prepareStep: ({ stepNumber, steps: completedSteps }) => {
             const usedTokens = outputTokensUsed(completedSteps)
             const remainingTokens = Math.max(100, budget.maxOutputTokens - usedTokens)
@@ -644,7 +768,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         if (resolvedUsage) addUsageValue(tokenUsage, resolvedUsage)
         else addTokenUsage(tokenUsage, currentSteps)
 
-        const needsRecovery = !currentText || currentFinishReason === 'length' || currentFinishReason === 'tool-calls'
+        if (needsInputDetected) {
+          currentText = deterministicFallback(evidence)
+          currentFinishReason = 'stop'
+        }
+
+        const needsRecovery = !needsInputDetected && (!currentText || currentFinishReason === 'length' || currentFinishReason === 'tool-calls')
         if (needsRecovery) {
           currentText = ''
           const usedTokens = outputTokensUsed(currentSteps)
@@ -663,7 +792,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
               tools,
               activeTools: [],
               toolChoice: 'none',
-              abortSignal: options.signal,
+              abortSignal: turnAbortController.signal,
               timeout: {
                 totalMs: remainingMs,
                 stepMs: Math.min(budget.stepTimeoutMs, remainingMs),
@@ -700,11 +829,83 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         completedModel = currentModel.modelId
         apiKeyPoolManager.markKeySuccess(currentModel.provider, currentModel.usedApiKey)
         generationSucceeded = true
+        const elapsedMs = Date.now() - attemptStartedAt
+        providerAttempts.push({
+          attempt,
+          provider: currentModel.provider,
+          model: currentModel.modelId,
+          keyAttempt: keyAttempt + 1,
+          outcome: 'SUCCESS',
+          elapsedMs,
+        })
+        recordSalesAgentDebugEvent('model.attempt.completed', options.context, {
+          attempt,
+          provider: currentModel.provider,
+          model: currentModel.modelId,
+          keyAttempt: keyAttempt + 1,
+          outcome: 'SUCCESS',
+          finishReason: currentFinishReason,
+          elapsedMs,
+        })
         break modelLoop
       } catch (error: any) {
         lastError = error
+        if (needsInputDetected) {
+          accumulatedText = deterministicFallback(evidence)
+          rawFinishReason = 'stop'
+          completedProvider = currentModel.provider
+          completedModel = currentModel.modelId
+          generationSucceeded = true
+          const elapsedMs = Date.now() - attemptStartedAt
+          providerAttempts.push({
+            attempt,
+            provider: currentModel.provider,
+            model: currentModel.modelId,
+            keyAttempt: keyAttempt + 1,
+            outcome: 'NEEDS_INPUT',
+            elapsedMs,
+            reasonCode: 'NEEDS_INPUT',
+          })
+          recordSalesAgentDebugEvent('model.attempt.completed', options.context, {
+            attempt,
+            provider: currentModel.provider,
+            model: currentModel.modelId,
+            keyAttempt: keyAttempt + 1,
+            outcome: 'NEEDS_INPUT',
+            reasonCode: 'NEEDS_INPUT',
+            elapsedMs,
+          })
+          break modelLoop
+        }
         apiKeyPoolManager.markKeyError(currentModel.provider, currentModel.usedApiKey)
+        const elapsedMs = Date.now() - attemptStartedAt
+        const reasonCode = options.signal?.aborted
+          ? 'CLIENT_ABORTED'
+          : Date.now() >= deadline
+            ? 'RUN_DEADLINE_EXCEEDED'
+            : 'MODEL_ERROR'
+        providerAttempts.push({
+          attempt,
+          provider: currentModel.provider,
+          model: currentModel.modelId,
+          keyAttempt: keyAttempt + 1,
+          outcome: 'FAILED',
+          elapsedMs,
+          reasonCode,
+        })
+        recordSalesAgentDebugEvent('model.attempt.failed', options.context, {
+          attempt,
+          provider: currentModel.provider,
+          model: currentModel.modelId,
+          keyAttempt: keyAttempt + 1,
+          outcome: 'FAILED',
+          reasonCode,
+          elapsedMs,
+          error: debugError(error),
+          remainingFallbacks: Math.max(0, candidateModels.length - candidateModels.indexOf(activeModel) - 1),
+        })
         if (options.signal?.aborted) break modelLoop
+        if (provisionalDeltaCount > 0) options.onTextReset?.('retry')
         console.warn(`[ORCHESTRATOR] Generation failed with provider "${currentModel.provider}": ${error?.message || error}. Attempting failover...`)
       }
     }
@@ -714,6 +915,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     accumulatedText = deterministicFallback(evidence)
     rawFinishReason = Date.now() >= deadline ? 'length' : 'error'
     console.error('[ORCHESTRATOR] Finalizer fallback used:', lastError)
+    recordSalesAgentDebugEvent('run.fallback.used', options.context, {
+      reasonCode: rawFinishReason === 'length' ? 'RUN_DEADLINE_EXCEEDED' : 'ALL_MODELS_FAILED',
+      elapsedMs: Date.now() - startedAt,
+      providerAttempts,
+      lastError: lastError ? debugError(lastError) : undefined,
+    })
   }
 
   const allEvidence = evidence.getAllEvidence()
@@ -806,9 +1013,18 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     totalEvidence: allEvidence.length,
     totalFactPointers: currentTurnFactPointers.length,
     knownEntitiesCount: knownEntities.toKnownRefs().length,
+    provisionalDeltaCount,
     elapsedMs: Date.now() - startedAt,
     usage: tokenUsage,
+    completedProvider,
+    completedModel,
+    fallbackUsed: !generationSucceeded,
+    providerAttempts,
+    lastError: lastError ? debugError(lastError) : undefined,
+    deadlineExceeded: Date.now() >= deadline,
   })
+
+  options.signal?.removeEventListener('abort', forwardRequestAbort)
 
   return {
     text: accumulatedText,

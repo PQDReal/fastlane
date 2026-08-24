@@ -32,46 +32,157 @@ import type {
 export type ExecuteDataToolOptions = {
   /** Server-derived scope. Model-provided vehicleModel/modelYear are never authoritative. */
   knowledgeScope?: KnowledgeScopeBinding | null
+  signal?: AbortSignal
 }
 
 type KnowledgeScopeResolution = {
   defaultedModelYear?: number
+  catalogModel?: string
   catalog?: Pick<KnowledgeScopeCatalogSnapshot, 'status' | 'entries' | 'knowledgeEpoch'>
 }
 
-async function loadKnowledgeScopeCatalog(): Promise<KnowledgeScopeCatalogSnapshot> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      knowledgeScopeCatalogEngine.getSnapshotAsync(),
-      new Promise<KnowledgeScopeCatalogSnapshot>((resolve) => {
-        timer = setTimeout(() => resolve({
-          status: 'UNAVAILABLE',
-          entries: [],
-          refreshedAt: Date.now(),
-        }), 800)
-      }),
-    ])
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
+async function loadKnowledgeScopeCatalog(_signal?: AbortSignal): Promise<KnowledgeScopeCatalogSnapshot> {
+  // Serve verified or seeded inventory immediately while background refresh runs.
+  const cachedSnapshot = knowledgeScopeCatalogEngine.getSnapshot()
+  if (cachedSnapshot.entries.length > 0) return cachedSnapshot
+  return knowledgeScopeCatalogEngine.getSnapshotAsync()
 }
 
 function normalizeScopeModel(value: unknown) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-function rawModelHintForYearAmbiguity(rawModel: string | undefined, items: any[]) {
-  if (!rawModel) return undefined
-  const scopes = items.flatMap((item) => Array.isArray(item?.scopeMetadata) ? item.scopeMetadata : [])
-  const models = [...new Set(scopes
-    .map((scope: any) => normalizeScopeModel(scope?.vehicleModel))
-    .filter((model) => model && model !== 'all'))]
-  const years = [...new Set(scopes.flatMap((scope: any) => [scope.modelYearFrom, scope.modelYearTo]
-    .filter((year: unknown): year is number => Number.isInteger(year))))]
-  return models.length === 1 && years.length > 1 && models[0] === normalizeScopeModel(rawModel)
-    ? rawModel
-    : undefined
+type ScopeClarificationField = {
+  field: 'vehicleModel' | 'modelYear'
+  label: string
+  required: boolean
+  dependsOn?: 'vehicleModel'
+  options: Array<{
+    optionId: string
+    label: string
+    field: 'vehicleModel' | 'modelYear'
+    value: string
+    metadata?: Record<string, string | number | boolean>
+  }>
+}
+
+type ScopeClarification = {
+  kind: 'KNOWLEDGE_SCOPE'
+  field: 'vehicleModel' | 'modelYear'
+  question: string
+  candidates: Array<{ vehicleModel?: string; modelYear?: number; label: string }>
+  fields: ScopeClarificationField[]
+  matchedScopes: []
+}
+
+function isSalesKnowledgeCategory(category: string | undefined) {
+  return category === 'PROMOTIONS_FINANCING'
+    || category === 'PURCHASE_POLICY'
+    || category === 'DEPOSIT_DELIVERY'
+    || category === 'REGISTRATION_PROCEDURE'
+    || category === 'WARRANTY_BATTERY'
+    || category === 'CHARGING_NETWORK'
+    || category === 'GENERAL_POLICY'
+}
+
+function isPolicySearchQuery(query: string | undefined): boolean {
+  if (!query) return false
+  return /(bảo hành|chính sách|đặt cọc|nhận xe|bàn giao|trạm sạc|thuê pin|trả góp|ưu đãi|khuyến mãi|thanh toán|hợp đồng)/i.test(query)
+}
+
+function buildVehicleModelClarification(
+  catalog: KnowledgeScopeCatalogSnapshot | undefined,
+  input: SearchKnowledgeInput,
+): ScopeClarification | null {
+  if (!catalog || catalog.status !== 'READY') return null
+  if (!input.query?.trim()) return null
+  if (input.categories?.length && input.categories.every(isSalesKnowledgeCategory)) return null
+  if (isPolicySearchQuery(input.query)) return null
+
+  const models = [...new Map(
+    catalog.entries
+      .map((entry) => entry.vehicleModel?.trim())
+      .filter((model): model is string => Boolean(model))
+      .map((model) => [normalizeScopeModel(model), model] as const),
+  ).values()].slice(0, 64)
+
+  if (models.length <= 1) return null
+
+  const modelOptions = models.map((vehicleModel, index) => ({
+    optionId: `scope-model-${index + 1}`,
+    label: vehicleModel,
+    field: 'vehicleModel' as const,
+    value: vehicleModel,
+  }))
+  const technicalRequest = true
+  const yearsByModel = new Map(models.map((model) => {
+    const years = [...new Set(catalog.entries
+      .filter((entry) => normalizeScopeModel(entry.vehicleModel) === normalizeScopeModel(model))
+      .flatMap((entry) => [entry.modelYearFrom, entry.modelYearTo])
+      .filter((year): year is number => Number.isInteger(year)))].sort((a, b) => a - b)
+    return [model, years] as const
+  }))
+  const hasMultipleYears = technicalRequest && [...yearsByModel.values()].some((years) => years.length > 1)
+  const yearOptions = hasMultipleYears
+    ? [...yearsByModel.entries()].flatMap(([model, years]) => years.map((year) => ({
+        optionId: `scope-year-${normalizeScopeModel(model)}-${year}`,
+        label: `${year} — ${model}`,
+        field: 'modelYear' as const,
+        value: String(year),
+        metadata: { vehicleModel: model },
+      }))).slice(0, 64)
+    : []
+
+  return {
+    kind: 'KNOWLEDGE_SCOPE',
+    field: 'vehicleModel',
+    question: `Bạn đang hỏi dòng xe nào: ${models.join(', ')}?`,
+    candidates: models.map((vehicleModel) => ({ vehicleModel, label: vehicleModel })),
+    fields: [
+      { field: 'vehicleModel', label: 'Dòng xe', required: true, options: modelOptions },
+      ...(yearOptions.length > 0
+        ? [{ field: 'modelYear' as const, label: 'Năm áp dụng', required: true, dependsOn: 'vehicleModel' as const, options: yearOptions }]
+        : []),
+    ],
+    matchedScopes: [],
+  }
+}
+
+function buildModelYearClarification(
+  catalog: KnowledgeScopeCatalogSnapshot | undefined,
+  vehicleModel: string | undefined,
+  input: SearchKnowledgeInput,
+): ScopeClarification | null {
+  if (!catalog || catalog.status !== 'READY' || !vehicleModel) return null
+  if (input.categories?.length && input.categories.every(isSalesKnowledgeCategory)) return null
+  const years = [...new Set(catalog.entries
+    .filter((entry) => normalizeScopeModel(entry.vehicleModel) === normalizeScopeModel(vehicleModel))
+    .flatMap((entry) => [entry.modelYearFrom, entry.modelYearTo])
+    .filter((year): year is number => Number.isInteger(year)))].sort((a, b) => a - b)
+  if (years.length <= 1) return null
+  const options = years.slice(0, 64).map((year, index) => ({
+    optionId: `scope-year-${normalizeScopeModel(vehicleModel)}-${year}-${index + 1}`,
+    label: String(year),
+    field: 'modelYear' as const,
+    value: String(year),
+    metadata: { vehicleModel },
+  }))
+  return {
+    kind: 'KNOWLEDGE_SCOPE',
+    field: 'modelYear',
+    question: `Bạn muốn xem thông tin ${vehicleModel} đời nào?`,
+    candidates: years.map((modelYear) => ({ modelYear, label: String(modelYear) })),
+    fields: [
+      {
+        field: 'vehicleModel',
+        label: 'Dòng xe',
+        required: true,
+        options: [{ optionId: `scope-model-${normalizeScopeModel(vehicleModel)}`, label: vehicleModel, field: 'vehicleModel', value: vehicleModel }],
+      },
+      { field: 'modelYear', label: 'Năm áp dụng', required: true, dependsOn: 'vehicleModel', options },
+    ],
+    matchedScopes: [],
+  }
 }
 
 function selectKnowledgeScope(
@@ -115,7 +226,7 @@ function applyKnowledgeScope(
     input.modelYear != null ? 'modelYear' : undefined,
   ].filter((field): field is string => Boolean(field))
 
-  if (!scope && ignoredRawFields.length === 0) return result
+  if (!scope && ignoredRawFields.length === 0 && !resolution.catalog && !resolution.catalogModel) return result
 
   const appliedBindings: AppliedBinding[] = []
   if (scope?.vehicleModel) {
@@ -125,6 +236,13 @@ function applyKnowledgeScope(
       authority: 'ENFORCED',
       provenance: { kind: 'SERVER_RESOLVED', id: scope.bindingId },
     })
+  } else if (resolution.catalogModel) {
+    appliedBindings.push({
+      field: 'vehicleModel',
+      value: resolution.catalogModel,
+      authority: 'ENFORCED',
+      provenance: { kind: 'SERVER_RESOLVED', id: `scope-catalog-${normalizeScopeModel(resolution.catalogModel)}` },
+    })
   }
   if (scope?.modelYear != null) {
     appliedBindings.push({
@@ -132,6 +250,16 @@ function applyKnowledgeScope(
       value: scope.modelYear,
       authority: 'ENFORCED',
       provenance: { kind: 'SERVER_RESOLVED', id: scope.bindingId },
+    })
+  } else if (resolution.defaultedModelYear != null) {
+    appliedBindings.push({
+      field: 'modelYear',
+      value: resolution.defaultedModelYear,
+      authority: 'ENFORCED',
+      provenance: {
+        kind: 'SERVER_RESOLVED',
+        id: scope?.bindingId || (resolution.catalogModel ? `scope-catalog-${normalizeScopeModel(resolution.catalogModel)}` : undefined),
+      },
     })
   }
 
@@ -141,21 +269,24 @@ function applyKnowledgeScope(
     diagnostics: {
       ...result.diagnostics,
       scope: {
-        bindingId: scope?.bindingId,
-        vehicleModel: scope?.vehicleModel,
+        bindingId: scope?.bindingId || (resolution.catalogModel ? `scope-catalog-${normalizeScopeModel(resolution.catalogModel)}` : undefined),
+        vehicleModel: scope?.vehicleModel ?? resolution.catalogModel,
         modelYear: scope?.modelYear,
         defaultedModelYear: resolution.defaultedModelYear,
-        yearPolicy: scope?.modelYear != null
-          ? 'EXPLICIT'
-          : resolution.defaultedModelYear != null
-            ? 'ONLY_AVAILABLE'
-            : undefined,
+        yearPolicy: scope?.modelYearPolicy
+          ?? (scope?.modelYear != null
+            ? 'EXPLICIT'
+            : resolution.defaultedModelYear != null
+              ? (input.categories?.length && input.categories.every(isSalesKnowledgeCategory) ? 'LATEST' : 'ONLY_AVAILABLE')
+              : undefined),
         catalogStatus: resolution.catalog?.status,
         catalogEntryCount: resolution.catalog?.entries.length,
         catalogEpoch: resolution.catalog?.knowledgeEpoch,
         sources: scope?.sources
           ? Object.fromEntries(Object.entries(scope.sources).map(([key, value]) => [key, value]))
-          : undefined,
+          : resolution.catalogModel
+            ? { vehicleModel: 'CATALOG' }
+            : undefined,
         ignoredRawFields: ignoredRawFields.length > 0 ? ignoredRawFields : undefined,
       },
     },
@@ -170,6 +301,8 @@ export async function executeDataTool(
 ): Promise<ToolResult> {
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
+  const toolStartedAt = Date.now()
+  let executionPhase = `dispatch:${name}`
 
   try {
     switch (name) {
@@ -235,26 +368,101 @@ export async function executeDataTool(
       }
 
       case 'search_knowledge': {
+        executionPhase = 'knowledge_scope_and_retrieval'
         const input = args as SearchKnowledgeInput
         // The model can suggest these fields, but only the server-derived scope
         // may become a retrieval filter or an ambiguity exemption.
         const inferredModel = options.knowledgeScope?.vehicleModel
         const inferredYear = options.knowledgeScope?.modelYear
-        const shouldResolveCatalogYear = inferredModel && inferredYear == null
-        const scopeCatalog = shouldResolveCatalogYear
-          ? await loadKnowledgeScopeCatalog()
+        let scopeCatalog = (!inferredModel || inferredYear == null)
+          ? await loadKnowledgeScopeCatalog(options.signal)
           : undefined
-        const catalogYears = shouldResolveCatalogYear && inferredModel && scopeCatalog?.status === 'READY'
-          ? knowledgeScopeCatalogEngine.getAvailableYearsForModel(inferredModel)
+        const catalogModels = !inferredModel && scopeCatalog?.status === 'READY'
+          ? [...new Map(scopeCatalog.entries
+              .map((entry) => entry.vehicleModel?.trim())
+              .filter((model): model is string => Boolean(model))
+              .map((model) => [normalizeScopeModel(model), model] as const)).values()]
           : []
+        const catalogModel = catalogModels.length === 1 ? catalogModels[0] : undefined
+        const resolvedModel = inferredModel ?? catalogModel
+        const shouldResolveCatalogYear = resolvedModel && inferredYear == null
+        const catalogYears = shouldResolveCatalogYear && resolvedModel && scopeCatalog?.status === 'READY'
+          ? [...new Set(scopeCatalog.entries
+              .filter((entry) => normalizeScopeModel(entry.vehicleModel) === normalizeScopeModel(resolvedModel))
+              .flatMap((entry) => [entry.modelYearFrom, entry.modelYearTo])
+              .filter((year): year is number => Number.isInteger(year)))].sort((a, b) => a - b)
+          : []
+        const signedYearPolicy = options.knowledgeScope?.modelYearPolicy
+        const salesKnowledgeRequest = Boolean(input.categories?.length && input.categories.every(isSalesKnowledgeCategory))
         const catalogDefaultYear = catalogYears.length === 1
           ? catalogYears[0]
-          : undefined
+          : (signedYearPolicy === 'LATEST' || salesKnowledgeRequest) && catalogYears.length > 0
+            ? Math.max(...catalogYears)
+            : undefined
+
+        // Do not run an unscoped vector search merely to discover that the
+        // answer spans multiple vehicle lines. The scope catalog is a small,
+        // server-owned inventory of effective knowledge scopes; when it says
+        // the active knowledge is vehicle-specific and covers multiple lines,
+        // ask the user before touching the expensive chunk retrieval path.
+        const vehicleModelClarification = !inferredModel && !catalogModel
+          ? buildVehicleModelClarification(scopeCatalog, input)
+          : null
+        const modelYearClarification = !vehicleModelClarification && !signedYearPolicy && shouldResolveCatalogYear && catalogYears.length > 1
+          ? buildModelYearClarification(scopeCatalog, resolvedModel, input)
+          : null
+        const clarification = vehicleModelClarification || modelYearClarification
+        if (clarification) {
+          const issues = [{
+            code: 'AMBIGUOUS_REFERENCE' as const,
+            message: clarification.question,
+            field: clarification.field,
+            candidates: clarification.candidates,
+          }]
+          const scopeResolution: KnowledgeScopeResolution = {
+            ...(catalogModel ? { catalogModel } : {}),
+            catalog: scopeCatalog
+              ? {
+                  status: scopeCatalog.status,
+                  entries: scopeCatalog.entries,
+                  knowledgeEpoch: scopeCatalog.knowledgeEpoch,
+                }
+              : undefined,
+          }
+          return applyKnowledgeScope({
+            schemaVersion: '2.0',
+            toolCallId,
+            tool: 'search_knowledge',
+            readAt,
+            dataAsOf,
+            evidence: [],
+            observation: {
+              observationId: `obs-${toolCallId}`,
+              toolCallId,
+              outcome: 'NEEDS_INPUT',
+              issueCodes: ['AMBIGUOUS_REFERENCE'],
+              inputHash: JSON.stringify(input),
+              readAt,
+            },
+            issues,
+            appliedBindings: [],
+            outcome: 'NEEDS_INPUT',
+            diagnostics: {
+              retrieval: {
+                status: 'SCOPE_PREFLIGHT',
+                scopeCatalogStatus: scopeCatalog?.status,
+                scopeCatalogEntryCount: scopeCatalog?.entries.length ?? 0,
+                scopePreflightStatus: scopeCatalog?.status,
+              },
+            },
+            data: clarification,
+          }, options.knowledgeScope, input, scopeResolution)
+        }
 
         let retrieval: any
         try {
           const retrievalFilters = {
-            ...(inferredModel ? { vehicleModel: inferredModel } : {}),
+            ...(resolvedModel ? { vehicleModel: resolvedModel } : {}),
             ...((inferredYear ?? catalogDefaultYear) != null ? { modelYear: inferredYear ?? catalogDefaultYear } : {}),
             ...(input.categories && input.categories.length === 1
               ? { category: input.categories[0] as any }
@@ -268,11 +476,16 @@ export async function executeDataTool(
             {
               retrievalMode: 'HYBRID_HIERARCHICAL',
               topK: input.topK ?? 5,
+              signal: options.signal,
             },
           )
         } catch (retrievalErr: any) {
-          console.warn('[KNOWLEDGE RETRIEVAL] Search unavailable:', retrievalErr?.message || retrievalErr)
-          retrieval = { status: 'UNAVAILABLE', items: [] }
+          const failure = retrievalErr?.details
+          console.warn('[KNOWLEDGE RETRIEVAL] Search unavailable:', {
+            message: retrievalErr?.message || String(retrievalErr),
+            failure,
+          })
+          retrieval = { status: 'UNAVAILABLE', items: [], failure }
         }
 
         if (retrieval.status === 'UNAVAILABLE' || !Array.isArray(retrieval.items)) {
@@ -300,20 +513,81 @@ export async function executeDataTool(
                 retrievalMode: retrieval.retrievalMode,
                 totalFound: retrieval.totalFound,
                 ...retrieval.telemetry,
+                failure: retrieval.failure,
+                scopePreflightStatus: scopeCatalog?.status,
+                boundedGeneralRetrieval: !resolvedModel && (scopeCatalog?.status === 'UNAVAILABLE' || scopeCatalog?.status === 'EMPTY'),
               },
             },
             data: null,
           }, options.knowledgeScope, input)
         }
 
+        // A cold catalog refresh continues after the bounded preflight wait.
+        // Retrieval usually takes long enough for it to finish, so consult the
+        // completed snapshot before deriving years from only the top-K chunks.
+        if (scopeCatalog?.status !== 'READY') {
+          const refreshedCatalog = knowledgeScopeCatalogEngine.getSnapshot()
+          if (refreshedCatalog.status === 'READY' && refreshedCatalog.entries.length > 0) {
+            scopeCatalog = refreshedCatalog
+          }
+        }
+        if (!signedYearPolicy && resolvedModel && inferredYear == null && scopeCatalog?.status === 'READY') {
+          const recoveredClarification = buildModelYearClarification(scopeCatalog, resolvedModel, input)
+          if (recoveredClarification) {
+            const issues = [{
+              code: 'AMBIGUOUS_REFERENCE' as const,
+              message: recoveredClarification.question,
+              field: recoveredClarification.field,
+              candidates: recoveredClarification.candidates,
+            }]
+            return applyKnowledgeScope({
+              schemaVersion: '2.0',
+              toolCallId,
+              tool: 'search_knowledge',
+              readAt,
+              dataAsOf,
+              evidence: [],
+              observation: {
+                observationId: `obs-${toolCallId}`,
+                toolCallId,
+                outcome: 'NEEDS_INPUT',
+                issueCodes: ['AMBIGUOUS_REFERENCE'],
+                inputHash: JSON.stringify(input),
+                readAt,
+              },
+              issues,
+              appliedBindings: [],
+              outcome: 'NEEDS_INPUT',
+              diagnostics: {
+                retrieval: {
+                  status: retrieval.status,
+                  retrievalMode: retrieval.retrievalMode,
+                  totalFound: retrieval.totalFound,
+                  ...retrieval.telemetry,
+                  scopePreflightStatus: 'READY',
+                  scopePreflightRecovered: true,
+                },
+              },
+              data: recoveredClarification,
+            }, options.knowledgeScope, input, {
+              catalog: {
+                status: scopeCatalog.status,
+                entries: scopeCatalog.entries,
+                knowledgeEpoch: scopeCatalog.knowledgeEpoch,
+              },
+            })
+          }
+        }
+
         const selectedScope = selectKnowledgeScope(
           retrieval.items,
-          inferredModel,
+          resolvedModel,
           inferredYear,
           catalogDefaultYear,
         )
         const scopeResolution: KnowledgeScopeResolution = {
           defaultedModelYear: selectedScope.defaultedModelYear,
+          ...(catalogModel ? { catalogModel } : {}),
           catalog: scopeCatalog
             ? {
                 status: scopeCatalog.status,
@@ -336,14 +610,11 @@ export async function executeDataTool(
             contentSafety: title.blocked || sectionTitle.blocked || content.blocked ? 'BLOCKED' : 'SAFE',
           }
         })
-        const ambiguityModelHint = !inferredModel
-          ? rawModelHintForYearAmbiguity(input.vehicleModel, safeSearchResults)
-          : undefined
         const ambiguity = detectKnowledgeAmbiguity(safeSearchResults, {
-          vehicleModel: inferredModel ?? ambiguityModelHint,
+          vehicleModel: resolvedModel,
           modelYear: effectiveModelYear,
         }, {
-          requireModel: !inferredModel && !ambiguityModelHint,
+          requireModel: !resolvedModel,
         })
         if (ambiguity) {
           const issues = [{
@@ -376,12 +647,15 @@ export async function executeDataTool(
                 retrievalMode: retrieval.retrievalMode,
                 totalFound: retrieval.totalFound,
                 ...retrieval.telemetry,
+                scopePreflightStatus: scopeCatalog?.status,
+                boundedGeneralRetrieval: !resolvedModel && (scopeCatalog?.status === 'UNAVAILABLE' || scopeCatalog?.status === 'EMPTY'),
               },
             },
             data: ambiguity,
           }, options.knowledgeScope, input, scopeResolution)
         }
         let visualPointers: KnowledgeVisualMediaPointer[] = []
+        let visualLookupError: { name: string; message: string } | undefined
         const visualLookupEnabled = isSalesAgentVisualKnowledgeRetrievalEnabled()
         const visualLookupStartedAt = performance.now()
         if (visualLookupEnabled) {
@@ -396,6 +670,9 @@ export async function executeDataTool(
             // Visuals are optional enrichment. Preserve the grounded text result
             // while keeping the separate visual release gate fail-closed.
             console.warn('[VISUAL KNOWLEDGE] Approved media lookup unavailable:', visualError?.message || visualError)
+            visualLookupError = visualError instanceof Error
+              ? { name: visualError.name, message: visualError.message }
+              : { name: 'UNKNOWN_ERROR', message: String(visualError) }
           }
         }
         const visualLookupLatencyMs = Math.max(0, Math.round((performance.now() - visualLookupStartedAt) * 100) / 100)
@@ -449,11 +726,15 @@ export async function executeDataTool(
               retrievalMode: retrieval.retrievalMode,
               totalFound: retrieval.totalFound,
               ...retrieval.telemetry,
+              scopePreflightStatus: scopeCatalog?.status,
+              boundedGeneralRetrieval: !resolvedModel && (scopeCatalog?.status === 'UNAVAILABLE' || scopeCatalog?.status === 'EMPTY'),
             },
             visualLookup: {
               enabled: visualLookupEnabled,
               latencyMs: visualLookupLatencyMs,
               pointerCount: visualPointers.length,
+              status: visualLookupError ? 'UNAVAILABLE' : 'COMPLETED',
+              error: visualLookupError,
             },
           },
           data: {
@@ -479,6 +760,9 @@ export async function executeDataTool(
     }
   } catch (err: any) {
     console.warn(`[DATA TOOL RESILIENCE] Tool ${name} encountered an error:`, err?.message || err)
+    const error = err instanceof Error
+      ? { name: err.name, message: err.message }
+      : { name: 'UNKNOWN_ERROR', message: String(err) }
     const observation: ToolObservationRef = {
       observationId: `obs-err-${toolCallId}`,
       toolCallId,
@@ -498,6 +782,14 @@ export async function executeDataTool(
       issues: [{ code: 'RESOURCE_UNAVAILABLE', message: 'Dữ liệu tạm thời chưa phản hồi.' }],
       appliedBindings: [],
       outcome: 'UNAVAILABLE',
+      diagnostics: {
+        execution: {
+          status: 'FAILED',
+          phase: executionPhase,
+          elapsedMs: Date.now() - toolStartedAt,
+          error,
+        },
+      },
       data: null,
     }
   }

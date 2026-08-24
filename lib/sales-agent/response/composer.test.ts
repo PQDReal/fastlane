@@ -198,9 +198,8 @@ describe('Canonical Response Composer', () => {
 
     // During clarification, no unprompted card dump!
     expect(response.blocks.length).toBe(0)
-    // Clarification chips must stay generic when no verified pair exists.
-    expect(response.suggestions.length).toBeLessThanOrEqual(3)
-    expect(response.suggestions.some((s) => s.kind === 'CLARIFICATION')).toBe(true)
+    // The clarification form is the only next action; no unrelated chips.
+    expect(response.suggestions).toEqual([])
   })
 
   it('builds ambient chips from the current catalog slice instead of a fixed model pair', () => {
@@ -227,6 +226,51 @@ describe('Canonical Response Composer', () => {
       'Thông số VinFast Feliz S',
     ])
     expect(response.suggestions).toHaveLength(3)
+  })
+
+  it('surfaces a canonical warning when general retrieval ran without a scope catalog', () => {
+    const evidence = new EvidenceLedger()
+    const readAt = new Date().toISOString()
+    evidence.recordToolResult('call-scope-warning', {
+      schemaVersion: '2.0',
+      toolCallId: 'call-scope-warning',
+      tool: 'search_knowledge',
+      readAt,
+      dataAsOf: readAt,
+      evidence: [],
+      observation: {
+        observationId: 'obs-scope-warning',
+        toolCallId: 'call-scope-warning',
+        outcome: 'SUCCESS',
+        issueCodes: [],
+        inputHash: '{}',
+        readAt,
+      },
+      issues: [],
+      appliedBindings: [],
+      diagnostics: { retrieval: { scopePreflightStatus: 'UNAVAILABLE' } },
+      outcome: 'SUCCESS',
+      completeness: 'PARTIAL',
+      data: { snippets: [] },
+    })
+
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{ kind: 'ADVICE', markdown: 'Kết quả chung theo tài liệu hiện có.' }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence,
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-scope-warning',
+      turnId: 'turn-scope-warning',
+      messageId: 'msg-scope-warning',
+    })
+
+    expect(response.grounding.warnings).toContainEqual(expect.objectContaining({ code: 'SCOPE_CATALOG_UNAVAILABLE' }))
   })
 
   it('keeps knowledge citations when the same answer also contains product cards', () => {
@@ -313,7 +357,7 @@ describe('Canonical Response Composer', () => {
         outcome: 'ANSWER',
         narrative: [{
           kind: 'ADVICE',
-          markdown: 'Đây là vị trí mở cửa khẩn cấp theo sổ tay.\n\n[media:1]',
+          markdown: 'Đây là vị trí mở cửa khẩn cấp theo sổ tay.\n\n1. Mở cửa.\n2. Kéo tay vịn.\n\n[media:1]',
         }],
         views: [],
         suggestionIntents: [],
@@ -339,8 +383,8 @@ describe('Canonical Response Composer', () => {
     }
     expect(response.answer.markdown).toContain('[media:1]')
     expect(response.answer.markdown).not.toContain(pointer.url)
-    expect(response.answer.markdown).toContain('**(1)** Nút mở cửa khẩn cấp')
-    expect(response.answer.markdown).toContain('**(2)** Nắp che cơ cấu mở cửa')
+    expect(response.answer.markdown).not.toContain('Chú giải —')
+    expect(response.answer.markdown).not.toContain('Nắp che cơ cấu mở cửa')
   })
 
   it('keeps unreferenced knowledge media out of the customer-facing response', () => {

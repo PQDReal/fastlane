@@ -39,11 +39,14 @@ describe('search_knowledge ambiguity contract', () => {
 
     expect(result.outcome).toBe('NEEDS_INPUT')
     expect(result.evidence).toEqual([])
+    // The raw vehicleModel argument is model-authored and therefore cannot
+    // waive the signed scope preflight. With the catalog unavailable the
+    // bounded fallback still asks for a trusted model before presenting
+    // model-specific years.
     expect(result.issues[0]).toMatchObject({
       code: 'AMBIGUOUS_REFERENCE',
-      field: 'modelYear',
+      field: 'vehicleModel',
     })
-    expect(result.data.question).toContain('VF 9 2025')
-    expect(result.data.question).toContain('VF 9 2026')
+    expect(result.data.question).toContain('VF 9')
   })
 })

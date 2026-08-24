@@ -9,7 +9,6 @@ import remarkMath from 'remark-math'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShieldAlert, X, ZoomIn } from 'lucide-react'
 import type { AssistantBlock } from '@/lib/sales-agent/contracts'
-import { DiagramLegend } from './diagram-legend'
 import { isAllowedKnowledgeMediaUrl } from '@/lib/sales-agent/knowledge/media-url'
 import { knowledgeMediaReference } from '@/lib/sales-agent/knowledge/media-reference'
 
@@ -227,7 +226,6 @@ function InlineImage({
                 {matchedMeta?.summary && (
                   <p className="text-sm leading-6 text-slate-700">{matchedMeta.summary}</p>
                 )}
-                <DiagramLegend labels={matchedMeta?.diagramLabels} />
                 {matchedMeta?.safetyCritical && (
                   <p className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
                     <ShieldAlert className="h-4 w-4 shrink-0" />

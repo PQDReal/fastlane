@@ -21,10 +21,14 @@ describe('Sales Agent prompt capability gate', () => {
     expect(prompt).not.toContain('/knowledge/[slug]')
   })
 
-  it('grounds diagram legends and requires compact verified media references', () => {
+  it('gives the Agent structured visual context and leaves wording to the Agent', () => {
     const prompt = getSalesAgentSystemPrompt({ knowledgeEnabled: true })
     expect(prompt).toContain('media[].diagramLabels')
-    expect(prompt).toContain('Liệt kê đầy đủ ký hiệu')
+    expect(prompt).toContain('media[].visualDescription')
+    expect(prompt).toContain('media[].usageHint')
+    expect(prompt).toContain('tự sắp xếp cách diễn đạt tự nhiên')
+    expect(prompt).toContain('không chép lại toàn bộ mô tả ảnh')
+    expect(prompt).not.toContain('hệ thống sẽ tự gắn chú giải canonical cạnh ảnh')
     expect(prompt).toContain('media[].reference')
     expect(prompt).toContain('[media:N]')
     expect(prompt).toContain('Không chép hoặc tự tạo URL ảnh')

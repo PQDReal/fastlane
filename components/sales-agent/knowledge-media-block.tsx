@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ImageIcon, ShieldAlert, X } from 'lucide-react'
 import type { AssistantBlock } from '@/lib/sales-agent/contracts'
-import { DiagramLegend } from './diagram-legend'
 
 type KnowledgeMediaBlockProps = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>
 type KnowledgeMediaItem = KnowledgeMediaBlockProps['items'][number]
@@ -95,7 +94,6 @@ export function KnowledgeMediaBlock({ title, items }: KnowledgeMediaBlockProps) 
                   <img src={selected.url} alt={selected.alt} className="max-h-[62vh] w-full object-contain" />
                 </div>
                 <p className="text-sm leading-6 text-slate-700">{selected.summary}</p>
-                <DiagramLegend labels={selected.diagramLabels} />
                 {selected.safetyCritical ? (
                   <p className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
                     <ShieldAlert className="h-4 w-4" />

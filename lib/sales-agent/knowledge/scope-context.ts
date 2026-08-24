@@ -3,12 +3,13 @@ import 'server-only'
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 import { catalogCacheEngine } from '../cache/catalog-cache'
 
-export type KnowledgeScopeSource = 'CURRENT_USER' | 'USER_HISTORY'
+export type KnowledgeScopeSource = 'CURRENT_USER' | 'USER_HISTORY' | 'SIGNED_INTERACTION' | 'CATALOG'
 
 export type KnowledgeScopeBinding = {
   bindingId: string
   vehicleModel?: string
   modelYear?: number
+  modelYearPolicy?: 'EXPLICIT' | 'ONLY_AVAILABLE' | 'LATEST'
   sources: {
     vehicleModel?: KnowledgeScopeSource
     modelYear?: KnowledgeScopeSource
