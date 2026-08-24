@@ -139,7 +139,7 @@ export async function embedManualArticle(articleId: string): Promise<number> {
   const valuesToEmbed = chunks.map((c) => `Tiêu đề: ${article.title}\nPhần: ${c.sectionTitle}\nNội dung: ${c.content}`)
   
   const { embeddings } = await embedMany({
-    model: openai.embedding('text-embedding-3-small'),
+    model: openai.embedding('text-embedding-3-small', { dimensions: 512 }),
     values: valuesToEmbed,
   })
 
@@ -153,7 +153,7 @@ export async function embedManualArticle(articleId: string): Promise<number> {
     section_title: chunk.sectionTitle,
     content: chunk.content,
     image_url: chunk.imageUrl || null,
-    embedding: `[${embeddings[i].join(',')}]`, // vector format
+    embedding: `[${embeddings[i].slice(0, 512).join(',')}]`, // vector format
   }))
 
   const { error: insertError } = await supabase.from('manual_article_chunks').insert(insertData)
