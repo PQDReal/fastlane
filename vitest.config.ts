@@ -8,6 +8,6 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: ['**/node_modules/**', '**/.git/**', '**/.next/**', '**/.local/**'],
+    exclude: ['**/node_modules/**', '**/.git/**', '**/.next/**', '**/.local/**', '**/*.node.test.mjs'],
   },
 })

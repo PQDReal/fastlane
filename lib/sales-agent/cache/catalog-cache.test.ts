@@ -1,11 +1,18 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
 import { catalogCacheEngine, CACHE_TTL_MS } from './catalog-cache'
 
 describe('Catalog Cache Engine', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    ;(catalogCacheEngine as any).isRefreshing = false
+    ;(catalogCacheEngine as any).refreshPromise = null
+  })
+
   it('initializes with a vehicle-only catalog snapshot', () => {
+    ;(catalogCacheEngine as any).snapshot.lastRefreshedAt = Date.now()
     const snapshot = catalogCacheEngine.getSnapshot()
     expect(snapshot).toBeDefined()
     expect(snapshot.products.length).toBeGreaterThan(0)
@@ -29,9 +36,12 @@ describe('Catalog Cache Engine', () => {
 
   it('supports force refresh without throwing on network failure', async () => {
     const beforeSnapshot = catalogCacheEngine.getSnapshot()
+    vi.spyOn(catalogCacheEngine as any, 'fetchFromDatabase')
+      .mockRejectedValue(new Error('simulated network failure'))
     const refreshed = await catalogCacheEngine.forceRefresh()
 
     expect(refreshed).toBeDefined()
+    expect(refreshed).toBe(beforeSnapshot)
     expect(refreshed.products.length).toBeGreaterThan(0)
     expect(refreshed).not.toHaveProperty('knowledgeChunks')
   })
@@ -39,6 +49,7 @@ describe('Catalog Cache Engine', () => {
   it('triggers background revalidation on getSnapshot when TTL expires', () => {
     ;(catalogCacheEngine as any).snapshot.lastRefreshedAt = Date.now()
     const revalidateSpy = vi.spyOn(catalogCacheEngine, 'revalidateAsync')
+      .mockResolvedValue(catalogCacheEngine.getSnapshot())
 
     catalogCacheEngine.getSnapshot()
     expect(revalidateSpy).not.toHaveBeenCalled()
