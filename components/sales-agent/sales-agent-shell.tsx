@@ -271,12 +271,26 @@ export function SalesAgentShell() {
   // Calculate bounds to prevent chat window from going completely off-screen
   let chatX = isMounted && !isExpanded ? position.x : 0
   let chatY = isMounted && !isExpanded ? position.y : 0
+  let dragConstraints = { top: 0, bottom: 0, left: 0, right: 0 }
   if (typeof window !== 'undefined' && !isExpanded && isMounted) {
-    const minY = 720 - window.innerHeight
-    if (chatY < minY) chatY = minY
+    const isDesktop = window.innerWidth >= 768;
+    const paddingX = isDesktop ? 16 : 12;
+    const paddingY = isDesktop ? 16 : 12;
+    const chatWidth = isDesktop ? 420 : window.innerWidth - (paddingX * 2);
+    const chatHeight = isDesktop ? Math.min(680, window.innerHeight - 32) : Math.min(620, window.innerHeight - 24);
     
-    const minX = 460 - window.innerWidth
+    const minY = Math.min(0, -(window.innerHeight - chatHeight - paddingY * 2));
+    const maxY = 0;
+    const minX = Math.min(0, -(window.innerWidth - chatWidth - paddingX * 2));
+    const maxX = 0;
+
+    dragConstraints = { top: minY, bottom: maxY, left: minX, right: maxX }
+
+    if (chatY < minY) chatY = minY
+    if (chatY > maxY) chatY = maxY
+    
     if (chatX < minX) chatX = minX
+    if (chatX > maxX) chatX = maxX
   }
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
@@ -595,6 +609,7 @@ export function SalesAgentShell() {
             const vm = payload.viewModel as TurnViewModel
             setMessages((items) => items.map((item) => item.id === assistantId ? {
               ...item,
+              content: vm.answer.markdown,
               blocks: vm.blocks,
               actions: vm.actions,
               suggestions: vm.suggestions,
@@ -625,6 +640,7 @@ export function SalesAgentShell() {
             const vm = payload.viewModel as TurnViewModel
             setMessages((items) => items.map((item) => item.id === assistantId ? {
               ...item,
+              content: vm.answer.markdown,
               blocks: vm.blocks,
               actions: vm.actions,
               suggestions: vm.suggestions,
@@ -736,6 +752,7 @@ export function SalesAgentShell() {
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
         }}
         drag={!isExpanded}
+        dragConstraints={dragConstraints}
         dragControls={dragControls}
         dragListener={false}
         dragMomentum={false}
@@ -1132,9 +1149,9 @@ export function SalesAgentShell() {
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
-        initial={{ opacity: 1, scale: 0.95, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
-        animate={{ opacity: 1, scale: 1, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
-        exit={{ opacity: 0, scale: 0.85, x: isMounted ? position.x : 0, y: (isMounted ? position.y : 0) + 15 }}
+        initial={{ opacity: 1, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.85, y: 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed bottom-6 right-6 z-[55] flex items-center"
         style={floatingPosition ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto', bottom: 'auto' } : undefined}
