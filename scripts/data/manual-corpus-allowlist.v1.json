@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "decisionId": "D-019-019",
+  "status": "APPROVED_GATE_BASELINE",
+  "approvedAt": "2026-08-18",
+  "source": {
+    "schema": "public",
+    "editionsTable": "manual_models",
+    "nodesTable": "manual_articles"
+  },
+  "expectedInventory": {
+    "manualEditions": 29,
+    "totalNodes": 1897,
+    "chapterNodes": 359,
+    "contentNodes": 1535,
+    "emptyLeafNodes": 3,
+    "imageReferences": 39977
+  },
+  "selectedEditionIds": [
+    "VF e34_2021",
+    "VF e34_2022",
+    "VF e34_2023",
+    "VF e34_2024",
+    "VF 3_2024",
+    "VF 3_2025",
+    "VF 3_2026",
+    "VF 5_2023",
+    "VF 5_2024",
+    "VF 5_2025",
+    "VF 5_2026",
+    "VF 6_2023",
+    "VF 6_2024",
+    "VF 6_2025",
+    "VF 6_2026",
+    "VF 7_2024",
+    "VF 7_2025",
+    "VF 7_2026",
+    "VF 8_2022",
+    "VF 8_2023",
+    "VF 8_2024",
+    "VF 8_2025",
+    "VF 8_2026",
+    "VF 8 - MY26_2026",
+    "VF 9_2023",
+    "VF 9_2024",
+    "VF 9_2025",
+    "VF 9_2026",
+    "VF MPV 7_2026"
+  ],
+  "scopeRule": "Only selectedEditionIds are in the current product corpus. Other local manual editions are intentionally out of scope and are not inventory failures.",
+  "mutationPolicy": "This manifest is planning authority only. Live data changes require an approved migration/import operation and a versioned manifest update."
+}
