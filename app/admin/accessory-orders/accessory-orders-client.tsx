@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, ChevronRight, RotateCcw, Search, ShoppingBag, Truck, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, RotateCcw, Search, ShoppingBag, Truck, XCircle } from 'lucide-react'
 import { AdminOrderStatusBadge } from '@/components/admin/order-status-badge'
 import { Button } from '@/components/ui/button'
 import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
@@ -50,11 +50,13 @@ const statusHint: Partial<Record<AdminAccessoryOrder['status'], string>> = {
 }
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
 const date = (value: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+const PAGE_SIZE = 10
 
 export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrders: AdminAccessoryOrder[]; loadError: string | null }) {
   const [orders, setOrders] = useState(initialOrders)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'ALL' | AdminAccessoryOrder['status']>('ALL')
+  const [page, setPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailLoadError, setDetailLoadError] = useState<string | null>(null)
@@ -67,6 +69,17 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
     const normalized = query.trim().toLocaleLowerCase('vi')
     return orders.filter((order) => (status === 'ALL' || order.status === status) && (!normalized || [order.orderNumber, order.customerEmail, ...order.items.map((item) => item.product_name_snapshot)].some((value) => value.toLocaleLowerCase('vi').includes(normalized))))
   }, [orders, query, status])
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
+  const visibleOrders = useMemo(
+    () => filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredOrders, page],
+  )
+  useEffect(() => {
+    setPage(1)
+  }, [query, status])
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
   const selectedOrder = useMemo(() => orders.find((order) => order.id === selectedOrderId) ?? null, [orders, selectedOrderId])
   const closeOrderDetail = useCallback(() => setSelectedOrderId(null), [])
   const retryOrderDetail = useCallback(() => setDetailReloadToken((value) => value + 1), [])
@@ -263,7 +276,7 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
       </div>
 
       <div className="divide-y divide-slate-100">
-        {filteredOrders.map((order) => <button
+        {visibleOrders.map((order) => <button
           key={order.id}
           type="button"
           onClick={() => setSelectedOrderId(order.id)}
@@ -305,7 +318,18 @@ export function AccessoryOrdersClient({ initialOrders, loadError }: { initialOrd
         {!filteredOrders.length && <div className="px-6 py-14 text-center text-slate-500"><ShoppingBag className="mx-auto mb-3 text-slate-300" size={30} /><p>{loadError ? 'Không thể tải đơn phụ kiện.' : 'Không có đơn phụ kiện phù hợp.'}</p></div>}
       </div>
 
-      <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredOrders.length} / {orders.length} đơn hàng</div>
+      <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <span>Hiển thị {filteredOrders.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredOrders.length)} / {filteredOrders.length} đơn hàng</span>
+        {filteredOrders.length > 0 && <nav aria-label="Phân trang đơn phụ kiện" className="flex items-center gap-2">
+          <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+            <ChevronLeft size={14} /> Trước
+          </button>
+          <span className="min-w-20 text-center font-semibold text-slate-600">Trang {page} / {totalPages}</span>
+          <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page === totalPages} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+            Sau <ChevronRight size={14} />
+          </button>
+        </nav>}
+      </div>
     </div>
 
     <AccessoryOrderDetailDrawer
