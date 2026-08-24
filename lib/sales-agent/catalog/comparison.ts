@@ -35,15 +35,22 @@ export type CompareProductsData = {
 }
 
 const CRITERIA_LABELS: Record<string, string> = {
-  battery_capacity_kwh: 'Dung lượng pin',
+  battery_capacity_kwh: 'Thông số pin',
+  battery: 'Thông số pin',
   top_speed_kmh: 'Tốc độ tối đa',
+  top_speed: 'Tốc độ tối đa',
+  topSpeed: 'Tốc độ tối đa',
   range_km: 'Quãng đường di chuyển',
+  range: 'Quãng đường di chuyển',
+  weight: 'Trọng lượng / Khối lượng',
   max_power_kw: 'Công suất tối đa',
   power: 'Công suất',
   seats: 'Số chỗ ngồi',
   chargingTime: 'Thời gian sạc',
-  topSpeed: 'Tốc độ tối đa',
-  range: 'Quãng đường',
+  charging_time: 'Thời gian sạc',
+  trunk: 'Thể tích cốp',
+  warranty: 'Bảo hành',
+  dimensions: 'Kích thước',
 }
 
 export async function compareProductsRepository(
@@ -79,9 +86,14 @@ export async function compareProductsRepository(
   }
 
   const products = detailsRes.data.products
+  const hasBike = products.some((p) => p.productType === 'BIKE')
+  const defaultCriteria = hasBike
+    ? ['price', 'battery_capacity_kwh', 'top_speed_kmh', 'range_km', 'weight', 'max_power_kw']
+    : ['price', 'battery_capacity_kwh', 'top_speed_kmh', 'range_km', 'max_power_kw', 'seats', 'chargingTime']
+
   const criteriaKeys = input.criteria && input.criteria.length > 0
     ? input.criteria
-    : ['price', 'battery_capacity_kwh', 'top_speed_kmh', 'range_km', 'max_power_kw', 'seats']
+    : defaultCriteria
 
   const rows: ComparisonMatrixRow[] = []
 
@@ -101,17 +113,27 @@ export async function compareProductsRepository(
   for (const criterionKey of criteriaKeys) {
     if (criterionKey === 'price') continue
     const label = CRITERIA_LABELS[criterionKey] || criterionKey
+    const normKey = criterionKey.toLowerCase().replace(/[-_]/g, '')
 
     rows.push({
       criterion: criterionKey,
       label,
       values: products.map((p) => {
-        const specFact = (p.specs as any)[criterionKey]
+        let specFact = (p.specs as any)[criterionKey]
+        if (!specFact) {
+          for (const [k, v] of Object.entries(p.specs)) {
+            const nk = k.toLowerCase().replace(/[-_]/g, '')
+            if (nk === normKey || k.toLowerCase() === criterionKey.toLowerCase()) {
+              specFact = v
+              break
+            }
+          }
+        }
         return {
           productId: p.productId,
           productName: p.name,
           value: specFact ? specFact.displayValue : 'Chưa cập nhật',
-          factRef: `fact-spec-${p.productId}-${criterionKey}`,
+          factRef: specFact?.factRef || `fact-spec-${p.productId}-${criterionKey}`,
         }
       }),
     })

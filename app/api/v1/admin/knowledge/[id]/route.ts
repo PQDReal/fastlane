@@ -61,7 +61,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params
-    const success = await deleteKnowledgeDocument(id)
+    const success = await deleteKnowledgeDocument(id, user.id)
     if (!success) {
       return NextResponse.json({ error: 'FAILED', message: 'Không thể xóa tài liệu.' }, { status: 500 })
     }

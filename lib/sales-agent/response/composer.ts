@@ -7,6 +7,7 @@ import type {
 import type { EvidenceLedger } from '../orchestrator/ledgers/evidence'
 import type { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
 import { resolveNavigationAction } from '../navigation/action-registry'
+import { sanitizeSalesAgentMarkdownLinks } from '../navigation/markdown-links'
 import { salesAgentProductUrl } from '../navigation/paths'
 import { validateResponsePlan } from './plan-validator'
 
@@ -18,6 +19,36 @@ export type ComposeOptions = {
   turnId: string
   messageId: string
   dataAsOf?: string
+}
+
+type KnowledgeMediaItem = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>['items'][number]
+
+function parseKnowledgeMediaPointer(value: string): KnowledgeMediaItem | null {
+  try {
+    const candidate = JSON.parse(value) as Record<string, unknown>
+    const url = String(candidate.url || '')
+    const parsedUrl = new URL(url)
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return null
+    const required = ['assetId', 'annotationId', 'title', 'summary', 'alt', 'mimeType', 'citationId']
+    if (required.some((key) => typeof candidate[key] !== 'string' || !String(candidate[key]).trim())) {
+      return null
+    }
+    return {
+      assetId: String(candidate.assetId),
+      annotationId: String(candidate.annotationId),
+      title: String(candidate.title),
+      summary: String(candidate.summary),
+      alt: String(candidate.alt),
+      url,
+      mimeType: String(candidate.mimeType),
+      width: candidate.width == null ? null : Number(candidate.width),
+      height: candidate.height == null ? null : Number(candidate.height),
+      safetyCritical: candidate.safetyCritical === true,
+      citationId: String(candidate.citationId),
+    }
+  } catch {
+    return null
+  }
 }
 
 export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
@@ -38,7 +69,11 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  const finalMarkdown = markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.'
+  const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
+  const finalMarkdown = sanitizeSalesAgentMarkdownLinks(
+    markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.',
+    knownProducts,
+  )
   const lowerMarkdown = finalMarkdown.toLowerCase()
 
   // Detect Clarification / Needs Input turn (e.g. asking user which models to compare)
@@ -52,8 +87,6 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
 
   // 2. Materialize Blocks from Ledgers and Known Entities (Intent-Gated)
   const blocks: AssistantBlock[] = []
-  const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
-
   // Detect if this turn is a direct comparison between 2-3 specific products
   const isComparisonTurn =
     !isClarificationTurn &&
@@ -179,11 +212,13 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
 
   // Materialize Knowledge Citation references if available (A19-KR-408)
   const knowledgeEvidence = options.evidence.getAllEvidence().filter((e) => e.entity.kind === 'KNOWLEDGE_SNIPPET')
-  if (knowledgeEvidence.length > 0 && blocks.length === 0) {
+  if (knowledgeEvidence.length > 0) {
     const citationFacts = knowledgeEvidence.slice(0, 3).map((e, idx) => {
       const titleFact = options.evidence.getFact(`fact-kb-title-${e.entity.id}`)?.valueHash || 'Tài liệu hướng dẫn'
       const secFact = options.evidence.getFact(`fact-kb-section-${e.entity.id}`)?.valueHash || 'Chi tiết'
+      const citationId = options.evidence.getFact(`fact-kb-citation-${e.entity.id}`)?.valueHash
       return {
+        ...(citationId ? { citationId } : {}),
         label: `Nguồn tham chiếu [${idx + 1}]`,
         value: `${titleFact} — ${secFact}`,
       }
@@ -194,6 +229,24 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         facts: citationFacts,
       })
     }
+  }
+
+  const seenKnowledgeMedia = new Set<string>()
+  const knowledgeMedia = options.evidence.getAllFacts()
+    .filter((fact) => fact.factPath === 'mediaPointer')
+    .flatMap((fact) => {
+      const pointer = parseKnowledgeMediaPointer(fact.valueHash)
+      if (!pointer || seenKnowledgeMedia.has(pointer.assetId)) return []
+      seenKnowledgeMedia.add(pointer.assetId)
+      return [pointer]
+    })
+    .slice(0, 3)
+  if (knowledgeMedia.length > 0) {
+    blocks.push({
+      kind: 'KNOWLEDGE_MEDIA',
+      title: 'Hình minh họa từ tài liệu',
+      items: knowledgeMedia,
+    })
   }
 
   // 3. Compose Actions (only include global actions or navigation if blocks are not already showing cards)

@@ -6,9 +6,11 @@ import { apiKeyPoolManager } from '../providers/key-pool'
 import { createSalesAgentLanguageModel, type SalesAgentLanguageModel } from '../providers/ai-sdk'
 import { getSalesAgentSystemPrompt } from '../prompt/manifest'
 import { executeDataTool } from '../tools/definitions'
+import { isSalesAgentKnowledgeRagEnabled } from '../core/flags'
+import { recordSalesAgentDebugEvent } from '../debug-log'
 import {
   DEFAULT_RUN_BUDGET,
-  TOOL_CONTRACTS,
+  getAvailableToolContracts,
   type AgentResponsePlan,
   type DataToolName,
   type FactPointer,
@@ -27,6 +29,7 @@ export type RunTurnOptions = {
   budget?: SalesAgentRunBudget
   selectedProvider?: string
   signal?: AbortSignal
+  context?: { conversationId?: string; messageId?: string }
   onTextDelta?: (delta: string) => void
   onToolCall?: (toolName: string, callId: string) => void
   onToolResult?: (toolName: string, result: ToolResult) => void
@@ -43,6 +46,60 @@ export type RunTurnResult = {
   finishReason: string
 }
 
+function summarizeToolData(toolName: string, data: any): unknown {
+  if (!data) return null
+  if (toolName === 'browse_catalog' && Array.isArray(data.items)) {
+    return {
+      count: data.items.length,
+      items: data.items.slice(0, 8).map((i: any) => ({ name: i.name, price: i.price, type: i.productType })),
+    }
+  }
+  if (toolName === 'get_product_details' && Array.isArray(data.products)) {
+    return {
+      count: data.products.length,
+      products: data.products.map((p: any) => ({
+        name: p.name,
+        price: p.pricing?.from,
+        specsKeys: Object.keys(p.specs || {}),
+      })),
+    }
+  }
+  if (toolName === 'compare_products') {
+    return {
+      products: data.products?.map((p: any) => p.name),
+      criteriaCount: data.rows?.length,
+      rows: data.rows?.map((r: any) => ({
+        criterion: r.criterion,
+        label: r.label,
+        values: r.values?.map((v: any) => `${v.productName}: ${v.value}`),
+      })),
+    }
+  }
+  if (toolName === 'search_knowledge' && Array.isArray(data.snippets)) {
+    return {
+      count: data.snippets.length,
+      snippets: data.snippets.map((s: any) => ({
+        title: s.title,
+        sectionTitle: s.sectionTitle,
+        citationId: s.citationId,
+      })),
+    }
+  }
+  if (toolName === 'get_current_promotions' && Array.isArray(data.promotions)) {
+    return {
+      count: data.promotions.length,
+      promotions: data.promotions.map((p: any) => p.title),
+    }
+  }
+  if (toolName === 'discover_accessories' && Array.isArray(data.items)) {
+    return {
+      count: data.items.length,
+      items: data.items.map((a: any) => a.name),
+    }
+  }
+  return { dataType: typeof data }
+}
+
 export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   const budget = options.budget ?? DEFAULT_RUN_BUDGET
   const knownEntities = new KnownEntityLedger()
@@ -52,10 +109,11 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   let toolCallsCount = 0
   const lm = await getSalesAgentLanguageModel(options.selectedProvider as any)
 
-  // Construct toolset dynamically from TOOL_CONTRACTS
+  // Construct toolset dynamically from the enabled capability set.
   const tools: ToolSet = {}
+  const availableToolContracts = getAvailableToolContracts(isSalesAgentKnowledgeRagEnabled())
 
-  for (const [key, contract] of Object.entries(TOOL_CONTRACTS)) {
+  for (const [key, contract] of Object.entries(availableToolContracts)) {
     const toolName = key as DataToolName
     tools[key] = tool({
       description: contract.description,
@@ -66,6 +124,15 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
 
         // Apply bindings
         const bindingRes = bindings.applyBindings(input)
+
+        recordSalesAgentDebugEvent('tool.requested', options.context, {
+          tool: toolName,
+          toolCallId,
+          rawInput: input,
+          effectiveInput: bindingRes.effectiveInput,
+          hasConflict: Boolean(bindingRes.conflict),
+        })
+
         if (bindingRes.conflict) {
           const obsId = `obs-conflict-${toolCallId}`
           const obs = {
@@ -77,6 +144,12 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
             readAt: new Date().toISOString(),
           }
           evidence.recordObservation(obs)
+          recordSalesAgentDebugEvent('tool.completed', options.context, {
+            tool: toolName,
+            toolCallId,
+            outcome: 'REJECTED',
+            reason: 'CONSTRAINT_CONFLICT',
+          })
           return {
             schemaVersion: '2.0',
             outcome: 'REJECTED',
@@ -88,9 +161,23 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           }
         }
 
+        const startTime = Date.now()
         const result = await executeDataTool(toolName, bindingRes.effectiveInput, toolCallId)
+        const durationMs = Date.now() - startTime
+
         evidence.recordToolResult(toolCallId, result)
         options.onToolResult?.(toolName, result)
+
+        recordSalesAgentDebugEvent('tool.completed', options.context, {
+          tool: toolName,
+          toolCallId,
+          durationMs,
+          outcome: result.outcome,
+          completeness: (result as any).completeness ?? 'FULL',
+          issuesCount: result.issues?.length ?? 0,
+          evidenceCount: result.evidence?.length ?? 0,
+          dataSummary: summarizeToolData(toolName, result.data),
+        })
 
         // Record known entities in ledger
         if (result.outcome === 'SUCCESS' && result.data) {
@@ -151,6 +238,14 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     { role: 'user', content: userText },
   ]
 
+  recordSalesAgentDebugEvent('run.started', options.context, {
+    inputKind: options.input.kind,
+    historyTurns: options.history?.length ?? 0,
+    selectedProvider: options.selectedProvider || 'default',
+    primaryModel: lm.provider,
+    availableTools: Object.keys(tools),
+  })
+
   // Multi-Provider & Multi-Key Failover Engine
   const candidateModels: SalesAgentLanguageModel[] = [lm]
   const fallbacks = await getAvailableFallbackLanguageModels(lm.provider)
@@ -175,7 +270,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
 
         const streamResult = streamText({
           model: currentModel.model,
-          system: getSalesAgentSystemPrompt(),
+          system: getSalesAgentSystemPrompt({ knowledgeEnabled: isSalesAgentKnowledgeRagEnabled() }),
           messages,
           tools,
           stopWhen: [isStepCount(budget.maxModelSteps)],
@@ -298,6 +393,16 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     suggestionIntents: parsedSuggestions,
     actionIntents: [],
   }
+
+  recordSalesAgentDebugEvent('run.completed', options.context, {
+    toolCallsCount,
+    stepsCount: steps?.length ?? 1,
+    finishReason: finishReason || 'stop',
+    generationSucceeded,
+    totalEvidence: allEvidence.length,
+    totalFactPointers: currentTurnFactPointers.length,
+    knownEntitiesCount: knownEntities.toKnownRefs().length,
+  })
 
   return {
     text: accumulatedText,

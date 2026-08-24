@@ -25,7 +25,7 @@ describe('VersionedKnowledgeRepository (A19-KR-106)', () => {
     expect(hash1.length).toBe(64)
   })
 
-  it('creates initial document and draft version with audit event', async () => {
+  it('creates initial document and draft version in the compact eight-table model', async () => {
     const input: CreateDocumentDraftInput = {
       documentKey: 'vinfast:VF8:2025:vi-VN',
       category: 'TECHNICAL_GUIDE',
@@ -84,11 +84,6 @@ describe('VersionedKnowledgeRepository (A19-KR-106)', () => {
           }),
         }
       }
-      if (tableName === 'sales_agent_knowledge_publication_events') {
-        return {
-          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }
-      }
       return {}
     })
 
@@ -118,6 +113,22 @@ describe('VersionedKnowledgeRepository (A19-KR-106)', () => {
     // Fail-closed test
     mockClient.rpc.mockResolvedValue({ data: null, error: null })
     await expect(repo.activateVersion('doc-123', 'ver-123')).rejects.toThrow(/Failed to activate version via RPC/)
+  })
+
+  it('fails maker-checker approval when the draft has no author', async () => {
+    mockClient.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'ver-123', publication_status: 'DRAFT', author_id: null },
+            error: null,
+          }),
+        }),
+      }),
+    })
+
+    await expect(repo.approveVersion('ver-123', 'reviewer-123'))
+      .rejects.toThrow('version author is required')
   })
 
   it('delegates atomic rollback to sales_agent_rollback_version RPC and fails closed on error', async () => {

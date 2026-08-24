@@ -85,10 +85,15 @@ export type DiscoverAccessoriesInput = z.infer<typeof discoverAccessoriesInputSc
 export const searchKnowledgeInputSchema = z.object({
   query: z.string().trim().min(1).max(200),
   categories: z.array(z.enum([
+    'TECHNICAL_GUIDE',
+    'WARRANTY_BATTERY',
+    'DEPOSIT_DELIVERY',
+    'PROMOTIONS_FINANCING',
+    'CHARGING_NETWORK',
+    'GENERAL_POLICY',
     'PURCHASE_POLICY',
     'WARRANTY_POLICY',
     'BATTERY_POLICY',
-    'CHARGING_NETWORK',
     'REGISTRATION_PROCEDURE',
   ])).optional(),
   topK: z.number().int().min(1).max(5).default(3),
@@ -226,11 +231,25 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
     inputSchema: discoverAccessoriesInputSchema,
   },
   search_knowledge: {
-    description: 'Tra cứu tài liệu tri thức, cẩm nang kỹ thuật, thông số xe, chính sách bảo hành, thuê/mua pin, trạm sạc và quy trình mua bán xe điện FASTLANE.',
+    description: 'Tra cứu tài liệu tri thức, cẩm nang kỹ thuật, sổ tay hướng dẫn xe (TECHNICAL_GUIDE), chính sách bảo hành, thuê/mua pin, trạm sạc V-GREEN và quy trình trả góp/đặt cọc.',
     inputSchema: searchKnowledgeInputSchema,
   },
   search_user_manuals: {
     description: 'Tra cứu Hướng dẫn sử dụng xe (vị trí cổng sạc, ý nghĩa đèn cảnh báo, cách khởi động, v.v.). Bắt buộc phải có thông tin năm sản xuất trước khi gọi.',
     inputSchema: searchUserManualsInputSchema,
   },
+}
+
+/**
+ * Returns the model-visible data tools for the current capability set.
+ * Knowledge retrieval is excluded until its release gate explicitly enables it.
+ */
+export function getAvailableToolContracts(
+  knowledgeEnabled: boolean,
+): Partial<Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }>> {
+  const contracts: Partial<Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }>> = {
+    ...TOOL_CONTRACTS,
+  }
+  if (!knowledgeEnabled) delete contracts.search_knowledge
+  return contracts
 }

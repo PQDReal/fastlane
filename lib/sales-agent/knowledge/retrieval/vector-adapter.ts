@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  OPENAI_EMBEDDING_DIMENSIONS,
+  OPENAI_EMBEDDING_GENERATION_ID,
   OpenAIEmbeddingAdapter,
   type EmbeddingAdapterConfig,
+  type EmbeddingProvider,
 } from '../embedding-adapter'
 import type {
   KnowledgeScopeFilter,
@@ -39,21 +42,23 @@ export function cosineSimilarity(vecA: number[], vecB: number[]): number {
 
 export class VectorCandidateAdapter {
   private embeddingConfig?: EmbeddingAdapterConfig
-  private embeddingAdapter?: OpenAIEmbeddingAdapter
+  private embeddingAdapter?: EmbeddingProvider
   private client?: SupabaseClient
   private defaultGenerationId: string
 
   constructor(
     embeddingConfig?: EmbeddingAdapterConfig,
     client?: SupabaseClient,
-    defaultGenerationId = 'openai-text-embedding-3-small-1536-v1'
+    defaultGenerationId = OPENAI_EMBEDDING_GENERATION_ID,
+    embeddingProvider?: EmbeddingProvider,
   ) {
     this.embeddingConfig = embeddingConfig
     this.client = client
     this.defaultGenerationId = defaultGenerationId
+    this.embeddingAdapter = embeddingProvider
   }
 
-  private getEmbeddingAdapter(): OpenAIEmbeddingAdapter {
+  private getEmbeddingAdapter(): EmbeddingProvider {
     if (!this.embeddingAdapter) {
       this.embeddingAdapter = new OpenAIEmbeddingAdapter(this.embeddingConfig)
     }
@@ -82,7 +87,7 @@ export class VectorCandidateAdapter {
       const adapter = this.getEmbeddingAdapter()
       const resp = await adapter.generateEmbeddings([query.trim()])
       const emb = resp.embeddings[0]?.embedding
-      if (!emb || emb.length !== 1536) {
+      if (!emb || emb.length !== OPENAI_EMBEDDING_DIMENSIONS) {
         throw new Error('Embedding service returned invalid vector dimensions')
       }
       let squaredNorm = 0

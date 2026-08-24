@@ -35,6 +35,15 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('Liên kết chưa được xác minh')
   })
 
+  it('does not make links clickable before the sanitized turn view arrives', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage content={'[VF 3](/cars/model-tu-bia)'} streaming />,
+    )
+
+    expect(markup).not.toContain('href=')
+    expect(markup).toContain('Liên kết chưa được xác minh')
+  })
+
   it('does not interpret raw HTML supplied by the model', () => {
     const markup = renderToStaticMarkup(
       <MarkdownMessage content={'Thông tin <script>malicious()</script> <b>không tin cậy</b>'} />,
@@ -66,5 +75,45 @@ describe('MarkdownMessage', () => {
 
     expect(markup).toContain('<pre')
     expect(markup).toContain('const vehicle')
+  })
+
+  it('renders inline images for valid trusted image URLs', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Sơ đồ cổng sạc VF 9:\n\n![Cổng sạc CCS2](https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png)\n\nChi tiết phần AC và DC.'}
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain('src="https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png"')
+    expect(markup).toContain('Cổng sạc CCS2')
+  })
+
+  it('preprocesses raw [img: ...] tags into inline images using mediaItems', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Phần điện áp cao:\n\n[img: item61636_122977.png]\n\nChi tiết các chân tiếp xúc.'}
+        mediaItems={[
+          {
+            assetId: 'asset-1',
+            annotationId: 'ann-1',
+            title: 'Sơ đồ cổng sạc AC Type 2',
+            summary: 'Sơ đồ mặt cắt cổng sạc AC Type 2',
+            url: 'https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122977.png',
+            alt: 'Sơ đồ cổng sạc AC Type 2',
+            mimeType: 'image/png',
+            width: 690,
+            height: 388,
+            safetyCritical: true,
+            citationId: 'cite:vinfast:vf-9',
+          },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain('src="https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122977.png"')
+    expect(markup).toContain('Sơ đồ cổng sạc AC Type 2')
+    expect(markup).toContain('Lưu ý an toàn')
   })
 })

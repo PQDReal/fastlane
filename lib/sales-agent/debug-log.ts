@@ -11,7 +11,9 @@ const MAX_DEPTH = 8
 const SENSITIVE_KEY_SUFFIXES = ['token', 'secret', 'signature', 'authorization', 'apikey', 'cookie']
 
 export function salesAgentDebugLogsEnabled() {
-  return process.env.SALES_AGENT_DEBUG_LOGS_ENABLED === 'true'
+  if (process.env.SALES_AGENT_DEBUG_LOGS_ENABLED === 'false') return false
+  if (process.env.SALES_AGENT_DEBUG_LOGS_ENABLED === 'true') return true
+  return process.env.NODE_ENV === 'development'
 }
 
 function safeValue(value: unknown, key = '', depth = 0): unknown {
@@ -40,16 +42,12 @@ export function recordSalesAgentDebugEvent(
     ...(data === undefined ? {} : { data: safeValue(data) }),
   })
   console.info('[sales-agent-debug]', serialized)
-  const configuredPath = process.env.SALES_AGENT_DEBUG_LOG_FILE?.trim()
+  const configuredPath = process.env.SALES_AGENT_DEBUG_LOG_FILE?.trim() || '.local/logs/sales-agent-debug.jsonl'
   if (configuredPath) {
     try {
-      const logRoot = resolve(process.cwd(), '.local', 'logs')
       const logPath = resolve(process.cwd(), configuredPath)
-      const relativePath = relative(logRoot, logPath)
-      if (relativePath && relativePath !== '..' && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath)) {
-        mkdirSync(dirname(logPath), { recursive: true })
-        appendFileSync(logPath, `${serialized}\n`, 'utf8')
-      }
+      mkdirSync(dirname(logPath), { recursive: true })
+      appendFileSync(logPath, `${serialized}\n`, 'utf8')
     } catch (error) {
       console.warn('[sales-agent-debug] Không thể ghi file debug.', { reason: error instanceof Error ? error.message : 'UNKNOWN_ERROR' })
     }

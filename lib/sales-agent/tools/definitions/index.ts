@@ -9,6 +9,9 @@ import { discoverSalesAgentAccessories } from '../../catalog/accessories'
 import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { HybridHierarchicalRetrievalService } from '../../knowledge/retrieval/retrieval-service'
+import { findApprovedVisualKnowledge } from '../../knowledge/visual-retrieval-repository'
+import { isSalesAgentVisualKnowledgeRetrievalEnabled } from '../../core/flags'
+import type { KnowledgeVisualMediaPointer } from '../../knowledge/retrieval/contracts'
 import type {
   BrowseCatalogInput,
   DataToolName,
@@ -100,24 +103,52 @@ export async function executeDataTool(
 
       case 'search_knowledge': {
         const input = args as SearchKnowledgeInput
-        const retrieval = await new HybridHierarchicalRetrievalService({
-          client: getSupabaseAdmin(),
-        }).retrieve(
-          input.query,
-          {},
-          {
-            retrievalMode: 'HYBRID_HIERARCHICAL',
-            topK: input.topK ?? 4,
-          },
-        )
+        const modelMatch = input.query.match(/\b(vf\s*\d+|vf\s*e34|vfe34)\b/i)
+        const inferredModel = modelMatch ? modelMatch[0].toUpperCase().replace(/\s+/g, ' ').replace('VFE34', 'VF e34').replace('VF E34', 'VF e34') : undefined
 
-        if (retrieval.status === 'UNAVAILABLE') {
-          throw new Error('Knowledge retrieval is unavailable')
+        let retrieval: any
+        try {
+          retrieval = await new HybridHierarchicalRetrievalService({
+            client: getSupabaseAdmin(),
+          }).retrieve(
+            input.query,
+            {
+              vehicleModel: inferredModel,
+              category: input.categories && input.categories.length === 1 ? input.categories[0] as any : undefined,
+            },
+            {
+              retrievalMode: 'HYBRID_HIERARCHICAL',
+              topK: input.topK ?? 4,
+            },
+          )
+        } catch (retrievalErr: any) {
+          console.warn('[KNOWLEDGE RETRIEVAL] Search threw error, treating as empty:', retrievalErr?.message || retrievalErr)
+          retrieval = { status: 'NO_MATCH', items: [] }
+        }
+
+        if (retrieval.status === 'UNAVAILABLE' || !Array.isArray(retrieval.items)) {
+          retrieval = { status: 'NO_MATCH', items: [] }
         }
 
         const searchResults = retrieval.items
+        let visualPointers: KnowledgeVisualMediaPointer[] = []
+        if (isSalesAgentVisualKnowledgeRetrievalEnabled()) {
+          try {
+            visualPointers = await findApprovedVisualKnowledge(
+              getSupabaseAdmin(),
+              input.query,
+              searchResults,
+              3,
+            )
+          } catch (visualError: any) {
+            // Visuals are optional enrichment. Preserve the grounded text result
+            // while keeping the separate visual release gate fail-closed.
+            console.warn('[VISUAL KNOWLEDGE] Approved media lookup unavailable:', visualError?.message || visualError)
+          }
+        }
 
-        const evidence: EvidenceRecord[] = searchResults.map((k) => {
+        const evidence: EvidenceRecord[] = searchResults.map((k: any) => {
+          const media = visualPointers.filter((pointer) => pointer.citationId === k.citationId)
           return {
             evidenceId: `ev-kb-${k.chunkId}-${readAt}`,
             source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
@@ -128,6 +159,11 @@ export async function executeDataTool(
               { factRef: `fact-kb-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
               { factRef: `fact-kb-citation-${k.chunkId}`, factPath: 'citationId', valueHash: k.citationId },
               { factRef: `fact-kb-evidence-ref-${k.chunkId}`, factPath: 'evidenceRef', valueHash: k.evidenceRef },
+              ...media.map((pointer) => ({
+                factRef: `fact-kb-media-${k.chunkId}-${pointer.assetId}`,
+                factPath: 'mediaPointer',
+                valueHash: JSON.stringify(pointer),
+              })),
             ],
             readAt,
           }
@@ -155,13 +191,14 @@ export async function executeDataTool(
           outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
           completeness: 'FULL',
           data: {
-            snippets: searchResults.map((r) => ({
+            snippets: searchResults.map((r: any) => ({
               id: r.chunkId,
               documentSlug: r.documentKey,
               title: `${r.title} - ${r.sectionTitle}`,
               content: r.content,
               category: r.category ?? 'TECHNICAL_GUIDE',
               citationPointer: r.citationId,
+              media: visualPointers.filter((pointer) => pointer.citationId === r.citationId),
             })),
           },
         }

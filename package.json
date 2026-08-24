@@ -95,7 +95,22 @@
     "verify:admin-inventory-rpc": "node --env-file=.env.local scripts/verify-admin-inventory-rpcs.mjs",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build && npm run check:performance-budget",
-    "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply"
+    "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply",
+    "knowledge:prepare": "node --experimental-strip-types scripts/prepare-vinfast-knowledge.mjs",
+    "knowledge:visual:prepare": "node --experimental-strip-types scripts/prepare-vf-visual-analysis.mjs",
+    "knowledge:visual:inventory": "node --experimental-strip-types scripts/build-vf-visual-asset-inventory.mjs",
+    "knowledge:visual:repair-models": "node --experimental-strip-types scripts/repair-vf-visual-annotation-models.mjs",
+    "knowledge:visual:repair-models:apply": "node --experimental-strip-types scripts/repair-vf-visual-annotation-models.mjs --apply",
+    "knowledge:visual:seed-plan": "node --experimental-strip-types scripts/build-vf-visual-db-seed.mjs",
+    "knowledge:visual:filter-sheets": "node scripts/build-vf-visual-filter-contact-sheets.mjs",
+    "knowledge:visual:push:plan": "node scripts/push-vf-visual-knowledge-to-supabase.mjs",
+    "knowledge:visual:push": "node --env-file=.env.local scripts/push-vf-visual-knowledge-to-supabase.mjs --apply",
+    "knowledge:visual:capacity-fixtures": "node scripts/build-vf-visual-capacity-fixtures.mjs",
+    "knowledge:embed:plan": "node --experimental-strip-types scripts/embed-vinfast-knowledge.mjs",
+    "knowledge:embed": "node --experimental-strip-types --env-file=.env.local scripts/embed-vinfast-knowledge.mjs --execute",
+    "knowledge:push:plan": "node --experimental-strip-types scripts/push-vinfast-knowledge-to-supabase.mjs",
+    "knowledge:push": "node --experimental-strip-types --env-file=.env.local scripts/push-vinfast-knowledge-to-supabase.mjs --apply",
+    "knowledge:push:activate": "node --experimental-strip-types --env-file=.env.local scripts/push-vinfast-knowledge-to-supabase.mjs --apply --activate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.38",

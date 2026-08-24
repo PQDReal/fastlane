@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/auth/current-user'
 import { listKnowledgeDocuments } from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 import { AiManagementHub } from '@/app/admin/knowledge/ai-hub'
 
@@ -9,12 +7,13 @@ export const metadata = {
 }
 
 export default async function AdminSalesAgentKnowledgePage() {
-  const user = await getCurrentUser()
-  if (!user || user.role !== 'ADMIN') {
-    redirect('/403')
-  }
-
   const { documents, total } = await listKnowledgeDocuments({ limit: 50 })
 
-  return <AiManagementHub initialDocuments={documents} initialTotal={total} />
+  return (
+    <AiManagementHub
+      initialDocuments={documents}
+      initialTotal={total}
+      visualKnowledgeEnabled={process.env.SALES_AGENT_VISUAL_KNOWLEDGE_ADMIN_ENABLED === 'true'}
+    />
+  )
 }

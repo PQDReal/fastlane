@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import {
-  APPROVED_29_MANUAL_EDITIONS,
+  APPROVED_31_MANUAL_EDITIONS,
   parseEditionId,
 } from '../lib/sales-agent/knowledge/connector.ts'
 import { chunkMarkdownDocument } from '../lib/sales-agent/knowledge/chunker.ts'
@@ -78,7 +78,7 @@ const POLICY_DOCUMENTS = [
   },
 ]
 
-// 2. Build Full Corpus: Policy Chunks + 29 Approved Manual Editions Chunks
+// 2. Build synthetic corpus: policy chunks + 31 selected manual editions.
 const fullCorpusChunks = []
 
 // Add policy chunks
@@ -91,7 +91,7 @@ POLICY_DOCUMENTS.forEach((doc) => {
       documentKey: doc.documentKey,
       versionId: `ver-${doc.id}-v1`,
       versionNo: 1,
-      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      indexGenerationId: 'openai-text-embedding-3-small-512-v1',
       chunkLevel: 2,
       hierarchyPath: `policy/${doc.slug}/${c.chunkIndex}`,
       sectionAnchor: `section_${c.chunkIndex}`,
@@ -107,7 +107,7 @@ POLICY_DOCUMENTS.forEach((doc) => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED',
       indexStatus: 'READY',
-      embedding: new Array(1536).fill(0.015),
+      embedding: new Array(512).fill(0.015),
     })
   })
 })
@@ -119,7 +119,7 @@ let loadedManualsCount = 0
 if (fs.existsSync(chunksJsonlPath)) {
   const content = fs.readFileSync(chunksJsonlPath, 'utf-8')
   const lines = content.split('\n').filter((l) => l.trim().length > 0)
-  const approvedSet = new Set(APPROVED_29_MANUAL_EDITIONS)
+  const approvedSet = new Set(APPROVED_31_MANUAL_EDITIONS)
   const countedEditions = new Set()
 
   lines.forEach((line) => {
@@ -143,7 +143,7 @@ if (fs.existsSync(chunksJsonlPath)) {
         documentKey: canonicalDocumentKey,
         versionId: `ver-${edId}-v1`,
         versionNo: 1,
-        indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+        indexGenerationId: 'openai-text-embedding-3-small-512-v1',
         chunkLevel: 2,
         hierarchyPath: `${item.chapter_index}_${item.chapter}/${item.section_index}_${item.section}`,
         sectionAnchor: item.anchors?.[0] || item.section,
@@ -161,16 +161,16 @@ if (fs.existsSync(chunksJsonlPath)) {
         effectiveTo: null,
         publicationStatus: 'PUBLISHED',
         indexStatus: 'READY',
-        embedding: new Array(1536).fill(0.012),
+        embedding: new Array(512).fill(0.012),
       })
     }
   })
   loadedManualsCount = countedEditions.size
 }
 
-if (loadedManualsCount !== APPROVED_29_MANUAL_EDITIONS.length) {
+if (loadedManualsCount !== APPROVED_31_MANUAL_EDITIONS.length) {
   throw new Error(
-    `Synthetic benchmark corpus is incomplete: expected ${APPROVED_29_MANUAL_EDITIONS.length} editions, got ${loadedManualsCount}`,
+    `Synthetic benchmark corpus is incomplete: expected ${APPROVED_31_MANUAL_EDITIONS.length} editions, got ${loadedManualsCount}`,
   )
 }
 
@@ -178,7 +178,22 @@ console.log(`Corpus loaded with ${fullCorpusChunks.length} chunks across ${loade
 
 // 3. Evaluator for a Variant
 const ftsAdapter = new PostgresFtsAdapter()
-const vecAdapter = new VectorCandidateAdapter({ allowMock: true })
+const syntheticEmbeddingProvider = {
+  async generateEmbeddings(texts) {
+    return {
+      embeddings: texts.map((_, index) => ({ index, embedding: new Array(512).fill(0.015) })),
+      totalTokens: texts.length,
+      model: 'synthetic-test-only',
+      dimensions: 512,
+    }
+  },
+}
+const vecAdapter = new VectorCandidateAdapter(
+  undefined,
+  undefined,
+  'openai-text-embedding-3-small-512-v1',
+  syntheticEmbeddingProvider,
+)
 
 async function evaluateVariant(variantName, retrieveFn) {
   const caseResults = []

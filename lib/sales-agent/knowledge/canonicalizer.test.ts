@@ -25,7 +25,7 @@ describe('Canonicalizer (A19-KR-202)', () => {
     expect(res.extractedImages[0].alt).toBe('Sơ đồ cổng sạc VF 7')
     expect(res.extractedImages[0].url).toBe('/assets/images/3ba3ea1817d3d122cd0c0ac84ec5d1d2e99232b95f74289aab2493b901bda427.png')
 
-    expect(res.normalizedMarkdown).toContain('![Sơ đồ cổng sạc VF 7](/assets/images/3ba3ea1817d3d122cd0c0ac84ec5d1d2e99232b95f74289aab2493b901bda427.png#id=item33316_33603)')
+    expect(res.normalizedMarkdown).toContain('[img: 3ba3ea1817d3d122cd0c0ac84ec5d1d2e99232b95f74289aab2493b901bda427.png]')
     expect(res.normalizedMarkdown).toContain('**CẢNH BÁO:** Không cắm sạc khi tay ướt.')
     expect(res.warningsCount).toBe(1)
     expect(res.checksum.length).toBe(64)

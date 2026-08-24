@@ -14,7 +14,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params
-    const document = await archiveKnowledgeDocument(id)
+    const document = await archiveKnowledgeDocument(id, user.id)
 
     return NextResponse.json({
       data: {

@@ -6,8 +6,28 @@ import { PostgresFtsAdapter } from './retrieval/fts-adapter'
 import { VectorCandidateAdapter } from './retrieval/vector-adapter'
 import { HybridHierarchicalRetrievalService } from './retrieval/retrieval-service'
 import { KnowledgeStorageUnavailableError } from './retrieval/contracts'
+import {
+  OPENAI_EMBEDDING_DIMENSIONS,
+  OPENAI_EMBEDDING_GENERATION_ID,
+  type EmbeddingProvider,
+} from './embedding-adapter'
 
 describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => {
+  const deterministicEmbeddingProvider: EmbeddingProvider = {
+    async generateEmbeddings(texts) {
+      return {
+        embeddings: texts.map((_, index) => ({ index, embedding: new Array(OPENAI_EMBEDDING_DIMENSIONS).fill(0.015) })),
+        totalTokens: texts.length,
+        model: 'text-embedding-3-small',
+        dimensions: OPENAI_EMBEDDING_DIMENSIONS,
+      }
+    },
+  }
+  const failingEmbeddingProvider: EmbeddingProvider = {
+    async generateEmbeddings() {
+      throw new Error('test embedding outage')
+    },
+  }
   const sampleCorpus = [
     {
       chunkId: 'chunk-1',
@@ -31,7 +51,7 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
       effectiveTo: null,
       publicationStatus: 'PUBLISHED' as const,
       indexStatus: 'READY' as const,
-      embedding: new Array(1536).fill(0.015),
+      embedding: new Array(OPENAI_EMBEDDING_DIMENSIONS).fill(0.015),
     },
     {
       chunkId: 'chunk-2',
@@ -55,13 +75,13 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
       effectiveTo: null,
       publicationStatus: 'PUBLISHED' as const,
       indexStatus: 'READY' as const,
-      embedding: new Array(1536).fill(0.012),
+      embedding: new Array(OPENAI_EMBEDDING_DIMENSIONS).fill(0.012),
     },
   ]
 
   it('handles 20 concurrent retrieval requests with deterministic ordering and zero race conditions', async () => {
     const service = new HybridHierarchicalRetrievalService({
-      embeddingConfig: { allowMock: true },
+      embeddingProvider: deterministicEmbeddingProvider,
     })
     const concurrentRequests = Array.from({ length: 20 }, () =>
       service.retrieve(
@@ -85,9 +105,12 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
   })
 
   it('fails closed in pure VECTOR mode when embedding fails', async () => {
-    const brokenVectorAdapter = new VectorCandidateAdapter({
-      allowMock: false, // Disallow mock without key
-    })
+    const brokenVectorAdapter = new VectorCandidateAdapter(
+      undefined,
+      undefined,
+      OPENAI_EMBEDDING_GENERATION_ID,
+      failingEmbeddingProvider,
+    )
 
     // Search should throw fail-closed error
     await expect(
@@ -97,7 +120,7 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
 
   it('gracefully degrades to DEGRADED_FTS in HYBRID mode when embedding fails', async () => {
     const service = new HybridHierarchicalRetrievalService({
-      embeddingConfig: { allowMock: false },
+      embeddingProvider: failingEmbeddingProvider,
     })
 
     const res = await service.retrieve(
@@ -113,9 +136,7 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
   })
 
   it('returns NO_MATCH when no candidates match in FTS mode and never hallucinates fake data', async () => {
-    const service = new HybridHierarchicalRetrievalService({
-      embeddingConfig: { allowMock: true },
-    })
+    const service = new HybridHierarchicalRetrievalService()
 
     const res = await service.retrieve(
       'xyznonexistentkeyword999999',
@@ -131,7 +152,7 @@ describe('Phase P5 — Lifecycle & Concurrency Fault Suite (A19-KR-501)', () => 
 
   it('throws KnowledgeStorageUnavailableError when storage is completely unavailable and no lexical match', async () => {
     const brokenService = new HybridHierarchicalRetrievalService({
-      embeddingConfig: { allowMock: false },
+      embeddingProvider: failingEmbeddingProvider,
     })
 
     // When query has no lexical match and vector embedding throws

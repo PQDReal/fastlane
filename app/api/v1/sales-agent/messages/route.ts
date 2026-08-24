@@ -196,6 +196,7 @@ export async function POST(request: Request) {
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
           signal: request.signal,
+          context: { conversationId, messageId },
           onTextDelta: (delta) => {
             if (request.signal?.aborted) return
             if (!hasStreamedFirstDelta) {

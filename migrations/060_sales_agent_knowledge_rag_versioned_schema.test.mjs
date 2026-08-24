@@ -1,143 +1,206 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 
-describe('Migration 060: Safe Schema Evolution, Triggers & Invariants (A19-KR-101..105)', () => {
-  const upMigrationPath = path.resolve('migrations/060_sales_agent_knowledge_rag_versioned_schema.sql')
-  const downMigrationPath = path.resolve('migrations/060_sales_agent_knowledge_rag_versioned_schema.down.sql')
+describe('Migration 060: eight-table RAG baseline', () => {
+  const upPath = path.resolve('migrations/060_sales_agent_knowledge_rag_versioned_schema.sql')
+  const downPath = path.resolve('migrations/060_sales_agent_knowledge_rag_versioned_schema.down.sql')
+  const up = fs.readFileSync(upPath, 'utf8')
+  const down = fs.readFileSync(downPath, 'utf8')
+  const liveVisual = fs.readFileSync(
+    path.resolve('migrations/061_sales_agent_visual_knowledge_live_schema.sql'),
+    'utf8',
+  )
+  const visualPrivileges = fs.readFileSync(
+    path.resolve('migrations/062_sales_agent_visual_rpc_privilege_hardening.sql'),
+    'utf8',
+  )
+  const visualDraftRetrieval = fs.readFileSync(
+    path.resolve('migrations/063_sales_agent_visual_draft_retrieval_dev.sql'),
+    'utf8',
+  )
 
-  it('verifies that migration 060 up & down files exist', () => {
-    expect(fs.existsSync(upMigrationPath)).toBe(true)
-    expect(fs.existsSync(downMigrationPath)).toBe(true)
+  it('evolves the two Migration 058 tables without recreating or dropping them', () => {
+    expect(up).toContain('ALTER TABLE public.sales_agent_knowledge_documents')
+    expect(up).toContain('ALTER TABLE public.sales_agent_knowledge_chunks')
+    expect(up).not.toContain('CREATE TABLE IF NOT EXISTS public.sales_agent_knowledge_documents')
+    expect(up).not.toContain('CREATE TABLE IF NOT EXISTS public.sales_agent_knowledge_chunks')
+    expect(down).not.toContain('DROP TABLE IF EXISTS public.sales_agent_knowledge_documents')
+    expect(down).not.toContain('DROP TABLE IF EXISTS public.sales_agent_knowledge_chunks')
   })
 
-  it('verifies safe ALTER TABLE evolution on existing 058 documents and chunks tables', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    // Evolves 058 documents
-    expect(sql).toContain('ALTER TABLE public.sales_agent_knowledge_documents')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS active_version_id UUID')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS lifecycle_status TEXT')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS document_key TEXT')
-
-    // Evolves 058 chunks with source_node_id and image_refs
-    expect(sql).toContain('ALTER TABLE public.sales_agent_knowledge_chunks')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS version_id UUID')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS index_generation_id TEXT')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS source_node_id TEXT')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS image_refs JSONB')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS tsv_content TSVECTOR')
-    expect(sql).toContain('ADD COLUMN IF NOT EXISTS embedding vector(1536)')
-    expect(sql).toContain("'CHARGING_NETWORK', 'GENERAL_POLICY'")
-    expect(sql).toContain("v.index_status = 'READY'")
+  it('has exactly the six new tables required by the eight-table baseline', () => {
+    const created = [...up.matchAll(/CREATE TABLE IF NOT EXISTS public\.(sales_agent_knowledge_[a-z_]+)/g)]
+      .map((match) => match[1])
+    expect(created).toEqual([
+      'sales_agent_knowledge_versions',
+      'sales_agent_knowledge_index_generations',
+      'sales_agent_knowledge_index_jobs',
+      'sales_agent_knowledge_assets',
+      'sales_agent_knowledge_asset_occurrences',
+      'sales_agent_knowledge_asset_annotations',
+    ])
+    expect(up).not.toMatch(/CREATE TABLE IF NOT EXISTS public\.sales_agent_knowledge_(sources|scopes|claims|claim_sources|publication_events|runtime_state)/)
   })
 
-  it('verifies backfill logic marks legacy 058 versions as PENDING (no fake READY vectors)', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    expect(sql).toContain('UPDATE public.sales_agent_knowledge_documents')
-    expect(sql).toContain('SET document_key = slug')
-    expect(sql).toContain("'PENDING'")
+  it('pins text-embedding-3-small to the 512-dimension generation', () => {
+    expect(up).toContain("'openai-text-embedding-3-small-512-v1'")
+    expect(up).toContain("'text-embedding-3-small'")
+    expect(up).toContain('embedding vector(512)')
+    expect(up).toContain('USING hnsw (embedding vector_cosine_ops)')
   })
 
-  it('verifies version immutability and automatic TSVector triggers', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.enforce_knowledge_version_immutability')
-    expect(sql).toContain('CREATE TRIGGER trg_enforce_knowledge_version_immutability')
-    expect(sql).toContain("NEW.publication_status NOT IN ('PUBLISHED', 'ARCHIVED', 'SUPERSEDED')")
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sync_knowledge_chunk_tsv')
-    expect(sql).toContain('CREATE TRIGGER trg_sync_knowledge_chunk_tsv')
-    expect(sql).toContain('trg_prevent_knowledge_publication_event_mutation')
-    expect(sql).toContain('AUDIT_LEDGER_IMMUTABLE')
+  it('backfills legacy versions as pending and leaves the active pointer null', () => {
+    expect(up).toContain("CASE WHEN d.status = 'PUBLISHED' THEN 'IN_REVIEW' ELSE 'DRAFT' END")
+    expect(up).toContain("'PENDING'")
+    expect(up).toContain('UPDATE public.sales_agent_knowledge_documents SET active_version_id = NULL')
+    expect(up).toContain('is_active = false')
   })
 
-  it('verifies reapply idempotency for all 11 service-role RLS policies', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    const tables = [
-      'knowledge_sources',
-      'knowledge_documents',
-      'knowledge_versions',
-      'knowledge_scopes',
-      'knowledge_claims',
-      'knowledge_claim_sources',
-      'knowledge_index_generations',
-      'knowledge_chunks',
-      'knowledge_index_jobs',
-      'knowledge_publication_events',
-      'knowledge_runtime_state',
-    ]
-
-    tables.forEach((tbl) => {
-      expect(sql).toContain(`DROP POLICY IF EXISTS "Service role full access on ${tbl}" ON public.sales_agent_${tbl}`)
-      expect(sql).toContain(`CREATE POLICY "Service role full access on ${tbl}" ON public.sales_agent_${tbl}`)
-    })
+  it('stores typed scope/source fields without separate source or scope tables', () => {
+    for (const column of [
+      'vehicle_key TEXT', 'vehicle_model TEXT', 'model_year INTEGER',
+      'vehicle_type TEXT', 'customer_segment TEXT', 'source_kind TEXT', 'source_uri TEXT',
+    ]) expect(up).toContain(column)
+    expect(up).toContain("'vehicleModel', d.vehicle_model")
   })
 
-  it('verifies restore RPC guards against cross-document version attaching and non-ready status', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    expect(sql).toContain('sales_agent_restore_document')
-    expect(sql).toContain('WHERE id = p_restore_version_id AND document_id = p_document_id')
-    expect(sql).toContain('VERSION_NOT_READY')
-    expect(sql).toContain('RESTORE_VERSION_NOT_FOUND')
-    expect(sql).toContain('VERSION_NOT_RESTORABLE')
+  it('keeps lifecycle and index operations fail-closed and idempotent', () => {
+    expect(up).toContain('sales_agent_enqueue_index_job')
+    expect(up).toContain('pg_advisory_xact_lock')
+    expect(up).toContain("status IN ('PENDING', 'PROCESSING')")
+    expect(up).toContain('uq_knowledge_index_jobs_active')
+    expect(up).toContain('sales_agent_finalize_knowledge_hierarchy')
+    expect(up).toContain('VERSION_NOT_APPROVED')
+    expect(up).toContain('REVIEW_REQUIRED')
+    expect(up).toContain('VERSION_HAS_NO_CHUNKS')
+    expect(up).toContain('VERSION_INDEX_INCOMPLETE_OR_STALE')
+    expect(up).toContain('knowledge_version_approval_check')
+    expect(up).toContain('author_id <> reviewer_id')
+    expect(up).toContain('VERSION_NOT_ROLLBACKABLE')
+    expect(up).toContain('RESTORE_VERSION_NOT_FOUND')
   })
 
-  it('verifies rollback rejects draft targets and restore archives the prior active snapshot', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    expect(sql).toContain('VERSION_NOT_ROLLBACKABLE')
-    expect(sql).toContain("SET publication_status = 'ARCHIVED'")
-    expect(sql).toContain('v_doc.active_version_id <> v_target_version_id')
+  it('provides active-only FTS, vector and hierarchy RPCs', () => {
+    expect(up).toContain('sales_agent_search_knowledge_fts')
+    expect(up).toContain('websearch_to_tsquery')
+    expect(up).toContain('c.tsv_content @@ q.query')
+    expect(up).toContain('sales_agent_search_knowledge_vector')
+    expect(up).toContain('c.embedding <=> p_query_embedding')
+    expect(up).toContain('sales_agent_load_knowledge_hierarchy_context')
+    expect(up).toContain("d.lifecycle_status = 'ACTIVE'")
+    expect(up).toContain("v.publication_status = 'PUBLISHED'")
+    expect(up).toContain("v.index_status = 'READY'")
+    expect(up).toContain('d.active_version_id = v.id')
   })
 
-  it('verifies enqueue_index_job is idempotent and returns existing active job', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    expect(sql).toContain('sales_agent_enqueue_index_job')
-    expect(sql).toMatch(/WHERE version_id = p_version_id\s+AND index_generation_id = p_index_generation_id\s+AND status IN \('PENDING', 'PROCESSING'\)/)
-    expect(sql).toContain('pg_advisory_xact_lock')
-    expect(sql).toContain('uq_knowledge_index_jobs_active')
-    expect(sql).toContain('VERSION_NOT_APPROVED: Version ID % must be APPROVED before indexing')
-    expect(sql).toContain('REVIEW_REQUIRED: Version ID % has no reviewer')
+  it('uses a sequence and document epoch instead of a ninth runtime-state table', () => {
+    expect(up).toContain('sales_agent_knowledge_epoch_seq')
+    expect(up).toContain('retrieval_epoch BIGINT')
+    expect(up).toContain('sales_agent_get_knowledge_runtime_state')
+    expect(up).not.toContain('sales_agent_knowledge_runtime_state')
   })
 
-  it('verifies production retrieval RPCs enforce lifecycle, generation, scope and least-privilege grants', () => {
-    const sql = fs.readFileSync(upMigrationPath, 'utf-8')
-
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sales_agent_search_knowledge_fts')
-    expect(sql).toContain('websearch_to_tsquery')
-    expect(sql).toContain('c.tsv_content @@ query_term.query')
-    expect(sql).toContain("v.publication_status = 'PUBLISHED'")
-    expect(sql).toContain("v.index_status = 'READY'")
-    expect(sql).toContain('c.index_generation_id = p_index_generation_id')
-    expect(sql).toContain('p_vehicle_type')
-    expect(sql).toContain('p_customer_segment')
-
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sales_agent_search_knowledge_vector')
-    expect(sql).toContain('c.embedding <=> p_query_embedding')
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sales_agent_load_knowledge_hierarchy_context')
-    expect(sql).toContain('v.id = ANY(p_version_ids)')
-
-    expect(sql).toContain('REVOKE EXECUTE ON FUNCTION public.sales_agent_search_knowledge_fts')
-    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.sales_agent_search_knowledge_vector')
+  it('only activates an approved annotation belonging to the same asset bytes', () => {
+    expect(up).toContain('enforce_knowledge_asset_active_annotation')
+    expect(up).toContain("annotation.status = 'APPROVED'")
+    expect(up).toContain('annotation.asset_id = NEW.id')
+    expect(up).toContain('annotation.source_asset_sha256 = NEW.sha256')
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.enforce_knowledge_asset_active_annotation()')
   })
 
-  it('verifies down migration cleanly removes triggers, RPCs and columns without dropping 058 tables', () => {
-    const downSql = fs.readFileSync(downMigrationPath, 'utf-8')
+  it('stores compact visual metadata and keeps AI drafts out of vector indexes', () => {
+    for (const column of [
+      'source_occurrence_id TEXT NOT NULL UNIQUE',
+      'source_packet_id TEXT NOT NULL',
+      "source_locator JSONB NOT NULL DEFAULT '{}'::jsonb",
+      "relation_metadata JSONB NOT NULL DEFAULT '{}'::jsonb",
+      'visible_text TEXT[]',
+      "relations JSONB NOT NULL DEFAULT '[]'::jsonb",
+      'confidence REAL NOT NULL',
+      'retrieval_recommendation TEXT NOT NULL',
+      'vision_provider TEXT',
+      'request_id TEXT',
+      "provenance JSONB NOT NULL DEFAULT '{}'::jsonb",
+    ]) expect(up).toContain(column)
+    expect(up).toContain("WHERE embedding IS NOT NULL AND status = 'APPROVED'")
+    expect(up).toContain("USING gin (tsv_content) WHERE status = 'APPROVED'")
+    expect(up).toContain('char_length(context_text) <= 2000')
+  })
 
-    expect(downSql).not.toContain('DROP TABLE IF EXISTS public.sales_agent_knowledge_documents')
-    expect(downSql).not.toContain('DROP TABLE IF EXISTS public.sales_agent_knowledge_chunks')
-    expect(downSql).toContain('DROP TRIGGER IF EXISTS trg_sync_knowledge_chunk_tsv')
-    expect(downSql).toContain('DROP TRIGGER IF EXISTS trg_enforce_knowledge_version_immutability')
-    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_activate_version')
-    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_fts')
-    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_vector')
-    expect(downSql).toContain('DROP FUNCTION IF EXISTS public.sales_agent_load_knowledge_hierarchy_context')
-    expect(downSql).toContain('ROLLBACK_BLOCKED: 060-only knowledge categories remain')
-    expect(downSql).toContain('DROP POLICY IF EXISTS "Public and auth users can view active documents"')
-    expect(downSql).toContain('DROP POLICY IF EXISTS "Public and auth users can view active chunks"')
+  it('enforces immutable revisions and maker-checker visual review transitions', () => {
+    expect(up).toContain('enforce_knowledge_asset_annotation_revision')
+    expect(up).toContain('IMMUTABLE_ANNOTATION_REVISION')
+    expect(up).toContain('INVALID_ANNOTATION_STATUS_TRANSITION')
+    expect(up).toContain('ACTIVE_ANNOTATION_MUST_BE_DEACTIVATED')
+    expect(up).toContain('sales_agent_review_knowledge_asset_annotation')
+    expect(up).toContain('MAKER_CHECKER_REQUIRED')
+    expect(up).toContain('sales_agent_mark_knowledge_asset_stale')
+    expect(up).toContain('STALE_ACTOR_REQUIRED')
+    expect(up).toContain('sales_agent_create_knowledge_asset_annotation_revision')
+    expect(up).toContain('SUPERSEDED_BY_ADMIN_EDIT')
+    expect(up).toContain('editedFromAnnotationId')
+    expect(up).toContain('sales_agent_bulk_review_knowledge_asset_annotations')
+    expect(up).toContain('INVALID_BULK_REVIEW_COUNT')
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.sales_agent_review_knowledge_asset_annotation')
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.sales_agent_mark_knowledge_asset_stale')
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.sales_agent_create_knowledge_asset_annotation_revision')
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.sales_agent_bulk_review_knowledge_asset_annotations')
+  })
+
+  it('returns only approved contextual visuals behind a service-role RPC', () => {
+    expect(up).toContain('sales_agent_search_knowledge_visuals')
+    expect(up).toContain("websearch_to_tsquery('simple', p_query)")
+    expect(up).toContain('ORDER BY candidates.text_rank DESC')
+    expect(up).toContain("occurrence.role NOT IN ('DECORATIVE', 'INLINE_MARKER')")
+    expect(up).toContain("annotation.status = 'APPROVED'")
+    expect(up).toContain("annotation.decision = 'ANNOTATE'")
+    expect(up).toContain("annotation.retrieval_recommendation <> 'EXCLUDE'")
+    expect(up).toContain('document.active_version_id = version.id')
+    expect(up).toContain('occurrence.retrieval_enabled')
+    expect(up).toContain('REVOKE EXECUTE ON FUNCTION public.sales_agent_search_knowledge_visuals')
+    expect(up).toContain('GRANT EXECUTE ON FUNCTION public.sales_agent_search_knowledge_visuals')
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.sales_agent_search_knowledge_visuals')
+  })
+
+  it('upgrades the empty live prototype defensively and revokes direct API-role RPC grants', () => {
+    expect(liveVisual).toContain('VISUAL_SCHEMA_REBUILD_REQUIRES_EMPTY_TABLES')
+    expect(liveVisual).toContain("occurrence.role NOT IN ('DECORATIVE', 'INLINE_MARKER')")
+    expect(liveVisual).toContain('FROM PUBLIC, anon, authenticated')
+    expect(visualPrivileges).toContain('FROM PUBLIC, anon, authenticated')
+    expect(visualPrivileges).toContain('TO service_role')
+  })
+
+  it('keeps draft retrieval isolated behind a separate service-role-only development RPC', () => {
+    expect(visualDraftRetrieval).toContain('sales_agent_search_knowledge_visuals_with_drafts')
+    expect(visualDraftRetrieval).toContain("candidate.status = 'AI_DRAFT'")
+    expect(visualDraftRetrieval).toContain("candidate.status = 'APPROVED'")
+    expect(visualDraftRetrieval).toContain("FROM PUBLIC, anon, authenticated")
+    expect(visualDraftRetrieval).toContain('TO service_role')
+    expect(visualDraftRetrieval).toContain("annotation.retrieval_recommendation <> 'EXCLUDE'")
+  })
+
+  it('prevents a document pointer from crossing documents or pointing at an unready version', () => {
+    expect(up).toContain('enforce_knowledge_document_active_version')
+    expect(up).toContain('version.document_id = NEW.id')
+    expect(up).toContain("version.publication_status = 'PUBLISHED'")
+    expect(up).toContain("version.index_status = 'READY'")
+    expect(down).toContain('DROP FUNCTION IF EXISTS public.enforce_knowledge_document_active_version()')
+  })
+
+  it('enforces service-role-only access and hardened SECURITY DEFINER functions', () => {
+    expect(up).toContain('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated')
+    expect(up).toContain('FOR ALL TO service_role USING (true) WITH CHECK (true)')
+    expect(up).toContain('SECURITY DEFINER')
+    expect(up).toContain('SET search_path = public, pg_temp')
+    expect(up).toContain('REVOKE EXECUTE ON FUNCTION public.sales_agent_search_knowledge_fts')
+  })
+
+  it('rolls back only 060 additions and restores Migration 058 visibility', () => {
+    expect(down).toContain('UPDATE public.sales_agent_knowledge_chunks SET is_active = true')
+    expect(down).toContain('DROP TABLE IF EXISTS public.sales_agent_knowledge_asset_annotations')
+    expect(down).toContain('DROP TABLE IF EXISTS public.sales_agent_knowledge_versions')
+    expect(down).toContain('ROLLBACK_BLOCKED: 060-only knowledge categories remain')
+    expect(down).toContain('DROP COLUMN IF EXISTS embedding')
   })
 })

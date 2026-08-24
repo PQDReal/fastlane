@@ -85,8 +85,10 @@ function mapDatabaseProductType(type: string): ProductType {
   return 'CAR'
 }
 
+import { extractCanonicalVehicleSpecs } from '../catalog/spec-extractor'
+
 function formatVnd(amount: number | null | undefined): string {
-  if (!amount) return 'Đang cập nhật'
+  if (!amount || isNaN(amount)) return 'Liên hệ'
   return `${amount.toLocaleString('vi-VN')} VNĐ`
 }
 
@@ -99,40 +101,42 @@ function compileDynamicSummaryPrompt(
   const bikes = products.filter((p) => p.productType === 'BIKE')
 
   const carLines = cars.map((c) => {
-    const s = c.specifications || {}
-    const seats = s.seats ? `${s.seats} chỗ` : ''
-    const battery = s.battery_kwh ? `Pin ${s.battery_kwh} kWh` : ''
-    const range = s.range_km ? `Tầm xa ${s.range_km} km` : ''
-    const power = s.power_kw ? `Công suất ${s.power_kw} kW (${s.power_hp || ''} hp)` : s.power_hp ? `${s.power_hp} hp` : ''
-    const torque = s.torque_nm ? `Mô-men xoắn ${s.torque_nm} Nm` : ''
-    const charge = s.fast_charge_min ? `Sạc nhanh DC ~${s.fast_charge_min}p` : ''
-    const warranty = s.warranty_vehicle ? `Bảo hành xe ${s.warranty_vehicle}, pin ${s.warranty_battery || '10 năm'}` : ''
+    const cs = extractCanonicalVehicleSpecs(c)
+    const seats = cs.seats ? `${cs.seats} chỗ` : ''
+    const battery = cs.battery ? `Pin ${cs.battery}` : ''
+    const range = cs.range ? `Tầm xa ${cs.range}` : ''
+    const speed = cs.topSpeed ? `Tốc độ ${cs.topSpeed}` : ''
+    const power = cs.power ? `Công suất ${cs.power}` : ''
+    const weight = cs.weight ? `Khối lượng ${cs.weight}` : ''
+    const charge = cs.chargingTime ? `Sạc ${cs.chargingTime}` : ''
+    const warranty = cs.warranty ? `Bảo hành ${cs.warranty}` : ''
 
-    const details = [seats, battery, range, power, torque, charge, warranty]
+    const details = [seats, battery, range, speed, power, weight, charge, warranty]
       .filter(Boolean)
       .join(' | ')
 
-    return `| **${c.name}** | ${formatVnd(c.displayedPrice)} | ${details} |`
+    return `| **${c.name}** | ${formatVnd(c.displayedPrice)} | ${details || 'Đang cập nhật'} |`
   })
 
   const bikeLines = bikes.map((b) => {
-    const s = b.specifications || {}
-    const range = s.range_km ? `Quãng đường ~${s.range_km} km/sạc` : ''
-    const speed = s.top_speed_kmh ? `Tốc độ tối đa ${s.top_speed_kmh} km/h` : ''
-    const battery = s.battery || 'Pin LFP 3.5 kWh'
-    const power = s.power_w ? `Động cơ ${s.power_w}W` : ''
-    const trunk = s.trunk_liters ? `Cốp ${s.trunk_liters}L` : ''
-    const warranty = s.warranty || 'Bảo hành 5 năm không giới hạn km'
+    const bs = extractCanonicalVehicleSpecs(b)
+    const battery = bs.battery ? `Pin: ${bs.battery}` : ''
+    const range = bs.range ? `Tầm xa: ${bs.range}` : ''
+    const speed = bs.topSpeed ? `Tốc độ: ${bs.topSpeed}` : ''
+    const weight = bs.weight ? `Trọng lượng: ${bs.weight}` : ''
+    const power = bs.power ? `Động cơ: ${bs.power}` : ''
+    const trunk = bs.trunk ? `Cốp: ${bs.trunk}` : ''
+    const warranty = bs.warranty ? `Bảo hành: ${bs.warranty}` : ''
 
-    const details = [battery, range, speed, power, trunk, warranty].filter(Boolean).join(' | ')
-    return `| **${b.name}** | ${formatVnd(b.displayedPrice)} | ${details} |`
+    const details = [battery, range, speed, weight, power, trunk, warranty].filter(Boolean).join(' | ')
+    return `| **${b.name}** | ${formatVnd(b.displayedPrice)} | ${details || 'Đang cập nhật'} |`
   })
 
   const topAccList = accessories
     .map((a) => `- **${a.name}** (${formatVnd(a.price)}): ${a.description || a.categoryName}`)
     .join('\n')
 
-  const docs = knowledgeDocs && knowledgeDocs.length > 0 ? knowledgeDocs : INITIAL_SEEDED_KNOWLEDGE_DOCS
+  const docs = knowledgeDocs && knowledgeDocs.length > 0 ? knowledgeDocs : []
   const knowledgeLines = docs.map((d) => {
     const catLabel =
       d.category === 'WARRANTY_BATTERY' ? 'Bảo hành & Pin' :
@@ -147,13 +151,13 @@ function compileDynamicSummaryPrompt(
     '',
     '### 1. Bảng thông số Ô tô điện VinFast chính hãng (Slash Route: `/cars/[slug]`):',
     `Danh sách Slash Routes: ${cars.map(c => `\`[${c.name}](/cars/${c.slug})\``).join(', ')}`,
-    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Chỗ, Pin kWh, Quãng đường km, Công suất, Sạc nhanh, Bảo hành) |',
+    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Chỗ, Pin kWh, Quãng đường km, Công suất, Tốc độ, Khối lượng, Sạc nhanh, Bảo hành) |',
     '| :--- | :--- | :--- |',
     carLines.length > 0 ? carLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
     '',
     '### 2. Bảng thông số Xe máy điện VinFast chính hãng (Slash Route: `/bikes/[slug]`):',
     `Danh sách Slash Routes: ${bikes.map(b => `\`[${b.name}](/bikes/${b.slug})\``).join(', ')}`,
-    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Loại Pin, Quãng đường km, Tốc độ tối đa km/h, Cốp, Bảo hành) |',
+    '| Mẫu xe | Giá niêm yết từ | Thông số chi tiết (Loại Pin/Dung lượng, Quãng đường km, Tốc độ tối đa km/h, Trọng lượng, Động cơ, Cốp, Bảo hành) |',
     '| :--- | :--- | :--- |',
     bikeLines.length > 0 ? bikeLines.join('\n') : '| Đang cập nhật | Đang cập nhật | Đang cập nhật |',
     '',
@@ -165,13 +169,15 @@ function compileDynamicSummaryPrompt(
     '',
     '### 5. Chính sách cốt lõi:',
     '- **Bảo hành ô tô:** VF 3 bảo hành xe 7 năm / 160.000 km, pin mua kèm 8 năm; Các dòng VF 5, VF 6, VF 7, VF 8, VF 9, VF e34 bảo hành xe 10 năm / 200.000 km, pin mua kèm bảo hành 10 năm không giới hạn km.',
-    '- **Bảo hành xe máy điện:** 5 năm không giới hạn số km cho toàn bộ các dòng Evo 200, Feliz S, Klara S, Vento S, Theon S.',
+    '- **Bảo hành xe máy điện:** 5 năm không giới hạn số km cho toàn bộ các dòng xe máy điện VinFast chính hãng.',
     '- **Chính sách thuê pin:** Bảo dưỡng, sửa chữa và thay pin mới miễn phí hoàn toàn khi dung lượng tiếp nhận sạc tối đa (SoH) giảm dưới 70%.',
     '- **Hạ tầng trạm sạc & Cứu hộ:** Trạm sạc V-GREEN chuẩn CCS2 toàn quốc, cứu hộ pin lưu động 24/7.',
     '',
-    '## QUY TẮC TƯ VẤN PHẢN HỒI TỐC ĐỘ CAO (SINGLE-TURN FAST PROTOCOL):',
-    '- Khi người dùng hỏi so sánh thông số (pin, tốc độ, quãng đường, giá bán, công suất, bảo hành), hỏi đặt cọc, trả góp hoặc tra cứu các chủ đề trong Danh mục Tri thức CMS ở trên: BẠN ĐÃ CÓ TOÀN BỘ SỐ LIỆU CHÍNH XÁC. HÃY TRẢ LỜI NGAY LẬP TỨC TRONG 1 LƯỢT DUY NHẤT MÀ KHÔNG CẦN GỌI TOOL.',
-    '- CHỈ gọi tool `search_knowledge` khi người dùng hỏi các dòng xe/tài liệu lạ chưa có trong bảng trên (ví dụ: "thông số xe zzed"), hoặc khi cần tra cứu nội dung chi tiết sâu hơn.',
+    '## QUY TẮC TƯ VẤN THÔNG SỐ VÀ SỬ DỤNG TOOL CHÍNH XÁC:',
+    '- Khi người dùng hỏi tổng quan về bảng giá, chính sách hoặc các thông số đã có trong bảng tóm tắt: Bạn có thể tổng hợp trả lời nhanh chóng dựa trên số liệu chuẩn trong bảng.',
+    '- Khi người dùng hỏi so sánh chi tiết, đối chiếu thông số kỹ thuật (pin, tốc độ, trọng lượng, kích thước...) hoặc hỏi sâu về 2 hay nhiều mẫu xe: BẠN HÃY GỌI TOOL `compare_products` hoặc `get_product_details` để trích xuất đầy đủ facts và đối chiếu chính xác.',
+    '- TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT THÔNG SỐ: Nếu một thông số nào chưa có trong catalog hoặc bảng tóm tắt, hãy thông báo trung thực là thông số đó đang được cập nhật.',
+    '- Gọi tool `search_knowledge` khi người dùng hỏi các tài liệu hướng dẫn kỹ thuật, cẩm nang cứu hộ, chính sách chuyên sâu hoặc khi catalog không có thông tin.',
   ].join('\n')
 }
 

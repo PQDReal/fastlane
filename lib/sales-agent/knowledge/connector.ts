@@ -1,7 +1,8 @@
-import type { DocumentTreeInput, SectionNodeInput } from './hierarchical-chunker'
+import type { DocumentTreeInput, SectionNodeInput } from './hierarchical-chunker.ts'
 
 export interface ManualEditionMetadata {
   editionId: string
+  vehicleKey: string
   vehicleModel: string
   modelYear: number
   locale: string
@@ -25,8 +26,17 @@ export interface RawStagingNode {
   orderIndex: number
 }
 
-// 29 Canonical Editions Allowlist (D-019-019)
-export const APPROVED_29_MANUAL_EDITIONS: readonly string[] = [
+export interface ManualMarkdownSection {
+  chapterTitle: string
+  sectionTitle: string
+  sectionId: string
+  filePath: string
+  contentMarkdown: string
+  images?: string[]
+}
+
+// Planning/code-ready allowlist v2 (D-019-021). This does not authorize a live import.
+export const APPROVED_31_MANUAL_EDITIONS: readonly string[] = [
   'VF e34_2021',
   'VF e34_2022',
   'VF e34_2023',
@@ -56,85 +66,161 @@ export const APPROVED_29_MANUAL_EDITIONS: readonly string[] = [
   'VF 9_2025',
   'VF 9_2026',
   'VF MPV 7_2026',
+  'Lạc Hồng 900 LX_2025',
+  'Lạc Hồng 900 LX_2026',
 ] as const
 
+export function canonicalizeVehicleModel(model: string): string {
+  const trimmed = model.trim().replace(/\s+/g, ' ')
+  const ascii = trimmed
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+
+  if (ascii === 'lac hong 900 lx') return 'Lạc Hồng 900 LX'
+  return trimmed
+}
+
+export function toVehicleKey(model: string): string {
+  return canonicalizeVehicleModel(model)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export function parseEditionId(editionId: string): {
+  vehicleKey: string
   vehicleModel: string
   modelYear: number
   canonicalDocumentKey: string
 } {
-  const parts = editionId.split('_')
-  const modelRaw = parts[0]?.trim() || 'VF'
-  const yearRaw = parseInt(parts[1] || '2025', 10)
-  const cleanModelKey = modelRaw.replace(/\s+/g, '').replace(/-/g, '_')
-  const canonicalDocumentKey = `vinfast:${cleanModelKey}:${yearRaw}:vi-VN`
+  const separator = editionId.lastIndexOf('_')
+  if (separator <= 0) throw new Error(`Invalid manual edition id '${editionId}'`)
+
+  const modelRaw = editionId.slice(0, separator).trim()
+  const yearRaw = editionId.slice(separator + 1).trim()
+  if (!/^20\d{2}$/.test(yearRaw)) throw new Error(`Invalid model year in edition id '${editionId}'`)
+
+  const vehicleModel = canonicalizeVehicleModel(modelRaw)
+  const vehicleKey = toVehicleKey(vehicleModel)
+  const modelYear = Number(yearRaw)
 
   return {
-    vehicleModel: modelRaw,
-    modelYear: yearRaw,
-    canonicalDocumentKey,
+    vehicleKey,
+    vehicleModel,
+    modelYear,
+    canonicalDocumentKey: `vinfast:${vehicleKey}:${modelYear}:vi-VN`,
   }
 }
 
-export class VinFastManualStagingConnector {
-  /**
-   * Kiểm tra một edition ID có nằm trong 29 allowlist hợp lệ không
-   */
-  isEditionApproved(editionId: string): boolean {
-    return APPROVED_29_MANUAL_EDITIONS.includes(editionId)
+function toDocumentTree(
+  editionId: string,
+  sections: SectionNodeInput[],
+): DocumentTreeInput {
+  if (!APPROVED_31_MANUAL_EDITIONS.includes(editionId)) {
+    throw new Error(`Edition '${editionId}' is not in the code-ready 31-edition allowlist (D-019-021)`)
   }
 
-  /**
-   * Lấy danh sách 29 manual allowlist metadata
-   */
-  getApprovedEditionsInventory(): ManualEditionMetadata[] {
-    return APPROVED_29_MANUAL_EDITIONS.map((edId) => {
-      const { vehicleModel, modelYear, canonicalDocumentKey } = parseEditionId(edId)
+  const { vehicleKey, vehicleModel, modelYear, canonicalDocumentKey } = parseEditionId(editionId)
+  return {
+    documentKey: canonicalDocumentKey,
+    title: `Sổ tay hướng dẫn sử dụng VinFast ${vehicleModel} (${modelYear})`,
+    category: 'TECHNICAL_GUIDE',
+    vehicleKey,
+    vehicleModel,
+    modelYear,
+    locale: 'vi-VN',
+    market: 'VN',
+    sections,
+  }
+}
+
+export class VinFastManualMarkdownConnector {
+  isEditionSelected(editionId: string): boolean {
+    return APPROVED_31_MANUAL_EDITIONS.includes(editionId)
+  }
+
+  getSelectedEditionsInventory(): ManualEditionMetadata[] {
+    return APPROVED_31_MANUAL_EDITIONS.map((editionId) => {
+      const parsed = parseEditionId(editionId)
       return {
-        editionId: edId,
-        vehicleModel,
-        modelYear,
+        editionId,
+        vehicleKey: parsed.vehicleKey,
+        vehicleModel: parsed.vehicleModel,
+        modelYear: parsed.modelYear,
         locale: 'vi-VN',
         market: 'VN',
-        canonicalDocumentKey,
-        title: `Sổ tay hướng dẫn sử dụng VinFast ${vehicleModel} (${modelYear})`,
+        canonicalDocumentKey: parsed.canonicalDocumentKey,
+        title: `Sổ tay hướng dẫn sử dụng VinFast ${parsed.vehicleModel} (${parsed.modelYear})`,
         category: 'TECHNICAL_GUIDE',
       }
     })
   }
 
-  /**
-   * Chuyển đổi cây nodes từ raw staging sang canonical DocumentTreeInput
-   */
-  transformStagingNodesToDocumentTree(
+  transformMarkdownSectionsToDocumentTree(
     editionId: string,
-    rawNodes: RawStagingNode[]
+    markdownSections: ManualMarkdownSection[],
   ): DocumentTreeInput {
-    if (!this.isEditionApproved(editionId)) {
-      throw new Error(`Edition '${editionId}' is not in the approved 29 manual allowlist (D-019-019)`)
-    }
-
-    const { vehicleModel, modelYear, canonicalDocumentKey } = parseEditionId(editionId)
-
-    // Tạo map để tra cứu chapter title theo parentId
-    const nodeMap = new Map<string, RawStagingNode>()
-    rawNodes.forEach((n) => nodeMap.set(n.id, n))
-
+    const seenNodeIds = new Set<string>()
     const sections: SectionNodeInput[] = []
 
-    // Sắp xếp nodes theo orderIndex
-    const sortedNodes = [...rawNodes].sort((a, b) => a.orderIndex - b.orderIndex)
+    for (const section of markdownSections) {
+      const content = section.contentMarkdown.trim()
+      if (!content) continue
+      const sourceNodeId = String(section.sectionId || '').trim()
+      if (!sourceNodeId) throw new Error(`Section '${section.filePath}' has no stable section id`)
+      if (seenNodeIds.has(sourceNodeId)) {
+        throw new Error(`Duplicate source node id '${sourceNodeId}' in edition '${editionId}'`)
+      }
+      seenNodeIds.add(sourceNodeId)
+      sections.push({
+        chapterTitle: section.chapterTitle,
+        sectionTitle: section.sectionTitle,
+        slug: section.filePath.replace(/\\/g, '/'),
+        contentMarkdown: content,
+        sourceNodeId,
+      })
+    }
 
-    for (const node of sortedNodes) {
-      // Bỏ qua node root level 0 hoặc chapter level 1 chỉ là tiêu đề không có nội dung text
+    return toDocumentTree(editionId, sections)
+  }
+}
+
+/**
+ * Transitional read-only connector for legacy manual_articles reconciliation.
+ * New ingestion must use VinFastManualMarkdownConnector.
+ */
+export class VinFastManualStagingConnector {
+  isEditionApproved(editionId: string): boolean {
+    return APPROVED_31_MANUAL_EDITIONS.includes(editionId)
+  }
+
+  getApprovedEditionsInventory(): ManualEditionMetadata[] {
+    return new VinFastManualMarkdownConnector().getSelectedEditionsInventory()
+  }
+
+  transformStagingNodesToDocumentTree(
+    editionId: string,
+    rawNodes: RawStagingNode[],
+  ): DocumentTreeInput {
+    if (!this.isEditionApproved(editionId)) {
+      throw new Error(`Edition '${editionId}' is not in the code-ready 31-edition allowlist (D-019-021)`)
+    }
+
+    const nodeMap = new Map<string, RawStagingNode>()
+    rawNodes.forEach((node) => nodeMap.set(node.id, node))
+
+    const sections: SectionNodeInput[] = []
+    for (const node of [...rawNodes].sort((a, b) => a.orderIndex - b.orderIndex)) {
       const content = (node.contentHtml || node.contentMarkdown || node.contentText || '').trim()
       if (!content || content.length < 5) continue
-
-      let chapterTitle = 'Hướng dẫn kỹ thuật chung'
-      if (node.parentId && nodeMap.has(node.parentId)) {
-        chapterTitle = nodeMap.get(node.parentId)!.title
-      }
-
+      const chapterTitle = node.parentId && nodeMap.has(node.parentId)
+        ? nodeMap.get(node.parentId)!.title
+        : 'Hướng dẫn kỹ thuật chung'
       sections.push({
         chapterTitle,
         sectionTitle: node.title,
@@ -144,13 +230,6 @@ export class VinFastManualStagingConnector {
       })
     }
 
-    return {
-      documentKey: canonicalDocumentKey,
-      title: `Sổ tay hướng dẫn sử dụng VinFast ${vehicleModel} (${modelYear})`,
-      category: 'TECHNICAL_GUIDE',
-      vehicleModel,
-      modelYear,
-      sections,
-    }
+    return toDocumentTree(editionId, sections)
   }
 }

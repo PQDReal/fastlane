@@ -25,6 +25,7 @@ import { MarkdownMessage } from '@/components/sales-agent/markdown-message'
 import type {
   KnowledgeCategory,
   KnowledgeDocument,
+  KnowledgeDocumentSummary,
   KnowledgeStatus,
 } from '@/lib/sales-agent/knowledge/types'
 import {
@@ -33,7 +34,7 @@ import {
 } from '@/lib/sales-agent/knowledge/types'
 
 type Props = {
-  initialDocuments: KnowledgeDocument[]
+  initialDocuments: KnowledgeDocumentSummary[]
   initialTotal: number
 }
 
@@ -48,7 +49,7 @@ const CATEGORIES: Array<{ key: KnowledgeCategory | 'ALL'; label: string }> = [
 ]
 
 export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments)
+  const [documents, setDocuments] = useState<KnowledgeDocumentSummary[]>(initialDocuments)
   const [selectedCategory, setSelectedCategory] = useState<KnowledgeCategory | 'ALL'>('ALL')
   const [selectedStatus, setSelectedStatus] = useState<KnowledgeStatus | 'ALL'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
@@ -57,7 +58,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
 
   // Editor Modal State
   const [isEditorOpen, setIsEditorOpen] = useState(false)
-  const [editingDoc, setEditingDoc] = useState<KnowledgeDocument | null>(null)
+  const [editingDoc, setEditingDoc] = useState<KnowledgeDocumentSummary | null>(null)
   const [editorTitle, setEditorTitle] = useState('')
   const [editorSlug, setEditorSlug] = useState('')
   const [editorCategory, setEditorCategory] = useState<KnowledgeCategory>('WARRANTY_BATTERY')
@@ -65,9 +66,10 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
   const [editorMarkdown, setEditorMarkdown] = useState('')
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write')
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false)
 
   // Delete Modal State
-  const [deletingDoc, setDeletingDoc] = useState<KnowledgeDocument | null>(null)
+  const [deletingDoc, setDeletingDoc] = useState<KnowledgeDocumentSummary | null>(null)
   const [isSyncingCache, setIsSyncingCache] = useState(false)
 
   async function handleSyncCache() {
@@ -105,26 +107,50 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
     setIsEditorOpen(true)
   }
 
-  function handleOpenEdit(doc: KnowledgeDocument) {
+  async function handleOpenEdit(doc: KnowledgeDocumentSummary) {
     setEditingDoc(doc)
     setEditorTitle(doc.title)
     setEditorSlug(doc.slug)
     setEditorCategory(doc.category)
     setEditorSummary(doc.summary || '')
-    setEditorMarkdown(doc.contentMarkdown)
+    setEditorMarkdown('')
     setActiveTab('write')
     setIsEditorOpen(true)
+    setIsLoadingDocument(true)
+
+    try {
+      const response = await fetch(`/api/v1/admin/knowledge/${doc.id}`, { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(await getActionError(response, 'Không thể tải nội dung tài liệu.'))
+      }
+      const payload = await response.json()
+      const detail = payload.data?.document as KnowledgeDocument | undefined
+      if (!detail?.contentMarkdown) throw new Error('Tài liệu không có nội dung để chỉnh sửa.')
+
+      setEditingDoc(detail)
+      setEditorTitle(detail.title)
+      setEditorSlug(detail.slug)
+      setEditorCategory(detail.category)
+      setEditorSummary(detail.summary || '')
+      setEditorMarkdown(detail.contentMarkdown)
+    } catch (error) {
+      setIsEditorOpen(false)
+      showToast('error', 'Lỗi tải nội dung', error instanceof Error ? error.message : 'Không thể tải nội dung tài liệu.')
+    } finally {
+      setIsLoadingDocument(false)
+    }
   }
 
   async function refreshDocuments() {
     try {
-      const res = await fetch('/api/v1/admin/knowledge')
-      if (res.ok) {
-        const json = await res.json()
-        setDocuments(json.data.documents || [])
+      const res = await fetch('/api/v1/admin/knowledge?limit=50')
+      if (!res.ok) {
+        throw new Error(await getActionError(res, 'Không thể tải lại danh sách tài liệu.'))
       }
-    } catch {
-      // ignore
+      const json = await res.json()
+      setDocuments(json.data.documents || [])
+    } catch (error) {
+      showToast('error', 'Lỗi tải danh sách', error instanceof Error ? error.message : 'Không thể tải lại danh sách tài liệu.')
     }
   }
 
@@ -173,49 +199,10 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
     }
   }
 
-  async function handlePublishDirect(docId?: string) {
-    const targetId = docId || editingDoc?.id
-
-    if (!docId && (!editorTitle.trim() || !editorMarkdown.trim())) {
-      showToast('error', 'Thiếu thông tin', 'Vui lòng nhập tiêu đề và nội dung bài viết trước khi xuất bản.')
-      return
-    }
-
+  async function handlePublishReady(docId: string) {
     setIsSaving(true)
     try {
-      // If publishing from editor modal, first save updates
-      let finalId = targetId
-      if (!docId) {
-        if (editingDoc) {
-          await fetch(`/api/v1/admin/knowledge/${editingDoc.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: editorTitle,
-              category: editorCategory,
-              summary: editorSummary,
-              contentMarkdown: editorMarkdown,
-            }),
-          })
-          finalId = editingDoc.id
-        } else {
-          const createRes = await fetch('/api/v1/admin/knowledge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: editorTitle,
-              slug: editorSlug || undefined,
-              category: editorCategory,
-              summary: editorSummary,
-              contentMarkdown: editorMarkdown,
-            }),
-          })
-          const createJson = await createRes.json()
-          finalId = createJson.data.document.id
-        }
-      }
-
-      const res = await fetch(`/api/v1/admin/knowledge/${finalId}/publish`, {
+      const res = await fetch(`/api/v1/admin/knowledge/${docId}/publish`, {
         method: 'POST',
       })
       const json = await res.json()
@@ -226,7 +213,6 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
         'Xuất bản thành công',
         json.data?.message || 'Tài liệu đã được băm nhỏ và kích hoạt cho Sales Agent tra cứu.',
       )
-      setIsEditorOpen(false)
       await refreshDocuments()
     } catch (err: any) {
       showToast('error', 'Lỗi xuất bản', err?.message || 'Có lỗi xảy ra khi xuất bản tài liệu.')
@@ -235,7 +221,49 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
     }
   }
 
-  async function handleArchive(doc: KnowledgeDocument) {
+  async function getActionError(response: Response, fallback: string) {
+    try {
+      const payload = await response.json()
+      return payload.message || payload.error || fallback
+    } catch {
+      return fallback
+    }
+  }
+
+  async function handleApprove(doc: KnowledgeDocumentSummary) {
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/v1/admin/knowledge/${doc.id}/approve`, { method: 'POST' })
+      if (!response.ok) throw new Error(await getActionError(response, 'Không thể phê duyệt phiên bản.'))
+      showToast('success', 'Đã phê duyệt phiên bản', `Phiên bản v${doc.latestVersion?.versionNo ?? '?'} đã qua bước maker-checker.`)
+      await refreshDocuments()
+    } catch (error) {
+      showToast('error', 'Lỗi phê duyệt', error instanceof Error ? error.message : 'Không thể phê duyệt phiên bản.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleQueueIndex(doc: KnowledgeDocumentSummary) {
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/v1/admin/knowledge/${doc.id}/index`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!response.ok) throw new Error(await getActionError(response, 'Không thể đưa phiên bản vào hàng đợi lập chỉ mục.'))
+      const payload = await response.json()
+      showToast('success', 'Đã xếp hàng lập chỉ mục', payload.data?.message || 'Worker sẽ lập chỉ mục phiên bản đã được phê duyệt.')
+      await refreshDocuments()
+    } catch (error) {
+      showToast('error', 'Lỗi lập chỉ mục', error instanceof Error ? error.message : 'Không thể lập chỉ mục phiên bản.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleArchive(doc: KnowledgeDocumentSummary) {
     try {
       const res = await fetch(`/api/v1/admin/knowledge/${doc.id}/archive`, {
         method: 'POST',
@@ -411,6 +439,11 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                           Lưu trữ
                         </span>
                       )}
+                      {doc.latestVersion ? (
+                        <span className="mt-1 block text-[10px] text-slate-400">
+                          v{doc.latestVersion.versionNo} · {doc.latestVersion.publicationStatus} / {doc.latestVersion.indexStatus}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap font-mono text-xs">
                       {doc.publishedVersion > 0 ? (
@@ -428,22 +461,47 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
-                          onClick={() => handleOpenEdit(doc)}
-                          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                          disabled={isLoadingDocument}
+                          onClick={() => void handleOpenEdit(doc)}
+                          className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 active:scale-95 disabled:opacity-50 cursor-pointer"
                           title="Chỉnh sửa tài liệu"
                         >
                           <Edit3 size={15} />
                         </button>
-                        {doc.status !== 'PUBLISHED' ? (
+                        {doc.latestVersion && ['DRAFT', 'IN_REVIEW'].includes(doc.latestVersion.publicationStatus) ? (
                           <button
                             type="button"
-                            onClick={() => void handlePublishDirect(doc.id)}
-                            className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 cursor-pointer"
-                            title="Xuất bản ngay vào Sales Agent"
+                            disabled={isSaving}
+                            onClick={() => void handleApprove(doc)}
+                            className="rounded-lg p-1.5 text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 cursor-pointer"
+                            title="Phê duyệt phiên bản"
+                          >
+                            <CheckCircle2 size={15} />
+                          </button>
+                        ) : null}
+                        {doc.latestVersion && ['APPROVED', 'PUBLISHED'].includes(doc.latestVersion.publicationStatus) && doc.latestVersion.indexStatus !== 'READY' ? (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => void handleQueueIndex(doc)}
+                            className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 disabled:opacity-50 cursor-pointer"
+                            title="Xếp hàng lập chỉ mục"
+                          >
+                            <Layers size={15} />
+                          </button>
+                        ) : null}
+                        {doc.latestVersion?.publicationStatus === 'APPROVED' && doc.latestVersion.indexStatus === 'READY' ? (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => void handlePublishReady(doc.id)}
+                            className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 cursor-pointer"
+                            title="Xuất bản phiên bản đã sẵn sàng"
                           >
                             <Send size={15} />
                           </button>
-                        ) : (
+                        ) : null}
+                        {doc.status === 'PUBLISHED' ? (
                           <button
                             type="button"
                             onClick={() => void handleArchive(doc)}
@@ -452,7 +510,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                           >
                             <Archive size={15} />
                           </button>
-                        )}
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setDeletingDoc(doc)}
@@ -515,7 +573,16 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
               </div>
 
               {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
+              <div
+                aria-busy={isLoadingDocument}
+                className={`flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar ${isLoadingDocument ? 'pointer-events-none opacity-70' : ''}`}
+              >
+                {isLoadingDocument ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700" role="status">
+                    <RefreshCw size={14} className="animate-spin" />
+                    Đang tải nội dung tài liệu…
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -621,20 +688,11 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={isSaving}
+                    disabled={isSaving || isLoadingDocument}
                     onClick={() => void handleSaveDraft()}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     Lưu bản nháp
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => void handlePublishDirect()}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-brand-700 active:scale-95 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Send size={13} />
-                    <span>Xuất bản ngay</span>
                   </button>
                 </div>
               </div>

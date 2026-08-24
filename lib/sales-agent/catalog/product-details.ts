@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { catalogCacheEngine } from '../cache/catalog-cache'
+import { extractCanonicalVehicleSpecs } from './spec-extractor'
 import type {
   EvidenceRecord,
   GetProductDetailsInput,
@@ -90,20 +91,55 @@ export async function getProductDetailsRepository(
     ]
 
     const specs: ProductDetailsSnapshot['specs'] = {}
-    const rawSpecs = (row.specifications && typeof row.specifications === 'object') ? row.specifications : {}
-    for (const [key, val] of Object.entries(rawSpecs)) {
-      const factRef = `fact-spec-${row.id}-${key}`
-      const displayVal = String(val)
-      specs[key] = {
-        displayValue: displayVal,
-        rawValue: val,
-        factRef,
+    const canonical = extractCanonicalVehicleSpecs(row)
+
+    const canonicalKeyMap: Record<string, string | undefined> = {
+      battery_capacity_kwh: canonical.battery,
+      battery: canonical.battery,
+      top_speed_kmh: canonical.topSpeed,
+      topSpeed: canonical.topSpeed,
+      range_km: canonical.range,
+      range: canonical.range,
+      weight: canonical.weight,
+      max_power_kw: canonical.power,
+      power: canonical.power,
+      seats: canonical.seats ? `${canonical.seats} chỗ` : undefined,
+      chargingTime: canonical.chargingTime,
+      trunk: canonical.trunk,
+      warranty: canonical.warranty,
+      dimensions: canonical.dimensions,
+    }
+
+    for (const [key, val] of Object.entries(canonicalKeyMap)) {
+      if (val && val.trim().length > 0) {
+        const factRef = `fact-spec-${row.id}-${key}`
+        specs[key] = {
+          displayValue: val,
+          rawValue: val,
+          factRef,
+        }
+        facts.push({
+          factRef,
+          factPath: `specs.${key}`,
+          valueHash: val,
+        })
       }
-      facts.push({
-        factRef,
-        factPath: `specs.${key}`,
-        valueHash: displayVal,
-      })
+    }
+
+    for (const [key, val] of Object.entries(canonical.rawFlatSpecs)) {
+      if (!specs[key] && val && val.trim().length > 0) {
+        const factRef = `fact-spec-${row.id}-${key}`
+        specs[key] = {
+          displayValue: val,
+          rawValue: val,
+          factRef,
+        }
+        facts.push({
+          factRef,
+          factPath: `specs.${key}`,
+          valueHash: val,
+        })
+      }
     }
 
     const itemUrl = salesAgentProductUrl(pType as any, row.slug)

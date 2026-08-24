@@ -2,27 +2,43 @@ import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { VersionedKnowledgeRepository } from './versioned-repository'
+import { OPENAI_EMBEDDING_GENERATION_ID } from './embedding-adapter'
 import type {
   KnowledgeCategory,
   KnowledgeDocument,
+  KnowledgeDocumentSummary,
+  KnowledgeVersionSummary,
   KnowledgeStatus,
 } from './types'
 
-const DB_TIMEOUT_MS = 3_000
-const DEFAULT_GENERATION_ID = 'openai-text-embedding-3-small-1536-v1'
+const configuredDbTimeoutMs = Number(process.env.SALES_AGENT_KNOWLEDGE_DB_TIMEOUT_MS)
+const DB_TIMEOUT_MS = Number.isFinite(configuredDbTimeoutMs) && configuredDbTimeoutMs > 0
+  ? configuredDbTimeoutMs
+  : process.env.NODE_ENV === 'development'
+    ? 15_000
+    : 8_000
+const DEFAULT_GENERATION_ID = OPENAI_EMBEDDING_GENERATION_ID
+const DOCUMENT_SUMMARY_COLUMNS = 'id,slug,title,category,status,published_version,summary,author_email,created_at,updated_at,published_at,active_version_id,lifecycle_status,deleted_at'
+const DOCUMENT_DETAIL_COLUMNS = `${DOCUMENT_SUMMARY_COLUMNS},content_markdown`
+const VERSION_SUMMARY_COLUMNS = 'id,document_id,version_no,summary,publication_status,index_status,approved_at,created_at'
+const VERSION_DETAIL_COLUMNS = `${VERSION_SUMMARY_COLUMNS},content_markdown,content_checksum,effective_from,effective_to`
 
-type VersionRow = {
+type VersionSummaryRow = {
   id: string
   document_id: string
   version_no: number
-  content_markdown: string
-  content_checksum: string
   summary: string | null
   publication_status: string
   index_status: string
+  approved_at: string | null
+  created_at: string
+}
+
+type VersionRow = VersionSummaryRow & {
+  content_markdown: string
+  content_checksum: string
   effective_from: string
   effective_to: string | null
-  created_at: string
 }
 
 function withTimeout<T>(operation: PromiseLike<T>): Promise<T> {
@@ -50,11 +66,15 @@ function generateSlug(title: string): string {
     .slice(0, 180)}-${Date.now().toString().slice(-4)}`
 }
 
-function isRuntimePublished(version?: VersionRow): boolean {
+function isRuntimePublished(version?: VersionSummaryRow): boolean {
   return version?.publication_status === 'PUBLISHED' && version.index_status === 'READY'
 }
 
-function mapDocument(row: any, activeVersion?: VersionRow, latestVersion?: VersionRow): KnowledgeDocument {
+function mapDocumentSummary(
+  row: any,
+  activeVersion?: VersionSummaryRow,
+  latestVersion?: VersionSummaryRow,
+): KnowledgeDocumentSummary {
   const pendingDraft = latestVersion && latestVersion.id !== activeVersion?.id &&
     ['DRAFT', 'IN_REVIEW', 'APPROVED'].includes(latestVersion.publication_status)
   const runtimePublished = isRuntimePublished(activeVersion)
@@ -72,21 +92,59 @@ function mapDocument(row: any, activeVersion?: VersionRow, latestVersion?: Versi
     category: row.category as KnowledgeCategory,
     status,
     publishedVersion: runtimePublished ? Number(activeVersion?.version_no ?? row.published_version ?? 0) : 0,
-    contentMarkdown: String(visibleVersion?.content_markdown ?? row.content_markdown ?? ''),
     summary: visibleVersion?.summary ?? row.summary ?? null,
     authorEmail: row.author_email ?? null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     publishedAt: runtimePublished ? row.published_at ?? null : null,
+    latestVersion: latestVersion
+      ? {
+          id: String(latestVersion.id),
+          versionNo: Number(latestVersion.version_no),
+          publicationStatus: latestVersion.publication_status as KnowledgeVersionSummary['publicationStatus'],
+          indexStatus: latestVersion.index_status as KnowledgeVersionSummary['indexStatus'],
+          createdAt: String(latestVersion.created_at),
+          approvedAt: latestVersion.approved_at,
+        }
+      : undefined,
   }
 }
 
-async function loadVersionRows(supabase: ReturnType<typeof getSupabaseAdmin>, documentIds: string[]): Promise<VersionRow[]> {
+function mapDocument(row: any, activeVersion?: VersionRow, latestVersion?: VersionRow): KnowledgeDocument {
+  const pendingDraft = latestVersion && latestVersion.id !== activeVersion?.id &&
+    ['DRAFT', 'IN_REVIEW', 'APPROVED'].includes(latestVersion.publication_status)
+  const visibleVersion = pendingDraft ? latestVersion : activeVersion || latestVersion
+  return {
+    ...mapDocumentSummary(row, activeVersion, latestVersion),
+    contentMarkdown: String(visibleVersion?.content_markdown ?? row.content_markdown ?? ''),
+  }
+}
+
+async function loadVersionSummaryRows(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  documentIds: string[],
+): Promise<VersionSummaryRow[]> {
   if (documentIds.length === 0) return []
   const { data, error } = await withTimeout(
     supabase
       .from('sales_agent_knowledge_versions')
-      .select('id,document_id,version_no,content_markdown,content_checksum,summary,publication_status,index_status,effective_from,effective_to,created_at')
+      .select(VERSION_SUMMARY_COLUMNS)
+      .in('document_id', documentIds)
+      .order('version_no', { ascending: false }),
+  )
+  if (error) throw new Error(`Không thể tải phiên bản tài liệu: ${error.message}`)
+  return (data || []) as VersionSummaryRow[]
+}
+
+async function loadVersionRows(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  documentIds: string[],
+): Promise<VersionRow[]> {
+  if (documentIds.length === 0) return []
+  const { data, error } = await withTimeout(
+    supabase
+      .from('sales_agent_knowledge_versions')
+      .select(VERSION_DETAIL_COLUMNS)
       .in('document_id', documentIds)
       .order('version_no', { ascending: false }),
   )
@@ -98,7 +156,7 @@ async function loadDocuments(options?: { id?: string }): Promise<{ rows: any[]; 
   const supabase = getSupabaseAdmin()
   let query = supabase
     .from('sales_agent_knowledge_documents')
-    .select('id,slug,title,category,status,published_version,content_markdown,summary,author_email,created_at,updated_at,published_at,active_version_id,lifecycle_status,deleted_at')
+    .select(DOCUMENT_DETAIL_COLUMNS)
     .order('updated_at', { ascending: false })
 
   if (options?.id) query = query.eq('id', options.id)
@@ -111,12 +169,12 @@ async function loadDocuments(options?: { id?: string }): Promise<{ rows: any[]; 
   }
 }
 
-function indexVersions(versions: VersionRow[]): {
-  activeById: Map<string, VersionRow>
-  latestByDocument: Map<string, VersionRow>
+function indexVersions<T extends VersionSummaryRow>(versions: T[]): {
+  activeById: Map<string, T>
+  latestByDocument: Map<string, T>
 } {
-  const activeById = new Map<string, VersionRow>()
-  const latestByDocument = new Map<string, VersionRow>()
+  const activeById = new Map<string, T>()
+  const latestByDocument = new Map<string, T>()
   for (const version of versions) {
     activeById.set(version.id, version)
     if (!latestByDocument.has(version.document_id)) latestByDocument.set(version.document_id, version)
@@ -134,23 +192,38 @@ export type ListDocumentsOptions = {
 
 export async function listKnowledgeDocuments(
   options?: ListDocumentsOptions,
-): Promise<{ documents: KnowledgeDocument[]; total: number }> {
-  const { rows, versions } = await loadDocuments()
-  const { activeById, latestByDocument } = indexVersions(versions)
+): Promise<{ documents: KnowledgeDocumentSummary[]; total: number }> {
+  const supabase = getSupabaseAdmin()
+  const offset = Math.max(0, options?.offset ?? 0)
+  const limit = Math.min(100, Math.max(1, options?.limit ?? 20))
   const search = options?.search?.trim().toLowerCase()
+  const requiresInMemoryFilter = Boolean(search || options?.status)
+
+  let query = supabase
+    .from('sales_agent_knowledge_documents')
+    .select(DOCUMENT_SUMMARY_COLUMNS, { count: 'exact' })
+    .neq('lifecycle_status', 'DELETED')
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false })
+
+  if (options?.category) query = query.eq('category', options.category)
+  if (!requiresInMemoryFilter) query = query.range(offset, offset + limit - 1)
+
+  const { data, count, error } = await withTimeout(query)
+  if (error) throw new Error(`Không thể tải danh sách tài liệu: ${error.message}`)
+
+  const rows = data || []
+  const versions = await loadVersionSummaryRows(supabase, rows.map((row: any) => String(row.id)))
+  const { activeById, latestByDocument } = indexVersions(versions)
 
   const filtered = rows
-    .filter((row: any) => row.lifecycle_status !== 'DELETED')
-    .map((row: any) => mapDocument(row, activeById.get(String(row.active_version_id)), latestByDocument.get(String(row.id))))
-    .filter((document) => !options?.category || document.category === options.category)
+    .map((row: any) => mapDocumentSummary(row, activeById.get(String(row.active_version_id)), latestByDocument.get(String(row.id))))
     .filter((document) => !options?.status || document.status === options.status)
     .filter((document) => !search || `${document.title} ${document.slug} ${document.summary || ''}`.toLowerCase().includes(search))
 
-  const offset = Math.max(0, options?.offset ?? 0)
-  const limit = Math.max(1, options?.limit ?? 20)
   return {
-    documents: filtered.slice(offset, offset + limit),
-    total: filtered.length,
+    documents: requiresInMemoryFilter ? filtered.slice(offset, offset + limit) : filtered,
+    total: requiresInMemoryFilter ? filtered.length : count ?? filtered.length,
   }
 }
 
@@ -208,6 +281,14 @@ export async function createKnowledgeDocument(payload: {
     createdAt: created.document.createdAt,
     updatedAt: created.document.updatedAt,
     publishedAt: null,
+    latestVersion: {
+      id: created.version.id,
+      versionNo: created.version.versionNo,
+      publicationStatus: created.version.publicationStatus,
+      indexStatus: created.version.indexStatus,
+      createdAt: created.version.createdAt,
+      approvedAt: null,
+    },
   }
 }
 
@@ -243,17 +324,17 @@ export async function updateKnowledgeDocument(
   return (await getKnowledgeDocumentById(id)) || current
 }
 
-export async function deleteKnowledgeDocument(id: string): Promise<boolean> {
+export async function deleteKnowledgeDocument(id: string, actorId?: string): Promise<boolean> {
   const result = await new VersionedKnowledgeRepository(getSupabaseAdmin()).softDeleteDocument(
     id,
-    undefined,
+    actorId,
     'Admin soft delete',
   )
   return result.success
 }
 
-export async function archiveKnowledgeDocument(id: string): Promise<KnowledgeDocument> {
-  await new VersionedKnowledgeRepository(getSupabaseAdmin()).archiveDocument(id, undefined, 'Admin archive')
+export async function archiveKnowledgeDocument(id: string, actorId?: string): Promise<KnowledgeDocument> {
+  await new VersionedKnowledgeRepository(getSupabaseAdmin()).archiveDocument(id, actorId, 'Admin archive')
   const document = await getKnowledgeDocumentById(id)
   if (!document) throw new Error('Tài liệu không tồn tại sau khi lưu trữ.')
   return document
@@ -316,6 +397,9 @@ export async function enqueueKnowledgeIndex(
   const { latestByDocument } = indexVersions(versions)
   const latest = latestByDocument.get(id)
   if (!latest) throw new Error('Tài liệu chưa có phiên bản để lập chỉ mục.')
+  if (!['APPROVED', 'PUBLISHED'].includes(latest.publication_status)) {
+    throw new Error(`VERSION_NOT_APPROVED: Phiên bản v${latest.version_no} chưa được maker-checker phê duyệt.`)
+  }
   const jobId = await new VersionedKnowledgeRepository(getSupabaseAdmin()).enqueueIndexJob(latest.id, indexGenerationId)
   return { jobId, versionId: latest.id }
 }

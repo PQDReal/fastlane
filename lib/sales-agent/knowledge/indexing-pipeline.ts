@@ -1,5 +1,12 @@
-import { buildHierarchicalChunks, type DocumentTreeInput, type HierarchicalChunk } from './hierarchical-chunker'
-import { OpenAIEmbeddingAdapter, type EmbeddingAdapterConfig } from './embedding-adapter'
+import { createHash } from 'node:crypto'
+import { buildHierarchicalChunks, type DocumentTreeInput, type HierarchicalChunk } from './hierarchical-chunker.ts'
+import {
+  OPENAI_EMBEDDING_DIMENSIONS,
+  OPENAI_EMBEDDING_GENERATION_ID,
+  OpenAIEmbeddingAdapter,
+  type EmbeddingAdapterConfig,
+  type EmbeddingProvider,
+} from './embedding-adapter.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface IndexedChunkPayload extends HierarchicalChunk {
@@ -11,8 +18,7 @@ export interface IndexedChunkPayload extends HierarchicalChunk {
 export interface IndexingPipelineOptions {
   indexGenerationId?: string
   embeddingConfig?: EmbeddingAdapterConfig
-  existingChunkHashes?: Set<string>
-  cachedEmbeddingsByHash?: Map<string, number[]>
+  embeddingProvider?: EmbeddingProvider
 }
 
 export interface IndexingPipelineReport {
@@ -36,6 +42,21 @@ export interface PersistIndexedChunksInput {
   chunks: IndexedChunkPayload[]
 }
 
+export function buildEmbeddingInput(doc: DocumentTreeInput, chunk: HierarchicalChunk): string {
+  return [
+    `Dòng xe: ${doc.vehicleModel || 'Tất cả'}`,
+    `Năm sản xuất: ${doc.modelYear || 'Tất cả'}`,
+    `Thị trường: ${doc.market || 'VN'}`,
+    `Tài liệu: ${doc.title}`,
+    `Mục: ${chunk.sectionTitle}`,
+    `Nội dung: ${chunk.content}`,
+  ].join('\n')
+}
+
+export function buildEmbeddingCacheKey(indexGenerationId: string, embeddingInput: string): string {
+  return `${indexGenerationId}:${createHash('sha256').update(embeddingInput).digest('hex')}`
+}
+
 /**
  * Persist a validated pipeline result for an already-enqueued version job.
  * This is intentionally explicit and worker-facing; no admin request calls it
@@ -57,7 +78,7 @@ export async function persistIndexedChunks(input: PersistIndexedChunksInput): Pr
     throw new Error('Indexed chunk generation mismatch (fail-closed)')
   }
   if (chunks.some((chunk) => {
-    if (!chunk.embedding || chunk.embedding.length !== 1536 || chunk.embedding.some((value) => !Number.isFinite(value))) return true
+    if (!chunk.embedding || chunk.embedding.length !== OPENAI_EMBEDDING_DIMENSIONS || chunk.embedding.some((value) => !Number.isFinite(value))) return true
     const magnitude = Math.sqrt(chunk.embedding.reduce((sum, value) => sum + value * value, 0))
     return !Number.isFinite(magnitude) || magnitude <= 0.1
   })) {
@@ -69,67 +90,98 @@ export async function persistIndexedChunks(input: PersistIndexedChunksInput): Pr
       if (a.chunkLevel !== b.chunkLevel) return a.chunkLevel - b.chunkLevel
       return a.chunkIndex - b.chunkIndex
     })
-    const rows = orderedChunks.map((chunk) => ({
-      document_id: documentId,
-      version: versionNo,
-      chunk_index: chunk.chunkIndex,
-      section_title: chunk.sectionTitle,
-      content: chunk.content,
-      tags: chunk.tags,
-      is_active: true,
-      version_id: versionId,
-      index_generation_id: indexGenerationId,
-      parent_chunk_id: null,
-      chunk_level: chunk.chunkLevel,
-      hierarchy_path: chunk.hierarchyPath,
-      section_anchor: chunk.sectionAnchor,
-      source_node_id: chunk.sourceNodeId ?? null,
-      image_refs: chunk.extractedImages ?? [],
-      content_hash: chunk.contentHash,
-      token_count: chunk.tokenCount,
-      embedding: chunk.embedding,
-    }))
-
-    const { data, error } = await client
-      .from('sales_agent_knowledge_chunks')
-      .upsert(rows, { onConflict: 'document_id,version,chunk_index' })
-      .select('id,chunk_index,hierarchy_path')
-    if (error || !Array.isArray(data) || data.length !== rows.length) {
-      throw new Error(`Failed to persist indexed chunks: ${error?.message || 'row count mismatch'}`)
-    }
-
     const idByPath = new Map<string, string>()
-    for (const row of data) {
-      if (!row?.id || !row?.hierarchy_path) {
-        throw new Error('Indexed chunk persistence returned an invalid identity')
+    // Keep vector/FTS index maintenance under the hosted statement timeout. A
+    // retry is safe because the legacy identity is a unique key and every
+    // batch uses the same upsert conflict target.
+    const batchSize = 250
+    for (let offset = 0; offset < orderedChunks.length; offset += batchSize) {
+      const chunkBatch = orderedChunks.slice(offset, offset + batchSize)
+      const batch = chunkBatch.map((chunk) => ({
+        document_id: documentId,
+        version: versionNo,
+        chunk_index: chunk.chunkIndex,
+        section_title: chunk.sectionTitle,
+        content: chunk.content,
+        tags: chunk.tags,
+        is_active: false,
+        version_id: versionId,
+        index_generation_id: indexGenerationId,
+        parent_chunk_id: chunk.parentHierarchyPath ? (idByPath.get(chunk.parentHierarchyPath) ?? null) : null,
+        parent_hierarchy_path: chunk.parentHierarchyPath,
+        chunk_level: chunk.chunkLevel,
+        hierarchy_path: chunk.hierarchyPath,
+        section_anchor: chunk.sectionAnchor,
+        source_node_id: chunk.sourceNodeId ?? null,
+        image_refs: chunk.extractedImages ?? [],
+        content_hash: chunk.contentHash,
+        token_count: chunk.tokenCount,
+        embedding: chunk.embedding,
+      }))
+      let data: any = null
+      let lastError: any = null
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        const response = await client
+          .from('sales_agent_knowledge_chunks')
+          .upsert(batch, { onConflict: 'document_id,version,chunk_index' })
+          .select('id,chunk_index,hierarchy_path')
+        if (!response.error && Array.isArray(response.data) && response.data.length === batch.length) {
+          data = response.data
+          lastError = null
+          break
+        }
+        lastError = response.error || new Error('row count mismatch')
+        if (attempt < 4) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1000))
+        }
       }
-      idByPath.set(String(row.hierarchy_path), String(row.id))
+      if (lastError || !data) {
+        throw new Error(`Failed to persist indexed chunks: ${lastError?.message || 'row count mismatch'}`)
+      }
+      for (const row of data) {
+        if (!row?.id || !row?.hierarchy_path) {
+          throw new Error('Indexed chunk persistence returned an invalid identity')
+        }
+        idByPath.set(String(row.hierarchy_path), String(row.id))
+      }
     }
 
-    let parentLinks = 0
     for (const chunk of orderedChunks) {
       if (!chunk.parentHierarchyPath) continue
-      const childId = idByPath.get(chunk.hierarchyPath)
-      const parentId = idByPath.get(chunk.parentHierarchyPath)
-      if (!childId || !parentId) {
+      if (!idByPath.has(chunk.hierarchyPath) || !idByPath.has(chunk.parentHierarchyPath)) {
         throw new Error(`Hierarchy parent missing for chunk ${chunk.chunkIndex}`)
       }
-      const { error: parentError } = await client
-        .from('sales_agent_knowledge_chunks')
-        .update({ parent_chunk_id: parentId })
-        .eq('id', childId)
-      if (parentError) throw new Error(`Failed to persist hierarchy parent link: ${parentError.message}`)
-      parentLinks++
+    }
+    let parentLinks = 0
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const { data: parentLinkData, error: parentError } = await client.rpc(
+        'sales_agent_finalize_knowledge_hierarchy',
+        { p_version_id: versionId },
+      )
+      if (!parentError) {
+        parentLinks = Number(parentLinkData)
+        break
+      }
+      if (attempt === 4) throw new Error(`Failed to persist hierarchy parent links: ${parentError.message}`)
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000))
     }
 
-    const { error: readyError } = await client
-      .from('sales_agent_knowledge_versions')
-      .update({ index_status: 'READY' })
-      .eq('id', versionId)
-      .in('index_status', ['BUILDING', 'VALIDATING'])
-    if (readyError) throw new Error(`Failed to mark indexed version READY: ${readyError.message}`)
+    if (!Number.isSafeInteger(parentLinks) || parentLinks < 0) {
+      throw new Error('Hierarchy finalization returned an invalid link count')
+    }
 
-    return { persistedChunkCount: rows.length, parentLinks }
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const { error: readyError } = await client
+        .from('sales_agent_knowledge_versions')
+        .update({ index_status: 'READY' })
+        .eq('id', versionId)
+        .in('index_status', ['BUILDING', 'VALIDATING'])
+      if (!readyError) break
+      if (attempt === 4) throw new Error(`Failed to mark indexed version READY: ${readyError.message}`)
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000))
+    }
+
+    return { persistedChunkCount: orderedChunks.length, parentLinks }
   } catch (error) {
     try {
       await client
@@ -145,16 +197,16 @@ export async function persistIndexedChunks(input: PersistIndexedChunksInput): Pr
 }
 
 export class KnowledgeIndexingPipeline {
-  private embeddingAdapter: OpenAIEmbeddingAdapter
+  private embeddingAdapter: EmbeddingProvider
   private indexGenerationId: string
 
   constructor(options: IndexingPipelineOptions = {}) {
-    this.indexGenerationId = options.indexGenerationId || 'openai-text-embedding-3-small-1536-v1'
-    this.embeddingAdapter = new OpenAIEmbeddingAdapter(options.embeddingConfig)
+    this.indexGenerationId = options.indexGenerationId || OPENAI_EMBEDDING_GENERATION_ID
+    this.embeddingAdapter = options.embeddingProvider || new OpenAIEmbeddingAdapter(options.embeddingConfig)
   }
 
   private isValidEmbedding(embedding: number[] | undefined): embedding is number[] {
-    if (!embedding || embedding.length !== 1536) return false
+    if (!embedding || embedding.length !== OPENAI_EMBEDDING_DIMENSIONS) return false
     if (embedding.some((value) => !Number.isFinite(value))) return false
     const magnitude = Math.sqrt(embedding.reduce((sum, value) => sum + value * value, 0))
     return Number.isFinite(magnitude) && magnitude > 0.1
@@ -179,7 +231,8 @@ export class KnowledgeIndexingPipeline {
     let reusedCount = 0
 
     for (const chunk of rawChunks) {
-      const cacheKey = `${this.indexGenerationId}:${chunk.sectionTitle}:${chunk.contentHash}`
+      const embeddingInput = buildEmbeddingInput(docTree, chunk)
+      const cacheKey = buildEmbeddingCacheKey(this.indexGenerationId, embeddingInput)
       const existingEmbedding = cachedEmbeddings.get(cacheKey)
       if (this.isValidEmbedding(existingEmbedding)) {
         // Tái sử dụng embedding đã có (Delta reuse - A19-KR-208)
@@ -191,7 +244,6 @@ export class KnowledgeIndexingPipeline {
         })
       } else {
         // Chuẩn bị text embedding có gắn ngữ cảnh tiêu đề để nâng cao chất lượng vector
-        const embeddingInput = `Tiêu đề: ${chunk.sectionTitle}\nNội dung: ${chunk.content}`
         chunksToEmbed.push({ chunk, text: embeddingInput })
       }
     }
@@ -216,7 +268,7 @@ export class KnowledgeIndexingPipeline {
           embedding: emb,
           indexGenerationId: this.indexGenerationId,
         })
-        const cacheKey = `${this.indexGenerationId}:${item.chunk.sectionTitle}:${item.chunk.contentHash}`
+        const cacheKey = buildEmbeddingCacheKey(this.indexGenerationId, item.text)
         cachedEmbeddings.set(cacheKey, emb)
       })
     }
@@ -249,7 +301,7 @@ export class KnowledgeIndexingPipeline {
         throw new Error(`Validation failed: Empty content in chunk ${chunk.chunkIndex}`)
       }
       if (!this.isValidEmbedding(chunk.embedding)) {
-        throw new Error(`Validation failed: Invalid embedding dimension in chunk ${chunk.chunkIndex}, expected 1536`)
+        throw new Error(`Validation failed: Invalid embedding dimension in chunk ${chunk.chunkIndex}, expected ${OPENAI_EMBEDDING_DIMENSIONS}`)
       }
       if (!chunk.hierarchyPath) {
         throw new Error(`Validation failed: Missing hierarchyPath in chunk ${chunk.chunkIndex}`)

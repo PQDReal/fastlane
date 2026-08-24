@@ -15,6 +15,20 @@ export interface KnowledgeImageRef {
   url: string
 }
 
+export interface KnowledgeVisualMediaPointer {
+  assetId: string
+  annotationId: string
+  title: string
+  summary: string
+  alt: string
+  url: string
+  mimeType: string
+  width: number | null
+  height: number | null
+  safetyCritical: boolean
+  citationId: string
+}
+
 export interface KnowledgeScopeFilter {
   vehicleModel?: string
   vehicleType?: 'CAR' | 'MOTORBIKE' | 'ALL'

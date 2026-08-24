@@ -8,19 +8,32 @@ export type KnowledgeCategory =
 
 export type KnowledgeStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 
-export type KnowledgeDocument = {
+export type KnowledgeVersionSummary = {
+  id: string
+  versionNo: number
+  publicationStatus: 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED' | 'SUPERSEDED'
+  indexStatus: 'PENDING' | 'BUILDING' | 'VALIDATING' | 'READY' | 'FAILED'
+  createdAt: string
+  approvedAt?: string | null
+}
+
+export type KnowledgeDocumentSummary = {
   id: string
   slug: string
   title: string
   category: KnowledgeCategory
   status: KnowledgeStatus
   publishedVersion: number
-  contentMarkdown: string
   summary?: string | null
   authorEmail?: string | null
   createdAt: string
   updatedAt: string
   publishedAt?: string | null
+  latestVersion?: KnowledgeVersionSummary
+}
+
+export type KnowledgeDocument = KnowledgeDocumentSummary & {
+  contentMarkdown: string
 }
 
 export type KnowledgeChunk = {
@@ -54,6 +67,39 @@ export const KNOWLEDGE_CATEGORY_LABELS: Record<KnowledgeCategory, string> = {
   PROMOTIONS_FINANCING: 'Ưu đãi & Mua xe trả góp',
   CHARGING_NETWORK: 'Mạng lưới trạm sạc',
   GENERAL_POLICY: 'Chính sách chung',
+}
+
+export type VisualAnnotationStatus = 'AI_DRAFT' | 'APPROVED' | 'REJECTED' | 'IGNORED' | 'STALE'
+
+export type VisualReviewStatus = Extract<VisualAnnotationStatus, 'AI_DRAFT' | 'APPROVED' | 'REJECTED'>
+
+export type VisualKnowledgeReviewItem = {
+  annotationId: string
+  assetId: string
+  assetSha256: string
+  status: VisualAnnotationStatus
+  revisionNo: number
+  title: string
+  summary: string
+  keywords: string[]
+  visibleText: string[]
+  imageType: string
+  confidence: number
+  retrievalRecommendation: 'INCLUDE' | 'EXCLUDE' | 'REVIEW'
+  safetyCritical: boolean
+  sourceUrl: string | null
+  mimeType: string
+  width: number | null
+  height: number | null
+  byteSize: number
+  occurrenceCount: number
+  vehicleModels: string[]
+  modelYears: number[]
+  sectionTitles: string[]
+  contextSnippets: string[]
+  sourcePacketId: string | null
+  providerLabel: string
+  createdAt: string
 }
 
 export const KNOWLEDGE_STATUS_LABELS: Record<KnowledgeStatus, string> = {

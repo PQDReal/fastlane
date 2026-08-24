@@ -30,7 +30,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       documentKey: 'vinfast:manual:VF8:2025:vi-VN',
       versionId: 'ver-vf8-v1',
       versionNo: 1,
-      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      indexGenerationId: 'openai-text-embedding-3-small-512-v1',
       chunkLevel: 0,
       hierarchyPath: '00_root',
       sectionAnchor: 'doc_root',
@@ -46,7 +46,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED',
       indexStatus: 'READY',
-      embedding: new Array(1536).fill(0.02), // Unit-like mock vector
+        embedding: new Array(512).fill(0.02), // Unit-like mock vector
     },
     {
       chunkId: 'chunk-vf8-sec-pin',
@@ -54,7 +54,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       documentKey: 'vinfast:manual:VF8:2025:vi-VN',
       versionId: 'ver-vf8-v1',
       versionNo: 1,
-      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      indexGenerationId: 'openai-text-embedding-3-small-512-v1',
       chunkLevel: 1,
       hierarchyPath: '07_pin_va_sac',
       sectionAnchor: 'pin_va_sac_overview',
@@ -72,7 +72,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED',
       indexStatus: 'READY',
-      embedding: new Array(1536).fill(0.025),
+        embedding: new Array(512).fill(0.025),
     },
     {
       chunkId: 'chunk-vf8-leaf-step1',
@@ -80,7 +80,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       documentKey: 'vinfast:manual:VF8:2025:vi-VN',
       versionId: 'ver-vf8-v1',
       versionNo: 1,
-      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      indexGenerationId: 'openai-text-embedding-3-small-512-v1',
       chunkLevel: 3,
       hierarchyPath: '07_pin_va_sac/01_sac_dc',
       sectionAnchor: 'step_1_cam_sung_sac',
@@ -98,7 +98,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED',
       indexStatus: 'READY',
-      embedding: new Array(1536).fill(0.03),
+        embedding: new Array(512).fill(0.03),
     },
     {
       chunkId: 'chunk-vf3-battery',
@@ -106,7 +106,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       documentKey: 'vinfast:manual:VF3:2025:vi-VN',
       versionId: 'ver-vf3-v1',
       versionNo: 1,
-      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      indexGenerationId: 'openai-text-embedding-3-small-512-v1',
       chunkLevel: 2,
       hierarchyPath: '05_pin/01_thong_so',
       sectionAnchor: 'vf3_battery_spec',
@@ -122,7 +122,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED',
       indexStatus: 'READY',
-      embedding: new Array(1536).fill(0.01),
+        embedding: new Array(512).fill(0.01),
     },
   ]
 
@@ -179,7 +179,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
     })
 
     it('returns empty array when query is empty or pool has no match', async () => {
-      const adapter = new VectorCandidateAdapter({ allowMock: true })
+      const adapter = new VectorCandidateAdapter()
       const results = await adapter.searchCandidates('', {}, {}, sampleDocTreePool)
       expect(results).toEqual([])
     })
@@ -298,7 +298,7 @@ describe('Knowledge Retrieval Subsystem (Phase P3: A19-KR-300..309)', () => {
           documentKey: 'vinfast:manual:VF8:2025:vi-VN',
           knowledgeVersionId: 'ver-1',
           versionNo: 1,
-          indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+          indexGenerationId: 'openai-text-embedding-3-small-512-v1',
           chunkLevel: 3,
           hierarchyPath: '07_pin',
           sectionAnchor: 'sac_pin',

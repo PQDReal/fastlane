@@ -3,6 +3,7 @@ import {
   browseCatalogInputSchema,
   createSalesAgentTurnRequestSchema,
   DEFAULT_RUN_BUDGET,
+  getAvailableToolContracts,
   TOOL_CONTRACTS,
   turnViewModelSchema,
 } from './index'
@@ -54,6 +55,12 @@ describe('Canonical Core Contracts', () => {
     expect(TOOL_CONTRACTS.get_current_promotions).toBeDefined()
     expect(TOOL_CONTRACTS.discover_accessories).toBeDefined()
     expect(TOOL_CONTRACTS.search_knowledge).toBeDefined()
+  })
+
+  it('keeps Knowledge RAG out of the model toolset until explicitly enabled', () => {
+    expect(getAvailableToolContracts(false).search_knowledge).toBeUndefined()
+    expect(getAvailableToolContracts(false).browse_catalog).toBeDefined()
+    expect(getAvailableToolContracts(true).search_knowledge).toBeDefined()
   })
 
   it('validates turn view model structure', () => {

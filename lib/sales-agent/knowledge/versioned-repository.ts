@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OPENAI_EMBEDDING_GENERATION_ID } from './embedding-adapter'
 
 export type KnowledgeCategory =
   | 'TECHNICAL_GUIDE'
@@ -60,6 +61,11 @@ export interface CreateDocumentDraftInput {
   contentMarkdown: string
   summary?: string
   authorId?: string
+  sourceKind?: string
+  sourceUri?: string
+  sourceChecksum?: string
+  sourceRetrievedAt?: string
+  scope?: KnowledgeScopeInput
 }
 
 export interface KnowledgeScopeInput {
@@ -113,6 +119,13 @@ export class VersionedKnowledgeRepository {
         summary: input.summary || null,
         active_version_id: null,
         lifecycle_status: 'ACTIVE',
+        source_kind: input.sourceKind || 'INTERNAL_DOCUMENT',
+        source_uri: input.sourceUri || null,
+        vehicle_model: input.scope?.vehicleModel || null,
+        vehicle_type: input.scope?.vehicleType || 'ALL',
+        model_year: input.scope?.modelYearFrom === input.scope?.modelYearTo ? input.scope?.modelYearFrom || null : null,
+        market: input.scope?.market || 'VN',
+        customer_segment: input.scope?.customerSegment || 'ALL',
       })
       .select('*')
       .single()
@@ -133,6 +146,9 @@ export class VersionedKnowledgeRepository {
         publication_status: 'DRAFT',
         index_status: 'PENDING',
         author_id: input.authorId || null,
+        source_uri: input.sourceUri || null,
+        source_checksum: input.sourceChecksum || checksum,
+        source_retrieved_at: input.sourceRetrievedAt || null,
       })
       .select('*')
       .single()
@@ -141,27 +157,6 @@ export class VersionedKnowledgeRepository {
       // Rollback document nếu insert version thất bại
       await this.client.from('sales_agent_knowledge_documents').delete().eq('id', doc.id)
       throw new Error(`Failed to create initial version draft: ${verError?.message || 'Unknown error'}`)
-    }
-
-    // 3. Ghi audit event DRAFT_CREATED
-    const { error: auditError } = await this.client.from('sales_agent_knowledge_publication_events').insert({
-      document_id: doc.id,
-      version_id: ver.id,
-      action: 'DRAFT_CREATED',
-      to_version_no: 1,
-      actor_id: input.authorId || null,
-      reason: 'Initial draft creation',
-    })
-
-    if (auditError) {
-      try {
-        await this.client.from('sales_agent_knowledge_versions').delete().eq('id', ver.id)
-        await this.client.from('sales_agent_knowledge_documents').delete().eq('id', doc.id)
-      } catch {
-        // Preserve the audit failure as the primary error; an operator can
-        // reconcile any orphaned draft through the append-only ledger tooling.
-      }
-      throw new Error(`Failed to record initial draft audit event: ${auditError.message}`)
     }
 
     return {
@@ -239,24 +234,6 @@ export class VersionedKnowledgeRepository {
       throw new Error(`Failed to create version ${nextVersionNo}: ${verErr?.message || 'Unknown error'}`)
     }
 
-    const { error: auditError } = await this.client.from('sales_agent_knowledge_publication_events').insert({
-      document_id: documentId,
-      version_id: ver.id,
-      action: 'DRAFT_CREATED',
-      to_version_no: nextVersionNo,
-      actor_id: authorId || null,
-      reason: 'New draft version creation',
-    })
-
-    if (auditError) {
-      try {
-        await this.client.from('sales_agent_knowledge_versions').delete().eq('id', ver.id)
-      } catch {
-        // Preserve the audit failure as the primary error.
-      }
-      throw new Error(`Failed to record draft version audit event: ${auditError.message}`)
-    }
-
     return {
       id: ver.id,
       documentId: ver.document_id,
@@ -297,7 +274,11 @@ export class VersionedKnowledgeRepository {
       throw new Error(`Cannot approve version with status ${ver.publication_status}`)
     }
 
-    if (ver.author_id && ver.author_id === normalizedReviewerId) {
+    if (!ver.author_id) {
+      throw new Error('Maker-checker violation: version author is required before approval')
+    }
+
+    if (ver.author_id === normalizedReviewerId) {
       throw new Error('Maker-checker violation: author cannot approve their own version')
     }
 
@@ -306,6 +287,7 @@ export class VersionedKnowledgeRepository {
       .update({
         publication_status: 'APPROVED',
         reviewer_id: normalizedReviewerId,
+        approved_at: new Date().toISOString(),
       })
       .eq('id', versionId)
       .in('publication_status', ['DRAFT', 'IN_REVIEW'])
@@ -316,18 +298,6 @@ export class VersionedKnowledgeRepository {
       throw new Error(`Failed to approve version: ${updateErr?.message || 'Version changed concurrently or was not approvable'}`)
     }
 
-    const { error: auditError } = await this.client.from('sales_agent_knowledge_publication_events').insert({
-      document_id: ver.document_id,
-      version_id: versionId,
-      action: 'APPROVED',
-      to_version_no: ver.version_no,
-      actor_id: normalizedReviewerId,
-      reason: 'Maker-Checker approval',
-    })
-
-    if (auditError) {
-      throw new Error(`Failed to record approval audit event: ${auditError.message}`)
-    }
   }
 
   /**
@@ -486,7 +456,7 @@ export class VersionedKnowledgeRepository {
    */
   async enqueueIndexJob(
     versionId: string,
-    indexGenerationId: string = 'openai-text-embedding-3-small-1536-v1'
+    indexGenerationId: string = OPENAI_EMBEDDING_GENERATION_ID
   ): Promise<string> {
     const { data, error } = await this.client.rpc('sales_agent_enqueue_index_job', {
       p_version_id: versionId,

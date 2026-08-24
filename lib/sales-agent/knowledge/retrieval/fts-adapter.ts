@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OPENAI_EMBEDDING_GENERATION_ID } from '../embedding-adapter'
 import type {
   FtsCandidate,
   KnowledgeScopeFilter,
@@ -192,6 +193,30 @@ export function scoreLexicalMatch(
   return score
 }
 
+const VIETNAMESE_STOPWORDS = new Set([
+  'hướng', 'dẫn', 'chi', 'tiết', 'cách', 'sử', 'dụng', 'cho', 'tôi', 'biết',
+  'như', 'thế', 'nào', 'làm', 'sao', 'ở', 'đâu', 'xin', 'hỏi', 'giúp',
+  'gồm', 'các', 'những', 'về', 'của', 'và', 'tại', 'trong', 'quy', 'trình',
+  'xe', 'vinfast', 'là', 'gì', 'có', 'được', 'không', 'khi', 'nào', 'với',
+  'sơ', 'đồ', 'hình', 'ảnh', 'tổng', 'quan', 'vị', 'trí', 'bố', 'trí',
+])
+
+export function extractSearchKeywords(query: string): string {
+  const normalized = normalizeVietnameseSearchQuery(query)
+  const words = normalized.split(/\s+/).filter(Boolean)
+  if (words.length <= 3) return normalized
+
+  const seen = new Set<string>()
+  const filtered: string[] = []
+  for (const w of words) {
+    const clean = w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+    if (!clean || VIETNAMESE_STOPWORDS.has(clean) || seen.has(clean)) continue
+    seen.add(clean)
+    filtered.push(w)
+  }
+  return filtered.length >= 1 ? filtered.slice(0, 4).join(' ') : normalized
+}
+
 export class PostgresFtsAdapter {
   private client?: SupabaseClient
 
@@ -226,9 +251,10 @@ export class PostgresFtsAdapter {
     // predicates before ranking against the GIN-backed tsvector column.
     if (this.client) {
       try {
-        const { data, error } = await this.client.rpc('sales_agent_search_knowledge_fts', {
-          p_query: normalizedQuery,
-          p_index_generation_id: options.generationId ?? 'openai-text-embedding-3-small-1536-v1',
+        let targetQuery = normalizedQuery
+        let { data, error } = await this.client.rpc('sales_agent_search_knowledge_fts', {
+          p_query: targetQuery,
+          p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
           p_limit: limit,
           p_vehicle_model: filters.vehicleModel || null,
           p_vehicle_type: filters.vehicleType || null,
@@ -239,6 +265,29 @@ export class PostgresFtsAdapter {
           p_locale: filters.locale || 'vi-VN',
           p_effective_at: filters.effectiveAt || new Date().toISOString(),
         })
+
+        // Retry with extracted core keywords if sentence was too long for strict tsquery
+        if ((!data || data.length === 0) && !error) {
+          const keywordQuery = extractSearchKeywords(normalizedQuery)
+          if (keywordQuery !== normalizedQuery) {
+            const retryRes = await this.client.rpc('sales_agent_search_knowledge_fts', {
+              p_query: keywordQuery,
+              p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
+              p_limit: limit,
+              p_vehicle_model: filters.vehicleModel || null,
+              p_vehicle_type: filters.vehicleType || null,
+              p_model_year: filters.modelYear ?? null,
+              p_market: filters.market || 'VN',
+              p_customer_segment: filters.customerSegment || 'ALL',
+              p_category: filters.category || null,
+              p_locale: filters.locale || 'vi-VN',
+              p_effective_at: filters.effectiveAt || new Date().toISOString(),
+            })
+            if (Array.isArray(retryRes.data) && retryRes.data.length > 0) {
+              data = retryRes.data
+            }
+          }
+        }
 
         if (error) {
           throw new KnowledgeStorageUnavailableError(error.message, error)
@@ -276,7 +325,7 @@ export class PostgresFtsAdapter {
     try {
       const { data, error } = await this.client.rpc('sales_agent_load_knowledge_hierarchy_context', {
         p_version_ids: Array.from(new Set(versionIds)),
-        p_index_generation_id: options.generationId ?? 'openai-text-embedding-3-small-1536-v1',
+        p_index_generation_id: options.generationId ?? OPENAI_EMBEDDING_GENERATION_ID,
         p_limit: 5000,
         p_effective_at: filters.effectiveAt || new Date().toISOString(),
       })

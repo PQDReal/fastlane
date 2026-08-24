@@ -153,7 +153,25 @@ export const assistantBlockSchema = z.discriminatedUnion('kind', [
     facts: z.array(z.object({
       label: z.string(),
       value: z.string(),
+      citationId: z.string().trim().min(1).optional(),
     })),
+  }),
+  z.object({
+    kind: z.literal('KNOWLEDGE_MEDIA'),
+    title: z.string().trim().optional(),
+    items: z.array(z.object({
+      assetId: z.string().trim().min(1),
+      annotationId: z.string().trim().min(1),
+      title: z.string().trim().min(1),
+      summary: z.string().trim().min(1),
+      alt: z.string().trim().min(1),
+      url: z.string().trim().min(1),
+      mimeType: z.string().trim().min(1),
+      width: z.number().int().positive().nullable(),
+      height: z.number().int().positive().nullable(),
+      safetyCritical: z.boolean(),
+      citationId: z.string().trim().min(1),
+    })).min(1).max(6),
   }),
   z.object({
     kind: z.literal('NOTICE'),

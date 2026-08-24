@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { EmbeddingAdapterConfig } from '../embedding-adapter'
+import type { EmbeddingAdapterConfig, EmbeddingProvider } from '../embedding-adapter'
+import { OPENAI_EMBEDDING_GENERATION_ID } from '../embedding-adapter'
 import type {
   KnowledgeEvidenceItem,
   KnowledgeRetrievalResponse,
@@ -20,6 +21,7 @@ export interface RetrievalServiceOptions {
   client?: SupabaseClient
   embeddingConfig?: EmbeddingAdapterConfig
   defaultGenerationId?: string
+  embeddingProvider?: EmbeddingProvider
 }
 
 export class HybridHierarchicalRetrievalService {
@@ -34,10 +36,11 @@ export class HybridHierarchicalRetrievalService {
     this.vectorAdapter = new VectorCandidateAdapter(
       options.embeddingConfig,
       options.client,
-      options.defaultGenerationId
+      options.defaultGenerationId ?? OPENAI_EMBEDDING_GENERATION_ID,
+      options.embeddingProvider,
     )
     this.defaultGenerationId =
-      options.defaultGenerationId ?? 'openai-text-embedding-3-small-1536-v1'
+      options.defaultGenerationId ?? OPENAI_EMBEDDING_GENERATION_ID
   }
 
   private async resolveRuntimeState(requestedGenerationId?: string): Promise<{
@@ -51,11 +54,7 @@ export class HybridHierarchicalRetrievalService {
       }
     }
 
-    const { data, error } = await this.client
-      .from('sales_agent_knowledge_runtime_state')
-      .select('knowledge_epoch, active_index_generation_id')
-      .eq('singleton_id', 1)
-      .maybeSingle()
+    const { data, error } = await this.client.rpc('sales_agent_get_knowledge_runtime_state')
 
     if (error) {
       throw new KnowledgeStorageUnavailableError(`Runtime state query failed: ${error.message}`, error)

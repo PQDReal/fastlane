@@ -1,3 +1,4 @@
+import { OPENAI_EMBEDDING_GENERATION_ID } from '../embedding-adapter'
 import type { KnowledgeRetrievalTelemetry } from './contracts'
 
 export class RetrievalTelemetryTracker {
@@ -9,10 +10,10 @@ export class RetrievalTelemetryTracker {
   private ftsCandidateCount = 0
   private vectorCandidateCount = 0
   private epoch = 1
-  private indexGenerationId = 'openai-text-embedding-3-small-1536-v1'
+  private indexGenerationId = OPENAI_EMBEDDING_GENERATION_ID
   private degradedReason?: string
 
-  constructor(epoch = 1, indexGenerationId = 'openai-text-embedding-3-small-1536-v1') {
+  constructor(epoch = 1, indexGenerationId = OPENAI_EMBEDDING_GENERATION_ID) {
     this.startTime = Date.now()
     this.epoch = epoch
     this.indexGenerationId = indexGenerationId

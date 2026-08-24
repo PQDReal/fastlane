@@ -12,6 +12,8 @@ import { ProductCardBlock } from './product-card-block'
 import { ComparisonCardBlock } from './comparison-card-block'
 import { ManualImageBlock } from './manual-image-block'
 import { ManualReaderPanel } from './manual-reader-panel'
+import { KnowledgeCitationBlock } from './knowledge-citation-block'
+import { KnowledgeMediaBlock } from './knowledge-media-block'
 import { SuggestionChips } from './suggestion-chips'
 import { ActionButtons } from './action-buttons'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
@@ -77,6 +79,8 @@ function getToolStatusLabel(tool: string): string {
       return 'Đang tìm phụ kiện tương thích…'
     case 'get_current_promotions':
       return 'Đang kiểm tra chương trình ưu đãi…'
+    case 'search_knowledge':
+      return 'Đang tra cứu sổ tay và chính sách FASTLANE…'
     case 'composing':
       return 'Đang tổng hợp thông tin câu trả lời…'
     default:
@@ -866,53 +870,75 @@ export function SalesAgentShell() {
                 <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}>
                   <div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3.5 py-2.5 text-white shadow-xs' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-1'}`}>
                     {item.role === 'assistant' ? (
-                      <div className="space-y-2.5">
-                        {item.content ? (
-                          <MarkdownMessage content={item.content} streaming={item.pending} />
-                        ) : item.pending ? (
-                          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
-                            <span className="relative flex h-2 w-2 shrink-0">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
-                            </span>
-                            <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
-                            <span className="font-medium">{item.statusText || 'Đang phân tích câu hỏi & lập kế hoạch…'}</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400">Không có câu trả lời.</p>
-                        )}
+                      (() => {
+                        const mediaBlock = item.blocks?.find(
+                          (b): b is Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }> => b.kind === 'KNOWLEDGE_MEDIA'
+                        )
+                        const mediaItems = mediaBlock?.items
 
-                        {/* Rich Blocks */}
-                        {item.blocks?.map((block, idx) => {
-                          if (block.kind === 'PRODUCT_LIST') {
-                            return (
-                              <ProductCardBlock
-                                key={`block-${idx}`}
-                                title={block.title}
-                                items={block.items}
-                              />
-                            )
-                          }
-                          if (block.kind === 'COMPARISON_TABLE') {
-                            return (
-                              <ComparisonCardBlock
-                                key={`block-${idx}`}
-                                criteria={block.criteria}
-                                products={block.products}
-                              />
-                            )
-                          }
-                          if (block.kind === 'MANUAL_IMAGE') {
-                            return (
-                              <ManualImageBlock
-                                key={`block-${idx}`}
-                                imageUrl={block.imageUrl}
-                                caption={block.caption}
-                              />
-                            )
-                          }
-                          return null
-                        })}
+                        return (
+                          <div className="space-y-2.5">
+                            {item.content ? (
+                              <MarkdownMessage content={item.content} mediaItems={mediaItems} streaming={item.pending} />
+                            ) : item.pending ? (
+                              <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
+                                </span>
+                                <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
+                                <span className="font-medium">{item.statusText || 'Đang phân tích câu hỏi & lập kế hoạch…'}</span>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-400">Không có câu trả lời.</p>
+                            )}
+
+                            {/* Rich Blocks */}
+                            {item.blocks?.map((block, idx) => {
+                              if (block.kind === 'PRODUCT_LIST') {
+                                return (
+                                  <ProductCardBlock
+                                    key={`block-${idx}`}
+                                    title={block.title}
+                                    items={block.items}
+                                  />
+                                )
+                              }
+                              if (block.kind === 'COMPARISON_TABLE') {
+                                return (
+                                  <ComparisonCardBlock
+                                    key={`block-${idx}`}
+                                    criteria={block.criteria}
+                                    products={block.products}
+                                  />
+                                )
+                              }
+                              if (block.kind === 'MANUAL_IMAGE') {
+                                return (
+                                  <ManualImageBlock
+                                    key={`block-${idx}`}
+                                    imageUrl={block.imageUrl}
+                                    caption={block.caption}
+                                  />
+                                )
+                              }
+                              if (block.kind === 'FACT_SUMMARY') {
+                                return <KnowledgeCitationBlock key={`block-${idx}`} {...block} />
+                              }
+                              if (block.kind === 'KNOWLEDGE_MEDIA') {
+                                const content = item.content || ''
+                                const unreferencedItems = block.items.filter((media) => {
+                                  if (!media.url) return true
+                                  const filename = media.url.split('/').pop()?.replace(/\.png$/i, '')
+                                  const isEmbedded = content.includes(media.url) || Boolean(filename && content.includes(filename))
+                                  return !isEmbedded
+                                })
+
+                                if (unreferencedItems.length === 0) return null
+                                return <KnowledgeMediaBlock key={`block-${idx}`} kind="KNOWLEDGE_MEDIA" title={block.title} items={unreferencedItems} />
+                              }
+                              return null
+                            })}
 
                         {/* Action Buttons */}
                         {item.actions && item.actions.length > 0 && (
@@ -928,7 +954,9 @@ export function SalesAgentShell() {
                           />
                         )}
                       </div>
-                    ) : (
+                    )
+                  })()
+                ) : (
                       <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>
                     )}
 

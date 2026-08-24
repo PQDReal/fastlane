@@ -32,7 +32,7 @@ describe('Phase P5 — Security & Red-Team Suite (A19-KR-502)', () => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED' as const,
       indexStatus: 'READY' as const,
-      embedding: new Array(1536).fill(0.01),
+      embedding: new Array(512).fill(0.01),
     },
     {
       chunkId: 'chunk-vf9',
@@ -56,7 +56,7 @@ describe('Phase P5 — Security & Red-Team Suite (A19-KR-502)', () => {
       effectiveTo: null,
       publicationStatus: 'PUBLISHED' as const,
       indexStatus: 'READY' as const,
-      embedding: new Array(1536).fill(0.01),
+      embedding: new Array(512).fill(0.01),
     },
   ]
 
@@ -96,9 +96,7 @@ describe('Phase P5 — Security & Red-Team Suite (A19-KR-502)', () => {
   })
 
   it('strictly isolates vehicle model scope and prevents cross-model leakage (Filter-before-rank)', async () => {
-    const service = new HybridHierarchicalRetrievalService({
-      embeddingConfig: { allowMock: true },
-    })
+    const service = new HybridHierarchicalRetrievalService()
 
     // User asks about VF 3 with vehicleModel filter VF 3
     const res = await service.retrieve(

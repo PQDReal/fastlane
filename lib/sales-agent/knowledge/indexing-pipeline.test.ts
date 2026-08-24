@@ -1,14 +1,33 @@
 import { describe, it, expect, vi } from 'vitest'
 import { KnowledgeIndexingPipeline, persistIndexedChunks } from './indexing-pipeline'
+import {
+  OPENAI_EMBEDDING_DIMENSIONS,
+  OPENAI_EMBEDDING_GENERATION_ID,
+  type EmbeddingProvider,
+} from './embedding-adapter'
 import type { DocumentTreeInput } from './hierarchical-chunker'
 
 describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
+  const testEmbeddingProvider: EmbeddingProvider = {
+    async generateEmbeddings(texts) {
+      return {
+        embeddings: texts.map((_, index) => {
+          const embedding = new Array(OPENAI_EMBEDDING_DIMENSIONS).fill(0)
+          embedding[index % embedding.length] = 1
+          return { index, embedding }
+        }),
+        totalTokens: texts.length * 10,
+        model: 'text-embedding-3-small',
+        dimensions: OPENAI_EMBEDDING_DIMENSIONS,
+      }
+    },
+  }
   const pipeline = new KnowledgeIndexingPipeline({
-    indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
-    embeddingConfig: { allowMock: true },
+    indexGenerationId: OPENAI_EMBEDDING_GENERATION_ID,
+    embeddingProvider: testEmbeddingProvider,
   })
 
-  it('runs complete indexing pipeline with 1536-dim embeddings and smoke test', async () => {
+  it('runs complete indexing pipeline with 512-dim embeddings and smoke test', async () => {
     const docTree: DocumentTreeInput = {
       documentKey: 'vinfast:VF7:2025:vi-VN',
       title: 'Sổ tay hướng dẫn sử dụng VinFast VF 7 2025',
@@ -33,8 +52,8 @@ describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
 
     // Check embedding dimensions and unit magnitude
     report.chunks.forEach((chunk) => {
-      expect(chunk.embedding.length).toBe(1536)
-      expect(chunk.indexGenerationId).toBe('openai-text-embedding-3-small-1536-v1')
+      expect(chunk.embedding.length).toBe(OPENAI_EMBEDDING_DIMENSIONS)
+      expect(chunk.indexGenerationId).toBe(OPENAI_EMBEDDING_GENERATION_ID)
       const mag = Math.sqrt(chunk.embedding.reduce((s, v) => s + v * v, 0))
       expect(mag).toBeGreaterThan(0.9)
     })
@@ -68,11 +87,11 @@ describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
     expect(report2.newlyEmbeddedCount).toBe(0)
   })
 
-  it('fails closed when non-mock adapter is initialized without OPENAI_API_KEY', () => {
+  it('fails closed when the production adapter is initialized without OPENAI_API_KEY', () => {
     const originalKey = process.env.OPENAI_API_KEY
     delete process.env.OPENAI_API_KEY
     try {
-      expect(() => new KnowledgeIndexingPipeline({ embeddingConfig: { allowMock: false } })).toThrow(/OPENAI_API_KEY is required/)
+      expect(() => new KnowledgeIndexingPipeline()).toThrow(/OPENAI_API_KEY is required/)
     } finally {
       if (originalKey) process.env.OPENAI_API_KEY = originalKey
     }
@@ -110,6 +129,7 @@ describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
     }
     const client = {
       from: vi.fn((table: string) => table === 'sales_agent_knowledge_versions' ? versionUpdate : chunkTable),
+      rpc: vi.fn().mockResolvedValue({ data: report.chunks.filter((chunk) => chunk.parentHierarchyPath).length, error: null }),
     } as any
 
     const result = await persistIndexedChunks({
@@ -117,13 +137,14 @@ describe('KnowledgeIndexingPipeline (A19-KR-205, 208, 209)', () => {
       documentId: 'doc-1',
       versionId: 'ver-1',
       versionNo: 1,
-      indexGenerationId: 'openai-text-embedding-3-small-1536-v1',
+      indexGenerationId: OPENAI_EMBEDDING_GENERATION_ID,
       chunks: report.chunks,
     })
 
     expect(result.persistedChunkCount).toBe(report.chunks.length)
     expect(result.parentLinks).toBeGreaterThan(0)
     expect(chunkTable.upsert).toHaveBeenCalledOnce()
+    expect(client.rpc).toHaveBeenCalledWith('sales_agent_finalize_knowledge_hierarchy', { p_version_id: 'ver-1' })
     expect(versionUpdate.update).toHaveBeenCalledWith({ index_status: 'READY' })
   })
 })
