@@ -571,8 +571,9 @@ export function SalesAgentShell() {
     followBottomRef.current = true
     setShowScrollButton(false)
     setDraft('')
-    const assistantId = crypto.randomUUID()
-    const userMessage: DisplayMessage = { id: crypto.randomUUID(), role: 'user', content: message }
+    const generateId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15)
+    const assistantId = generateId()
+    const userMessage: DisplayMessage = { id: generateId(), role: 'user', content: message }
     const assistantMessage: DisplayMessage = { id: assistantId, role: 'assistant', content: '', pending: true }
     const history = limitSalesAgentHistory(messages.filter((item) => !item.pending).map(({ role, content }) => ({ role, content })))
     setMessages((items) => [...items, userMessage, assistantMessage])

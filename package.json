@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "test": "vitest run",
     "test:sales-agent-evals": "vitest run lib/sales-agent/evals/corpus.test.ts lib/sales-agent/architecture.test.ts",
@@ -101,7 +101,7 @@
     "@ai-sdk/anthropic": "4.0.38",
     "@ai-sdk/deepseek": "3.0.28",
     "@ai-sdk/google": "4.0.43",
-    "@ai-sdk/openai": "4.0.41",
+    "@ai-sdk/openai": "^4.0.46",
     "@ai-sdk/openai-compatible": "3.0.30",
     "@auth0/nextjs-auth0": "4.25.0",
     "@browserbasehq/sdk": "2.18.0",

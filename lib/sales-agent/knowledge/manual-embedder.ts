@@ -139,6 +139,7 @@ export async function embedManualArticle(articleId: string): Promise<number> {
   const valuesToEmbed = chunks.map((c) => `Tiêu đề: ${article.title}\nPhần: ${c.sectionTitle}\nNội dung: ${c.content}`)
   
   const { embeddings } = await embedMany({
+    // @ts-expect-error - The dimensions option is passed properly at runtime but SDK typings don't recognize it
     model: openai.embedding('text-embedding-3-small', { dimensions: 512 }),
     values: valuesToEmbed,
   })
