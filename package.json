@@ -28,6 +28,7 @@
     "sync:published-catalog": "node --env-file=.env.local scripts/sync-published-catalog-options.mjs",
     "sync:published-catalog:apply": "node --env-file=.env.local scripts/sync-published-catalog-options.mjs --apply",
     "check:catalog-taxonomy": "node scripts/sync-catalog-taxonomy.mjs --source-only",
+    "catalog-intelligence:backfill": "vite-node scripts/catalog-intelligence-backfill.ts --dry-run",
     "sync:catalog-taxonomy": "node --env-file=.env.local scripts/sync-catalog-taxonomy.mjs",
     "verify:catalog-taxonomy": "node --env-file=.env.local scripts/sync-catalog-taxonomy.mjs --verify",
     "sync:catalog-taxonomy:apply": "node --env-file=.env.local scripts/sync-catalog-taxonomy.mjs --apply",
