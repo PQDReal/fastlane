@@ -14,7 +14,11 @@ canonical selection. The core therefore:
 - reads only schema-approved technical zones;
 - resolves exact path before exact scoped alias;
 - returns `UNKNOWN_SPEC`, `AMBIGUOUS` or `INVALID_VALUE` instead of guessing;
+- records reviewed `IGNORED` observations separately from unresolved data;
+- blocks an exact stale source snapshot as `SOURCE_CONFLICT` before canonical promotion;
 - converts units with a code allow-list;
+- keeps ranges, tolerances, comparison operators and fact qualifiers typed;
+- allows one observation to yield several context-specific candidates;
 - prevents partial or lower-authority input from overwriting a current fact;
 - never automatically overwrites a verified fact;
 - includes extractor version in the stable SHA-256 input identity.
@@ -34,22 +38,32 @@ npm run catalog-intelligence:backfill -- --limit=10 --details
 npm run catalog-intelligence:backfill -- --json --details
 ```
 
-Baseline captured on 2026-08-24 against 112 active products:
+Current reviewed baseline captured on 2026-08-24 against 112 active products:
 
 | Metric | Count |
 | --- | ---: |
 | Raw observations | 658 |
-| Resolved observations | 254 |
-| Unknown observations retained | 400 |
+| Resolved observations | 297 |
+| Contextual fact candidates | 304 |
+| Ignored by reviewed policy | 20 |
+| Blocked by official-source review | 341 |
+| Unknown observations retained | 0 |
 | Ambiguous observations | 0 |
-| Invalid values rejected | 4 |
+| Invalid values rejected | 0 |
 | Extractor warnings | 83 |
 | Database writes | 0 |
 
-The four rejected values are intentionally fail-closed compound values: a
-dual-battery capacity, alternative charging durations, a range interval and a
-range conditional on installing two batteries. They need explicit canonical
-policies rather than first-number parsing.
+The four former invalid values now have explicit policies: Kinet dual-battery
+capacity, Kinet alternative charging durations, the VF 8 The All-New range
+interval and Kyo range with two batteries. Contextual parsing also prevents
+conditional auxiliary-battery ranges and trunk volumes from collapsing to the
+first number.
+
+The 341 blocked observations are not parser failures. They belong to 13 exact
+source snapshots whose values conflict with the current official site, or for
+which no current official source was found. A block binds to the canonical JSON
+source hash, so a corrected payload is never blocked by an obsolete review.
+See [the admin review](./catalog-intelligence-admin-review-2026-08-24.md).
 
 The 83 extractor warnings are active accessories that deliberately fail closed
 because the first milestone registers vehicle technical schemas only. They are

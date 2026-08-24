@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { auditCatalogProducts } from './audit'
-import { CORE_SPEC_ALIASES, CORE_SPEC_DEFINITIONS } from './definitions'
+import { CATALOG_SPEC_ALIASES, CATALOG_SPEC_DEFINITIONS } from './definitions'
 import { canonicalProductType, extractProductSpecifications } from './extractors'
-import { catalogInputHash } from './hash'
-import { parseCanonicalValue } from './measurement-parser'
+import { catalogInputHash, catalogSourceHash } from './hash'
+import { parseCanonicalFacts, parseCanonicalValue } from './measurement-parser'
 import { SpecRegistry } from './registry'
 import { resolveRawSpec } from './resolver'
 import { selectCanonicalFact } from './selection'
@@ -17,7 +17,7 @@ import type {
   SpecDefinition,
 } from './types'
 
-const registry = new SpecRegistry(CORE_SPEC_DEFINITIONS, CORE_SPEC_ALIASES)
+const registry = new SpecRegistry(CATALOG_SPEC_DEFINITIONS, CATALOG_SPEC_ALIASES)
 
 const car: CatalogProductInput = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -67,7 +67,7 @@ const motorbike: CatalogProductInput = {
 }
 
 function numberValue(value: number, unit: string): CanonicalValue {
-  return { valueType: 'NUMBER', displayValue: `${value} ${unit}`, numericValue: value, textValue: null, booleanValue: null, durationSeconds: null, canonicalUnit: unit }
+  return { valueType: 'NUMBER', displayValue: `${value} ${unit}`, numericValue: value, numericUpperValue: null, numericTolerance: null, comparisonOperator: 'EQ', textValue: null, booleanValue: null, durationSeconds: null, canonicalUnit: unit }
 }
 
 function candidate(overrides: Partial<ResolvedSpecObservation> = {}): ResolvedSpecObservation {
@@ -90,6 +90,8 @@ function candidate(overrides: Partial<ResolvedSpecObservation> = {}): ResolvedSp
     sourceUri: 'https://example.com/vf-8',
     definition,
     value: numberValue(471, 'km'),
+    qualifiers: [],
+    contextKey: 'default',
     ...overrides,
   }
 }
@@ -134,7 +136,7 @@ describe('catalog intelligence deterministic core', () => {
     expect(results['Dung lượng pin/ắc quy']).toMatchObject({ status: 'RESOLVED', value: { numericValue: 1.024, canonicalUnit: 'kWh' } })
     expect(results['Quãng đường đi được mỗi lần sạc']).toMatchObject({ status: 'RESOLVED', value: { numericValue: 160, canonicalUnit: 'km' } })
     expect(results['Thời gian sạc tiêu chuẩn']).toMatchObject({ status: 'RESOLVED', value: { durationSeconds: 16_200 } })
-    expect(results['Màu sắc']).toEqual({ status: 'UNKNOWN_SPEC' })
+    expect(results['Màu sắc']).toMatchObject({ status: 'IGNORED', reasonCode: 'DUPLICATE_STRUCTURED_SOURCE' })
   })
 
   it('types a primary measurement while preserving explicit source qualifiers', () => {
@@ -142,17 +144,69 @@ describe('catalog intelligence deterministic core', () => {
     const range = registry.definition('range_km')!
     const charging = registry.definition('charging_time')!
 
-    expect(parseCanonicalValue('1.5 kWh (Tùy chọn thêm 1 pin 1.5 kWh)', battery)).toMatchObject({ ok: true, value: { numericValue: 1.5 } })
-    expect(parseCanonicalValue('Khoảng 134 km (+128 km khi lắp thêm pin phụ)', range)).toMatchObject({ ok: true, value: { numericValue: 134 } })
+    expect(parseCanonicalFacts('1.5 kWh (Tùy chọn thêm 1 pin 1.5 kWh)', battery)).toMatchObject({
+      ok: true,
+      facts: [{ value: { numericValue: 1.5 } }, { value: { numericValue: 3 } }],
+    })
+    expect(parseCanonicalFacts('Khoảng 134 km (+128 km khi lắp thêm pin phụ)', range)).toMatchObject({
+      ok: true,
+      facts: [
+        { value: { numericValue: 134 }, qualifiers: expect.arrayContaining([{ key: 'auxiliary_battery_installed', value: false }]) },
+        { value: { numericValue: 262 }, qualifiers: expect.arrayContaining([{ key: 'auxiliary_battery_installed', value: true }]) },
+      ],
+    })
     expect(parseCanonicalValue('Khoảng 4h30 phút từ 0-100%', charging)).toMatchObject({ ok: true, value: { durationSeconds: 16_200 } })
     expect(parseCanonicalValue('Sạc 220W - 10h đạt 100%', charging)).toMatchObject({ ok: true, value: { durationSeconds: 36_000 } })
     expect(parseCanonicalValue('30 phút (10%-70%)', charging)).toMatchObject({ ok: true, value: { durationSeconds: 1_800 } })
-    expect(parseCanonicalValue('Khoảng 9 giờ; khoảng 3,5 giờ nếu dùng sạc 1000 W', charging)).toMatchObject({ ok: false })
+    expect(parseCanonicalFacts('Khoảng 9 giờ; khoảng 3,5 giờ nếu dùng sạc 1000 W', charging, { qualifiers: [{ key: 'charging_mode', value: 'STANDARD' }] })).toMatchObject({
+      ok: true,
+      facts: [
+        { value: { durationSeconds: 32_400 }, qualifiers: [{ key: 'charging_mode', value: 'STANDARD' }] },
+        { value: { durationSeconds: 12_600 }, qualifiers: [{ key: 'charger_power_w', value: 1000, unit: 'W' }] },
+      ],
+    })
+  })
+
+  it('keeps Kinet standard charging separate from the official 1000 W condition', () => {
+    const input: CatalogProductInput = {
+      id: '00000000-0000-4000-8000-000000000003',
+      name: 'Kinet',
+      productType: 'MOTORBIKE',
+      specifications: {
+        url: 'https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-kinet',
+        specs: { 'Thời gian sạc tiêu chuẩn': 'Khoảng 9 giờ; khoảng 3,5 giờ nếu dùng sạc 1000 W' },
+      },
+    }
+    const raw = extractProductSpecifications(input).observations[0]
+    const resolution = resolveRawSpec(raw, registry)
+
+    expect(resolution).toMatchObject({
+      status: 'RESOLVED',
+      facts: [
+        { value: { durationSeconds: 32_400 }, qualifiers: [{ key: 'charging_mode', value: 'STANDARD' }] },
+        { value: { durationSeconds: 12_600 }, qualifiers: [{ key: 'charger_power_w', value: 1000, unit: 'W' }] },
+      ],
+    })
+    if (resolution.status === 'RESOLVED') {
+      expect(resolution.facts[0].qualifiers.some((qualifier) => qualifier.key === 'charger_power_w')).toBe(false)
+      expect(resolution.facts[1].qualifiers.some((qualifier) => qualifier.key === 'charging_mode')).toBe(false)
+    }
+  })
+
+  it('converts legacy unitless car maxPower horsepower instead of treating it as kW', () => {
+    const raw = {
+      ...extractProductSpecifications(car).observations.find((item) => item.sourcePath.endsWith('.maxPower'))!,
+      rawValue: 134,
+    }
+    expect(resolveRawSpec(raw, registry)).toMatchObject({
+      status: 'RESOLVED',
+      value: { numericValue: 99.923782848, canonicalUnit: 'kW' },
+    })
   })
 
   it('fails closed for multiple numeric quantities and incompatible units', () => {
     const range = registry.definition('range_km')!
-    expect(parseCanonicalValue('450 - 471 km', range)).toMatchObject({ ok: false })
+    expect(parseCanonicalValue('450 - 471 km', range)).toMatchObject({ ok: true, value: { numericValue: 450, numericUpperValue: 471, comparisonOperator: 'RANGE' } })
     expect(parseCanonicalValue('200 kW', range)).toMatchObject({ ok: false })
     expect(parseCanonicalValue('471', range)).toMatchObject({ ok: false })
     expect(parseCanonicalValue('471', range, { allowImplicitCanonicalUnit: true })).toMatchObject({ ok: true, value: { numericValue: 471 } })
@@ -178,6 +232,8 @@ describe('catalog intelligence deterministic core', () => {
       observationId: 'verified-observation',
       definitionKey: 'range_km',
       value: numberValue(450, 'km'),
+      qualifiers: [],
+      contextKey: 'default',
       verificationStatus: 'VERIFIED',
       sourceAuthority: 'MANUAL_VERIFIED',
       selectedAt: '2026-08-20T00:00:00.000Z',
@@ -195,6 +251,8 @@ describe('catalog intelligence deterministic core', () => {
       observationId: 'current',
       definitionKey: 'range_km',
       value: numberValue(450, 'km'),
+      qualifiers: [],
+      contextKey: 'default',
       verificationStatus: 'AUTO',
       sourceAuthority: 'OFFICIAL_PRIMARY',
       selectedAt: '2026-08-20T00:00:00.000Z',
@@ -213,9 +271,22 @@ describe('catalog intelligence deterministic core', () => {
     expect(selected).toMatchObject({ action: 'CREATE', selected: { observationId: 'plus' } })
   })
 
+  it('requires callers to select each fact context independently', () => {
+    const selected = selectCanonicalFact(null, [
+      candidate({ observationId: 'standard', contextKey: '[standard]' }),
+      candidate({ observationId: 'charger-1000w', contextKey: '[1000w]' }),
+    ])
+
+    expect(selected).toMatchObject({
+      action: 'CONFLICT',
+      reason: 'Selector chỉ chấp nhận observations của cùng một fact context.',
+    })
+  })
+
   it('hashes canonical JSON independently of object key order and includes extractor version', () => {
     expect(catalogInputHash({ b: 2, a: 1 })).toBe(catalogInputHash({ a: 1, b: 2 }))
     expect(catalogInputHash({ a: 1 }, 'extractor-v1')).not.toBe(catalogInputHash({ a: 1 }, 'extractor-v2'))
+    expect(catalogSourceHash({ b: 2, a: 1 })).toBe(catalogSourceHash({ a: 1, b: 2 }))
   })
 
   it('produces byte-stable dry-run audit output for the same input', () => {

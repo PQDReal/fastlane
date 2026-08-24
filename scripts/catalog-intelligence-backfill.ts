@@ -57,6 +57,9 @@ async function main() {
     unsupportedProducts: unsupportedProducts.length,
     rawObservations: report.rawObservations,
     resolved: report.resolved,
+    resolvedFacts: report.resolvedFacts,
+    ignored: report.ignored,
+    sourceConflicts: report.sourceConflicts,
     unknown: report.unknown,
     ambiguous: report.ambiguous,
     invalid: report.invalid,
@@ -76,6 +79,9 @@ async function main() {
     ['Product type chưa hỗ trợ', unsupportedProducts.length],
     ['Raw observations', report.rawObservations],
     ['Resolved', report.resolved],
+    ['Resolved facts (with context)', report.resolvedFacts],
+    ['Ignored by reviewed policy', report.ignored],
+    ['Blocked by source review', report.sourceConflicts],
     ['Unknown', report.unknown],
     ['Ambiguous', report.ambiguous],
     ['Invalid', report.invalid],
@@ -95,10 +101,23 @@ async function main() {
     process.stdout.write('\nProducts with unresolved observations:\n')
     for (const product of report.productReports.filter((item) => item.unknownCount || item.ambiguousCount || item.invalidCount)) {
       process.stdout.write(`  ${product.productName}: unknown=${product.unknownCount}, ambiguous=${product.ambiguousCount}, invalid=${product.invalidCount}\n`)
-      for (const issue of product.issues) {
+      for (const issue of product.issues.filter((item) => item.status !== 'IGNORED')) {
         const rawValue = JSON.stringify(issue.rawValue)
         process.stdout.write(`    - ${issue.status}: ${issue.sourcePath} = ${rawValue}${issue.detail ? ` (${issue.detail})` : ''}\n`)
       }
+    }
+    process.stdout.write('\nObservations ignored by reviewed policy:\n')
+    for (const product of report.productReports.filter((item) => item.ignoredCount)) {
+      process.stdout.write(`  ${product.productName}: ignored=${product.ignoredCount}\n`)
+      for (const issue of product.issues.filter((item) => item.status === 'IGNORED')) {
+        process.stdout.write(`    - ${issue.sourcePath}: ${issue.detail}\n`)
+      }
+    }
+    process.stdout.write('\nSnapshots blocked by official-source review:\n')
+    for (const product of report.productReports.filter((item) => item.sourceConflictCount)) {
+      process.stdout.write(`  ${product.productName}: blocked_observations=${product.sourceConflictCount}\n`)
+      process.stdout.write(`    - ${product.sourceReview?.reasonCode}: ${product.sourceReview?.reason}\n`)
+      for (const url of product.sourceReview?.evidenceUrls ?? []) process.stdout.write(`      ${url}\n`)
     }
   }
 }

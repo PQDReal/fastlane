@@ -2,7 +2,7 @@ import { normalizeProductSearchText } from '../catalog/search'
 import type { CatalogProductType, SpecAlias, SpecAliasMatchKind, SpecDefinition } from './types'
 
 type MatchResult =
-  | { outcome: 'MATCH'; definition: SpecDefinition }
+  | { outcome: 'MATCH'; definition: SpecDefinition; alias: SpecAlias }
   | { outcome: 'AMBIGUOUS'; definitions: SpecDefinition[] }
   | { outcome: 'NO_MATCH' }
 
@@ -26,7 +26,7 @@ function scopeKey(productType: CatalogProductType | '*', sourceSchema: string, m
 
 export class SpecRegistry {
   private readonly definitionsByKey = new Map<string, SpecDefinition>()
-  private readonly aliasesByScope = new Map<string, SpecDefinition[]>()
+  private readonly aliasesByScope = new Map<string, Array<{ definition: SpecDefinition; alias: SpecAlias }>>()
 
   constructor(definitions: readonly SpecDefinition[], aliases: readonly SpecAlias[]) {
     for (const definition of definitions) {
@@ -41,7 +41,7 @@ export class SpecRegistry {
       if (!definition) throw new Error(`Unknown specification definition for alias: ${alias.definitionKey}`)
       const key = scopeKey(alias.productType, alias.sourceSchema, alias.matchKind, aliasValue(alias))
       const existing = this.aliasesByScope.get(key) ?? []
-      if (!existing.some((candidate) => candidate.canonicalKey === definition.canonicalKey)) existing.push(definition)
+      if (!existing.some((candidate) => candidate.definition.canonicalKey === definition.canonicalKey)) existing.push({ definition, alias })
       this.aliasesByScope.set(key, existing)
     }
   }
@@ -69,12 +69,12 @@ export class SpecRegistry {
     ]
 
     for (const [productType, sourceSchema] of scopes) {
-      const definitions = this.aliasesByScope.get(scopeKey(productType, sourceSchema, input.matchKind, value)) ?? []
-      if (definitions.length === 1) return { outcome: 'MATCH', definition: definitions[0] }
-      if (definitions.length > 1) {
+      const matches = this.aliasesByScope.get(scopeKey(productType, sourceSchema, input.matchKind, value)) ?? []
+      if (matches.length === 1) return { outcome: 'MATCH', definition: matches[0].definition, alias: matches[0].alias }
+      if (matches.length > 1) {
         return {
           outcome: 'AMBIGUOUS',
-          definitions: [...definitions].sort((left, right) => left.canonicalKey.localeCompare(right.canonicalKey)),
+          definitions: matches.map((match) => match.definition).sort((left, right) => left.canonicalKey.localeCompare(right.canonicalKey)),
         }
       }
     }

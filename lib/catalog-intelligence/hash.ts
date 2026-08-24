@@ -13,3 +13,9 @@ export function catalogInputHash(specifications: unknown, extractorVersion = CAT
     .update(`${extractorVersion}\n${canonicalJson(specifications)}`)
     .digest('hex')
 }
+
+export function catalogSourceHash(specifications: unknown) {
+  return createHash('sha256')
+    .update(canonicalJson(specifications))
+    .digest('hex')
+}

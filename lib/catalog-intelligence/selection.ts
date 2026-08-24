@@ -15,12 +15,25 @@ function valueIdentity(value: CanonicalValue) {
     booleanValue: value.booleanValue,
     durationSeconds: value.durationSeconds,
     canonicalUnit: value.canonicalUnit,
+    comparisonOperator: value.comparisonOperator,
+    numericUpperValue: value.numericUpperValue,
+    numericTolerance: value.numericTolerance,
   })
 }
 
 function sameValue(left: CanonicalValue, right: CanonicalValue, tolerance = 0) {
   if (left.valueType !== right.valueType || left.canonicalUnit !== right.canonicalUnit) return false
-  if (left.numericValue !== null && right.numericValue !== null) return Math.abs(left.numericValue - right.numericValue) <= tolerance
+  if (left.comparisonOperator !== right.comparisonOperator) return false
+  if (left.numericValue !== null && right.numericValue !== null) {
+    const samePrimary = Math.abs(left.numericValue - right.numericValue) <= tolerance
+    const sameUpper = left.numericUpperValue === null && right.numericUpperValue === null
+      || left.numericUpperValue !== null && right.numericUpperValue !== null
+      && Math.abs(left.numericUpperValue - right.numericUpperValue) <= tolerance
+    const sameTolerance = left.numericTolerance === null && right.numericTolerance === null
+      || left.numericTolerance !== null && right.numericTolerance !== null
+      && Math.abs(left.numericTolerance - right.numericTolerance) <= tolerance
+    return samePrimary && sameUpper && sameTolerance
+  }
   return valueIdentity(left) === valueIdentity(right)
 }
 
@@ -49,6 +62,13 @@ export function selectCanonicalFact(
   const definitionKey = candidates[0].definition.canonicalKey
   if (candidates.some((candidate) => candidate.definition.canonicalKey !== definitionKey)) {
     return result({ action: 'CONFLICT', selected: null, reason: 'Selector chỉ chấp nhận observations của cùng một canonical key.', conflictingObservationIds: candidates.map((item) => item.observationId).sort() })
+  }
+  const contextKey = candidates[0].contextKey
+  if (candidates.some((candidate) => candidate.contextKey !== contextKey)) {
+    return result({ action: 'CONFLICT', selected: null, reason: 'Selector chỉ chấp nhận observations của cùng một fact context.', conflictingObservationIds: candidates.map((item) => item.observationId).sort() })
+  }
+  if (current && current.contextKey !== contextKey) {
+    return result({ action: 'CONFLICT', selected: null, reason: 'Canonical fact hiện tại và candidate có context khác nhau.', conflictingObservationIds: candidates.map((item) => item.observationId).sort() })
   }
 
   const tolerance = candidates[0].definition.changeTolerance ?? 0
