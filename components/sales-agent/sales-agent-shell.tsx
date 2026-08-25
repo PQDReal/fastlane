@@ -1,6 +1,6 @@
 'use client'
 
-import { AnimatePresence, motion, useReducedMotion, useDragControls } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowDown, ArrowUp, Bot, CalendarDays, Car, Check, CheckCircle2, ChevronDown, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import Link from 'next/link'
@@ -667,15 +667,6 @@ export function SalesAgentShell() {
   const open = useSalesAgentStore((state) => state.open)
   const setOpen = useSalesAgentStore((state) => state.setOpen)
   const position = useSalesAgentStore((state) => state.position)
-  const setPosition = useSalesAgentStore((state) => state.setPosition)
-
-  const handleDragEnd = (_event: any, info: any) => {
-    setPosition({
-      x: position.x + info.offset.x,
-      y: position.y + info.offset.y,
-    })
-  }
-  const dragControls = useDragControls()
   const [isExpanded, setIsExpanded] = useState(false)
 
   const [messages, setMessages] = useState<DisplayMessage[]>([])
@@ -698,30 +689,7 @@ export function SalesAgentShell() {
     setIsMounted(true)
   }, [])
 
-  // Calculate bounds to prevent chat window from going completely off-screen
-  let chatX = isMounted && !isExpanded ? position.x : 0
-  let chatY = isMounted && !isExpanded ? position.y : 0
-  let dragConstraints = { top: 0, bottom: 0, left: 0, right: 0 }
-  if (typeof window !== 'undefined' && !isExpanded && isMounted) {
-    const isDesktop = window.innerWidth >= 768
-    const paddingX = isDesktop ? 16 : 12
-    const paddingY = isDesktop ? 16 : 12
-    const chatWidth = isDesktop ? 420 : window.innerWidth - (paddingX * 2)
-    const chatHeight = isDesktop ? Math.min(680, window.innerHeight - 32) : Math.min(620, window.innerHeight - 24)
 
-    const minY = Math.min(0, -(window.innerHeight - chatHeight - paddingY * 2))
-    const maxY = 0
-    const minX = Math.min(0, -(window.innerWidth - chatWidth - paddingX * 2))
-    const maxX = 0
-
-    dragConstraints = { top: minY, bottom: maxY, left: minX, right: maxX }
-
-    if (chatY < minY) chatY = minY
-    if (chatY > maxY) chatY = maxY
-    
-    if (chatX < minX) chatX = minX
-    if (chatX > maxX) chatX = maxX
-  }
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
   const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null)
@@ -1138,72 +1106,66 @@ export function SalesAgentShell() {
             key="sales-agent-dialog"
             role="dialog"
             aria-label="Trợ lý mua xe FASTLANE"
-            className={
-              isExpanded
-                ? 'fixed inset-2 sm:inset-0 sm:m-auto z-[61] flex flex-col overflow-hidden bg-white shadow-2xl border border-slate-200/90 w-[calc(100vw-16px)] sm:w-[min(94vw,1152px)] h-[calc(100dvh-16px)] sm:h-[min(88vh,860px)] rounded-2xl sm:rounded-3xl'
-                : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
-            }
-            style={{ transformOrigin: isExpanded ? 'center' : 'calc(100% - 32px) calc(100% - 32px)' }}
-            initial={{ opacity: 0, scale: 0.85, x: isExpanded ? 0 : chatX, y: isExpanded ? 0 : chatY + 20 }}
-            animate={{ opacity: 1, scale: 1, x: isExpanded ? 0 : chatX, y: isExpanded ? 0 : chatY }}
-            exit={{ opacity: 0, scale: 0.85, x: isExpanded ? 0 : chatX, y: isExpanded ? 0 : chatY + 20 }}
-            transition={{ 
-              default: { duration: reduceMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] },
-            }}
-            drag={!isExpanded}
-            dragConstraints={dragConstraints}
-            dragControls={dragControls}
-            dragListener={false}
-            dragMomentum={false}
-            onDragEnd={handleDragEnd}
-          >
-            {/* Header Bar */}
-            <div 
-              className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0 cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => dragControls.start(e)}
-            >
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
-                  <img
-                    src="/sales-agent-bot.gif"
-                    alt="Trợ lý AI FASTLANE"
-                    className="h-full w-full object-cover"
-                  />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">Trợ lý mua xe FASTLANE</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleResetChat}
-                  className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
-                  title="Làm mới cuộc trò chuyện"
-                  aria-label="Làm mới cuộc trò chuyện"
-                >
-                  <RotateCcw size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsExpanded((prev) => !prev)}
-                  className="hidden sm:flex rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
-                  title={isExpanded ? 'Thu nhỏ cửa sổ' : 'Mở rộng toàn màn hình'}
-                  aria-label={isExpanded ? 'Thu nhỏ cửa sổ' : 'Mở rộng toàn màn hình'}
-                >
-                  {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
-                  aria-label="Đóng Sales Agent"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+        className={
+          isExpanded
+            ? 'fixed inset-2 sm:inset-0 m-auto z-[61] flex flex-col overflow-hidden bg-white shadow-2xl border border-slate-200/90 w-[calc(100vw-16px)] sm:w-[min(94vw,1152px)] h-[calc(100dvh-16px)] sm:h-[min(88vh,860px)] rounded-2xl sm:rounded-3xl'
+            : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
+        }
+        style={{ transformOrigin: isExpanded ? 'center' : 'calc(100% - 32px) calc(100% - 32px)' }}
+        initial={{ opacity: 0, scale: 0.85, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: 20 }}
+        transition={{ 
+          default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
+          layout: { type: 'spring', bounce: 0, duration: 0.25 }
+        }}
+      >
+        {/* Header Bar */}
+        <div 
+          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0"
+        >
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
+              <img
+                src="/sales-agent-bot.gif"
+                alt="Trợ lý AI FASTLANE"
+                className="h-full w-full object-cover"
+              />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">Trợ lý mua xe FASTLANE</p>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleResetChat}
+              className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
+              title="Làm mới cuộc trò chuyện"
+              aria-label="Làm mới cuộc trò chuyện"
+            >
+              <RotateCcw size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className="hidden sm:flex rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
+              title={isExpanded ? 'Thu nhỏ cửa sổ' : 'Mở rộng toàn màn hình'}
+              aria-label={isExpanded ? 'Thu nhỏ cửa sổ' : 'Mở rộng toàn màn hình'}
+            >
+              {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 cursor-pointer"
+              aria-label="Đóng Sales Agent"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
 
             {/* Main Content Area: Split 2 columns in Expanded Mode */}
             <div className="flex flex-1 min-h-0 overflow-hidden">

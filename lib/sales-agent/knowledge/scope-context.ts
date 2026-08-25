@@ -7,15 +7,17 @@ import { knowledgeScopeCatalogEngine } from './scope-catalog'
 export type KnowledgeScopeSource = 'CURRENT_USER' | 'USER_HISTORY' | 'SIGNED_INTERACTION' | 'CATALOG'
 
 export type KnowledgeScopeBinding = {
-  bindingId: string
+  bindingId?: string
   vehicleModel?: string
   modelYear?: number
+  categories?: string[]
+  isBindingAmbiguous?: boolean
   modelYearPolicy?: 'EXPLICIT' | 'ONLY_AVAILABLE' | 'LATEST'
-  sources: {
+  sources?: {
     vehicleModel?: KnowledgeScopeSource
     modelYear?: KnowledgeScopeSource
   }
-  sourceTexts: string[]
+  sourceTexts?: string[]
 }
 
 export type KnowledgeScopeContext = {

@@ -21,6 +21,7 @@ export type DepositOrderInput = {
   optionalPackages: string[]
   promotionCode: string | null
   paymentMethod: DepositPaymentMethod
+  showroomId: string
   showroom?: string | null
 }
 
@@ -305,6 +306,7 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
     'promotion_code',
     'payment_method',
     'terms_accepted',
+    'showroom_id',
     'showroom',
   ])
   if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
@@ -369,6 +371,7 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
     optional_packages: input.optional_packages,
     promotion_code: input.promotion_code,
   })
+  const showroomId = text(input, 'showroom_id', 'Showroom', { required: true, max: 80 })
 
   return {
     customerType,
@@ -387,6 +390,7 @@ export function parseDepositOrderInput(body: unknown): DepositOrderInput {
       ['credit_card', 'atm', 'bank_transfer'] as const,
       'Phương thức thanh toán',
     ),
+    showroomId,
     showroom: input.showroom ? text(input, 'showroom', 'Showroom', { max: 120 }) : null,
   }
 }

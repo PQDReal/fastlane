@@ -126,8 +126,8 @@ function findScopedCatalogProduct(
 
 function stripRawJsonSuggestions(markdown: string): string {
   return markdown
-    .replace(/(?:JSON\s*)?\[\s*\{\s*"label"\s*:\s*"[^"]+".*?\}\s*\]/gis, '')
-    .replace(/(?:JSON\s*)?\{\s*"label"\s*:\s*"[^"]+".*?\}/gis, '')
+    .replace(/(?:JSON\s*)?\[\s*\{\s*"label"\s*:\s*"[^"]+"[\s\S]*?\}\s*\]/gi, '')
+    .replace(/(?:JSON\s*)?\{\s*"label"\s*:\s*"[^"]+"[\s\S]*?\}/gi, '')
     .trim()
 }
 
@@ -459,8 +459,11 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
+  const hasPartialToolResult = options.evidence.getAllToolResults().some((result) => (
+    result.outcome === 'SUCCESS' && result.completeness === 'PARTIAL'
+  ))
   const completeness = plan.outcome === 'ANSWER'
-    ? 'COMPLETE'
+    ? (hasPartialToolResult ? 'PARTIAL' : 'COMPLETE')
     : plan.outcome === 'DEGRADED'
       ? 'NO_EVIDENCE'
       : 'PARTIAL'

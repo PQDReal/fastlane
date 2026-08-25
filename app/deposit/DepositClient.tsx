@@ -18,6 +18,7 @@ import {
   validateDepositCustomerDetails,
   type DepositCustomerField,
 } from '../../lib/deposit/order-input'
+import type { Showroom } from '../../lib/showrooms/types'
 import {
   DEPOSIT_DRAFT_VERSION,
   type DepositDraft,
@@ -205,7 +206,7 @@ const normalizeWard = (name: string) => {
 const findMatchingWard = (showroom: any, locationWards: LocationOption[]) => {
   if (!locationWards || locationWards.length === 0) return null;
   
-  const normDistrict = normalizeWard(showroom.district_name || '');
+  const normDistrict = normalizeWard(showroom.districtName || '');
   const addressNorm = showroom.address ? showroom.address.toLowerCase() : '';
   
   // 1. Try exact normalized match on district_name
@@ -229,7 +230,7 @@ const findMatchingWard = (showroom: any, locationWards: LocationOption[]) => {
     if (showroom.address && showroom.address.includes(w.name)) {
       return w.name;
     }
-    if (showroom.district_name && showroom.district_name.includes(w.name)) {
+    if (showroom.districtName && showroom.districtName.includes(w.name)) {
       return w.name;
     }
   }
@@ -333,8 +334,8 @@ export function DepositClient({
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const shouldReduceMotion = useReducedMotion()
 
-  const [showrooms, setShowrooms] = useState<any[]>([])
-  const [selectedShowroom, setSelectedShowroom] = useState<any>(null)
+  const [showrooms, setShowrooms] = useState<Showroom[]>([])
+  const [selectedShowroom, setSelectedShowroom] = useState<Showroom | null>(null)
   const [openShowroom, setOpenShowroom] = useState(false)
   const [dbVariants, setDbVariants] = useState<any[]>([])
   const [dbVariantsLoading, setDbVariantsLoading] = useState(false)
@@ -464,17 +465,13 @@ export function DepositClient({
 
     // Dữ liệu showroom phụ thuộc loại xe đang đặt cọc. Giữ nguyên bộ lọc
     // tỉnh/phường hiện tại; chỉ thay nguồn showroom tương ứng với loại xe.
-    const showroomDataPath = vehicleType === 'motorbike'
-      ? '/data/showroomescooter.json'
-      : '/data/showroomcar.json'
-    fetch(showroomDataPath)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.data) {
-          setShowrooms(data.data)
-        }
+    fetch(`/api/v1/showrooms?vehicle_type=${vehicleType}`)
+      .then(async (res) => {
+        const payload = await res.json()
+        if (!res.ok) throw new Error(payload?.error?.message || 'Không thể tải showroom.')
+        setShowrooms(payload.data ?? [])
       })
-      .catch(console.error)
+      .catch((error) => console.error('Unable to load showrooms:', error))
 
     return () => controller.abort()
   }, [vehicleType])
@@ -595,7 +592,7 @@ export function DepositClient({
            .trim();
       }
       
-      const provName = normalize(s.province_name);
+      const provName = normalize(s.provinceName);
       const addrName = normalize(s.address);
       const formProv = normalize(formData.province);
       
@@ -606,7 +603,7 @@ export function DepositClient({
       const normalize = (str: string) => str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd').replace(/^(tỉnh|thành phố|tp|quận|huyện|thị xã|phường|xã|thị trấn)\s+/i, '').replace(/\s+/g, '').trim() : '';
       const formWard = normalize(formData.ward);
       if (!formWard) return true;
-      return normalize(s.district_name).includes(formWard) || formWard.includes(normalize(s.district_name)) || normalize(s.address).includes(formWard) || normalize(s.name).includes(formWard);
+      return normalize(s.districtName || '').includes(formWard) || formWard.includes(normalize(s.districtName || '')) || normalize(s.address).includes(formWard) || normalize(s.name).includes(formWard);
     });
 
   useEffect(() => {
@@ -618,7 +615,7 @@ export function DepositClient({
       const pendingShowroomId = pendingDraftShowroomIdRef.current
       const restoredShowroom = pendingShowroomId
         ? filteredShowrooms.find((showroom) =>
-            String(showroom.entity_id ?? showroom.id ?? '') === pendingShowroomId,
+            String(showroom.id ?? '') === pendingShowroomId,
           )
         : null
       if (restoredShowroom) {
@@ -626,7 +623,7 @@ export function DepositClient({
         setSelectedShowroom(restoredShowroom)
         return
       }
-      if (!selectedShowroom || !filteredShowrooms.some(s => s.entity_id === selectedShowroom.entity_id)) {
+      if (!selectedShowroom || !filteredShowrooms.some(s => s.id === selectedShowroom.id)) {
         setSelectedShowroom(filteredShowrooms[0])
       }
     } else {
@@ -940,6 +937,7 @@ export function DepositClient({
             promotion_code: promotionQuote?.promotion?.code ?? null,
             payment_method: 'atm',
             terms_accepted: termsAccepted,
+            showroom_id: selectedShowroom?.id || '',
             showroom: selectedShowroom?.name || '',
           }),
         })
@@ -1085,7 +1083,7 @@ export function DepositClient({
     if (!draftHydrated || !draftEnabled || draftSavingStoppedRef.current) return
 
     const showroomId = selectedShowroom
-      ? String(selectedShowroom.entity_id ?? selectedShowroom.id ?? '') || null
+      ? String(selectedShowroom.id ?? '') || null
       : null
     const draft: DepositDraft = {
       version: DEPOSIT_DRAFT_VERSION,
@@ -2110,10 +2108,10 @@ export function DepositClient({
                       {openShowroom && (
                         <div className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
                           {filteredShowrooms.length ? filteredShowrooms.map(s => {
-                            const active = selectedShowroom?.entity_id === s.entity_id;
+                            const active = selectedShowroom?.id === s.id;
                             return (
                               <button
-                                key={s.entity_id}
+                                key={s.id}
                                 type="button"
                                 onClick={() => {
                                   setSelectedShowroom(s);

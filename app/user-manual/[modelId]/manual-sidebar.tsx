@@ -66,7 +66,7 @@ export function ManualSidebar({ tree, modelId, models }: ManualSidebarProps) {
           }}
         >
           {hasChildren && (
-            <button 
+            <button
               onClick={(e) => toggle(node.id, e)} 
               className="mr-1.5 p-1 rounded-sm hover:bg-slate-200 shrink-0 text-slate-500"
             >
@@ -137,7 +137,7 @@ export function ManualSidebar({ tree, modelId, models }: ManualSidebarProps) {
       {showChangeModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-lg bg-slate-900 p-6 text-white shadow-xl relative">
-            <button 
+            <button
               onClick={() => setShowChangeModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >

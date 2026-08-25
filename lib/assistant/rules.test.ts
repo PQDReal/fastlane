@@ -145,6 +145,7 @@ describe('assistant rule engine', () => {
       filters: {},
     })
     expect(classifySearchQuery('Amio dung lượng pin bao nhiêu').catalogQuery).toBe('amio')
+    expect(classifySearchQuery('Feliz dùng pin gì').catalogQuery).toBe('feliz')
   })
   it.each([
     ['xin chào, xe máy dưới 20 triệu', 'recommendation', ''],

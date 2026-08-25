@@ -5,21 +5,27 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   BatteryCharging,
-  CheckCircle2,
+  BookOpen,
   ChevronDown,
   ChevronRight,
   CircleDot,
+  Download,
   ExternalLink,
   FileText,
   Headphones,
   MapPin,
   ShieldCheck,
-  Wrench,
 } from "lucide-react";
-import type { WarrantyFactItem } from "@/lib/api/after-sales-types";
+import {
+  MOTORBIKE_OWNER_MANUALS,
+  MOTORBIKE_WARRANTY_BOOKS,
+  MOTORBIKE_WARRANTY_REVIEWED_AT,
+  MOTORBIKE_WARRANTY_SOURCE_URL,
+  VERIFIED_MOTORBIKE_WARRANTY_POLICIES,
+  type OfficialMotorbikeDocument,
+} from "@/lib/after-sales/motorbike-warranty-policy";
 
 interface MotorbikeWarrantyContentProps {
-  warranties: WarrantyFactItem[];
   onOpenManuals: () => void;
   onOpenWorkshops: () => void;
 }
@@ -94,8 +100,76 @@ function Heading({
   );
 }
 
+function OfficialDocumentGroup({
+  title,
+  description,
+  documents,
+  icon: Icon,
+  defaultOpen = false,
+}: {
+  title: string;
+  description: string;
+  documents: readonly OfficialMotorbikeDocument[];
+  icon: typeof FileText;
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border border-slate-300 bg-white">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#836100] active:bg-[#836100]/5"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <Icon size={20} className="shrink-0 text-[#836100]" />
+          <span>
+            <span className="block text-sm font-bold uppercase tracking-[0.1em] text-slate-900">
+              {title}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              {description}
+            </span>
+          </span>
+        </span>
+        <ChevronDown
+          size={20}
+          className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#836100]" : "text-slate-500"}`}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="max-h-[28rem] overflow-y-auto border-t border-slate-200">
+              {documents.map((document) => (
+                <a
+                  key={document.id}
+                  href={document.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 text-sm text-slate-700 transition last:border-b-0 hover:bg-[#836100]/5 hover:text-[#836100] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#836100] active:bg-[#836100]/10"
+                >
+                  <span className="leading-6">{document.label}</span>
+                  <Download size={17} className="shrink-0" />
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function MotorbikeWarrantyContent({
-  warranties,
   onOpenManuals,
   onOpenWorkshops,
 }: MotorbikeWarrantyContentProps) {
@@ -153,75 +227,53 @@ export function MotorbikeWarrantyContent({
         <Heading
           index="02"
           title="Thời hạn bảo hành"
-          description="Thời hạn thay đổi theo công nghệ pin và điều kiện kích hoạt bảo hành của xe."
+          description="Không chọn thời hạn chỉ theo tên xe. Cần đối chiếu công nghệ pin, ngày xuất hóa đơn và đúng sổ bảo hành được cấp cho xe."
         />
         <div className="grid gap-4 md:grid-cols-2">
-          {warranties.map((item) => (
+          {VERIFIED_MOTORBIKE_WARRANTY_POLICIES.map((item) => (
             <div key={item.id} className="border border-slate-200 bg-white p-6">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                {item.modelSeries}
+                {item.label}
               </p>
-              <p className="mt-3 text-xl font-semibold text-[#836100]">
-                {item.warrantyTerm}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Bảo hành pin: {item.batteryWarrantyTerm}
-              </p>
-              {item.conditions.length > 0 && (
-                <ul className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-                  {item.conditions.map((condition) => (
-                    <li
-                      key={condition}
-                      className="flex gap-2 text-sm leading-6 text-slate-600"
-                    >
-                      <ChevronRight
-                        size={14}
-                        className="mt-1 shrink-0 text-[#836100]"
-                      />
-                      {condition}
-                    </li>
-                  ))}
-                </ul>
+              {item.vehicleWarranty && (
+                <p className="mt-3 text-xl font-semibold text-[#836100]">
+                  Xe: {item.vehicleWarranty}
+                </p>
               )}
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Pin: {item.batteryWarranty}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-slate-500">{item.applicability}</p>
+              <ul className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                {item.conditions.map((condition) => (
+                  <li
+                    key={condition}
+                    className="flex gap-2 text-sm leading-6 text-slate-600"
+                  >
+                    <ChevronRight
+                      size={14}
+                      className="mt-1 shrink-0 text-[#836100]"
+                    />
+                    {condition}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#836100] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836100]"
+              >
+                Mở nguồn chính thức <ExternalLink size={13} />
+              </a>
             </div>
           ))}
         </div>
-        {warranties.length === 0 && (
-          <p className="border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-            Chưa có dữ liệu bảo hành xe máy điện được publish cho lựa chọn hiện
-            tại.
+        <div className="mt-5 flex gap-3 border border-amber-200 bg-amber-50 p-5">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" />
+          <p className="text-sm leading-6 text-amber-900">
+            Nhãn trên website ghi “sau 15/08/2025”, còn tên tệp PDF chính thức ghi “từ 15/08/2025”. Với xe xuất hóa đơn đúng ngày 15/08/2025, hãy dùng sổ bảo hành được cấp theo hồ sơ xe để xác định chính sách.
           </p>
-        )}
-        <div className="mt-5 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-3">
-          <div className="bg-white p-5">
-            <p className="text-xs font-bold uppercase text-slate-500">
-              Xe dùng pin LFP
-            </p>
-            <p className="mt-2 font-semibold text-slate-900">
-              Xe 6 năm · Pin tới 8 năm
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Không giới hạn quãng đường theo điều kiện chính sách.
-            </p>
-          </div>
-          <div className="bg-white p-5">
-            <p className="text-xs font-bold uppercase text-slate-500">
-              Các dòng xe còn lại
-            </p>
-            <p className="mt-2 font-semibold text-slate-900">3 năm</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Không giới hạn quãng đường.
-            </p>
-          </div>
-          <div className="bg-white p-5">
-            <p className="text-xs font-bold uppercase text-slate-500">
-              Pin LFP đổi pin
-            </p>
-            <p className="mt-2 font-semibold text-slate-900">8 năm</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Không giới hạn quãng đường.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -237,7 +289,7 @@ export function MotorbikeWarrantyContent({
               Pin LFP theo xe mới
             </h4>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              8 năm từ ngày kích hoạt bảo hành, không giới hạn quãng đường.
+              5 năm hoặc 8 năm từ ngày kích hoạt bảo hành, tùy ngày xuất hóa đơn và sổ áp dụng; không giới hạn quãng đường.
             </p>
           </div>
           <div className="bg-white p-6">
@@ -271,7 +323,7 @@ export function MotorbikeWarrantyContent({
         <div className="overflow-hidden border border-slate-200 bg-white">
           {[
             ["Phụ tùng thông thường", "1 năm, không giới hạn quãng đường."],
-            ["Pin LFP", "8 năm, không giới hạn quãng đường."],
+            ["Pin LFP", "5 năm hoặc 8 năm tùy sổ/chính sách áp dụng, không giới hạn quãng đường."],
             ["Pin khác", "3 năm, không giới hạn quãng đường."],
             ["Ắc quy 12V", "1 năm, không giới hạn quãng đường."],
           ].map(([name, term]) => (
@@ -355,8 +407,34 @@ export function MotorbikeWarrantyContent({
         </div>
       </section>
 
+      <section
+        id="official-documents"
+        className="scroll-mt-28 border-b border-slate-200 pb-14 sm:pb-16"
+      >
+        <Heading
+          index="07"
+          title="Sổ bảo hành & Hướng dẫn sử dụng chính thức"
+          description={`Danh mục link PDF đang được trang VinFast công bố, được đối chiếu ngày ${MOTORBIKE_WARRANTY_REVIEWED_AT}. FASTLANE chưa crawl nội dung các PDF này vào Sales Agent.`}
+        />
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <OfficialDocumentGroup
+            title="Sổ bảo hành xe máy điện"
+            description={`${MOTORBIKE_WARRANTY_BOOKS.length} tài liệu theo công nghệ pin và ngày xuất hóa đơn`}
+            documents={MOTORBIKE_WARRANTY_BOOKS}
+            icon={FileText}
+            defaultOpen
+          />
+          <OfficialDocumentGroup
+            title="Hướng dẫn sử dụng xe máy điện"
+            description={`${MOTORBIKE_OWNER_MANUALS.length} tài liệu PDF theo mẫu xe`}
+            documents={MOTORBIKE_OWNER_MANUALS}
+            icon={BookOpen}
+          />
+        </div>
+      </section>
+
       <section id="warranty-support" className="scroll-mt-28">
-        <Heading index="07" title="Thông tin hỗ trợ" />
+        <Heading index="08" title="Thông tin hỗ trợ" />
         <div className="grid gap-4 md:grid-cols-3">
           <button
             type="button"
@@ -368,10 +446,8 @@ export function MotorbikeWarrantyContent({
             <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
               Dịch vụ khách hàng
             </p>
-            <p className="mt-2 font-semibold text-slate-900 transition group-hover:text-[#836100]">1900 xxxx</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Tạm thời chưa khả dụng
-            </p>
+            <p className="mt-2 font-semibold text-slate-900 transition group-hover:text-[#836100]">1900 23 23 89 · Nhánh 1</p>
+            <p className="mt-1 text-sm text-slate-500">Hotline VinFast chính thức</p>
           </button>
           <button
             type="button"
@@ -401,7 +477,7 @@ export function MotorbikeWarrantyContent({
           </button>
         </div>
         <a
-          href="https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-xe-may"
+          href={MOTORBIKE_WARRANTY_SOURCE_URL}
           target="_blank"
           rel="noreferrer"
           className="mt-6 block text-xs font-semibold text-slate-500 transition hover:text-[#836100]"

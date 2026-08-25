@@ -26,6 +26,7 @@ function validInput() {
     optional_packages: ['pin-phu', 'pin-phu'],
     promotion_code: ' summer10 ',
     payment_method: 'bank_transfer',
+    showroom_id: 'showroom-1',
     terms_accepted: true,
   }
 }

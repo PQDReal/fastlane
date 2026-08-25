@@ -20,6 +20,7 @@ import {
   X,
   Layers3,
   Settings,
+  Store,
 } from 'lucide-react'
 
 const navigation = [
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Sản phẩm', href: '/admin/products', icon: Archive },
   { name: 'Nhãn dịch vụ', href: '/admin/service-labels', icon: Wrench },
   { name: 'Dịch vụ hậu mãi', href: '/admin/after-sales', icon: Database },
+  { name: 'Showroom', href: '/admin/showrooms', icon: Store },
   { name: 'Mẫu phụ kiện', href: '/admin/accessory-templates', icon: Layers3 },
   { name: 'Đơn đặt xe', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Đơn phụ kiện', href: '/admin/accessory-orders', icon: Package },
