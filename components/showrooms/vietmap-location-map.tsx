@@ -70,6 +70,28 @@ export function VietMapLocationMap({
   const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [apiKey, setApiKey] = useState<string | null | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+
+    void fetch('/api/v1/maps/vietmap-config', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = (await response.json()) as { data?: { apiKey?: string | null } }
+        if (!response.ok) throw new Error('Không thể đọc cấu hình VietMap.')
+        if (!cancelled) setApiKey(payload.data?.apiKey?.trim() || null)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setApiKey(null)
+          setMapError(error instanceof Error ? error.message : 'Không thể đọc cấu hình VietMap.')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -91,8 +113,8 @@ export function VietMapLocationMap({
   }
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_VIETMAP_API_KEY
     if (!mapContainerRef.current) return
+    if (apiKey === undefined) return
     if (!apiKey) {
       setMapError('Chưa cấu hình API key VietMap.')
       return
@@ -181,7 +203,7 @@ export function VietMapLocationMap({
       markerGroupRef.current = null
       setMapReady(false)
     }
-  }, [])
+  }, [apiKey])
 
   useEffect(() => {
     const map = mapRef.current
@@ -290,12 +312,12 @@ export function VietMapLocationMap({
       >
         {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
       </button>
-      {process.env.NEXT_PUBLIC_VIETMAP_API_KEY && !mapReady && !mapError && (
+      {apiKey !== null && !mapReady && !mapError && (
         <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-100/90 p-6 text-center text-sm text-slate-600">
           Đang tải bản đồ VietMap...
         </div>
       )}
-      {!process.env.NEXT_PUBLIC_VIETMAP_API_KEY && (
+      {apiKey === null && !mapError && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-slate-100/95 p-6 text-center text-sm text-slate-600">
           Chưa cấu hình API key VietMap.
         </div>
