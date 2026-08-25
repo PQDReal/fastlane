@@ -91,10 +91,34 @@ export async function getCurrentPromotionsRepository(
   const observation: ToolObservationRef = {
     observationId: `obs-${toolCallId}`,
     toolCallId,
-    outcome: queryError ? 'ERROR' : (promotions.length > 0 ? 'SUCCESS' : 'NO_MATCH'),
-    issueCodes: queryError ? ['DATABASE_ERROR'] : [],
+    outcome: queryError ? 'UNAVAILABLE' : (promotions.length > 0 ? 'SUCCESS' : 'NO_MATCH'),
+    issueCodes: queryError ? ['RESOURCE_UNAVAILABLE'] : [],
     inputHash: JSON.stringify(input),
     readAt,
+  }
+
+  if (queryError) {
+    return {
+      schemaVersion: '2.0',
+      toolCallId,
+      tool: 'get_current_promotions',
+      readAt,
+      dataAsOf,
+      evidence,
+      observation,
+      issues: [{ code: 'RESOURCE_UNAVAILABLE', message: queryError.message }],
+      appliedBindings: [],
+      outcome: 'UNAVAILABLE',
+      data: null,
+      diagnostics: {
+        execution: {
+          status: 'FALLBACK',
+          phase: 'promotions_query',
+          elapsedMs: Date.now() - queryStartedAt,
+          error: queryError,
+        },
+      },
+    }
   }
 
   return {
@@ -105,20 +129,10 @@ export async function getCurrentPromotionsRepository(
     dataAsOf,
     evidence,
     observation,
-    issues: queryError ? [{ code: 'DATABASE_ERROR', message: queryError.message }] : [],
+    issues: [],
     appliedBindings: [],
-    outcome: queryError ? 'ERROR' : 'SUCCESS',
+    outcome: 'SUCCESS',
     completeness: 'FULL',
-    diagnostics: queryError
-      ? {
-          execution: {
-            status: 'FALLBACK' as const,
-            phase: 'promotions_query',
-            elapsedMs: Date.now() - queryStartedAt,
-            error: queryError,
-          },
-        }
-      : undefined,
     data: { promotions },
   }
 }

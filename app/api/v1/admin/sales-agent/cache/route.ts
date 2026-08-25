@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
 import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { catalogCacheEngine } from '@/lib/sales-agent/cache/catalog-cache'
