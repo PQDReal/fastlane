@@ -29,14 +29,52 @@ snapshots and category requirements.
 
 ## Dry-run audit
 
-The audit is read-only. `--apply` is intentionally rejected until persistence
-and parity gates are implemented.
+The default audit is read-only and remains the required preflight before any
+persistence run.
 
 ```powershell
 npm run catalog-intelligence:backfill
 npm run catalog-intelligence:backfill -- --limit=10 --details
 npm run catalog-intelligence:backfill -- --json --details
 ```
+
+## Idempotent persistence
+
+Migration `067_catalog_intelligence_persistence_rpc.sql` adds the service-role
+RPC used by the backfill worker. One product snapshot is persisted in one
+database transaction: job, immutable snapshot, observations, contextual
+candidates, selected facts and review events either all commit or all roll
+back.
+
+The persistence boundary enforces these gates:
+
+- payload, extractor and selection-policy versions must match the database;
+- the same `(product_id, input_hash)` returns `already_applied` without writes;
+- calls for the same product are serialized before canonical selection;
+- an exact source-review hash can block observations before fact promotion;
+- `VERIFIED`, higher-authority and partial-snapshot conflicts never overwrite
+  the current fact;
+- products with extractor warnings are skipped instead of being recorded as a
+  falsely complete snapshot.
+
+Deployment workflow:
+
+```powershell
+# 1. Apply migrations 064, 065 and 067 through the normal database deployment.
+# 2. Reconfirm the current read-only report.
+npm run catalog-intelligence:backfill -- --details
+
+# 3. Start with a bounded apply and inspect the returned counters.
+npm run catalog-intelligence:backfill:apply -- --limit=10 --details
+
+# 4. Rerun the same command. Every successful prior snapshot must report
+#    already_applied before expanding the limit.
+npm run catalog-intelligence:backfill:apply -- --limit=10 --details
+```
+
+`catalog-intelligence:backfill:apply` is intentionally a separate command. The
+existing `catalog-intelligence:backfill` script always supplies `--dry-run`, so
+the audit command cannot accidentally write.
 
 Current reviewed baseline captured on 2026-08-24 against 112 active products:
 
@@ -72,8 +110,8 @@ only after its allowed technical sections and canonical vocabulary are frozen.
 
 ## Delivery order
 
-1. Deterministic vocabulary, extractors, resolver, unit parser and selector.
-2. Observation/fact persistence worker and idempotent backfill apply mode.
+1. Deterministic vocabulary, extractors, resolver, unit parser and selector — complete.
+2. Observation/fact persistence worker and idempotent backfill apply mode — implemented; migration deployment and bounded production apply remain operational steps.
 3. Legacy-versus-canonical shadow comparison.
 4. Gradual FAQ, entity-resolution, comparison, ranking and search cutover.
 5. Coverage evaluator and review workflow.
