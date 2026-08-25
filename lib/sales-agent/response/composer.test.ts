@@ -323,7 +323,7 @@ describe('Canonical Response Composer', () => {
       catalogStatus: 'SYNCED',
     })
 
-    expect(response.answer.markdown).toContain('[VinFast VF 5](/cars/vf-5)')
+    expect(response.answer.markdown).toContain('[VinFast VF 5 Plus](/cars/vf-5)')
     expect(response.answer.markdown).toContain(
       `[Hướng dẫn sử dụng VF 5 đời 2024](/knowledge/source/${chunkId})`,
     )
@@ -338,6 +338,73 @@ describe('Canonical Response Composer', () => {
     const citationBlock = response.blocks.find((block) => block.kind === 'FACT_SUMMARY')
     expect(citationBlock?.kind === 'FACT_SUMMARY' ? citationBlock.facts[0].href : null)
       .toBe(`/knowledge/source/${chunkId}`)
+  })
+
+  it('routes directly to manual or service target_url when fact-kb-target-url is present', () => {
+    const evidence = new EvidenceLedger()
+    const readAt = new Date().toISOString()
+    const chunkId = 'chunk-vf5-target-test'
+    const targetUrl = '/user-manual/VF%205_2024/VF%205_2024_1200789'
+    evidence.recordToolResult('call-target-url', {
+      schemaVersion: '2.0',
+      toolCallId: 'call-target-url',
+      tool: 'search_knowledge',
+      readAt,
+      dataAsOf: readAt,
+      outcome: 'SUCCESS',
+      completeness: 'FULL',
+      evidence: [{
+        evidenceId: `ev-kb-${chunkId}-${readAt}`,
+        source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
+        entity: { kind: 'KNOWLEDGE_SNIPPET', id: chunkId },
+        facts: [
+          { factRef: `fact-kb-title-${chunkId}`, factPath: 'title', valueHash: 'Hướng dẫn sử dụng VF 5 đời 2024' },
+          { factRef: `fact-kb-section-${chunkId}`, factPath: 'section', valueHash: 'Kích bình ắc quy' },
+          { factRef: `fact-kb-target-url-${chunkId}`, factPath: 'targetUrl', valueHash: targetUrl },
+        ],
+        readAt,
+      }],
+      observation: {
+        observationId: 'obs-target-url',
+        toolCallId: 'call-target-url',
+        outcome: 'SUCCESS',
+        issueCodes: [],
+        inputHash: '{}',
+        readAt,
+      },
+      diagnostics: {
+        scope: {
+          vehicleModel: 'VF 5',
+          modelYear: 2024,
+          scopeEnforcement: 'ENFORCED',
+          fallbackApplied: false,
+        },
+      },
+    })
+
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{
+          kind: 'ADVICE',
+          markdown: 'Để kích bình xe VF 5, anh/chị cần nối cực dương trước rồi mới nối cực âm.',
+        }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence,
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-target-test',
+      turnId: 'turn-target-test',
+      messageId: 'msg-target-test',
+    })
+
+    expect(response.answer.markdown).toContain(`[Hướng dẫn sử dụng VF 5 đời 2024](${targetUrl})`)
+    const citationBlock = response.blocks.find((block) => block.kind === 'FACT_SUMMARY')
+    expect(citationBlock?.kind === 'FACT_SUMMARY' ? citationBlock.facts[0].href : null)
+      .toBe(targetUrl)
   })
 
   it('surfaces a canonical warning when general retrieval ran without a scope catalog', () => {

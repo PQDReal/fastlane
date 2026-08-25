@@ -678,8 +678,27 @@ export async function executeDataTool(
         }
         const visualLookupLatencyMs = Math.max(0, Math.round((performance.now() - visualLookupStartedAt) * 100) / 100)
 
+        const chunkIds = safeSearchResults.map((k: any) => k.chunkId).filter(Boolean)
+        let targetUrlMap = new Map<string, string>()
+        if (chunkIds.length > 0) {
+          try {
+            const { data: chunkUrlRows } = await getSupabaseAdmin()
+              .from('sales_agent_knowledge_chunks')
+              .select('id, target_url')
+              .in('id', chunkIds)
+            targetUrlMap = new Map(
+              (chunkUrlRows || []).flatMap((r: any) =>
+                r.target_url && typeof r.target_url === 'string' ? [[r.id, r.target_url.trim()]] : []
+              )
+            )
+          } catch (urlErr) {
+            console.warn('[KNOWLEDGE TARGET URL] Could not fetch chunk target URLs:', urlErr)
+          }
+        }
+
         const evidence: EvidenceRecord[] = safeSearchResults.map((k: any) => {
           const media = visualPointers.filter((pointer) => pointer.citationId === k.citationId)
+          const targetUrl = targetUrlMap.get(k.chunkId) || (typeof k.targetUrl === 'string' ? k.targetUrl.trim() : null)
           return {
             evidenceId: `ev-kb-${k.chunkId}-${readAt}`,
             source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
@@ -690,6 +709,7 @@ export async function executeDataTool(
               { factRef: `fact-kb-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
               { factRef: `fact-kb-citation-${k.chunkId}`, factPath: 'citationId', valueHash: k.citationId },
               { factRef: `fact-kb-evidence-ref-${k.chunkId}`, factPath: 'evidenceRef', valueHash: k.evidenceRef },
+              ...(targetUrl ? [{ factRef: `fact-kb-target-url-${k.chunkId}`, factPath: 'targetUrl', valueHash: targetUrl }] : []),
               ...media.map((pointer) => ({
                 factRef: `fact-kb-media-${k.chunkId}-${pointer.assetId}`,
                 factPath: 'mediaPointer',

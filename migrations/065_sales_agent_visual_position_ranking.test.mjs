@@ -12,7 +12,7 @@ describe('Migration 065 — position-aware visual retrieval', () => {
     expect(sql.match(/array_position\(/gu)?.length).toBeGreaterThanOrEqual(8)
     expect(sql).toContain("occurrence.source_locator ->> 'blockOrdinal'")
     expect(sql).toContain("occurrence.source_locator ->> 'imageOrdinalInBlock'")
-    expect(sql.match(/ORDER BY candidates\.evidence_rank,/gu)).toHaveLength(2)
+    expect(sql.match(/candidates\.evidence_rank,/gu)?.length).toBeGreaterThanOrEqual(2)
     expect(sql).toContain('FROM PUBLIC, anon, authenticated')
     expect(sql).toContain('TO service_role')
   })

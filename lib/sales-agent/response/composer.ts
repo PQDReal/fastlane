@@ -216,9 +216,12 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const hasKnowledgeEvidence = latestKnowledgeResult?.outcome === 'SUCCESS'
     && knowledgeEvidence.length > 0
   const primaryKnowledgeEvidence = knowledgeEvidence[0]
-  const primaryKnowledgeHref = primaryKnowledgeEvidence
+  const targetUrlFact = primaryKnowledgeEvidence
+    ? options.evidence.getFact(`fact-kb-target-url-${primaryKnowledgeEvidence.entity.id}`)?.valueHash
+    : undefined
+  const primaryKnowledgeHref = (targetUrlFact && targetUrlFact.trim()) || (primaryKnowledgeEvidence
     ? salesAgentKnowledgeSourceUrl(primaryKnowledgeEvidence.entity.id)
-    : null
+    : null)
   const effectiveModelYear = scopeDiagnostics?.modelYear ?? scopeDiagnostics?.defaultedModelYear
   const primaryKnowledgeTitle = primaryKnowledgeEvidence
     ? options.evidence.getFact(`fact-kb-title-${primaryKnowledgeEvidence.entity.id}`)?.valueHash
@@ -274,11 +277,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   const knowledgeMedia = availableIndexedKnowledgeMedia
     .filter((item) => mediaIsReferenced(compactMarkdown, item))
     .slice(0, 3)
-  // The Agent owns placement and wording of visual guidance. The server only
-  // materializes verified media metadata and must not append a generic legend
-  // copied from the annotation summary.
   const finalMarkdown = compactMarkdown
-  const lowerMarkdown = finalMarkdown.toLowerCase()
 
   // 2. Materialize Blocks from Ledgers and Known Entities (Intent-Gated)
   const blocks: AssistantBlock[] = []
@@ -368,7 +367,8 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       const titleFact = options.evidence.getFact(`fact-kb-title-${e.entity.id}`)?.valueHash || 'Tài liệu hướng dẫn'
       const secFact = options.evidence.getFact(`fact-kb-section-${e.entity.id}`)?.valueHash || 'Chi tiết'
       const citationId = options.evidence.getFact(`fact-kb-citation-${e.entity.id}`)?.valueHash
-      const sourceHref = salesAgentKnowledgeSourceUrl(e.entity.id)
+      const targetUrlFact = options.evidence.getFact(`fact-kb-target-url-${e.entity.id}`)?.valueHash
+      const sourceHref = (targetUrlFact && targetUrlFact.trim()) || salesAgentKnowledgeSourceUrl(e.entity.id)
       return {
         ...(citationId ? { citationId } : {}),
         ...(sourceHref ? { href: sourceHref } : {}),

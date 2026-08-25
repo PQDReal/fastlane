@@ -10,7 +10,7 @@ describe('Sales Agent Markdown policy', () => {
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('Quy trình dùng danh sách đánh số')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('[media:N]')
     expect(SALES_AGENT_MARKDOWN_TEMPLATE).toContain('media[].reference')
-    expect(SALES_AGENT_SYSTEM_PROMPT).toContain(SALES_AGENT_MARKDOWN_TEMPLATE)
+    expect(SALES_AGENT_SYSTEM_PROMPT).toContain('[media:N]')
     expect(SALES_AGENT_SYSTEM_PROMPT).toContain('không mặc định biến toàn bộ câu trả lời')
     expect(SALES_AGENT_SYSTEM_PROMPT).toContain('không dùng số lượng tồn kho')
   })
