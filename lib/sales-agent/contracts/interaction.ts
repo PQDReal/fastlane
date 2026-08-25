@@ -7,6 +7,7 @@ export const SALES_AGENT_INTERACTION_VISIBLE_OPTIONS = 4
 export type SalesAgentInteractionSlot = 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage' | string
 export type SalesAgentInteractionMode = 'SINGLE' | 'MULTIPLE' | 'single' | 'multiple'
 export type SalesAgentInteractionProductType = ProductType
+export type SalesAgentScopeField = 'vehicleModel' | 'modelYear'
 
 export type SalesAgentInteractionResponse = {
   interactionId: string
@@ -33,9 +34,23 @@ export const interactionOptionSchema = z.object({
   label: z.string().trim().min(1),
   description: z.string().trim().optional(),
   recommended: z.boolean().optional(),
+  /** Scope options are descriptive only; the signed continuation token is authoritative. */
+  field: z.enum(['vehicleModel', 'modelYear']).optional(),
+  value: z.string().trim().min(1).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 export type InteractionOption = z.infer<typeof interactionOptionSchema>
+
+export const interactionFieldSchema = z.object({
+  field: z.enum(['vehicleModel', 'modelYear']),
+  label: z.string().trim().min(1),
+  required: z.boolean().default(true),
+  dependsOn: z.enum(['vehicleModel']).optional(),
+  // Scope fields can contain the linked year options for every active model;
+  // the UI filters these by the selected vehicleModel before rendering.
+  options: z.array(interactionOptionSchema).min(1).max(64),
+})
+export type InteractionField = z.infer<typeof interactionFieldSchema>
 
 export const salesAgentInteractionSchema = z.object({
   interactionId: z.string().trim().min(1),
@@ -50,6 +65,7 @@ export const salesAgentInteractionSchema = z.object({
   allowFreeText: z.boolean().default(false),
   submitLabel: z.string().trim().min(1).default('Xác nhận'),
   options: z.array(interactionOptionSchema).min(1).max(8),
+  fields: z.array(interactionFieldSchema).max(2).optional(),
   continuationToken: z.string().trim().min(1),
   expiresAt: z.string().datetime(),
 })
@@ -84,6 +100,7 @@ export function validateSalesAgentInteraction(value: unknown): SalesAgentInterac
     allowFreeText: Boolean(input.allowFreeText),
     submitLabel: String(input.submitLabel || 'Xác nhận'),
     options: Array.isArray(input.options) ? input.options : [],
+    fields: Array.isArray(input.fields) ? input.fields : undefined,
     continuationToken: String(input.continuationToken || ''),
     expiresAt: String(input.expiresAt || new Date().toISOString()),
   }

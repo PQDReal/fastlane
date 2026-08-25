@@ -16,6 +16,7 @@ export const ACCESSORY_PRODUCT_CACHE_PREFIX = 'fastlane:accessory-product:v2:'
 export const CAR_CATALOG_CACHE_PREFIX = 'fastlane:car-catalog:v1:'
 export const CAR_DETAIL_CACHE_PREFIX = 'fastlane:car-detail:v1:'
 export const DEPOSIT_VEHICLE_METADATA_CACHE_PREFIX = 'fastlane:deposit-vehicle-metadata:v1:'
+export const SHOWROOM_CACHE_PREFIX = 'fastlane:showrooms:v1:'
 
 export function normalizeSearchQuery(query: string | null | undefined) {
   return normalizeProductSearchText(query)

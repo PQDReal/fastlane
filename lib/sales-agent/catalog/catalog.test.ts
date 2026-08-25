@@ -138,4 +138,18 @@ describe('Canonical Catalog Repositories', () => {
     expect(res.outcome).toBe('NO_MATCH')
     expect(res.issues[0].code).toBe('UNKNOWN_ENTITY_REFERENCE')
   })
+
+  it('getProductDetailsRepository resolves a product mention internally', async () => {
+    const res = await getProductDetailsRepository(
+      { productMentions: ['VF 8'] },
+      'call-test-details-by-name',
+    )
+
+    expect(res.outcome).toBe('SUCCESS')
+    if (res.outcome === 'SUCCESS') {
+      expect(res.data.products).toHaveLength(1)
+      expect(res.data.products[0].productId).toBe('prod-vf8')
+      expect(res.data.products[0].name).toBe('VinFast VF 8')
+    }
+  })
 })

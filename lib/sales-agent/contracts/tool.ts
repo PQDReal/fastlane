@@ -43,7 +43,8 @@ export const resolveCatalogEntitiesInputSchema = z.object({
 export type ResolveCatalogEntitiesInput = z.input<typeof resolveCatalogEntitiesInputSchema>
 
 export const getProductDetailsInputSchema = z.object({
-  productIds: z.array(z.string().trim().min(1)).min(1).max(3),
+  productIds: z.array(z.string().trim().min(1)).max(3).optional(),
+  productMentions: z.array(z.string().trim().min(1)).max(3).optional(),
   sections: z.array(z.enum([
     'PRICING',
     'SPECIFICATIONS',
@@ -51,12 +52,23 @@ export const getProductDetailsInputSchema = z.object({
     'DESCRIPTION',
     'PUBLICATION',
   ])).optional(),
+}).superRefine((input, context) => {
+  const referenceCount = (input.productIds?.length ?? 0) + (input.productMentions?.length ?? 0)
+  if (referenceCount < 1 || referenceCount > 3) {
+    context.addIssue({ code: 'custom', message: 'Cần từ 1 đến 3 product ID hoặc tên sản phẩm.' })
+  }
 })
 export type GetProductDetailsInput = z.infer<typeof getProductDetailsInputSchema>
 
 export const compareProductsInputSchema = z.object({
-  productIds: z.array(z.string().trim().min(1)).min(2).max(3),
+  productIds: z.array(z.string().trim().min(1)).max(3).optional(),
+  productMentions: z.array(z.string().trim().min(1)).max(3).optional(),
   criteria: z.array(z.string().trim().min(1)).optional(),
+}).superRefine((input, context) => {
+  const referenceCount = (input.productIds?.length ?? 0) + (input.productMentions?.length ?? 0)
+  if (referenceCount < 2 || referenceCount > 3) {
+    context.addIssue({ code: 'custom', message: 'Cần từ 2 đến 3 product ID hoặc tên sản phẩm để so sánh.' })
+  }
 })
 export type CompareProductsInput = z.infer<typeof compareProductsInputSchema>
 
@@ -84,24 +96,25 @@ export type DiscoverAccessoriesInput = z.infer<typeof discoverAccessoriesInputSc
 
 export const searchKnowledgeInputSchema = z.object({
   query: z.string().trim().min(1).max(200),
+  vehicleModel: z.string().trim().min(1).max(80).optional(),
+  modelYear: z.number().int().min(2000).max(2100).optional(),
   categories: z.array(z.enum([
+    'TECHNICAL_GUIDE',
+    'WARRANTY_BATTERY',
+    'DEPOSIT_DELIVERY',
+    'PROMOTIONS_FINANCING',
+    'CHARGING_NETWORK',
+    'GENERAL_POLICY',
     'PURCHASE_POLICY',
     'WARRANTY_POLICY',
     'BATTERY_POLICY',
-    'CHARGING_NETWORK',
     'REGISTRATION_PROCEDURE',
   ])).optional(),
-  topK: z.number().int().min(1).max(5).default(3),
+  // Keep a small recall margin for hybrid retrieval; the final context
+  // builder still enforces the token budget and removes duplicates.
+  topK: z.number().int().min(1).max(5).default(5),
 })
 export type SearchKnowledgeInput = z.infer<typeof searchKnowledgeInputSchema>
-
-export const searchUserManualsInputSchema = z.object({
-  query: z.string().trim().min(1).max(200),
-  modelSeries: z.string().trim().optional().describe('Dòng xe người dùng đang sử dụng, vd: VF 5, VF 8'),
-  year: z.number().int().optional().describe('Đời xe người dùng đang sử dụng, vd: 2024'),
-  topK: z.number().int().min(1).max(5).default(3),
-})
-export type SearchUserManualsInput = z.infer<typeof searchUserManualsInputSchema>
 
 // Terminal Tool Inputs
 export const submitResponseInputSchema = z.object({
@@ -156,13 +169,43 @@ export const appliedBindingSchema = z.object({
   value: z.unknown(),
   authority: z.enum(['ENFORCED', 'CONFIRMED']),
   provenance: z.object({
-    kind: z.enum(['SIGNED_INTERACTION', 'BUSINESS_INVARIANT', 'PAGE_CONTEXT']),
+    kind: z.enum(['SIGNED_INTERACTION', 'BUSINESS_INVARIANT', 'PAGE_CONTEXT', 'SERVER_RESOLVED']),
     id: z.string().optional(),
   }),
 })
 export type AppliedBinding = z.infer<typeof appliedBindingSchema>
 
 export type ToolOutcome = 'SUCCESS' | 'NO_MATCH' | 'NEEDS_INPUT' | 'REJECTED' | 'UNAVAILABLE'
+
+/** Backend-only diagnostics. Never copied into the Agent evidence context. */
+export interface ToolDiagnostics {
+  retrieval?: Record<string, unknown>
+  scope?: {
+    bindingId?: string
+    vehicleModel?: string
+    modelYear?: number
+    defaultedModelYear?: number
+    yearPolicy?: 'EXPLICIT' | 'ONLY_AVAILABLE' | 'LATEST' | 'AMBIGUOUS'
+    catalogStatus?: 'READY' | 'EMPTY' | 'UNAVAILABLE'
+    catalogEntryCount?: number
+    catalogEpoch?: number
+    sources?: Record<string, string>
+    ignoredRawFields?: string[]
+  }
+  visualLookup?: {
+    enabled: boolean
+    latencyMs: number
+    pointerCount: number
+    status?: 'COMPLETED' | 'UNAVAILABLE'
+    error?: { name: string; message: string }
+  }
+  execution?: {
+    status: 'FAILED' | 'FALLBACK'
+    phase?: string
+    elapsedMs: number
+    error: { name: string; message: string }
+  }
+}
 
 export type ToolResult<TSuccess = any, TNeedsInput = any, TNoMatch = any> = {
   schemaVersion: '2.0'
@@ -174,6 +217,7 @@ export type ToolResult<TSuccess = any, TNeedsInput = any, TNoMatch = any> = {
   observation: ToolObservationRef
   issues: ToolIssue[]
   appliedBindings: AppliedBinding[]
+  diagnostics?: ToolDiagnostics
 } & (
   | { outcome: 'SUCCESS'; completeness: 'FULL' | 'PARTIAL'; data: TSuccess }
   | { outcome: 'NO_MATCH'; data: TNoMatch }
@@ -184,37 +228,25 @@ export type ToolResult<TSuccess = any, TNeedsInput = any, TNoMatch = any> = {
 
 export const DATA_TOOL_NAMES = [
   'browse_catalog',
-  'resolve_catalog_entities',
   'get_product_details',
   'compare_products',
   'get_current_promotions',
   'discover_accessories',
   'search_knowledge',
-  'search_user_manuals',
 ] as const
 export type DataToolName = typeof DATA_TOOL_NAMES[number]
 
-export const TERMINAL_TOOL_NAMES = [
-  'submit_response',
-  'request_user_input',
-] as const
-export type TerminalToolName = typeof TERMINAL_TOOL_NAMES[number]
-
 export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }> = {
   browse_catalog: {
-    description: 'Duyệt và phân trang danh mục sản phẩm FASTLANE (ô tô, xe máy, phụ kiện) theo loại và khoảng giá. Không dùng chuỗi search query tự do.',
+    description: 'Duyệt và phân trang danh mục xe FASTLANE (ô tô, xe máy) theo loại và khoảng giá. Không dùng cho phụ kiện và không dùng chuỗi search query tự do.',
     inputSchema: browseCatalogInputSchema,
   },
-  resolve_catalog_entities: {
-    description: 'Tra cứu canonical product ID và metadata theo tên ngắn, slug hoặc alias do người dùng nhập.',
-    inputSchema: resolveCatalogEntitiesInputSchema,
-  },
   get_product_details: {
-    description: 'Lấy thông số kỹ thuật, phiên bản và giá khởi điểm chi tiết theo danh sách canonical product IDs đã resolve.',
+    description: 'Lấy thông số kỹ thuật, phiên bản và giá chi tiết của 1-3 xe. Nhận trực tiếp productMentions từ cách gọi của người dùng hoặc productIds đã biết; tự nhận diện tên xe bên trong.',
     inputSchema: getProductDetailsInputSchema,
   },
   compare_products: {
-    description: 'So sánh bảng thông số kỹ thuật và giá bán giữa 2-3 sản phẩm theo danh sách canonical product IDs.',
+    description: 'So sánh bảng thông số kỹ thuật và giá bán giữa 2-3 xe. Nhận trực tiếp productMentions hoặc productIds và tự nhận diện tên xe bên trong.',
     inputSchema: compareProductsInputSchema,
   },
   get_current_promotions: {
@@ -226,11 +258,21 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
     inputSchema: discoverAccessoriesInputSchema,
   },
   search_knowledge: {
-    description: 'Tra cứu tài liệu tri thức, cẩm nang kỹ thuật, thông số xe, chính sách bảo hành, thuê/mua pin, trạm sạc và quy trình mua bán xe điện FASTLANE.',
+    description: 'Tra cứu tài liệu, cẩm nang kỹ thuật, sổ tay hướng dẫn, chính sách và quy trình. vehicleModel/modelYear chỉ là gợi ý không có quyền quyết định; server sẽ dùng phạm vi mẫu xe/năm đã xác minh từ lời người dùng và yêu cầu làm rõ nếu kết quả thuộc nhiều phạm vi.',
     inputSchema: searchKnowledgeInputSchema,
   },
-  search_user_manuals: {
-    description: 'Tra cứu Hướng dẫn sử dụng xe (vị trí cổng sạc, ý nghĩa đèn cảnh báo, cách khởi động, v.v.). Bắt buộc phải có thông tin năm sản xuất trước khi gọi.',
-    inputSchema: searchUserManualsInputSchema,
-  },
+}
+
+/**
+ * Returns the model-visible data tools for the current capability set.
+ * Knowledge retrieval is excluded until its release gate explicitly enables it.
+ */
+export function getAvailableToolContracts(
+  knowledgeEnabled: boolean,
+): Partial<Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }>> {
+  const contracts: Partial<Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }>> = {
+    ...TOOL_CONTRACTS,
+  }
+  if (!knowledgeEnabled) delete contracts.search_knowledge
+  return contracts
 }

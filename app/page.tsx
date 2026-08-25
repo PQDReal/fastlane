@@ -242,7 +242,24 @@ export default async function Home() {
       <HomeVehicleExperience vehicles={homeVehicles} />
 
       {/* GREEN FUTURE */}
-      <section className="overflow-hidden bg-[#0d2119] text-white">
+      <section className="relative overflow-hidden bg-[#0d2119] text-white">
+        <MotionDiv
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-100px' }}
+          className="pointer-events-none absolute inset-0 z-50 overflow-hidden"
+        >
+          <MotionDiv
+            variants={{
+              hidden: { x: '-100%' },
+              visible: { x: '120vw', transition: { duration: 2, ease: 'easeInOut' } }
+            }}
+            className="absolute top-1/2 w-[350px] -translate-y-1/2 lg:w-[550px]"
+          >
+            <img src="https://i.ibb.co/kgBZKZgC/404-car.png" alt="FastLane Car" className="h-auto w-full drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]" />
+          </MotionDiv>
+        </MotionDiv>
+
         <div className="relative mx-auto max-w-[1440px] px-6 py-24 lg:px-12 lg:py-32">
           <div
             aria-hidden="true"
@@ -254,10 +271,10 @@ export default async function Home() {
           />
 
           <MotionDiv
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, filter: 'blur(8px)', y: 24 }}
+            whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.8, delay: 0.9, ease: [0.16, 1, 0.3, 1] }}
             className="relative grid gap-14 lg:grid-cols-[1.15fr_0.85fr] lg:items-end"
           >
             <div>

@@ -30,8 +30,14 @@
 | `/api/v1/admin/customers` | GET, POST | `/admin/customers` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/customers/{customerId}` | PATCH, DELETE | `/admin/customers/{customerId}` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/inventory` | GET | `/admin/inventory` | MISSING_IN_OPENAPI |
-| `/api/v1/admin/inventory/query` | GET | `/admin/inventory/query` | MAPPED |
 | `/api/v1/admin/inventory/filter-options` | GET | `/admin/inventory/filter-options` | MAPPED |
+| `/api/v1/admin/inventory/query` | GET | `/admin/inventory/query` | MAPPED |
+| `/api/v1/admin/knowledge` | GET, POST | `/admin/knowledge` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/knowledge/{id}` | GET, PUT, DELETE | `/admin/knowledge/{id}` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/knowledge/{id}/approve` | POST | `/admin/knowledge/{id}/approve` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/knowledge/{id}/archive` | POST | `/admin/knowledge/{id}/archive` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/knowledge/{id}/index` | POST | `/admin/knowledge/{id}/index` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/knowledge/{id}/publish` | POST | `/admin/knowledge/{id}/publish` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/redis` | GET | `/admin/monitoring/redis` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/monitoring/sentry` | GET | `/admin/monitoring/sentry` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/motorbikes` | POST | `/admin/motorbikes` | MISSING_IN_OPENAPI |
@@ -46,6 +52,9 @@
 | `/api/v1/admin/products/{productId}/service-labels` | PUT | `/admin/products/{productId}/service-labels` | MAPPED |
 | `/api/v1/admin/promotions` | GET, POST | `/admin/promotions` | MAPPED |
 | `/api/v1/admin/promotions/{promotionId}` | GET, PATCH, DELETE | `/admin/promotions/{promotionId}` | MAPPED |
+| `/api/v1/admin/sales-agent/cache` | GET, POST | `/admin/sales-agent/cache` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/sales-agent/providers` | GET, POST, PUT, DELETE | `/admin/sales-agent/providers` | MISSING_IN_OPENAPI |
+| `/api/v1/admin/sales-agent/providers/test` | POST | `/admin/sales-agent/providers/test` | MISSING_IN_OPENAPI |
 | `/api/v1/admin/service-labels` | GET, POST | `/admin/service-labels` | MAPPED |
 | `/api/v1/admin/service-labels/{labelId}` | PATCH, DELETE | `/admin/service-labels/{labelId}` | MAPPED |
 | `/api/v1/admin/test-drive/requests` | GET | `/admin/test-drive/requests` | MAPPED |
@@ -74,6 +83,9 @@
 | `/api/v1/payments/vnpay/ipn` | GET | `/payments/vnpay/ipn` | MISSING_IN_OPENAPI |
 | `/api/v1/payments/vnpay/reconcile` | POST | `/payments/vnpay/reconcile` | MISSING_IN_OPENAPI |
 | `/api/v1/products` | GET | `/products` | MAPPED |
+| `/api/v1/sales-agent/interactions/search` | POST | `/sales-agent/interactions/search` | MISSING_IN_OPENAPI |
+| `/api/v1/sales-agent/messages` | POST | `/sales-agent/messages` | MISSING_IN_OPENAPI |
+| `/api/v1/sales-agent/metrics` | POST | `/sales-agent/metrics` | MISSING_IN_OPENAPI |
 | `/api/v1/search/assistant` | POST | `/search/assistant` | MISSING_IN_OPENAPI |
 | `/api/v1/test-drive/requests` | POST | `/test-drive/requests` | MAPPED |
 | `/api/v1/users/me` | GET, PATCH | `/users/me` | MAPPED |
