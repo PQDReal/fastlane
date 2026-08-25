@@ -3,8 +3,6 @@ import dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
 vi.mock('server-only', () => ({}))
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { HybridHierarchicalRetrievalService } from '@/lib/sales-agent/knowledge/retrieval/retrieval-service'
 import { executeDataTool } from '@/lib/sales-agent/tools/definitions/index'
 import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
 import { EvidenceLedger } from '@/lib/sales-agent/orchestrator/ledgers/evidence'
@@ -12,8 +10,6 @@ import { KnownEntityLedger } from '@/lib/sales-agent/orchestrator/ledgers/known-
 
 describe('Knowledge Target URL Resolution E2E', () => {
   it('retrieves knowledge for VF 5 and composes target_url navigation directly to user-manual', async () => {
-    const client = getSupabaseAdmin()
-    const retrievalService = new HybridHierarchicalRetrievalService(client)
 
     const result = await executeDataTool(
       'search_knowledge',
@@ -24,13 +20,13 @@ describe('Knowledge Target URL Resolution E2E', () => {
       },
       'call-test-vf5',
       {
-        retrievalService,
-        allowedVisualDrafts: true,
         knowledgeScope: {
           vehicleModel: 'VF 5',
           modelYear: 2024,
           bindingId: 'binding-vf5',
-          isBindingAmbiguous: false,
+          modelYearPolicy: 'EXPLICIT',
+          sources: { vehicleModel: 'CURRENT_USER', modelYear: 'CURRENT_USER' },
+          sourceTexts: ['VF 5 2024'],
         },
       }
     )
@@ -71,8 +67,6 @@ describe('Knowledge Target URL Resolution E2E', () => {
   }, 20000)
 
   it('retrieves knowledge for warranty/battery and composes target_url navigation directly to /after-sales', async () => {
-    const client = getSupabaseAdmin()
-    const retrievalService = new HybridHierarchicalRetrievalService(client)
 
     const result = await executeDataTool(
       'search_knowledge',
@@ -81,14 +75,7 @@ describe('Knowledge Target URL Resolution E2E', () => {
         categories: ['WARRANTY_BATTERY'],
       },
       'call-test-warranty',
-      {
-        retrievalService,
-        allowedVisualDrafts: true,
-        knowledgeScope: {
-          categories: ['WARRANTY_BATTERY'],
-          isBindingAmbiguous: false,
-        },
-      }
+      {}
     )
 
     expect(result.outcome).toBe('SUCCESS')
