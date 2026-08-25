@@ -1,4 +1,4 @@
-import { getManualArticle, getManualModel, getManualTree } from '@/lib/api/manuals-server'
+import { getManualArticle, getManualModel, getManualSearchIndex, getManualTree } from '@/lib/api/manuals-server'
 import { notFound } from 'next/navigation'
 import './manual.css'
 import { ArticleContent } from './article-content'
@@ -47,10 +47,10 @@ export default async function ManualArticlePage(props: {
   const decodedModelId = decodeURIComponent(params.modelId)
   const decodedArticleId = decodeURIComponent(params.articleId)
 
-  const [article, model, tree] = await Promise.all([
+  const [article, model, searchData] = await Promise.all([
     getManualArticle(decodedModelId, decodedArticleId),
     getManualModel(decodedModelId),
-    getManualTree(decodedModelId),
+    getManualSearchIndex(decodedModelId),
   ])
 
   if (!article || !model) {
@@ -62,11 +62,6 @@ export default async function ManualArticlePage(props: {
   // The original images might be at `https://om.vinfastauto.com/vi_vn/...`
   // We'll just render the HTML as is, but if images are missing we'll know.
   const contentHtml = normalizeManualContentHtml(article.content_html || '')
-
-  // Get search data (all articles for this model)
-  const searchData = tree
-    .filter((item) => item.content_html && item.content_html.trim().length > 0)
-    .map((item) => ({ id: item.id, title: item.title }))
 
   return (
     <article className="w-full p-6 md:p-8 lg:p-10 pb-24 vf-manual-content">

@@ -18,10 +18,16 @@ describe('after-sales navigation performance contract', () => {
 
   it('caches manual models and article reads across requests', () => {
     const source = readFileSync(join(root, 'lib/api/manuals-server.ts'), 'utf8')
+    const manualIndex = readFileSync(join(root, 'app/user-manual/page.tsx'), 'utf8')
 
     expect(source).toContain("from 'next/cache'")
     expect(source).toContain("tags: ['manual-content']")
-    expect(source.match(/unstable_cache\(/g)).toHaveLength(5)
+    expect(source.match(/unstable_cache\(/g)).toHaveLength(6)
+    expect(source).toContain(".select('id, title')")
+    expect(source).toContain(".not('content_html', 'is', null)")
+    expect(manualIndex).toContain('<ManualHero allModels={allModels} />')
+    expect(manualIndex).toContain('<VehicleCatalog categories={categories} modelsMap={modelsMap} />')
+    expect(manualIndex).not.toContain("redirect('/after-sales')")
   })
 
   it('loads the large workshop collection only when its tab is opened', () => {

@@ -30,6 +30,11 @@ export interface ManualArticle {
   sort_order: number
 }
 
+export interface ManualSearchItem {
+  id: string
+  title: string
+}
+
 const getManualModelsCached = unstable_cache(async (): Promise<ManualModel[]> => {
   if (!hasSupabaseConfig()) return []
   const supabase = getSupabaseAdmin()
@@ -81,6 +86,29 @@ const getManualTreeCached = unstable_cache(async (modelId: string): Promise<Manu
 }, ['manual-tree-v1'], { revalidate: 300, tags: ['manual-content'] })
 
 export const getManualTree = cache(getManualTreeCached)
+
+// Keep the navigation tree lightweight while still providing the article-level
+// search that the manual reader had before the tree query was optimized.
+const getManualSearchIndexCached = unstable_cache(async (modelId: string): Promise<ManualSearchItem[]> => {
+  if (!hasSupabaseConfig()) return []
+  const supabase = getSupabaseAdmin()
+  const { data, error } = await supabase
+    .from('manual_articles')
+    .select('id, title')
+    .eq('model_id', modelId)
+    .not('content_html', 'is', null)
+    .neq('content_html', '')
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching manual search index from DB:', error)
+    return []
+  }
+
+  return data as ManualSearchItem[]
+}, ['manual-search-index-v1'], { revalidate: 300, tags: ['manual-content'] })
+
+export const getManualSearchIndex = cache(getManualSearchIndexCached)
 
 const getManualArticleCached = unstable_cache(async (modelId: string, articleId: string): Promise<ManualArticle | undefined> => {
   if (!hasSupabaseConfig()) return undefined
