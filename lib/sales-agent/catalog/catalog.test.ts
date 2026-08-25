@@ -34,12 +34,7 @@ vi.mock('@/lib/supabase-admin', () => {
       description: 'Xe máy điện quốc dân',
       product_type: 'BIKE',
       displayed_price: 18000000,
-      specifications: {
-        range_km: '203',
-        top_speed_kmh: '70',
-        warranty: '5 năm không giới hạn km',
-        bao_hanh_pin: '8 năm',
-      },
+      specifications: { range_km: '203', top_speed_kmh: '70' },
       is_active: true,
       updated_at: '2026-08-01T00:00:00Z',
       product_variants: [
@@ -144,19 +139,17 @@ describe('Canonical Catalog Repositories', () => {
     expect(res.issues[0].code).toBe('UNKNOWN_ENTITY_REFERENCE')
   })
 
-  it('does not expose unverified motorbike warranty fields as product evidence', async () => {
+  it('getProductDetailsRepository resolves a product mention internally', async () => {
     const res = await getProductDetailsRepository(
-      { productIds: ['prod-evo200'] },
-      'call-test-bike-details',
+      { productMentions: ['VF 8'] },
+      'call-test-details-by-name',
     )
 
     expect(res.outcome).toBe('SUCCESS')
     if (res.outcome === 'SUCCESS') {
-      expect(res.data.products[0].specs).not.toHaveProperty('warranty')
-      expect(res.data.products[0].specs).not.toHaveProperty('bao_hanh_pin')
-      expect(res.data.products[0].specs).toHaveProperty('range_km')
-      expect(res.evidence[0].facts.some((fact) => fact.factPath.includes('warranty'))).toBe(false)
-      expect(res.evidence[0].facts.some((fact) => fact.factPath.includes('bao_hanh'))).toBe(false)
+      expect(res.data.products).toHaveLength(1)
+      expect(res.data.products[0].productId).toBe('prod-vf8')
+      expect(res.data.products[0].name).toBe('VinFast VF 8')
     }
   })
 })

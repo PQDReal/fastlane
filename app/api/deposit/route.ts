@@ -239,6 +239,18 @@ export async function POST(request: Request) {
     }
 
     await validateDepositLocation(input)
+    const showroomResult = await getSupabaseAdmin()
+      .from('showrooms')
+      .select('id,name,province_name,vehicle_type,is_active')
+      .eq('id', input.showroomId)
+      .maybeSingle()
+    if (showroomResult.error) throw showroomResult.error
+    if (!showroomResult.data || !showroomResult.data.is_active) {
+      return errorResponse(409, 'SHOWROOM_UNAVAILABLE', 'Showroom đã chọn không còn hoạt động. Vui lòng chọn showroom khác.', 'showroom_id')
+    }
+    if (showroomResult.data.vehicle_type !== input.vehicleType) {
+      return errorResponse(422, 'SHOWROOM_VEHICLE_MISMATCH', 'Showroom không phù hợp với loại xe đang đặt cọc.', 'showroom_id')
+    }
     let quote: Awaited<ReturnType<typeof buildDepositVehicleQuote>>
     try {
       quote = await buildDepositVehicleQuote(input)
@@ -338,7 +350,8 @@ export async function POST(request: Request) {
         total_estimated_price: quote.totalEstimatedPrice,
         promotion_id: quote.promotion?.id ?? null,
         promotion_code: quote.promotion?.code ?? null,
-        showroom: input.showroom || 'VinFast Landmark 81',
+        showroom_id: input.showroomId,
+        showroom: showroomResult.data.name,
         sales_consultant: null,
         payment_method: input.paymentMethod,
         deposit_amount: quote.depositAmount,

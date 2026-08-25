@@ -1,5 +1,6 @@
 import './globals.css'
 import 'katex/dist/katex.min.css'
+import 'leaflet/dist/leaflet.css'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Inter } from 'next/font/google'

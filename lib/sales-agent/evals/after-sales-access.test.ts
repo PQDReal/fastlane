@@ -7,9 +7,8 @@ import cases from './fixtures/after-sales-access.json'
 
 const root = process.cwd()
 const toolContractSource = readFileSync(join(root, 'lib/sales-agent/contracts/tool.ts'), 'utf8')
-const cacheSource = readFileSync(join(root, 'lib/sales-agent/cache/catalog-cache.ts'), 'utf8')
-const repositorySource = readFileSync(join(root, 'lib/sales-agent/knowledge/repository.ts'), 'utf8')
-const embedderSource = readFileSync(join(root, 'lib/sales-agent/knowledge/manual-embedder.ts'), 'utf8')
+const embedderSource = readFileSync(join(root, 'lib/sales-agent/knowledge/embedding-adapter.ts'), 'utf8')
+const vectorAdapterSource = readFileSync(join(root, 'lib/sales-agent/knowledge/retrieval/vector-adapter.ts'), 'utf8')
 const manualMigrationSource = readFileSync(join(root, 'migrations/061_update_embedding_dimensions.sql'), 'utf8')
 const auditSource = readFileSync(join(root, 'scripts/audit-sales-agent-after-sales-state.mjs'), 'utf8')
 
@@ -41,9 +40,9 @@ describe('Sales Agent after-sales access audit snapshot', () => {
   })
 
   it('keeps the manual query and ingestion dimensions aligned with pgvector', () => {
-    expect(cacheSource).toContain('.limit(200)')
-    expect(repositorySource).toContain("openai.embedding('text-embedding-3-small', { dimensions: 512 })")
-    expect(embedderSource).toContain("openai.embedding('text-embedding-3-small', { dimensions: 512 })")
+    expect(embedderSource).toContain('OPENAI_EMBEDDING_DIMENSIONS = 512')
+    expect(embedderSource).toContain('dimensions: this.dimensions')
+    expect(vectorAdapterSource).toContain('emb.length !== OPENAI_EMBEDDING_DIMENSIONS')
     expect(manualMigrationSource).toContain('vector(512)')
   })
 

@@ -1,6 +1,8 @@
 import 'server-only'
 
 import { catalogCacheEngine } from '../cache/catalog-cache'
+import { resolveCatalogEntitiesRepository, type EntityResolution } from './identity'
+import { extractCanonicalVehicleSpecs } from './spec-extractor'
 import type {
   EvidenceRecord,
   GetProductDetailsInput,
@@ -41,16 +43,6 @@ export type GetProductDetailsData = {
   products: ProductDetailsSnapshot[]
 }
 
-function isMotorbikeWarrantyField(key: string) {
-  const normalized = key
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/[_-]+/g, ' ')
-    .toLowerCase()
-  return normalized.includes('warranty') || normalized.includes('bao hanh')
-}
-
 export async function getProductDetailsRepository(
   input: GetProductDetailsInput,
   toolCallId: string = `call-details-${Date.now()}`,
@@ -58,11 +50,62 @@ export async function getProductDetailsRepository(
   const readAt = new Date().toISOString()
   const dataAsOf = readAt
 
+  let productIds = [...new Set(input.productIds ?? [])]
+  let resolutionEvidence: EvidenceRecord[] = []
+
+  if (input.productMentions?.length) {
+    const resolution = await resolveCatalogEntitiesRepository({
+      references: input.productMentions.map((mention, index) => ({
+        clientRef: `product-${index + 1}`,
+        mention,
+        kindHint: 'PRODUCT' as const,
+        productTypes: ['CAR', 'BIKE'] as ProductType[],
+      })),
+      candidateLimit: 3,
+    }, `${toolCallId}-resolve`)
+    const resolutions = (Array.isArray(resolution.data?.resolutions) ? resolution.data.resolutions : []) as EntityResolution[]
+    const unresolved = resolutions.filter((item) => item.outcome !== 'RESOLVED')
+
+    if (unresolved.length > 0) {
+      const needsInput = unresolved.some((item) => item.outcome === 'AMBIGUOUS')
+      const candidates = unresolved.flatMap((item) => item.outcome === 'AMBIGUOUS' ? item.candidates : [])
+      const question = needsInput
+        ? `Bạn muốn chọn mẫu nào: ${candidates.map((candidate) => candidate.name).join(', ')}?`
+        : undefined
+      return {
+        schemaVersion: '2.0',
+        toolCallId,
+        tool: 'get_product_details',
+        readAt,
+        dataAsOf,
+        evidence: [],
+        observation: {
+          observationId: `obs-${toolCallId}`,
+          toolCallId,
+          outcome: needsInput ? 'NEEDS_INPUT' : 'NO_MATCH',
+          issueCodes: resolution.issues.map((issue) => issue.code),
+          inputHash: JSON.stringify(input),
+          readAt,
+        },
+        issues: resolution.issues,
+        appliedBindings: [],
+        outcome: needsInput ? 'NEEDS_INPUT' : 'NO_MATCH',
+        data: { question, resolutions },
+      }
+    }
+
+    productIds = [...new Set([
+      ...productIds,
+      ...resolutions.flatMap((item) => item.outcome === 'RESOLVED' ? [item.entity.id] : []),
+    ])]
+    resolutionEvidence = resolution.evidence
+  }
+
   const snapshot = await catalogCacheEngine.getSnapshotAsync()
-  const productRows = snapshot.products.filter((p) => input.productIds.includes(p.id))
+  const productRows = snapshot.products.filter((p) => productIds.includes(p.id))
 
   const products: ProductDetailsSnapshot[] = []
-  const evidence: EvidenceRecord[] = []
+  const evidence: EvidenceRecord[] = [...resolutionEvidence]
 
   for (const row of productRows) {
     const pType = row.productType
@@ -100,21 +143,55 @@ export async function getProductDetailsRepository(
     ]
 
     const specs: ProductDetailsSnapshot['specs'] = {}
-    const rawSpecs = (row.specifications && typeof row.specifications === 'object') ? row.specifications : {}
-    for (const [key, val] of Object.entries(rawSpecs)) {
-      if (pType === 'BIKE' && isMotorbikeWarrantyField(key)) continue
-      const factRef = `fact-spec-${row.id}-${key}`
-      const displayVal = String(val)
-      specs[key] = {
-        displayValue: displayVal,
-        rawValue: val,
-        factRef,
+    const canonical = extractCanonicalVehicleSpecs(row)
+
+    const canonicalKeyMap: Record<string, string | undefined> = {
+      battery_capacity_kwh: canonical.battery,
+      battery: canonical.battery,
+      top_speed_kmh: canonical.topSpeed,
+      topSpeed: canonical.topSpeed,
+      range_km: canonical.range,
+      range: canonical.range,
+      weight: canonical.weight,
+      max_power_kw: canonical.power,
+      power: canonical.power,
+      seats: canonical.seats ? `${canonical.seats} chỗ` : undefined,
+      chargingTime: canonical.chargingTime,
+      trunk: canonical.trunk,
+      warranty: canonical.warranty,
+      dimensions: canonical.dimensions,
+    }
+
+    for (const [key, val] of Object.entries(canonicalKeyMap)) {
+      if (val && val.trim().length > 0) {
+        const factRef = `fact-spec-${row.id}-${key}`
+        specs[key] = {
+          displayValue: val,
+          rawValue: val,
+          factRef,
+        }
+        facts.push({
+          factRef,
+          factPath: `specs.${key}`,
+          valueHash: val,
+        })
       }
-      facts.push({
-        factRef,
-        factPath: `specs.${key}`,
-        valueHash: displayVal,
-      })
+    }
+
+    for (const [key, val] of Object.entries(canonical.rawFlatSpecs)) {
+      if (!specs[key] && val && val.trim().length > 0) {
+        const factRef = `fact-spec-${row.id}-${key}`
+        specs[key] = {
+          displayValue: val,
+          rawValue: val,
+          factRef,
+        }
+        facts.push({
+          factRef,
+          factPath: `specs.${key}`,
+          valueHash: val,
+        })
+      }
     }
 
     const itemUrl = salesAgentProductUrl(pType as any, row.slug)
@@ -185,7 +262,7 @@ export async function getProductDetailsRepository(
     issues: [],
     appliedBindings: [],
     outcome: 'SUCCESS',
-    completeness: products.length === input.productIds.length ? 'FULL' : 'PARTIAL',
+    completeness: products.length === productIds.length ? 'FULL' : 'PARTIAL',
     data: { products },
   }
 }

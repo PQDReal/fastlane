@@ -35,14 +35,13 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('Liên kết chưa được xác minh')
   })
 
-  it('allows direct links only to the official VinFast PDF host', () => {
+  it('does not make links clickable before the sanitized turn view arrives', () => {
     const markup = renderToStaticMarkup(
-      <MarkdownMessage content={'[HDSD Klara S](https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf)'} />,
+      <MarkdownMessage content={'[VF 3](/cars/model-tu-bia)'} streaming />,
     )
 
-    expect(markup).toContain('href="https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf"')
-    expect(markup).toContain('target="_blank"')
-    expect(markup).toContain('rel="noopener noreferrer"')
+    expect(markup).not.toContain('href=')
+    expect(markup).toContain('Liên kết chưa được xác minh')
   })
 
   it('does not interpret raw HTML supplied by the model', () => {
@@ -78,12 +77,75 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('const vehicle')
   })
 
-  it('keeps model-selected manual images in the formatted answer', () => {
+  it('renders inline images for valid trusted image URLs', () => {
     const markup = renderToStaticMarkup(
-      <MarkdownMessage content={'![Vị trí túi khí](https://static-cms-prod.vinfastauto.com/manual-airbag.png)'} />,
+      <MarkdownMessage
+        content={'Sơ đồ cổng sạc VF 9:\n\n![Cổng sạc CCS2](https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png)\n\nChi tiết phần AC và DC.'}
+      />,
     )
 
-    expect(markup).toContain('manual-airbag.png')
-    expect(markup).toContain('Vị trí túi khí')
+    expect(markup).toContain('<figure')
+    expect(markup).toContain('src="https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png"')
+    expect(markup).toContain('Cổng sạc CCS2')
+    expect(markup).toContain('h-48')
+    expect(markup).toContain('sm:h-56')
+    expect(markup).toContain('Đang tải hình minh họa…')
+  })
+
+  it('resolves compact media references to the exact approved URL', () => {
+    const url = 'https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png'
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Sơ đồ cổng sạc VF 9:\n\n[media:2]\n\nChi tiết phần AC và DC.'}
+        mediaItems={[
+          {
+            assetId: 'asset-2',
+            annotationId: 'ann-2',
+            title: 'Cổng sạc CCS2',
+            summary: 'Sơ đồ cổng sạc',
+            url,
+            alt: 'Cổng sạc CCS2',
+            mimeType: 'image/png',
+            width: 690,
+            height: 388,
+            safetyCritical: false,
+            citationId: 'cite:vinfast:vf-9',
+            reference: 'media:2',
+          },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain(`src="${url}"`)
+    expect(markup).not.toContain('[media:2]')
+  })
+
+  it('preprocesses raw [img: ...] tags into inline images using mediaItems', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Phần điện áp cao:\n\n[img: item61636_122977.png]\n\nChi tiết các chân tiếp xúc.'}
+        mediaItems={[
+          {
+            assetId: 'asset-1',
+            annotationId: 'ann-1',
+            title: 'Sơ đồ cổng sạc AC Type 2',
+            summary: 'Sơ đồ mặt cắt cổng sạc AC Type 2',
+            url: 'https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122977.png',
+            alt: 'Sơ đồ cổng sạc AC Type 2',
+            mimeType: 'image/png',
+            width: 690,
+            height: 388,
+            safetyCritical: true,
+            citationId: 'cite:vinfast:vf-9',
+          },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain('src="https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122977.png"')
+    expect(markup).toContain('Sơ đồ cổng sạc AC Type 2')
+    expect(markup).toContain('Lưu ý an toàn')
   })
 })

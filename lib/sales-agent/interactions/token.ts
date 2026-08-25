@@ -2,12 +2,14 @@ import 'server-only'
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import type { SalesAgentInteraction, SalesAgentInteractionResponse, SalesAgentInteractionSlot, SalesAgentInteractionMode, SalesAgentInteractionProductType } from '../contracts/interaction'
+import type { SalesAgentInteraction, SalesAgentInteractionResponse, SalesAgentInteractionSlot, SalesAgentInteractionMode, SalesAgentInteractionProductType, SalesAgentScopeField } from '../contracts/interaction'
 
-type InteractionTokenOption = {
+export type InteractionTokenOption = {
   label: string
   value: string
   kind: 'product' | 'allowlist'
+  field?: SalesAgentScopeField
+  metadata?: Record<string, string | number | boolean>
 }
 
 export type SalesAgentInteractionTokenPayload = {
@@ -23,6 +25,7 @@ export type SalesAgentInteractionTokenPayload = {
   allowFreeText: boolean
   expiresAt: string
   options: Record<string, InteractionTokenOption>
+  requiredFields?: SalesAgentScopeField[]
 }
 
 function secret() {
@@ -85,6 +88,21 @@ export function validateSalesAgentInteractionResponse(response: SalesAgentIntera
     if (!option) throw new Error('Lựa chọn không thuộc interaction này.')
     return { optionId, ...option }
   })
+  if (payload.slot === 'knowledge_scope' || payload.requiredFields?.length) {
+    const scopeOptions = selectedOptions.filter((option) => option.field)
+    const requiredFields = payload.requiredFields ?? ['vehicleModel']
+    const selectedFields = new Set(scopeOptions.map((option) => option.field))
+    if (scopeOptions.length !== selectedOptions.length || requiredFields.some((field) => !selectedFields.has(field))) {
+      throw new Error('Vui lòng chọn đủ phạm vi dòng xe và năm áp dụng.')
+    }
+    if (scopeOptions.some((option, index) => scopeOptions.findIndex((candidate) => candidate.field === option.field) !== index)) {
+      throw new Error('Mỗi trường phạm vi chỉ được chọn một giá trị.')
+    }
+    const modelSelected = scopeOptions.some((option) => option.field === 'vehicleModel')
+    if (!modelSelected && scopeOptions.some((option) => option.field === 'modelYear')) {
+      throw new Error('Cần chọn dòng xe trước khi chọn năm áp dụng.')
+    }
+  }
   return { payload, selectedOptions, freeText: response.freeText }
 }
 
@@ -109,5 +127,10 @@ export function interactionTokenPayloadFromInteraction(interaction: SalesAgentIn
     allowFreeText: interaction.allowFreeText,
     expiresAt: interaction.expiresAt,
     options,
+    ...(interaction.fields?.length
+      ? {
+          requiredFields: interaction.fields.filter((field) => field.required).map((field) => field.field),
+        }
+      : {}),
   }
 }

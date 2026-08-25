@@ -7,8 +7,13 @@ import type {
 import type { EvidenceLedger } from '../orchestrator/ledgers/evidence'
 import type { KnownEntityLedger } from '../orchestrator/ledgers/known-entities'
 import { resolveNavigationAction } from '../navigation/action-registry'
-import { salesAgentProductUrl } from '../navigation/paths'
+import { sanitizeSalesAgentMarkdownLinks } from '../navigation/markdown-links'
+import { salesAgentKnowledgeSourceUrl, salesAgentProductUrl } from '../navigation/paths'
 import { validateResponsePlan } from './plan-validator'
+import { isAllowedKnowledgeMediaUrl } from '../knowledge/media-url'
+import { knowledgeMediaMarker, knowledgeMediaReference } from '../knowledge/media-reference'
+import { buildSuggestionCandidates, rankSuggestionCandidates, type SuggestionProduct } from '../suggestions/candidates'
+import type { SalesAgentInteraction } from '../contracts/interaction'
 
 export type ComposeOptions = {
   rawPlan: unknown
@@ -18,14 +23,181 @@ export type ComposeOptions = {
   turnId: string
   messageId: string
   dataAsOf?: string
+  /** Current catalog names used only to seed contextual suggestion chips. */
+  catalogProductNames?: string[]
+  /** Active catalog slice used to validate entity-backed suggestions. */
+  catalogProducts?: SuggestionProduct[]
+  catalogStatus?: 'SYNCED' | 'INDEX_ONLY' | 'UNAVAILABLE'
+  catalogVersion?: number
+  /** A server-materialized interaction, normally backed by a signed scope token. */
+  interaction?: SalesAgentInteraction
+}
+
+type KnowledgeMediaItem = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>['items'][number]
+
+function parseKnowledgeMediaPointer(value: string): KnowledgeMediaItem | null {
+  try {
+    const candidate = JSON.parse(value) as Record<string, unknown>
+    const url = String(candidate.url || '')
+    if (!isAllowedKnowledgeMediaUrl(url)) return null
+    const required = ['assetId', 'annotationId', 'title', 'summary', 'alt', 'mimeType', 'citationId']
+    if (required.some((key) => typeof candidate[key] !== 'string' || !String(candidate[key]).trim())) {
+      return null
+    }
+    return {
+      assetId: String(candidate.assetId),
+      annotationId: String(candidate.annotationId),
+      title: String(candidate.title),
+      summary: String(candidate.summary),
+      alt: String(candidate.alt),
+      url,
+      mimeType: String(candidate.mimeType),
+      width: candidate.width == null ? null : Number(candidate.width),
+      height: candidate.height == null ? null : Number(candidate.height),
+      safetyCritical: candidate.safetyCritical === true,
+      citationId: String(candidate.citationId),
+      diagramLabels: Array.isArray(candidate.diagramLabels)
+        ? candidate.diagramLabels.flatMap((label) => {
+            if (!label || typeof label !== 'object') return []
+            const row = label as Record<string, unknown>
+            const marker = typeof row.marker === 'string' ? row.marker.trim() : ''
+            const description = typeof row.description === 'string' ? row.description.trim() : ''
+            return marker && description ? [{ marker, description }] : []
+          }).slice(0, 30)
+        : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+type ComparisonData = {
+  products: Array<{
+    productId: string
+    name: string
+    thumbnailUrl: string | null
+    url?: string
+  }>
+  rows: Array<{
+    label: string
+    values: Array<{ productId: string; value: string }>
+  }>
+}
+
+function readComparisonData(evidence: EvidenceLedger): ComparisonData | null {
+  const result = evidence.getLatestToolResult('compare_products')
+  if (!result || result.outcome !== 'SUCCESS' || !result.data || typeof result.data !== 'object') return null
+  const data = result.data as Partial<ComparisonData>
+  if (!Array.isArray(data.products) || data.products.length < 2 || !Array.isArray(data.rows)) return null
+  return data as ComparisonData
+}
+
+function mediaIsReferenced(markdown: string, item: KnowledgeMediaItem) {
+  if (item.reference && markdown.includes(knowledgeMediaMarker(item.reference))) return true
+  if (markdown.includes(item.url)) return true
+  const filename = item.url.split(/[?#]/, 1)[0]?.split('/').pop()
+  return Boolean(filename && markdown.toLowerCase().includes(filename.toLowerCase()))
+}
+
+function normalizeVehicleName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\bvinfast\b/gi, '')
+    .replace(/\bplus\b/gi, '')
+    .replace(/[^a-z0-9]+/gi, '')
+    .toLowerCase()
+}
+
+function findScopedCatalogProduct(
+  vehicleModel: string | undefined,
+  products: SuggestionProduct[],
+) {
+  const normalizedModel = normalizeVehicleName(vehicleModel || '')
+  if (!normalizedModel) return undefined
+
+  return products.find((product) => {
+    const normalizedProduct = normalizeVehicleName(product.name)
+    return normalizedProduct === normalizedModel
+      || normalizedProduct.includes(normalizedModel)
+      || normalizedModel.includes(normalizedProduct)
+  })
+}
+
+function stripRawJsonSuggestions(markdown: string): string {
+  return markdown
+    .replace(/(?:JSON\s*)?\[\s*\{\s*"label"\s*:\s*"[^"]+".*?\}\s*\]/gis, '')
+    .replace(/(?:JSON\s*)?\{\s*"label"\s*:\s*"[^"]+".*?\}/gis, '')
+    .trim()
+}
+
+function appendKnowledgeNavigation(
+  markdown: string,
+  hasKnowledgeEvidence: boolean,
+  scopedProduct: SuggestionProduct | undefined,
+  knowledgeSource: { href: string; label: string } | null,
+) {
+  if (!hasKnowledgeEvidence) return markdown
+
+  const links: string[] = []
+  if (scopedProduct?.slug && scopedProduct.productType) {
+    const href = salesAgentProductUrl(scopedProduct.productType as 'CAR' | 'BIKE' | 'ACCESSORY', scopedProduct.slug)
+    if (!markdown.includes(href)) links.push(`[${scopedProduct.name}](${href})`)
+  }
+  if (knowledgeSource && !markdown.includes(knowledgeSource.href)) {
+    links.push(`[${knowledgeSource.label}](${knowledgeSource.href})`)
+  }
+  if (!markdown.includes('/after-sales')) links.push('[Dịch vụ hậu mãi](/after-sales)')
+
+  return links.length > 0
+    ? `${markdown}\n\nAnh/chị có thể xem thêm ${links.join(' và ')}.`
+    : markdown
+}
+
+function compactKnowledgeMediaReferences(markdown: string, media: KnowledgeMediaItem[]) {
+  let result = markdown
+  for (const item of media) {
+    if (!item.reference) continue
+    const escapedUrl = item.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    result = result.replace(
+      new RegExp(`!\\[[^\\]]*\\]\\(${escapedUrl}\\)`, 'g'),
+      knowledgeMediaMarker(item.reference),
+    )
+  }
+
+  return result.replace(/\[media:\s*(\d+)\]/gi, (marker, rawPosition: string) => {
+    const reference = knowledgeMediaReference(Number(rawPosition))
+    return media.some((item) => item.reference === reference)
+      ? knowledgeMediaMarker(reference)
+      : ''
+  })
 }
 
 export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
-  const { plan, warnings } = validateResponsePlan(
+  const { plan, warnings: planWarnings } = validateResponsePlan(
     options.rawPlan,
     options.evidence,
     options.knownEntities,
   )
+  const warnings = [...planWarnings]
+
+  // A catalog outage must be visible even when bounded general retrieval
+  // still returns useful evidence. The model-facing prompt intentionally does
+  // not receive backend diagnostics, so surface this as a canonical grounding
+  // warning instead of relying on the model to remember the limitation.
+  const latestKnowledgeResult = options.evidence.getLatestToolResult('search_knowledge')
+  const retrievalDiagnostics = latestKnowledgeResult?.diagnostics?.retrieval
+  const scopeDiagnostics = latestKnowledgeResult?.diagnostics?.scope
+  const scopeCatalogStatus = scopeDiagnostics?.catalogStatus
+    ?? (typeof retrievalDiagnostics?.scopePreflightStatus === 'string'
+      ? retrievalDiagnostics.scopePreflightStatus
+      : undefined)
+  if (scopeCatalogStatus === 'UNAVAILABLE' || scopeCatalogStatus === 'EMPTY') {
+    warnings.push({
+      code: scopeCatalogStatus === 'UNAVAILABLE' ? 'SCOPE_CATALOG_UNAVAILABLE' : 'SCOPE_CATALOG_EMPTY',
+      message: 'Danh mục phạm vi tài liệu hiện chưa đầy đủ; kết quả chung chỉ mang tính tham khảo và không xác nhận một mẫu xe cụ thể.',
+    })
+  }
 
   // 1. Compose Narrative Markdown
   const markdownParts: string[] = []
@@ -38,54 +210,111 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  const finalMarkdown = markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.'
-  const lowerMarkdown = finalMarkdown.toLowerCase()
-
-  // Detect Clarification / Needs Input turn (e.g. asking user which models to compare)
+  const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
+  const catalogSuggestionProducts: SuggestionProduct[] = options.catalogStatus === 'INDEX_ONLY'
+    ? []
+    : (options.catalogProducts ?? options.catalogProductNames?.map((name) => ({ name })) ?? [])
+  const scopedCatalogProduct = findScopedCatalogProduct(
+    scopeDiagnostics?.vehicleModel,
+    catalogSuggestionProducts,
+  )
+  const knowledgeEvidence = options.evidence.getAllEvidence()
+    .filter((record) => record.entity.kind === 'KNOWLEDGE_SNIPPET')
+  const hasKnowledgeEvidence = latestKnowledgeResult?.outcome === 'SUCCESS'
+    && knowledgeEvidence.length > 0
+  const primaryKnowledgeEvidence = knowledgeEvidence[0]
+  const targetUrlFact = primaryKnowledgeEvidence
+    ? options.evidence.getFact(`fact-kb-target-url-${primaryKnowledgeEvidence.entity.id}`)?.valueHash
+    : undefined
+  const primaryKnowledgeHref = (targetUrlFact && targetUrlFact.trim()) || (primaryKnowledgeEvidence
+    ? salesAgentKnowledgeSourceUrl(primaryKnowledgeEvidence.entity.id)
+    : null)
+  const effectiveModelYear = scopeDiagnostics?.modelYear ?? scopeDiagnostics?.defaultedModelYear
+  const primaryKnowledgeTitle = primaryKnowledgeEvidence
+    ? options.evidence.getFact(`fact-kb-title-${primaryKnowledgeEvidence.entity.id}`)?.valueHash
+    : undefined
+  const primaryKnowledgeSource = primaryKnowledgeHref
+    ? {
+        href: primaryKnowledgeHref,
+        label: scopeDiagnostics?.vehicleModel
+          ? `Hướng dẫn sử dụng ${scopeDiagnostics.vehicleModel}${effectiveModelYear ? ` đời ${effectiveModelYear}` : ''}`
+          : primaryKnowledgeTitle || 'Tài liệu hướng dẫn đã tham chiếu',
+      }
+    : null
   const isClarificationTurn =
     plan.outcome === 'NEEDS_INPUT' ||
-    finalMarkdown.includes('Bạn muốn so sánh') ||
-    finalMarkdown.includes('những mẫu nào') ||
-    finalMarkdown.includes('quan tâm ô tô hay xe máy') ||
-    finalMarkdown.includes('gửi tên 2-3 mẫu xe') ||
-    finalMarkdown.includes('Bạn đang quan tâm mẫu nào')
+    options.evidence.getAllObservations().some((observation) => observation.outcome === 'NEEDS_INPUT')
+  const seenKnowledgeMedia = new Set<string>()
+  const availableKnowledgeMedia = options.evidence.getAllFacts()
+    .filter((fact) => fact.factPath === 'mediaPointer')
+    .flatMap((fact) => {
+      const pointer = parseKnowledgeMediaPointer(fact.valueHash)
+      if (!pointer || seenKnowledgeMedia.has(pointer.assetId)) return []
+      seenKnowledgeMedia.add(pointer.assetId)
+      return [pointer]
+    })
+  const availableIndexedKnowledgeMedia = availableKnowledgeMedia.map((item, index) => ({
+    ...item,
+    reference: knowledgeMediaReference(index + 1),
+  }))
+  const rawMarkdown = stripRawJsonSuggestions(markdownParts.join('\n\n')) || 'Thông tin tư vấn từ Fastlane.'
+  const fallbackModel = scopeDiagnostics?.vehicleModel
+    || options.evidence.getAllFacts().find((f) => f.factPath === 'vehicleModel')?.valueHash
+    || options.knownEntities.getAllEntities().find((e) => e.kind === 'PRODUCT')?.name
+  const effectiveScopedProduct = scopedCatalogProduct
+    || findScopedCatalogProduct(fallbackModel, catalogSuggestionProducts)
+    || catalogSuggestionProducts.find((p) => (
+      p.productType === 'CAR' && rawMarkdown.toLowerCase().includes(p.name.toLowerCase())
+    ))
+  const verifiedCatalogProducts = catalogSuggestionProducts.flatMap((product) => (
+    product.slug && product.productType
+      ? [{
+          kind: 'PRODUCT' as const,
+          name: product.name,
+          slug: product.slug,
+          productType: product.productType,
+        }]
+      : []
+  ))
+  const sanitizedMarkdown = appendKnowledgeNavigation(
+    sanitizeSalesAgentMarkdownLinks(
+      rawMarkdown,
+      [...knownProducts, ...verifiedCatalogProducts],
+    ),
+    hasKnowledgeEvidence && !isClarificationTurn,
+    scopedCatalogProduct || effectiveScopedProduct,
+    primaryKnowledgeSource,
+  )
+  const compactMarkdown = compactKnowledgeMediaReferences(
+    sanitizedMarkdown,
+    availableIndexedKnowledgeMedia,
+  )
+  const knowledgeMedia = availableIndexedKnowledgeMedia
+    .filter((item) => mediaIsReferenced(compactMarkdown, item))
+    .slice(0, 3)
+  const finalMarkdown = compactMarkdown
 
   // 2. Materialize Blocks from Ledgers and Known Entities (Intent-Gated)
   const blocks: AssistantBlock[] = []
-  const knownProducts = options.knownEntities.getAllEntities().filter((e) => e.kind === 'PRODUCT')
-
   // Detect if this turn is a direct comparison between 2-3 specific products
-  const isComparisonTurn =
-    !isClarificationTurn &&
-    knownProducts.length >= 2 &&
-    knownProducts.length <= 3 &&
-    (lowerMarkdown.includes('so sánh') ||
-      plan.narrative.some((n) => n.kind === 'ADVICE' && n.markdown.toLowerCase().includes('so sánh')))
+  const comparisonData = readComparisonData(options.evidence)
+  const isComparisonTurn = !isClarificationTurn && Boolean(comparisonData)
 
   // Only render product blocks if NOT a clarification turn and products exist
   if (!isClarificationTurn && knownProducts.length > 0) {
     if (isComparisonTurn) {
-      // Comparison Turn: Render ONLY the side-by-side COMPARISON_TABLE to avoid duplicate images
-      const criteria = ['Giá khởi điểm', 'Dung lượng pin', 'Quãng đường', 'Công suất', 'Số chỗ ngồi']
-      const compProducts = knownProducts.map((entity) => {
-        const factPrice = options.evidence.getFact(`fact-price-${entity.id}`)
-        const factSlug = options.evidence.getFact(`fact-slug-${entity.id}`)
-        const slug = entity.slug || (factSlug ? factSlug.valueHash : entity.name.toLowerCase().replace(/\s+/g, '-'))
-        const pType = entity.productType || 'CAR'
-        const factPriceVal = (entity.price != null || factPrice)
-          ? `${(entity.price ?? Number(factPrice?.valueHash)).toLocaleString('vi-VN')} VNĐ`
-          : 'Liên hệ'
-
-        return {
-          productId: entity.id,
-          name: entity.name,
-          thumbnailUrl: entity.thumbnailUrl || null,
-          url: salesAgentProductUrl(pType as any, slug),
-          values: {
-            'Giá khởi điểm': factPriceVal,
-          },
-        }
-      })
+      // Use the canonical comparison rows returned by the repository verbatim.
+      const criteria = comparisonData!.rows.map((row) => row.label)
+      const compProducts = comparisonData!.products.map((product) => ({
+        productId: product.productId,
+        name: product.name,
+        thumbnailUrl: product.thumbnailUrl,
+        url: product.url,
+        values: Object.fromEntries(comparisonData!.rows.map((row) => [
+          row.label,
+          row.values.find((value) => value.productId === product.productId)?.value || 'Chưa cập nhật',
+        ])),
+      }))
 
       blocks.push({
         kind: 'COMPARISON_TABLE',
@@ -93,7 +322,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         products: compProducts,
       })
     } else {
-      // Non-Comparison Turn: Render PRODUCT_LIST cards
+      // Non-Comparison Turn: Render PRODUCT_LIST cards strictly based on typed entities
       const cars = knownProducts.filter((p) => p.productType === 'CAR')
       const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
       const accessories = knownProducts.filter((p) => p.productType === 'ACCESSORY')
@@ -101,13 +330,10 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       let selectedProducts: typeof knownProducts = []
       let blockTitle = 'Danh sách sản phẩm liên quan'
 
-      const mentionsCar = lowerMarkdown.includes('ô tô') || lowerMarkdown.includes('vf ') || lowerMarkdown.includes('suv')
-      const mentionsBike = lowerMarkdown.includes('xe máy') || lowerMarkdown.includes('evo') || lowerMarkdown.includes('feliz') || lowerMarkdown.includes('amio')
-
-      if (mentionsCar && !mentionsBike && cars.length > 0) {
+      if (cars.length > 0 && bikes.length === 0) {
         selectedProducts = cars.slice(0, 8)
         blockTitle = 'Các dòng ô tô điện VinFast'
-      } else if (mentionsBike && !mentionsCar && bikes.length > 0) {
+      } else if (bikes.length > 0 && cars.length === 0) {
         selectedProducts = bikes.slice(0, 8)
         blockTitle = 'Các dòng xe máy điện VinFast'
       } else if (cars.length > 0 && bikes.length > 0) {
@@ -150,33 +376,35 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-
-
-  const allFacts = options.evidence.getAllFacts()
-
-  // 2.5 Extract User Manual Images from Evidence
-  const imageFacts = allFacts.filter((f) => f.factPath === 'image_url' && f.valueHash)
-  
-  if (imageFacts.length > 0) {
-    // We NO LONGER auto-push the first image. The AI is now instructed to use Markdown `![alt](url)`
-    // to render the most relevant image based on context.
-  }
-
-  // 2.6 Extract User Manual Article References from Evidence
-  const articleFacts = allFacts.filter((f) => f.factPath === 'article_id' && f.valueHash)
-  if (articleFacts.length > 0) {
-    const firstArticleId = articleFacts[0].valueHash
-    // Find the corresponding model_id using the chunkId (which is in the factRef)
-    const chunkId = articleFacts[0].factRef.replace('fact-manual-articleId-', '')
-    const modelIdFact = allFacts.find((f) => f.factRef === `fact-manual-modelId-${chunkId}`)
-    
-    if (firstArticleId && modelIdFact && modelIdFact.valueHash) {
+  // Materialize Knowledge Citation references if available (A19-KR-408)
+  if (knowledgeEvidence.length > 0) {
+    const citationFacts = knowledgeEvidence.slice(0, 3).map((e, idx) => {
+      const titleFact = options.evidence.getFact(`fact-kb-title-${e.entity.id}`)?.valueHash || 'Tài liệu hướng dẫn'
+      const secFact = options.evidence.getFact(`fact-kb-section-${e.entity.id}`)?.valueHash || 'Chi tiết'
+      const citationId = options.evidence.getFact(`fact-kb-citation-${e.entity.id}`)?.valueHash
+      const targetUrlFact = options.evidence.getFact(`fact-kb-target-url-${e.entity.id}`)?.valueHash
+      const sourceHref = (targetUrlFact && targetUrlFact.trim()) || salesAgentKnowledgeSourceUrl(e.entity.id)
+      return {
+        ...(citationId ? { citationId } : {}),
+        ...(sourceHref ? { href: sourceHref } : {}),
+        label: `Nguồn tham chiếu [${idx + 1}]`,
+        value: `${titleFact} — ${secFact}`,
+      }
+    })
+    if (citationFacts.length > 0) {
       blocks.push({
-        kind: 'MANUAL_REFERENCE',
-        articleId: firstArticleId,
-        modelId: modelIdFact.valueHash
+        kind: 'FACT_SUMMARY',
+        facts: citationFacts,
       })
     }
+  }
+
+  if (knowledgeMedia.length > 0) {
+    blocks.push({
+      kind: 'KNOWLEDGE_MEDIA',
+      title: 'Hình hướng dẫn liên quan',
+      items: knowledgeMedia,
+    })
   }
 
   // 3. Compose Actions (only include global actions or navigation if blocks are not already showing cards)
@@ -189,63 +417,45 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     })
 
   // 4. Compose Suggestions (Context-Aware)
-  const suggestions: SalesAgentSuggestion[] = plan.suggestionIntents.map((sug, idx) => ({
+  const suggestions: SalesAgentSuggestion[] = isClarificationTurn ? [] : plan.suggestionIntents.slice(0, 3).map((sug, idx) => ({
     suggestionId: `sug-${idx + 1}-${options.turnId}`,
     label: sug.text,
     payload: sug.payload || sug.text,
+    kind: sug.category === 'CLARIFICATION' ? 'CLARIFICATION' : sug.category === 'ALTERNATIVE' ? 'CATALOG_COMPARE' : 'FOLLOW_UP',
+    ...(sug.targetEntityId ? { entityIds: [sug.targetEntityId] } : {}),
+    ...(options.catalogVersion ? { catalogVersion: options.catalogVersion } : {}),
   }))
 
-  // Smart contextual ambient suggestions
-  if (suggestions.length === 0) {
-    if (isClarificationTurn) {
-      const isComparing = lowerMarkdown.includes('so sánh') || lowerMarkdown.includes('pin') || lowerMarkdown.includes('tốc độ')
-      if (isComparing) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'VF 8 vs VF 9', payload: 'So sánh VF 8 và VF 9' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'VF 3 vs VF 5', payload: 'So sánh VF 3 và VF 5' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'VF 6 vs VF 7', payload: 'So sánh VF 6 và VF 7' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Evo 200 vs Feliz', payload: 'So sánh Feliz 2025 và Flazz' },
-        )
-      } else {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các mẫu ô tô điện', payload: 'có những ô tô nào' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Xem các mẫu xe máy điện', payload: 'xe máy điện' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Ô tô dưới 500 triệu', payload: 'Tư vấn ô tô dưới 500 triệu' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Xe máy dưới 20 triệu', payload: 'Tư vấn xe máy điện dưới 20 triệu' },
-        )
-      }
-    } else {
-      const cars = knownProducts.filter((p) => p.productType === 'CAR')
-      const bikes = knownProducts.filter((p) => p.productType === 'BIKE')
+  if (suggestions.length === 0 && !isClarificationTurn) {
+    const hasWarrantyOrBatteryPolicy = knowledgeEvidence.some((e) => {
+      const cat = options.evidence.getFact(`fact-kb-category-${e.entity.id}`)?.valueHash
+      return cat === 'WARRANTY_BATTERY' || cat === 'WARRANTY_POLICY' || cat === 'BATTERY_POLICY'
+    })
 
-      if (cars.length > 0 && bikes.length > 0) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các mẫu ô tô điện', payload: 'có những ô tô nào' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Xem các mẫu xe máy điện', payload: 'xe máy điện' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Tư vấn mua xe trả góp', payload: 'Dự toán trả góp' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Chính sách bảo hành pin', payload: 'Chính sách bảo hành pin' },
-        )
-      } else if (knownProducts.length >= 2) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: `Dự toán trả góp ${knownProducts[0].name}`, payload: `Dự toán trả góp ${knownProducts[0].name}` },
-          { suggestionId: `sug-2-${options.turnId}`, label: `Đặt lịch lái thử ${knownProducts[0].name}`, payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
-          { suggestionId: `sug-3-${options.turnId}`, label: `Phụ kiện ${knownProducts[0].name}`, payload: `Phụ kiện cho ${knownProducts[0].name}` },
-        )
-      } else if (knownProducts.length === 1) {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: `Thông số ${knownProducts[0].name}`, payload: `Thông số kỹ thuật ${knownProducts[0].name}` },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: `Dự toán trả góp ${knownProducts[0].name}` },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Đặt lịch lái thử', payload: `Đặt lịch lái thử ${knownProducts[0].name}` },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện phù hợp', payload: `Phụ kiện phù hợp cho ${knownProducts[0].name}` },
-        )
-      } else {
-        suggestions.push(
-          { suggestionId: `sug-1-${options.turnId}`, label: 'Xem các dòng xe VinFast', payload: 'Các dòng xe VinFast hiện nay' },
-          { suggestionId: `sug-2-${options.turnId}`, label: 'Dự toán trả góp', payload: 'Tư vấn mua xe trả góp' },
-          { suggestionId: `sug-3-${options.turnId}`, label: 'Chính sách bảo hành pin', payload: 'Chính sách bảo hành pin' },
-          { suggestionId: `sug-4-${options.turnId}`, label: 'Phụ kiện nổi bật', payload: 'Phụ kiện xe VinFast' },
-        )
-      }
+    const candidates = buildSuggestionCandidates({
+      knownProducts: knownProducts.map((product) => ({
+        id: product.id,
+        name: product.name,
+        productType: product.productType,
+      })),
+      catalogProducts: (scopedCatalogProduct || effectiveScopedProduct)
+        ? [scopedCatalogProduct || effectiveScopedProduct!]
+        : catalogSuggestionProducts,
+      isClarificationTurn,
+      isComparisonTurn,
+      hasWarrantyOrBatteryPolicy,
+    })
+
+    for (const candidate of rankSuggestionCandidates(candidates, 3)) {
+      suggestions.push({
+        suggestionId: `sug-${suggestions.length + 1}-${options.turnId}`,
+        label: candidate.label,
+        payload: candidate.payload,
+        kind: candidate.kind,
+        ...(candidate.entityIds?.length ? { entityIds: candidate.entityIds } : {}),
+        ...(candidate.entityType ? { entityType: candidate.entityType } : {}),
+        ...(options.catalogVersion ? { catalogVersion: options.catalogVersion } : {}),
+      })
     }
   }
 
@@ -269,7 +479,8 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     },
     blocks,
     actions,
-    suggestions: suggestions.slice(0, 4),
+    suggestions: suggestions.slice(0, 3),
+    ...(options.interaction ? { interaction: options.interaction } : {}),
     grounding: {
       dataAsOf: options.dataAsOf || new Date().toISOString(),
       warnings,
