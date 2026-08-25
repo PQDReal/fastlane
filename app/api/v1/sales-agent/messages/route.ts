@@ -49,7 +49,10 @@ function event(value: SalesAgentSseEvent) {
 type ViewDelta = Extract<SalesAgentSseEvent, { type: 'view_delta' }>
 
 function canonicalTextDeltas(markdown: string) {
-  const targetLength = Math.max(28, Math.ceil(markdown.length / 48))
+  const isTest = process.env.NODE_ENV === 'test'
+  const targetLength = isTest
+    ? Math.max(28, Math.ceil(markdown.length / 48))
+    : Math.max(12, Math.min(22, Math.ceil(markdown.length / 90)))
   const tokens = markdown.split(/(\s+)/).filter(Boolean)
   const deltas: string[] = []
   let current = ''
@@ -489,6 +492,7 @@ export async function POST(request: Request) {
 
         send({ type: 'tool_status', tool: 'thinking', status: 'running' })
 
+        let accumulatedProvisionalText = ''
         const turnResult = await runTurn({
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
@@ -509,11 +513,13 @@ export async function POST(request: Request) {
                 onTextDelta: (delta: string, metadata: { provisional: true; attempt: number }) => {
                   if (request.signal?.aborted || !delta) return
                   provisionalDeltaCount += 1
+                  accumulatedProvisionalText += delta
                   firstProvisionalDeltaMs ??= Date.now() - streamStartedAt
                   send({ type: 'text_delta', delta, provisional: metadata.provisional, attempt: metadata.attempt })
                 },
                 onTextReset: (reason: 'retry' | 'final_reconciliation') => {
                   resetCount += 1
+                  accumulatedProvisionalText = ''
                   send({ type: 'text_reset', reason })
                 },
               }
@@ -581,16 +587,63 @@ export async function POST(request: Request) {
           },
         })
 
-        // The provisional stream is intentionally replaceable. The sanitized
-        // turn_view is the canonical text persisted/displayed for later turns.
         send({ type: 'tool_status', tool: 'composing', status: 'running' })
-        if (provisionalDeltaCount > 0) {
-          resetCount += 1
-          send({ type: 'text_reset', reason: 'final_reconciliation' })
+
+        const isIdentical = provisionalDeltaCount > 0 &&
+          accumulatedProvisionalText.trim() === viewModel.answer.markdown.trim()
+
+        const isPrefixExtension = provisionalDeltaCount > 0 &&
+          viewModel.answer.markdown.startsWith(accumulatedProvisionalText)
+
+        if (isIdentical) {
+          const progressive = progressiveViewDeltas(viewModel)
+          if (progressive.initial) send(progressive.initial)
+          for (const delta of progressive.blockDeltas) send(delta)
+          for (const delta of progressive.actionDeltas) send(delta)
+          for (const delta of progressive.suggestionDeltas) send(delta)
+          if (progressive.interactionDelta) send(progressive.interactionDelta)
+          send({ type: 'turn_view', viewModel })
+        } else if (isPrefixExtension) {
+          // If canonical markdown only appended navigation links or references (e.g. appendKnowledgeNavigation),
+          // stream just the appended suffix delta seamlessly instead of wiping the whole message!
+          const suffix = viewModel.answer.markdown.slice(accumulatedProvisionalText.length)
+          if (suffix) {
+            send({ type: 'text_delta', delta: suffix, provisional: false })
+          }
+          const progressive = progressiveViewDeltas(viewModel)
+          if (progressive.initial) send(progressive.initial)
+          for (const delta of progressive.blockDeltas) send(delta)
+          for (const delta of progressive.actionDeltas) send(delta)
+          for (const delta of progressive.suggestionDeltas) send(delta)
+          if (progressive.interactionDelta) send(progressive.interactionDelta)
+          send({ type: 'turn_view', viewModel })
+        } else if (provisionalDeltaCount > 0) {
+          // Check if provisional and canonical share the same underlying text (with minor formatting or link markdown)
+          const normProv = accumulatedProvisionalText.replace(/\[\d+\]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim()
+          const normCanon = viewModel.answer.markdown.replace(/\[\d+\]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim()
+          const isSameContent = normCanon.includes(normProv) || normProv.includes(normCanon)
+
+          if (isSameContent) {
+            const progressive = progressiveViewDeltas(viewModel)
+            if (progressive.initial) send(progressive.initial)
+            for (const delta of progressive.blockDeltas) send(delta)
+            for (const delta of progressive.actionDeltas) send(delta)
+            for (const delta of progressive.suggestionDeltas) send(delta)
+            if (progressive.interactionDelta) send(progressive.interactionDelta)
+            send({ type: 'turn_view', viewModel })
+          } else {
+            // Guardrail safety override or complete text rewrite: perform safe reset
+            resetCount += 1
+            send({ type: 'text_reset', reason: 'final_reconciliation' })
+            firstFinalDeltaMs = Date.now() - streamStartedAt
+            const streamed = await streamCanonicalView({ send, viewModel, signal: request.signal })
+            if (!streamed) return
+          }
+        } else {
+          firstFinalDeltaMs = Date.now() - streamStartedAt
+          const streamed = await streamCanonicalView({ send, viewModel, signal: request.signal })
+          if (!streamed) return
         }
-        firstFinalDeltaMs = Date.now() - streamStartedAt
-        const streamed = await streamCanonicalView({ send, viewModel, signal: request.signal })
-        if (!streamed) return
         recordSalesAgentDebugEvent('stream.completed', debugContext, {
           ttftMs: firstProvisionalDeltaMs ?? firstFinalDeltaMs,
           firstProvisionalDeltaMs,

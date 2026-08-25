@@ -12,7 +12,7 @@ export type ComparisonProduct = {
   values: Record<string, string>
 }
 
-export function ComparisonCardBlock({
+function ComparisonCardBlockImpl({
   criteria,
   products,
 }: {
@@ -77,3 +77,6 @@ export function ComparisonCardBlock({
     </div>
   )
 }
+
+export const ComparisonCardBlock = React.memo(ComparisonCardBlockImpl)
+
