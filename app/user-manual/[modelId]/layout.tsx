@@ -26,7 +26,10 @@ export default async function ModelManualLayout(props: {
     notFound()
   }
 
-  const tree = await getManualTree(decodedModelId)
+  const [tree, models] = await Promise.all([
+    getManualTree(decodedModelId),
+    getManualModels()
+  ])
 
   return (
     <div className="flex w-full flex-1 flex-col">
@@ -46,7 +49,7 @@ export default async function ModelManualLayout(props: {
 
       <div className="flex w-full flex-1 flex-col md:flex-row">
         {/* Mobile Header / Sidebar */}
-        <ManualSidebar tree={tree} modelId={decodedModelId} />
+        <ManualSidebar tree={tree} modelId={decodedModelId} models={models} />
 
         {/* Content Area */}
         <div className="flex min-w-0 flex-1 flex-col bg-white">{children}</div>

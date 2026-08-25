@@ -387,4 +387,3 @@ export async function searchKnowledgeRepository(
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, limit)
 }
-

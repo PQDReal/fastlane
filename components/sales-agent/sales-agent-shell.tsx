@@ -1264,9 +1264,9 @@ export function SalesAgentShell() {
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
-        initial={{ opacity: 1, scale: 0.95, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
-        animate={{ opacity: 1, scale: 1, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
-        exit={{ opacity: 0, scale: 0.85, x: isMounted ? position.x : 0, y: (isMounted ? position.y : 0) + 15 }}
+        initial={{ opacity: 1, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.85, y: 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed bottom-6 right-6 z-[55] flex items-center"
         style={floatingPosition ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto', bottom: 'auto' } : undefined}

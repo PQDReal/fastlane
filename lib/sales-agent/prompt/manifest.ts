@@ -43,7 +43,6 @@ const CORE_PROMPT_LINES = [
   '- Nếu giai đoạn tra cứu đã kết thúc hoặc công cụ bị vô hiệu hóa, trả lời ngay từ bằng chứng hiện có; nêu chính xác phần còn thiếu và không gọi thêm công cụ.',
   '- Cuối mỗi câu trả lời hoàn chỉnh, thêm đúng 3 gợi ý ngắn, sát chủ đề để khách hỏi tiếp theo dạng JSON [{"label":"Tên nút","intent":"Câu hỏi khi bấm"}]. Không thêm gợi ý ở lượt đang yêu cầu người dùng làm rõ.',
   '',
-  SALES_AGENT_MARKDOWN_TEMPLATE,
 ]
 
 const KNOWLEDGE_PROMPT_LINES = [

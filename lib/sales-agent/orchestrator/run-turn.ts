@@ -951,21 +951,36 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   let finalMarkdown = accumulatedText || 'Dưới đây là thông tin tư vấn theo catalog Fastlane.'
   
   // Parse embedded JSON suggestion intents if the LLM output them at the end of the text
-  const lastBracketIndex = finalMarkdown.lastIndexOf('[')
-  const lastCloseBracketIndex = finalMarkdown.lastIndexOf(']')
-  if (lastBracketIndex !== -1 && lastCloseBracketIndex > lastBracketIndex) {
-    const possibleJson = finalMarkdown.substring(lastBracketIndex, lastCloseBracketIndex + 1)
-    if (possibleJson.includes('"label"') && possibleJson.includes('"intent"')) {
-      try {
-        const parsed = JSON.parse(possibleJson)
-        if (Array.isArray(parsed) && parsed.every(p => p.label && p.intent)) {
-          parsedSuggestions = parsed.map(p => ({ text: p.label, payload: p.intent })).slice(0, 5)
-          finalMarkdown = finalMarkdown.substring(0, lastBracketIndex).trim()
+  const suggestionStartIndex = finalMarkdown.search(/\[\s*\{\s*"(label|intent)"/);
+  if (suggestionStartIndex !== -1) {
+    const possibleJson = finalMarkdown.substring(suggestionStartIndex);
+    
+    // 1. Try strict JSON parse first (handles escaped characters best if perfectly valid)
+    try {
+      const lastCloseBracket = possibleJson.lastIndexOf(']');
+      if (lastCloseBracket !== -1) {
+        const jsonStr = possibleJson.substring(0, lastCloseBracket + 1);
+        const parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed)) {
+          parsedSuggestions = parsed.filter(p => p.label && p.intent).map(p => ({ text: p.label, payload: p.intent })).slice(0, 5);
         }
-      } catch (e) {
-        // Ignore JSON parse errors
+      }
+    } catch (e) {
+      // Ignore strict parse errors, will fall back to regex
+    }
+
+    // 2. Fallback to regex if strict parse failed (e.g. cut-off string by max tokens)
+    if (parsedSuggestions.length === 0) {
+      const labels = [...possibleJson.matchAll(/"label"\s*:\s*"([^"]+)"/g)].map(m => m[1]);
+      const intents = [...possibleJson.matchAll(/"intent"\s*:\s*"([^"]+)"/g)].map(m => m[1]);
+      const count = Math.min(labels.length, intents.length, 5);
+      for (let i = 0; i < count; i++) {
+        parsedSuggestions.push({ text: labels[i], payload: intents[i] });
       }
     }
+
+    // 3. Remove the JSON string (even if cut off) from the user-facing text
+    finalMarkdown = finalMarkdown.substring(0, suggestionStartIndex).trim();
   }
 
   narrative.push({
