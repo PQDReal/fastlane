@@ -354,8 +354,8 @@ export function SalesAgentShell() {
     })
   }
   const dragControls = useDragControls()
+
   const [isExpanded, setIsExpanded] = useState(false)
-  
 
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [draft, setDraft] = useState('')
@@ -840,9 +840,9 @@ export function SalesAgentShell() {
             : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
         }
         style={{ transformOrigin: isExpanded ? 'center' : 'calc(100% - 32px) calc(100% - 32px)' }}
-        initial={{ opacity: 0, scale: 0.85, x: chatX, y: chatY + 20 }}
-        animate={{ opacity: 1, scale: 1, x: chatX, y: chatY }}
-        exit={{ opacity: 0, scale: 0.85, x: chatX, y: chatY + 20 }}
+        initial={{ opacity: 0, scale: 0.85, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: 20 }}
         transition={{ 
           default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
@@ -1256,7 +1256,11 @@ export function SalesAgentShell() {
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
+<<<<<<< HEAD
+        initial={{ opacity: 0, scale: 0.85 }}
+=======
         initial={{ opacity: 1, scale: 0.95 }}
+>>>>>>> origin/develop
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.85, y: 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}

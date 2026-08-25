@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
-import { Building2, CalendarDays, MapPin } from 'lucide-react'
+import { Building2, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 import { InfoSection, PublicInfoPage } from '@/components/public-info-page'
+import { ShowroomsClient } from './showrooms-client'
 
 export const metadata: Metadata = {
   title: 'Hệ thống showroom | FASTLANE',
@@ -17,11 +18,12 @@ const regions = [
 export default function ShowroomsPage() {
   return (
     <PublicInfoPage
-      eyebrow="Hỗ trợ"
+      eyebrow=""
       title="Hệ thống showroom"
-      intro="Đến showroom để xem xe, nhận tư vấn cấu hình, đăng ký lái thử và được hướng dẫn các bước mua hàng phù hợp."
+      intro=""
     >
-      <div className="grid gap-4 md:grid-cols-3">
+      <ShowroomsClient />
+      {/* <div className="grid gap-4 md:grid-cols-3">
         {regions.map((region) => (
           <article key={region.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <MapPin className="text-brand-700" size={24} />
@@ -30,7 +32,7 @@ export default function ShowroomsPage() {
             <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-slate-400">Đang cập nhật điểm gần bạn</p>
           </article>
         ))}
-      </div>
+      </div> */}
       <div className="mt-12 grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-slate-950 p-7 text-white">
           <Building2 className="text-brand-300" size={25} />

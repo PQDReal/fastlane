@@ -95,6 +95,10 @@
     "verify:vehicle-skus": "node --env-file=.env.local scripts/verify-vehicle-skus.mjs",
     "verify:admin-inventory-rpc": "node --env-file=.env.local scripts/verify-admin-inventory-rpcs.mjs",
     "sync:motorbike-specs": "node scripts/sync-motorbike-specs.mjs",
+    "sync:showrooms": "node --env-file-if-exists=.env.local scripts/sync-showrooms.mjs",
+    "sync:showrooms:apply": "node --env-file-if-exists=.env.local scripts/sync-showrooms.mjs --apply",
+    "sync:showrooms:reconcile": "node --env-file-if-exists=.env.local scripts/sync-showrooms.mjs --apply --reconcile",
+    "backfill:showroom-locations": "node --env-file-if-exists=.env.local scripts/backfill-showroom-locations.mjs --apply",
     "verify": "npm test && npm run typecheck && npm run check:openapi && npm run build && npm run check:performance-budget",
     "sync:motorbike-images:apply": "node --env-file=.env.local scripts/sync-motorbike-images.mjs --apply",
     "knowledge:prepare": "node --experimental-strip-types scripts/prepare-vinfast-knowledge.mjs",
@@ -137,6 +141,7 @@
     "ioredis": "^5.11.1",
     "jose": "6.2.3",
     "katex": "^0.18.4",
+    "leaflet": "^1.9.4",
     "lucide-react": "latest",
     "next": "^15.5.22",
     "nodemailer": "^9.0.4",
@@ -157,6 +162,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
