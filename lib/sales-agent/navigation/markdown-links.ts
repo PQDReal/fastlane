@@ -58,9 +58,10 @@ export function sanitizeSalesAgentMarkdownLinks(markdown: string, knownProducts:
     if (!['CAR', 'BIKE', 'ACCESSORY'].includes(entity.productType)) return []
     return [{
       label: normalizeLabel(entity.name),
+      productType: entity.productType,
       href: salesAgentProductUrl(entity.productType as 'CAR' | 'BIKE' | 'ACCESSORY', entity.slug),
     }]
-  })
+  }).sort((a, b) => b.label.length - a.label.length) // Match longer/more specific names first
   const canonicalHrefs = new Set(canonicalProducts.map((product) => product.href))
 
   return markdown.replace(MARKDOWN_LINK_PATTERN, (_match, rawLabel: string, angleHref?: string, plainHref?: string) => {
@@ -71,11 +72,23 @@ export function sanitizeSalesAgentMarkdownLinks(markdown: string, knownProducts:
     if (canonicalHrefs.has(href)) return `[${label}](${href})`
 
     const normalizedLinkLabel = normalizeLabel(label)
-    const matchingProduct = canonicalProducts.find((product) => (
-      product.label === normalizedLinkLabel
-      || product.label.includes(normalizedLinkLabel)
-      || normalizedLinkLabel.includes(product.label)
-    ))
+
+    // 1. Try exact label match first
+    const exactMatch = canonicalProducts.find((product) => product.label === normalizedLinkLabel)
+    if (exactMatch) return `[${label}](${exactMatch.href})`
+
+    // 2. If href is already a valid canonical product link (e.g. /accessories/... or /cars/...)
+    if (canonicalHrefs.has(href)) return `[${label}](${href})`
+
+    // 3. Substring match only with word boundary and matching product type if href has prefix
+    const matchingProduct = canonicalProducts.find((product) => {
+      if (product.label.length < 3) return false
+      if (href.startsWith('/accessories') && product.productType !== 'ACCESSORY') return false
+      if (href.startsWith('/cars') && product.productType !== 'CAR') return false
+      if (href.startsWith('/bikes') && product.productType !== 'BIKE') return false
+      const regex = new RegExp(`(^|\\s)${product.label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(\\s|$)`, 'i')
+      return regex.test(normalizedLinkLabel)
+    })
     if (matchingProduct) return `[${label}](${matchingProduct.href})`
 
     const staticHref = verifiedStaticHref(href)

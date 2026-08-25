@@ -69,6 +69,11 @@ SET search_path = public, pg_temp AS $$
       row_number() OVER (
         PARTITION BY asset.id
         ORDER BY
+          CASE
+            WHEN annotation.image_type IN ('DIAGRAM', 'CONTROL_LOCATION', 'SCHEMATIC') THEN 0
+            WHEN annotation.image_type IN ('SCREENSHOT', 'PHOTO') THEN 1
+            ELSE 2
+          END,
           COALESCE(
             array_position(
               COALESCE(p_section_anchors, ARRAY[]::TEXT[]),
@@ -140,7 +145,12 @@ SET search_path = public, pg_temp AS $$
     candidates.ordinal
   FROM candidates
   WHERE candidates.asset_rank = 1
-  ORDER BY candidates.evidence_rank,
+  ORDER BY CASE
+             WHEN candidates.image_type IN ('DIAGRAM', 'CONTROL_LOCATION', 'SCHEMATIC') THEN 0
+             WHEN candidates.image_type IN ('SCREENSHOT', 'PHOTO') THEN 1
+             ELSE 2
+           END,
+           candidates.evidence_rank,
            candidates.text_rank DESC,
            candidates.block_ordinal,
            candidates.image_ordinal_in_block,
@@ -216,6 +226,11 @@ SET search_path = public, pg_temp AS $$
       row_number() OVER (
         PARTITION BY asset.id
         ORDER BY
+          CASE
+            WHEN annotation.image_type IN ('DIAGRAM', 'CONTROL_LOCATION', 'SCHEMATIC') THEN 0
+            WHEN annotation.image_type IN ('SCREENSHOT', 'PHOTO') THEN 1
+            ELSE 2
+          END,
           COALESCE(
             array_position(
               COALESCE(p_section_anchors, ARRAY[]::TEXT[]),
@@ -298,7 +313,12 @@ SET search_path = public, pg_temp AS $$
     candidates.ordinal
   FROM candidates
   WHERE candidates.asset_rank = 1
-  ORDER BY candidates.evidence_rank,
+  ORDER BY CASE
+             WHEN candidates.image_type IN ('DIAGRAM', 'CONTROL_LOCATION', 'SCHEMATIC') THEN 0
+             WHEN candidates.image_type IN ('SCREENSHOT', 'PHOTO') THEN 1
+             ELSE 2
+           END,
+           candidates.evidence_rank,
            candidates.text_rank DESC,
            candidates.block_ordinal,
            candidates.image_ordinal_in_block,

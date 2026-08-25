@@ -155,6 +155,7 @@ function buildModelYearClarification(
 ): ScopeClarification | null {
   if (!catalog || catalog.status !== 'READY' || !vehicleModel) return null
   if (input.categories?.length && input.categories.every(isSalesKnowledgeCategory)) return null
+  if (isPolicySearchQuery(input.query)) return null
   const years = [...new Set(catalog.entries
     .filter((entry) => normalizeScopeModel(entry.vehicleModel) === normalizeScopeModel(vehicleModel))
     .flatMap((entry) => [entry.modelYearFrom, entry.modelYearTo])

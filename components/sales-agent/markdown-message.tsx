@@ -250,7 +250,13 @@ export function MarkdownMessage({
   mediaItems?: KnowledgeMediaItem[]
   streaming?: boolean
 }) {
-  const preprocessed = preprocessInlineKnowledgeImages(content, mediaItems)
+  let displayContent = content
+  const suggestionStartIndex = displayContent.search(/\[\s*\{\s*"(label|intent)"/)
+  if (suggestionStartIndex !== -1) {
+    displayContent = displayContent.substring(0, suggestionStartIndex).trim()
+  }
+
+  const preprocessed = preprocessInlineKnowledgeImages(displayContent, mediaItems)
   const markdown = normalizeMathDelimiters(completeMarkdownTable(completeCodeFence(preprocessed, streaming), streaming))
 
   return (

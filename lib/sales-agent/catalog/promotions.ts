@@ -47,8 +47,8 @@ export async function getCurrentPromotionsRepository(
       .from('promotions')
       .select('*')
       .eq('is_active', true)
-      .lte('valid_from', now)
-      .gte('valid_until', now)
+      .or(`starts_at.is.null,starts_at.lte.${now}`)
+      .or(`ends_at.is.null,ends_at.gte.${now}`)
 
     const res = await Promise.race([fetchPromise, timeoutPromise])
     if (res.error) {
@@ -57,22 +57,21 @@ export async function getCurrentPromotionsRepository(
       rows = res.data
     }
   } catch (err) {
-    console.warn('[PROMOTIONS_REPO] Supabase promotions query failed, returning empty list:', err)
+    console.warn('[PROMOTIONS_REPO] Supabase promotions query failed:', err)
     queryError = err instanceof Error
       ? { name: err.name, message: err.message }
       : { name: 'UNKNOWN_ERROR', message: String(err) }
   }
 
-  // If promotions table is empty or error, fallback gracefully with empty list
   const promotions: PromotionSnapshot[] = (rows ?? []).map((row: any) => ({
     id: String(row.id),
-    title: row.title || row.name,
+    title: row.title || row.name || `Ưu đãi ${row.code}`,
     code: row.code,
-    discountType: row.discount_type || 'PERCENTAGE',
-    discountValue: Number(row.discount_value || 0),
-    description: row.description,
-    validFrom: row.valid_from,
-    validUntil: row.valid_until,
+    discountType: (row.type === 'FIXED' || row.discount_type === 'FIXED_AMOUNT') ? 'FIXED_AMOUNT' : 'PERCENTAGE',
+    discountValue: Number(row.value ?? row.discount_value ?? 0),
+    description: row.description || (row.max_discount_amount ? `Giảm tối đa ${Number(row.max_discount_amount).toLocaleString('vi-VN')} VNĐ` : null),
+    validFrom: row.starts_at || row.valid_from || readAt,
+    validUntil: row.ends_at || row.valid_until || readAt,
     applicableProductTypes: row.applicable_product_types || ['CAR', 'BIKE'],
     applicableProductIds: row.applicable_product_ids,
   }))
@@ -84,6 +83,7 @@ export async function getCurrentPromotionsRepository(
     facts: [
       { factRef: `fact-promo-title-${p.id}`, factPath: 'title', valueHash: p.title },
       { factRef: `fact-promo-discount-${p.id}`, factPath: 'discountValue', valueHash: String(p.discountValue) },
+      { factRef: `fact-promo-code-${p.id}`, factPath: 'code', valueHash: p.code },
     ],
     readAt,
   }))
@@ -91,8 +91,8 @@ export async function getCurrentPromotionsRepository(
   const observation: ToolObservationRef = {
     observationId: `obs-${toolCallId}`,
     toolCallId,
-    outcome: 'SUCCESS',
-    issueCodes: [],
+    outcome: queryError ? 'ERROR' : (promotions.length > 0 ? 'SUCCESS' : 'NO_MATCH'),
+    issueCodes: queryError ? ['DATABASE_ERROR'] : [],
     inputHash: JSON.stringify(input),
     readAt,
   }
@@ -105,9 +105,9 @@ export async function getCurrentPromotionsRepository(
     dataAsOf,
     evidence,
     observation,
-    issues: [],
+    issues: queryError ? [{ code: 'DATABASE_ERROR', message: queryError.message }] : [],
     appliedBindings: [],
-    outcome: 'SUCCESS',
+    outcome: queryError ? 'ERROR' : 'SUCCESS',
     completeness: 'FULL',
     diagnostics: queryError
       ? {

@@ -5,6 +5,8 @@ import { getAvailableFallbackLanguageModels, getSalesAgentLanguageModel } from '
 import { apiKeyPoolManager } from '../providers/key-pool'
 import { createSalesAgentLanguageModel, type SalesAgentLanguageModel } from '../providers/ai-sdk'
 import { FINALIZATION_PHASE_INSTRUCTION, getSalesAgentSystemPrompt } from '../prompt/manifest'
+import { catalogCacheEngine } from '../cache/catalog-cache'
+import { compileCompactCatalogContext } from '../cache/catalog-context'
 import { executeDataTool } from '../tools/definitions'
 import { isSalesAgentKnowledgeRagEnabled } from '../core/flags'
 import { recordSalesAgentDebugEvent } from '../debug-log'
@@ -459,7 +461,9 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     candidateModels: knowledgeScope.candidateModels,
     candidateYears: knowledgeScope.candidateYears,
   })
-  const basePrompt = getSalesAgentSystemPrompt({ knowledgeEnabled })
+  const catalogSnapshot = catalogCacheEngine.getSnapshot()
+  const catalogContext = compileCompactCatalogContext(catalogSnapshot, { mode: 'FACTS' })
+  const basePrompt = getSalesAgentSystemPrompt({ knowledgeEnabled, catalogContext })
 
   let toolCallsCount = 0
   let toolCallSequence = 0

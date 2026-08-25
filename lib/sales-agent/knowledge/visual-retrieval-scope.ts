@@ -26,25 +26,22 @@ function isAdjacentInSource(
 }
 
 /**
- * Visuals may only come from the highest-ranked direct evidence or a true
- * neighboring chunk in the same semantic section. Parent expansions and
- * unrelated hits must never contribute media merely because their annotation
- * happens to match a broad query.
+ * Visuals are collected from any top direct evidence carrying an inline visual,
+ * or immediate adjacent neighbors in the same semantic section. Parent expansions
+ * and unrelated hits without proximity to direct evidence are excluded.
  */
 export function selectVisualEvidenceItems(
   evidenceItems: KnowledgeEvidenceItem[],
 ): KnowledgeEvidenceItem[] {
   const directEvidence = evidenceItems.filter((item) => item.expansionProvenance === 'DIRECT')
-  const primary = directEvidence[0]
-  if (!primary) return []
+  if (directEvidence.length === 0) return []
 
-  return evidenceItems.filter((item) => (
-    hasInlineVisual(item)
-    && (item === primary || (
-      item.expansionProvenance !== 'PARENT'
-      && isAdjacentInSource(primary, item)
-    ))
-  ))
+  return evidenceItems.filter((item) => {
+    if (!hasInlineVisual(item)) return false
+    if (item.expansionProvenance === 'PARENT') return false
+    if (item.expansionProvenance === 'DIRECT') return true
+    return directEvidence.some((direct) => isAdjacentInSource(direct, item))
+  })
 }
 
 export function buildVisualRetrievalScope(

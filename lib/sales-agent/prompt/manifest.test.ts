@@ -61,4 +61,11 @@ describe('Sales Agent prompt capability gate', () => {
     expect(prompt).not.toContain('/user-manual')
     expect(prompt).not.toContain('search_user_manuals')
   })
+
+  it('instructs the model that vision/image upload is not supported and not to ask for screenshots', () => {
+    const prompt = getSalesAgentSystemPrompt({ knowledgeEnabled: true })
+    expect(prompt).toContain('CHƯA hỗ trợ')
+    expect(prompt).toContain('ảnh chụp màn hình')
+    expect(prompt).toContain('vision')
+  })
 })

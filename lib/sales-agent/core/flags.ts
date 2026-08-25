@@ -43,10 +43,11 @@ export function isSalesAgentVisualKnowledgeRetrievalEnabled() {
 }
 
 /**
- * AI_DRAFT is the admin "chờ duyệt" state. Product requirements allow both
- * pending and approved visuals; the retrieval RPC still excludes annotations
- * explicitly rejected, ignored, stale, decorative, or marked EXCLUDE.
+ * AI_DRAFT is the admin "chờ duyệt" state. Allowed by default in development
+ * and evaluation, but strictly gated in production to enforce maker-checker governance.
  */
 export function isSalesAgentVisualKnowledgeDraftsAllowed() {
-  return true
+  if (process.env.SALES_AGENT_VISUAL_KNOWLEDGE_DRAFTS_ALLOWED === 'false') return false
+  if (process.env.SALES_AGENT_VISUAL_KNOWLEDGE_DRAFTS_ALLOWED === 'true') return true
+  return process.env.NODE_ENV !== 'production'
 }

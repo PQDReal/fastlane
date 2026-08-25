@@ -334,6 +334,13 @@ function ScopeChoiceInteraction({ interaction, disabled, onSubmit }: { interacti
   </form>
 }
 
+function safeRandomUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
+
 export function SalesAgentShell() {
   const open = useSalesAgentStore((state) => state.open)
   const setOpen = useSalesAgentStore((state) => state.setOpen)
@@ -370,14 +377,24 @@ export function SalesAgentShell() {
   // Calculate bounds to prevent chat window from going completely off-screen
   let chatX = isMounted && !isExpanded ? position.x : 0
   let chatY = isMounted && !isExpanded ? position.y : 0
+  let dragConstraints = { top: 0, bottom: 0, left: 0, right: 0 }
   if (typeof window !== 'undefined' && !isExpanded && isMounted) {
-    const minY = 720 - window.innerHeight
-    const maxY = window.innerHeight - 100
+    const isDesktop = window.innerWidth >= 768
+    const paddingX = isDesktop ? 16 : 12
+    const paddingY = isDesktop ? 16 : 12
+    const chatWidth = isDesktop ? 420 : window.innerWidth - (paddingX * 2)
+    const chatHeight = isDesktop ? Math.min(680, window.innerHeight - 32) : Math.min(620, window.innerHeight - 24)
+
+    const minY = Math.min(0, -(window.innerHeight - chatHeight - paddingY * 2))
+    const maxY = 0
+    const minX = Math.min(0, -(window.innerWidth - chatWidth - paddingX * 2))
+    const maxX = 0
+
+    dragConstraints = { top: minY, bottom: maxY, left: minX, right: maxX }
+
     if (chatY < minY) chatY = minY
     if (chatY > maxY) chatY = maxY
     
-    const minX = 460 - window.innerWidth
-    const maxX = window.innerWidth - 100
     if (chatX < minX) chatX = minX
     if (chatX > maxX) chatX = maxX
   }
@@ -632,8 +649,8 @@ export function SalesAgentShell() {
     followBottomRef.current = true
     setShowScrollButton(false)
     setDraft('')
-    const assistantId = crypto.randomUUID()
-    const userMessage: DisplayMessage = { id: crypto.randomUUID(), role: 'user', content: message }
+    const assistantId = safeRandomUUID()
+    const userMessage: DisplayMessage = { id: safeRandomUUID(), role: 'user', content: message }
     const assistantMessage: DisplayMessage = { id: assistantId, role: 'assistant', content: '', pending: true }
     const history = limitSalesAgentHistory(messages.filter((item) => !item.pending).map(({ role, content }) => ({ role, content })))
     setMessages((items) => [...items, userMessage, assistantMessage])
@@ -840,6 +857,7 @@ export function SalesAgentShell() {
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
         }}
         drag={!isExpanded}
+        dragConstraints={dragConstraints}
         dragControls={dragControls}
         dragListener={false}
         dragMomentum={false}

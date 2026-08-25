@@ -1,12 +1,14 @@
-import { NextResponse } from 'next/server'
+import { authorizeAdminCatalogRequest } from '@/lib/auth/admin'
+import { ApiAuthError, authErrorResponse } from '@/lib/auth/errors'
 import { catalogCacheEngine } from '@/lib/sales-agent/cache/catalog-cache'
 import { invalidateProviderCache } from '@/lib/sales-agent/providers/registry'
 import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
 
-export async function GET() {
+export async function GET(request: Request) {
   const requestId = crypto.randomUUID()
   const startedAt = Date.now()
   try {
+    await authorizeAdminCatalogRequest(request)
     const status = catalogCacheEngine.getStatus()
     recordSalesAgentDebugEvent('admin.cache.status.completed', { requestId }, {
       status,
@@ -14,6 +16,7 @@ export async function GET() {
     })
     return NextResponse.json({ data: status }, { headers: { 'X-Sales-Agent-Request-Id': requestId } })
   } catch (error) {
+    if (error instanceof ApiAuthError) return authErrorResponse(error)
     recordSalesAgentDebugEvent('admin.cache.status.failed', { requestId }, {
       reasonCode: 'CACHE_STATUS_FAILED',
       elapsedMs: Date.now() - startedAt,
@@ -26,10 +29,11 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const requestId = crypto.randomUUID()
   const startedAt = Date.now()
   try {
+    await authorizeAdminCatalogRequest(request)
     invalidateProviderCache()
     const newSnapshot = await catalogCacheEngine.forceRefresh()
     const status = catalogCacheEngine.getStatus()
@@ -46,6 +50,7 @@ export async function POST() {
       },
     }, { headers: { 'X-Sales-Agent-Request-Id': requestId } })
   } catch (error) {
+    if (error instanceof ApiAuthError) return authErrorResponse(error)
     recordSalesAgentDebugEvent('admin.cache.refresh.failed', { requestId }, {
       reasonCode: 'CACHE_REFRESH_FAILED',
       elapsedMs: Date.now() - startedAt,

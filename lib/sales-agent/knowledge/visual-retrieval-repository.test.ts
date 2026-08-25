@@ -65,26 +65,29 @@ describe('approved visual knowledge pointer mapping', () => {
     )
   })
 
-  it('only allows visuals on the primary direct hit or an adjacent chunk in the same section', () => {
+  it('allows visuals on direct hits and adjacent neighbors in the same section, while excluding parents and distant expansions', () => {
     const primary = visualEvidence({
       chunkId: 'wifi-p3',
       hierarchyPath: 'root/c07/s07_cai-dat/leaf_03',
       sectionAnchor: 'settings-p3',
       chunkOrdinal: 199,
+      expansionProvenance: 'DIRECT',
     })
-    const adjacentIllustration = visualEvidence({
+    const directIllustration = visualEvidence({
       chunkId: 'wifi-p2',
       hierarchyPath: 'root/c07/s07_cai-dat/leaf_02',
       sectionAnchor: 'settings-p2',
       chunkOrdinal: 198,
       imageRefs: ['https://om.vinfastauto.com/wifi-settings.png'],
+      expansionProvenance: 'DIRECT',
     })
-    const unrelatedScreen = visualEvidence({
+    const distantExpansion = visualEvidence({
       chunkId: 'touchscreen-layout',
       hierarchyPath: 'root/c07/s01_man-hinh/leaf_01',
       sectionAnchor: 'touchscreen-p1',
       chunkOrdinal: 145,
       imageRefs: ['https://om.vinfastauto.com/layout.png'],
+      expansionProvenance: 'NEIGHBOR',
     })
     const adjacentNeighbor = visualEvidence({
       chunkId: 'expanded-image',
@@ -105,29 +108,31 @@ describe('approved visual knowledge pointer mapping', () => {
 
     expect(selectVisualEvidenceItems([
       primary,
-      adjacentIllustration,
-      unrelatedScreen,
+      directIllustration,
+      distantExpansion,
       adjacentNeighbor,
       parentIllustration,
-    ])).toEqual([adjacentIllustration, adjacentNeighbor])
+    ])).toEqual([directIllustration, adjacentNeighbor])
   })
 
-  it('returns no visual when the answer chunk has no inline image and other images are in another section', () => {
+  it('returns no visual when no direct hits have images and no neighbors are adjacent', () => {
     const wifiProcedure = visualEvidence({
       chunkId: 'wifi-p3',
       hierarchyPath: 'root/c07/s07_cai-dat/leaf_03',
       sectionAnchor: 'settings-p3',
       chunkOrdinal: 199,
+      expansionProvenance: 'DIRECT',
     })
-    const genericLayout = visualEvidence({
+    const distantNeighbor = visualEvidence({
       chunkId: 'touchscreen-layout',
       hierarchyPath: 'root/c07/s01_man-hinh/leaf_01',
       sectionAnchor: 'touchscreen-p1',
       chunkOrdinal: 145,
       imageRefs: ['https://om.vinfastauto.com/layout.png'],
+      expansionProvenance: 'NEIGHBOR',
     })
 
-    expect(selectVisualEvidenceItems([wifiProcedure, genericLayout])).toEqual([])
+    expect(selectVisualEvidenceItems([wifiProcedure, distantNeighbor])).toEqual([])
   })
 
   it('uses exact section anchors and reserves source-node lookup for legacy evidence', () => {
