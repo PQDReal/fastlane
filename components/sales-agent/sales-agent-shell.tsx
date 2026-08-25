@@ -347,6 +347,14 @@ export function SalesAgentShell() {
   const position = useSalesAgentStore((state) => state.position)
   const setPosition = useSalesAgentStore((state) => state.setPosition)
 
+  const handleDragEnd = (event: any, info: any) => {
+    setPosition({
+      x: position.x + info.offset.x,
+      y: position.y + info.offset.y,
+    })
+  }
+  const dragControls = useDragControls()
+
   const [isExpanded, setIsExpanded] = useState(false)
 
   const [messages, setMessages] = useState<DisplayMessage[]>([])
@@ -839,19 +847,17 @@ export function SalesAgentShell() {
           default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
         }}
-<<<<<<< HEAD
-=======
         drag={!isExpanded}
         dragConstraints={dragConstraints}
         dragControls={dragControls}
         dragListener={false}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
->>>>>>> origin/develop
       >
         {/* Header Bar */}
         <div 
-          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0"
+          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0 cursor-grab active:cursor-grabbing"
+          onPointerDown={(e) => dragControls.start(e)}
         >
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
