@@ -30,6 +30,7 @@
     "check:catalog-taxonomy": "node scripts/sync-catalog-taxonomy.mjs --source-only",
     "catalog-intelligence:backfill": "vite-node scripts/catalog-intelligence-backfill.ts --dry-run",
     "catalog-intelligence:backfill:apply": "vite-node scripts/catalog-intelligence-backfill.ts --apply",
+    "catalog-intelligence:shadow": "vite-node scripts/catalog-intelligence-shadow.ts",
     "sync:catalog-taxonomy": "node --env-file=.env.local scripts/sync-catalog-taxonomy.mjs",
     "verify:catalog-taxonomy": "node --env-file=.env.local scripts/sync-catalog-taxonomy.mjs --verify",
     "sync:catalog-taxonomy:apply": "node --env-file=.env.local scripts/sync-catalog-taxonomy.mjs --apply",

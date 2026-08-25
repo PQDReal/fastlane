@@ -76,6 +76,31 @@ npm run catalog-intelligence:backfill:apply -- --limit=10 --details
 existing `catalog-intelligence:backfill` script always supplies `--dry-run`, so
 the audit command cannot accidentally write.
 
+## Legacy-versus-canonical shadow comparison
+
+The shadow evaluator runs the existing vehicle-spec reader and the canonical
+planner over the same immutable product snapshot. It never changes the
+storefront or assistant response and always reports `writes: 0`.
+
+```powershell
+npm run catalog-intelligence:shadow
+npm run catalog-intelligence:shadow -- --details
+npm run catalog-intelligence:shadow -- --json --details
+```
+
+Each core fact receives one explicit disposition:
+
+- `MATCH`: normalized values agree within the registered tolerance;
+- `VALUE_MISMATCH`: both readers produced a value but disagree;
+- `LEGACY_ONLY` or `CANONICAL_ONLY`: only one reader represented the fact;
+- `CONTEXT_SPLIT`: canonical data correctly preserves multiple conditions that
+  the flat legacy reader cannot represent;
+- `CANONICAL_BLOCKED`: exact source review prevented canonical promotion.
+
+A key is marked `READY` only when it has at least one match and has no value
+mismatch, legacy-only gap or context split among unblocked snapshots. This is a
+measurement gate, not an automatic cut-over flag.
+
 Current reviewed baseline captured on 2026-08-24 against 112 active products:
 
 | Metric | Count |
@@ -112,7 +137,7 @@ only after its allowed technical sections and canonical vocabulary are frozen.
 
 1. Deterministic vocabulary, extractors, resolver, unit parser and selector — complete.
 2. Observation/fact persistence worker and idempotent backfill apply mode — implemented; migration deployment and bounded production apply remain operational steps.
-3. Legacy-versus-canonical shadow comparison.
+3. Legacy-versus-canonical shadow comparison — implemented as a read-only gate.
 4. Gradual FAQ, entity-resolution, comparison, ranking and search cutover.
 5. Coverage evaluator and review workflow.
 6. Optional LLM suggestions after real review decisions form a useful corpus.
