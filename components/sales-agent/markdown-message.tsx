@@ -119,7 +119,6 @@ function completeMarkdownTable(content: string, streaming: boolean) {
   return content
 }
 
-<<<<<<< HEAD
 function InlineImage({
   src,
   alt,
