@@ -16,6 +16,9 @@ describe('Migration 066: verified motorbike warranty knowledge', () => {
 
   it('publishes contextual motorbike warranty facts and official sources', () => {
     expect(sql).toContain('chinh-sach-bao-hanh-pin-xe-may-dien-vinfast')
+    expect(sql).toContain('alter column document_key')
+    expect(sql).toContain("set document_key = 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast'")
+    expect(sql).toContain('drop default')
     expect(sql).toContain('trước 15/08/2025')
     expect(sql).toContain('hóa đơn đúng ngày 15/08/2025')
     expect(sql).toContain('sbh-xmd-lfp-5-nam.pdf')
@@ -27,5 +30,17 @@ describe('Migration 066: verified motorbike warranty knowledge', () => {
     expect(sql).toContain('/after-sales?vehicle=motorbike&tab=warranty#warranty-term')
     expect(sql).not.toContain('/knowledge/')
     expect(sql).toContain('chưa được ingest')
+  })
+
+  it('supports both legacy and versioned knowledge chunk schemas', () => {
+    expect(sql).toContain("to_regclass('public.sales_agent_knowledge_versions')")
+    expect(sql).toContain('sales_agent_knowledge_index_generations')
+    expect(sql).toContain('version_id')
+    expect(sql).toContain('index_generation_id')
+    expect(sql).toContain('hierarchy_path')
+    expect(sql).toContain('section_anchor')
+    expect(sql).toContain('content_hash')
+    expect(sql).toContain('token_count')
+    expect(sql).toMatch(/else\s+insert into public\.sales_agent_knowledge_chunks/i)
   })
 })

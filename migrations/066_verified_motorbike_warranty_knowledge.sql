@@ -16,6 +16,28 @@ update public.sales_agent_knowledge_chunks
 set is_active = false
 where document_id = '00000000-0000-4000-8000-000000000001';
 
+-- Some deployed environments already have the versioned knowledge schema,
+-- where document_key is mandatory. Give this transaction a temporary stable
+-- default so the common upsert remains compatible with both schema shapes.
+-- The default is removed immediately after the upsert.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'sales_agent_knowledge_documents'
+      and column_name = 'document_key'
+  ) then
+    execute $sql$
+      alter table public.sales_agent_knowledge_documents
+      alter column document_key
+      set default 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast'
+    $sql$;
+  end if;
+end
+$$;
+
 insert into public.sales_agent_knowledge_documents (
   id,
   slug,
@@ -80,63 +102,254 @@ on conflict (id) do update set
   published_at = excluded.published_at,
   updated_at = excluded.updated_at;
 
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'sales_agent_knowledge_documents'
+      and column_name = 'document_key'
+  ) then
+    execute $sql$
+      update public.sales_agent_knowledge_documents
+      set document_key = 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast'
+      where id = '00000000-0000-4000-8000-000000000005';
+
+      alter table public.sales_agent_knowledge_documents
+      alter column document_key
+      drop default
+    $sql$;
+  end if;
+end
+$$;
+
+-- The live knowledge runtime may require an immutable document version and
+-- enriched chunk identity. Create that version only when the expanded schema
+-- is present; the original CMS schema does not have these tables/columns.
+do $$
+begin
+  if to_regclass('public.sales_agent_knowledge_versions') is not null
+    and exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'sales_agent_knowledge_chunks'
+        and column_name = 'version_id'
+    ) then
+    insert into public.sales_agent_knowledge_versions (
+      id,
+      document_id,
+      version_no,
+      content_markdown,
+      content_checksum,
+      summary,
+      source_uri,
+      source_retrieved_at,
+      publication_status,
+      index_status,
+      approved_at,
+      activated_at,
+      activation_reason,
+      effective_from,
+      created_at
+    )
+    select
+      '00000000-0000-4000-8000-000000000105',
+      document.id,
+      1,
+      document.content_markdown,
+      encode(digest(convert_to(document.content_markdown, 'UTF8'), 'sha256'), 'hex'),
+      document.summary,
+      'https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-xe-may',
+      now(),
+      'PUBLISHED',
+      'READY',
+      now(),
+      now(),
+      'Admin-reviewed motorbike warranty migration 066',
+      coalesce(document.published_at, now()),
+      now()
+    from public.sales_agent_knowledge_documents document
+    where document.id = '00000000-0000-4000-8000-000000000005'
+    on conflict (id) do update set
+      content_markdown = excluded.content_markdown,
+      content_checksum = excluded.content_checksum,
+      summary = excluded.summary,
+      source_uri = excluded.source_uri,
+      source_retrieved_at = excluded.source_retrieved_at,
+      publication_status = excluded.publication_status,
+      index_status = excluded.index_status,
+      approved_at = excluded.approved_at,
+      activated_at = excluded.activated_at,
+      activation_reason = excluded.activation_reason,
+      effective_from = excluded.effective_from;
+
+    update public.sales_agent_knowledge_documents
+    set active_version_id = '00000000-0000-4000-8000-000000000105'
+    where id = '00000000-0000-4000-8000-000000000005';
+  end if;
+end
+$$;
+
 delete from public.sales_agent_knowledge_chunks
 where document_id = '00000000-0000-4000-8000-000000000005';
 
-insert into public.sales_agent_knowledge_chunks (
-  document_id,
-  version,
-  chunk_index,
-  section_title,
-  content,
-  tags,
-  is_active
+create temporary table verified_motorbike_warranty_chunk_seed (
+  id uuid primary key,
+  chunk_index integer not null,
+  section_title text not null,
+  content text not null,
+  tags text[] not null,
+  hierarchy_path text not null,
+  section_anchor text not null
+) on commit drop;
+
+insert into verified_motorbike_warranty_chunk_seed (
+  id, chunk_index, section_title, content, tags, hierarchy_path, section_anchor
 )
 values
 (
-  '00000000-0000-4000-8000-000000000005',
-  1,
+  '00000000-0000-4000-8000-000000000500',
   0,
   'Pin LFP theo xe mới — chọn đúng sổ theo ngày xuất hóa đơn',
   'Xe có hóa đơn trước 15/08/2025: xe 5 năm và pin nguyên bản 5 năm, không giới hạn quãng đường. Chính sách 6 năm từ mốc 15/08/2025: xe 6 năm và pin nguyên bản 8 năm, không giới hạn quãng đường. Nếu hóa đơn đúng ngày 15/08/2025, phải đối chiếu sổ được cấp cho xe vì nhãn website ghi sau mốc còn tên tệp ghi từ mốc.',
   array['bảo hành', 'pin', 'pin lfp', 'xe máy điện', 'ngày xuất hóa đơn', '5 năm', '6 năm', '8 năm', 'evo', 'feliz', 'klara'],
-  true
+  'root/warranty_battery/section_00',
+  'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast#pin-lfp-theo-ngay-hoa-don'
 ),
 (
-  '00000000-0000-4000-8000-000000000005',
-  1,
+  '00000000-0000-4000-8000-000000000501',
   1,
   'Pin khác và mô hình đổi pin',
   'Xe dùng pin không phải LFP: xe 3 năm và pin nguyên bản 3 năm, không giới hạn quãng đường. Pin LFP theo mô hình đổi pin: pin 8 năm, không giới hạn quãng đường; không suy ra thời hạn bảo hành toàn xe từ mốc bảo hành pin đổi.',
   array['bảo hành pin', 'pin khác', 'không phải lfp', 'đổi pin', '3 năm', '8 năm'],
-  true
+  'root/warranty_battery/section_01',
+  'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast#pin-khac-va-doi-pin'
 ),
 (
-  '00000000-0000-4000-8000-000000000005',
-  1,
+  '00000000-0000-4000-8000-000000000502',
   2,
   'Pin, ắc quy và phụ tùng khách hàng mua thay thế',
   'Pin LFP được mua và lắp tại hệ thống VinFast: 5 năm hoặc 8 năm tùy sổ/chính sách áp dụng. Pin không phải LFP: 3 năm từ ngày mua. Ắc quy 12V: 1 năm. Phụ tùng khác không gồm pin và ắc quy 12V: 1 năm. Phụ tùng phải được thay tại hệ thống VinFast.',
   array['pin thay thế', 'ắc quy 12v', 'phụ tùng', '5 năm', '8 năm', '3 năm', '1 năm'],
-  true
+  'root/warranty_battery/section_02',
+  'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast#pin-ac-quy-phu-tung-thay-the'
 ),
 (
-  '00000000-0000-4000-8000-000000000005',
-  1,
+  '00000000-0000-4000-8000-000000000503',
   3,
   'Giới hạn và cách chọn chính sách',
   'Chai pin tự nhiên và dung lượng tối đa giảm dần theo thời gian không thuộc phạm vi bảo hành thông thường. Chỉ tên mẫu xe như Evo là chưa đủ: phải xét công nghệ pin, ngày xuất hóa đơn và sổ bảo hành được cấp theo xe.',
   array['chai pin', 'giảm dung lượng', 'điều kiện bảo hành', 'evo', 'sổ bảo hành'],
-  true
+  'root/warranty_battery/section_03',
+  'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast#gioi-han-va-cach-chon'
 ),
 (
-  '00000000-0000-4000-8000-000000000005',
-  1,
+  '00000000-0000-4000-8000-000000000504',
   4,
   'Nguồn và tài liệu chính thức',
   'Nguồn chính sách: https://vinfastauto.com/vn_vi/chinh-sach-bao-hanh-xe-may. FASTLANE dẫn người dùng tới /after-sales?vehicle=motorbike&tab=warranty#warranty-term để xem chính sách và mở đúng PDF. Nội dung PDF hướng dẫn sử dụng chưa được ingest vào Sales Agent.',
   array['nguồn chính thức', 'sổ bảo hành', 'hướng dẫn sử dụng', 'pdf'],
-  true
+  'root/warranty_battery/section_04',
+  'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast#nguon-va-tai-lieu'
 );
+
+do $$
+declare
+  v_generation_id text;
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'sales_agent_knowledge_chunks'
+      and column_name = 'version_id'
+  ) then
+    select id
+    into v_generation_id
+    from public.sales_agent_knowledge_index_generations
+    where is_active
+    order by created_at desc
+    limit 1;
+
+    if v_generation_id is null then
+      raise exception using
+        errcode = '55000',
+        message = 'Migration 066 requires an active sales-agent knowledge index generation';
+    end if;
+
+    insert into public.sales_agent_knowledge_chunks (
+      id,
+      document_id,
+      version,
+      chunk_index,
+      section_title,
+      content,
+      tags,
+      is_active,
+      created_at,
+      version_id,
+      index_generation_id,
+      parent_chunk_id,
+      parent_hierarchy_path,
+      chunk_level,
+      hierarchy_path,
+      section_anchor,
+      source_node_id,
+      image_refs,
+      content_hash,
+      token_count
+    )
+    select
+      seed.id,
+      '00000000-0000-4000-8000-000000000005',
+      1,
+      seed.chunk_index,
+      seed.section_title,
+      seed.content,
+      seed.tags,
+      true,
+      now(),
+      '00000000-0000-4000-8000-000000000105',
+      v_generation_id,
+      null,
+      null,
+      2,
+      seed.hierarchy_path,
+      seed.section_anchor,
+      null,
+      '[]'::jsonb,
+      encode(digest(convert_to(seed.content, 'UTF8'), 'sha256'), 'hex'),
+      greatest(1, ceil(length(seed.content)::numeric / 4)::integer)
+    from verified_motorbike_warranty_chunk_seed seed
+    order by seed.chunk_index;
+  else
+    insert into public.sales_agent_knowledge_chunks (
+      id,
+      document_id,
+      version,
+      chunk_index,
+      section_title,
+      content,
+      tags,
+      is_active,
+      created_at
+    )
+    select
+      seed.id,
+      '00000000-0000-4000-8000-000000000005',
+      1,
+      seed.chunk_index,
+      seed.section_title,
+      seed.content,
+      seed.tags,
+      true,
+      now()
+    from verified_motorbike_warranty_chunk_seed seed
+    order by seed.chunk_index;
+  end if;
+end
+$$;
 
 commit;
