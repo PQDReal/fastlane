@@ -236,6 +236,13 @@ $$;
 delete from public.sales_agent_knowledge_chunks
 where document_id = '00000000-0000-4000-8000-000000000005';
 
+-- Keep the temporary seed and both schema-specific insert paths in one
+-- statement. Some SQL runners place statement boundaries in separate
+-- transactions, which would immediately drop an ON COMMIT DROP table.
+do $$
+declare
+  v_generation_id text;
+begin
 create temporary table verified_motorbike_warranty_chunk_seed (
   id uuid primary key,
   chunk_index integer not null,
@@ -296,10 +303,6 @@ values
   'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast#nguon-va-tai-lieu'
 );
 
-do $$
-declare
-  v_generation_id text;
-begin
   if exists (
     select 1
     from information_schema.columns

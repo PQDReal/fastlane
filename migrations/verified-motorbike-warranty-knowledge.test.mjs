@@ -46,6 +46,8 @@ describe('Migration 066: verified motorbike warranty knowledge', () => {
     expect(sql).toContain('section_anchor')
     expect(sql).toContain('content_hash')
     expect(sql).toContain('token_count')
+    expect(sql).toMatch(/do \$\$\s*declare\s+v_generation_id text;\s*begin\s*create temporary table verified_motorbike_warranty_chunk_seed/i)
+    expect(sql).toMatch(/from verified_motorbike_warranty_chunk_seed seed[\s\S]*end\s*\$\$/i)
     expect(sql).toMatch(/else\s+insert into public\.sales_agent_knowledge_chunks/i)
   })
 })
