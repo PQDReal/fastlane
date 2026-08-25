@@ -15,7 +15,7 @@ export type ProductCardItem = {
   url: string
 }
 
-export function ProductCardBlock({
+function ProductCardBlockImpl({
   title,
   items,
 }: {
@@ -93,3 +93,6 @@ export function ProductCardBlock({
     </div>
   )
 }
+
+export const ProductCardBlock = React.memo(ProductCardBlockImpl)
+
