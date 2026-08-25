@@ -269,9 +269,15 @@ export function MarkdownMessage({
           h1: ({ node: _node, ...props }) => <h2 className="mb-1.5 mt-3 text-base font-bold text-slate-900 first:mt-0" {...props} />,
           h2: ({ node: _node, ...props }) => <h3 className="mb-1.5 mt-3 text-[15px] font-semibold text-slate-900 first:mt-0" {...props} />,
           h3: ({ node: _node, ...props }) => <h4 className="mb-1 mt-2.5 text-sm font-semibold text-slate-900 first:mt-0" {...props} />,
-          h4: ({ node: _node, ...props }) => <h5 className="mb-1 mt-2 text-sm font-medium text-slate-900 first:mt-0" {...props} />,
-          p: ({ node: _node, ...props }) => <p className="my-1.5 text-sm leading-[1.375rem] text-slate-700 first:mt-0 last:mb-0" {...props} />,
-          strong: ({ node: _node, ...props }) => <strong className="font-semibold text-slate-900" {...props} />,
+          p: ({ node, children, ...props }) => {
+            const hasBlockChild = (node?.children as any[])?.some((child) =>
+              child.type === 'element' && (child.tagName === 'img' || child.tagName === 'figure' || child.tagName === 'div')
+            )
+            if (hasBlockChild) {
+              return <div className="my-1.5 text-sm leading-[1.375rem] text-slate-700 first:mt-0 last:mb-0" {...props}>{children}</div>
+            }
+            return <p className="my-1.5 text-sm leading-[1.375rem] text-slate-700 first:mt-0 last:mb-0" {...props}>{children}</p>
+          },
           ul: ({ node: _node, ...props }) => <ul className="my-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700" {...props} />,
           ol: ({ node: _node, ...props }) => <ol className="my-1.5 list-decimal space-y-1 pl-5 text-sm text-slate-700" {...props} />,
           li: ({ node: _node, ...props }) => <li className="pl-0.5 leading-[1.375rem] marker:text-brand-600" {...props} />,
