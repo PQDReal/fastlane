@@ -126,8 +126,8 @@ function findScopedCatalogProduct(
 
 function stripRawJsonSuggestions(markdown: string): string {
   return markdown
-    .replace(/(?:JSON\s*)?\[\s*\{\s*"label"\s*:\s*"[^"]+".*?\}\s*\]/gis, '')
-    .replace(/(?:JSON\s*)?\{\s*"label"\s*:\s*"[^"]+".*?\}/gis, '')
+    .replace(/(?:JSON\s*)?\[\s*\{\s*"label"\s*:\s*"[^"]+"[\s\S]*?\}\s*\]/gi, '')
+    .replace(/(?:JSON\s*)?\{\s*"label"\s*:\s*"[^"]+"[\s\S]*?\}/gi, '')
     .trim()
 }
 

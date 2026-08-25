@@ -353,6 +353,9 @@ describe('Canonical Response Composer', () => {
       dataAsOf: readAt,
       outcome: 'SUCCESS',
       completeness: 'FULL',
+      data: null,
+      issues: [],
+      appliedBindings: [],
       evidence: [{
         evidenceId: `ev-kb-${chunkId}-${readAt}`,
         source: { system: 'SUPABASE', resource: 'knowledge_chunks' },
@@ -376,8 +379,6 @@ describe('Canonical Response Composer', () => {
         scope: {
           vehicleModel: 'VF 5',
           modelYear: 2024,
-          scopeEnforcement: 'ENFORCED',
-          fallbackApplied: false,
         },
       },
     })
