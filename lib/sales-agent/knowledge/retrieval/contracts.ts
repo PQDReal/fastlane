@@ -1,0 +1,234 @@
+import type { KnowledgeCategory, PublicationStatus, IndexStatus } from '../versioned-repository'
+
+export type RetrievalMode =
+  | 'FTS'
+  | 'VECTOR'
+  | 'HYBRID_RRF'
+  | 'HYBRID_HIERARCHICAL'
+  | 'DEGRADED_FTS'
+
+export type ExpansionProvenance = 'DIRECT' | 'PARENT' | 'NEIGHBOR'
+
+export interface KnowledgeImageRef {
+  id?: string
+  alt?: string
+  url: string
+}
+
+export interface KnowledgeVisualMediaPointer {
+  assetId: string
+  annotationId: string
+  title: string
+  summary: string
+  alt: string
+  url: string
+  mimeType: string
+  width: number | null
+  height: number | null
+  safetyCritical: boolean
+  citationId: string
+  diagramLabels?: Array<{
+    marker: string
+    description: string
+  }>
+}
+
+export interface KnowledgeScopeFilter {
+  vehicleModel?: string
+  vehicleType?: 'CAR' | 'MOTORBIKE' | 'ALL'
+  modelYear?: number
+  market?: string
+  customerSegment?: 'ALL' | 'RETAIL' | 'FLEET' | 'PARTNER'
+  category?: KnowledgeCategory
+  documentKeys?: string[]
+  locale?: string
+  effectiveAt?: string // ISO timestamp
+}
+
+export interface RetrievalOptions {
+  /** Cancels embedding, RPC and hierarchy work when the request disconnects. */
+  signal?: AbortSignal
+  /** Maximum wait for the vector branch before hybrid retrieval degrades to FTS. */
+  vectorTimeoutMs?: number
+  retrievalMode?: RetrievalMode
+  ftsCandidateLimit?: number
+  vectorCandidateLimit?: number
+  rrfK?: number
+  rrfWeights?: {
+    fts: number
+    vector: number
+  }
+  minScoreThreshold?: number
+  /** Maximum number of fused candidates kept for backend reranking. */
+  rerankCandidateLimit?: number
+  /** Allows a safe rollout/fallback to the pre-rerank RRF ordering. */
+  enableRerank?: boolean
+  topK?: number
+  tokenBudget?: number
+  enableHierarchyExpansion?: boolean
+  maxHierarchyExpansionDepth?: number
+  generationId?: string
+}
+
+export interface KnowledgeScopeMetadata {
+  vehicleModel?: string | null
+  vehicleType?: 'CAR' | 'MOTORBIKE' | 'ALL' | string | null
+  modelYearFrom?: number | null
+  modelYearTo?: number | null
+  market?: string | null
+  customerSegment?: 'ALL' | 'RETAIL' | 'FLEET' | 'PARTNER' | string | null
+}
+
+export interface RawChunkCandidate {
+  chunkId: string
+  documentId: string
+  documentKey: string
+  versionId: string
+  versionNo: number
+  indexGenerationId: string
+  chunkLevel: number
+  hierarchyPath: string
+  sectionAnchor: string
+  sectionTitle: string
+  content: string
+  contentHash: string
+  tokenCount: number
+  tags: string[]
+  /** Stable source order used for deterministic procedure-neighbor expansion. */
+  chunkOrdinal?: number | null
+  /** Scope rows attached to the version; populated by DB retrieval RPCs. */
+  scopeMetadata?: KnowledgeScopeMetadata[]
+  sourceNodeId?: string | null
+  imageRefs?: Array<string | KnowledgeImageRef> | null
+  title: string
+  slug: string
+  category: KnowledgeCategory
+  effectiveFrom: string
+  effectiveTo: string | null
+  publicationStatus: PublicationStatus
+  indexStatus: IndexStatus
+  rawScore?: number
+}
+
+export interface FtsCandidate extends RawChunkCandidate {
+  ftsRank: number
+  ftsScore: number
+}
+
+export interface VectorCandidate extends RawChunkCandidate {
+  vectorRank: number
+  vectorScore: number
+}
+
+export interface KnowledgeEvidenceItem {
+  chunkId: string
+  documentId: string
+  documentKey: string
+  knowledgeVersionId: string
+  versionNo: number
+  indexGenerationId: string
+  chunkLevel: number
+  /** Stable source order retained for position-aware visual attachment. */
+  chunkOrdinal?: number | null
+  hierarchyPath: string
+  sectionAnchor: string
+  title: string
+  sectionTitle: string
+  category?: KnowledgeCategory
+  content: string
+  excerpt: string
+  tokenCount: number
+  tags: string[]
+  scopeMetadata?: KnowledgeScopeMetadata[]
+  sourceId?: string
+  citationId: string
+  sourceNodeId?: string
+  imageRefs: Array<string | KnowledgeImageRef>
+  effectiveFrom: string
+  effectiveTo: string | null
+  dataAsOf: string
+  ftsRank?: number
+  ftsScore?: number
+  vectorRank?: number
+  vectorScore?: number
+  rrfScore: number
+  retrievalMode: RetrievalMode
+  evidenceRef: string
+  expansionProvenance: ExpansionProvenance
+}
+
+export interface KnowledgeRetrievalTelemetry {
+  epoch: number
+  indexGenerationId: string
+  runtimeStateLatencyMs: number
+  ftsLatencyMs: number
+  embeddingLatencyMs: number
+  vectorSearchLatencyMs: number
+  vectorLatencyMs: number
+  fusionLatencyMs: number
+  rerankLatencyMs: number
+  hierarchyLoadLatencyMs: number
+  expansionLatencyMs: number
+  contextBuildLatencyMs: number
+  totalLatencyMs: number
+  candidateLimit: number
+  finalLimit: number
+  ftsCandidateCount: number
+  vectorCandidateCount: number
+  rerankCandidateCount: number
+  rerankEnabled: boolean
+  totalEvidenceCount: number
+  tokensUsed: number
+  degradedReason?: string
+}
+
+export type KnowledgeRetrievalFailurePhase = 'RUNTIME_STATE' | 'CANDIDATE_SEARCH' | 'FUSION'
+export type KnowledgeRetrievalFailureStage =
+  | 'RUNTIME_STATE_RPC'
+  | 'FTS_RPC'
+  | 'EMBEDDING'
+  | 'VECTOR_RPC'
+  | 'IN_MEMORY_VECTOR'
+  | 'CANDIDATE_FUSION'
+
+export interface KnowledgeRetrievalFailureDetails {
+  phase: KnowledgeRetrievalFailurePhase
+  stage: KnowledgeRetrievalFailureStage
+  reason: 'ERROR' | 'TIMEOUT' | 'ABORTED'
+  message: string
+  elapsedMs?: number
+  timeoutMs?: number
+  ftsStatus?: 'NOT_RUN' | 'SUCCESS' | 'EMPTY' | 'ERROR'
+  ftsCandidateCount?: number
+  ftsLatencyMs?: number
+  ftsError?: string
+  vectorStatus?: 'NOT_RUN' | 'SUCCESS' | 'ERROR'
+  vectorCandidateCount?: number
+  vectorLatencyMs?: number
+  vectorStageLatencyMs?: number
+  vectorError?: string
+  telemetry?: KnowledgeRetrievalTelemetry
+}
+
+export interface KnowledgeRetrievalResponse {
+  status: 'SUCCESS' | 'NO_MATCH' | 'DEGRADED_FTS' | 'UNAVAILABLE'
+  query: string
+  filters: KnowledgeScopeFilter
+  retrievalMode: RetrievalMode
+  items: KnowledgeEvidenceItem[]
+  totalFound: number
+  telemetry: KnowledgeRetrievalTelemetry
+}
+
+export class KnowledgeStorageUnavailableError extends Error {
+  readonly code = 'UNAVAILABLE'
+  readonly details?: KnowledgeRetrievalFailureDetails
+  constructor(message: string, cause?: unknown, details?: KnowledgeRetrievalFailureDetails) {
+    super(`Knowledge storage unavailable: ${message}`)
+    this.name = 'KnowledgeStorageUnavailableError'
+    this.details = details
+    if (cause) {
+      this.cause = cause
+    }
+  }
+}

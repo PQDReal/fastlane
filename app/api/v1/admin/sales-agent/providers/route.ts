@@ -9,6 +9,7 @@ import {
   saveSalesAgentProviderConfig,
 } from '@/lib/sales-agent/providers/registry'
 import { apiKeyPoolManager } from '@/lib/sales-agent/providers/key-pool'
+import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
 
 function authorizationError(error: unknown) {
   if (error instanceof ApiAuthError) return authErrorResponse(error)
@@ -16,6 +17,8 @@ function authorizationError(error: unknown) {
 }
 
 export async function GET(request: Request) {
+  const requestId = crypto.randomUUID()
+  const startedAt = Date.now()
   try {
     await authorizeAdminCatalogRequest(request)
     const configs = await listSalesAgentProviderConfigs()
@@ -32,27 +35,55 @@ export async function GET(request: Request) {
       }
     })
 
+    recordSalesAgentDebugEvent('admin.provider.list.completed', { requestId }, {
+      configCount: configs.length,
+      enabledCount: configs.filter((config) => config.enabled).length,
+      elapsedMs: Date.now() - startedAt,
+    })
     return NextResponse.json(
       { data: withHealth },
-      { headers: { 'Cache-Control': 'private, no-store' } },
+      { headers: { 'Cache-Control': 'private, no-store', 'X-Sales-Agent-Request-Id': requestId } },
     )
   } catch (error) {
-    if (error instanceof ApiAuthError) return authorizationError(error)
+    if (error instanceof ApiAuthError) {
+      recordSalesAgentDebugEvent('admin.provider.list.rejected', { requestId }, {
+        reasonCode: error.code,
+        elapsedMs: Date.now() - startedAt,
+      })
+      return authorizationError(error)
+    }
     console.error('Sales Agent provider config read failed', error)
+    recordSalesAgentDebugEvent('admin.provider.list.failed', { requestId }, {
+      reasonCode: 'REGISTRY_READ_FAILED',
+      elapsedMs: Date.now() - startedAt,
+      error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+    })
     return NextResponse.json({ error: 'Không thể tải cấu hình provider agent.' }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID()
+  const startedAt = Date.now()
   try {
     await authorizeAdminCatalogRequest(request)
   } catch (error) {
+    if (error instanceof ApiAuthError) {
+      recordSalesAgentDebugEvent('admin.provider.save.rejected', { requestId }, {
+        reasonCode: error.code,
+        elapsedMs: Date.now() - startedAt,
+      })
+    }
     return authorizationError(error)
   }
 
   try {
     const body = (await request.json()) as Record<string, unknown>
     if (!isSalesAgentProviderId(body.provider)) {
+      recordSalesAgentDebugEvent('admin.provider.save.rejected', { requestId }, {
+        reasonCode: 'INVALID_PROVIDER',
+        elapsedMs: Date.now() - startedAt,
+      })
       return NextResponse.json({ error: 'Provider type không được hỗ trợ.' }, { status: 400 })
     }
 
@@ -70,9 +101,19 @@ export async function POST(request: Request) {
       isDefault: typeof body.isDefault === 'boolean' ? body.isDefault : undefined,
     })
 
-    return NextResponse.json({ data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    recordSalesAgentDebugEvent('admin.provider.save.completed', { requestId }, {
+      provider: body.provider,
+      configId: typeof body.id === 'string' ? body.id : undefined,
+      elapsedMs: Date.now() - startedAt,
+    })
+    return NextResponse.json({ data }, { headers: { 'Cache-Control': 'private, no-store', 'X-Sales-Agent-Request-Id': requestId } })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Dữ liệu cấu hình provider không hợp lệ.'
+    recordSalesAgentDebugEvent('admin.provider.save.failed', { requestId }, {
+      reasonCode: 'REGISTRY_WRITE_FAILED',
+      elapsedMs: Date.now() - startedAt,
+      error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+    })
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
@@ -82,9 +123,17 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const requestId = crypto.randomUUID()
+  const startedAt = Date.now()
   try {
     await authorizeAdminCatalogRequest(request)
   } catch (error) {
+    if (error instanceof ApiAuthError) {
+      recordSalesAgentDebugEvent('admin.provider.delete.rejected', { requestId }, {
+        reasonCode: error.code,
+        elapsedMs: Date.now() - startedAt,
+      })
+    }
     return authorizationError(error)
   }
 
@@ -92,13 +141,26 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) {
+      recordSalesAgentDebugEvent('admin.provider.delete.rejected', { requestId }, {
+        reasonCode: 'MISSING_PROVIDER_ID',
+        elapsedMs: Date.now() - startedAt,
+      })
       return NextResponse.json({ error: 'Thiếu tham số id provider.' }, { status: 400 })
     }
 
     await deleteSalesAgentProviderConfig(id)
-    return NextResponse.json({ data: { success: true, message: 'Đã xóa provider instance.' } })
+    recordSalesAgentDebugEvent('admin.provider.delete.completed', { requestId }, {
+      configId: id,
+      elapsedMs: Date.now() - startedAt,
+    })
+    return NextResponse.json({ data: { success: true, message: 'Đã xóa provider instance.' } }, { headers: { 'X-Sales-Agent-Request-Id': requestId } })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi xóa provider.'
+    recordSalesAgentDebugEvent('admin.provider.delete.failed', { requestId }, {
+      reasonCode: 'REGISTRY_DELETE_FAILED',
+      elapsedMs: Date.now() - startedAt,
+      error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+    })
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

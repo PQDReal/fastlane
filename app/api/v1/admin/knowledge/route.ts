@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/current-user'
-import { createKnowledgeDocument, listKnowledgeDocuments } from '@/lib/sales-agent/knowledge/repository'
+import { createKnowledgeDocument, listKnowledgeDocuments } from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 import type { KnowledgeCategory, KnowledgeStatus } from '@/lib/sales-agent/knowledge/types'
 
 export async function GET(request: NextRequest) {
@@ -60,7 +60,9 @@ export async function POST(request: NextRequest) {
       category: body.category,
       contentMarkdown: body.contentMarkdown,
       summary: body.summary,
+      targetUrl: body.targetUrl || undefined,
       authorEmail: user.email,
+      authorId: user.id,
     })
 
     return NextResponse.json({

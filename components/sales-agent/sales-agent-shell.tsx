@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion, useDragControls } from 'framer-motion'
-import { ArrowDown, ArrowUp, Bot, Car, Check, CheckCircle2, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bot, CalendarDays, Car, Check, CheckCircle2, ChevronDown, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -10,8 +10,8 @@ import { ToastViewport, type ToastMessage } from '@/components/ui/toast'
 import { MarkdownMessage } from './markdown-message'
 import { ProductCardBlock } from './product-card-block'
 import { ComparisonCardBlock } from './comparison-card-block'
-import { ManualImageBlock } from './manual-image-block'
-import { ManualReaderPanel } from './manual-reader-panel'
+import { KnowledgeCitationBlock } from './knowledge-citation-block'
+import { KnowledgeMediaBlock } from './knowledge-media-block'
 import { SuggestionChips } from './suggestion-chips'
 import { ActionButtons } from './action-buttons'
 import { salesAgentUiEnabled, useSalesAgentStore } from '@/lib/sales-agent/store'
@@ -19,11 +19,12 @@ import { limitSalesAgentHistory, type SalesAgentMessage } from '@/lib/sales-agen
 import { getVisibleSalesAgentInteractionOptions, SALES_AGENT_INTERACTION_VISIBLE_OPTIONS, type SalesAgentInteractionMetric } from '@/lib/sales-agent/contracts/interaction'
 import type { AssistantBlock, SalesAgentAction, SalesAgentSuggestion, TurnViewModel } from '@/lib/sales-agent/contracts'
 
-type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean }
+type InteractionOption = { optionId: string; label: string; description?: string; recommended?: boolean; field?: 'vehicleModel' | 'modelYear'; value?: string; metadata?: Record<string, unknown> }
+type DisplayInteractionField = { field: 'vehicleModel' | 'modelYear'; label: string; required: boolean; dependsOn?: 'vehicleModel'; options: InteractionOption[] }
 type DisplayInteraction = {
   interactionId: string
-  mode: 'single' | 'multiple'
-  slot: 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage'
+  mode: 'single' | 'multiple' | 'SINGLE' | 'MULTIPLE'
+  slot: 'vehicles' | 'vehicle' | 'criteria' | 'budget' | 'usage' | 'knowledge_scope' | string
   title: string
   description?: string
   minSelections: number
@@ -31,6 +32,7 @@ type DisplayInteraction = {
   allowFreeText: boolean
   submitLabel: string
   options: InteractionOption[]
+  fields?: DisplayInteractionField[]
   continuationToken: string
   expiresAt: string
   submitted?: boolean
@@ -77,6 +79,8 @@ function getToolStatusLabel(tool: string): string {
       return 'Đang tìm phụ kiện tương thích…'
     case 'get_current_promotions':
       return 'Đang kiểm tra chương trình ưu đãi…'
+    case 'search_knowledge':
+      return 'Đang tra cứu sổ tay và chính sách FASTLANE…'
     case 'composing':
       return 'Đang tổng hợp thông tin câu trả lời…'
     default:
@@ -139,6 +143,7 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
   selectedOptionIdsRef.current = selectedOptionIds
   onSearchResultRef.current = onSearchResult
   submittedMetricRef.current = Boolean(interaction.submitted)
+  const isMultipleMode = interaction.mode.toLowerCase() === 'multiple'
   const selectionCount = selectedOptionIds.length
   const canSubmit = selectionCount >= interaction.minSelections && selectionCount <= interaction.maxSelections
   const displayOptions = getVisibleSalesAgentInteractionOptions(interaction.options, selectedOptionIds, expanded)
@@ -188,7 +193,7 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
 
   function toggle(optionId: string) {
     if (disabled || interaction.submitted) return
-    if (interaction.mode === 'single') {
+    if (!isMultipleMode) {
       setSelectedOptionIds([optionId])
       setShowValidation(false)
       return
@@ -216,13 +221,13 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
   return <form onSubmit={submit} aria-label={interaction.title} className="mt-3 rounded-xl border border-brand-200 bg-white p-3">
     <div className="flex items-start justify-between gap-2">
       <div><p className="text-sm font-semibold text-slate-800">{interaction.title}</p>{interaction.description && <p className="mt-1 text-xs leading-4 text-slate-500">{interaction.description}</p>}</div>
-      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500" aria-label={`${selectionCount} trên ${interaction.maxSelections} lựa chọn`}>{interaction.mode === 'single' ? (selectionCount ? 'Đã chọn 1 mẫu' : 'Chọn 1 mẫu') : `${selectionCount}/${interaction.maxSelections} đã chọn`}</span>
+      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500" aria-label={`${selectionCount} trên ${interaction.maxSelections} lựa chọn`}>{!isMultipleMode ? (selectionCount ? 'Đã chọn 1 mẫu' : 'Chọn 1 mẫu') : `${selectionCount}/${interaction.maxSelections} đã chọn`}</span>
     </div>
-    <div className="mt-2 space-y-1.5" role={interaction.mode === 'multiple' ? 'group' : 'radiogroup'} aria-label={interaction.title}>
+    <div className="mt-2 space-y-1.5" role={isMultipleMode ? 'group' : 'radiogroup'} aria-label={interaction.title}>
       {displayOptions.map((option) => {
         const selected = selectedOptionIds.includes(option.optionId)
-        return <button key={option.optionId} type="button" role={interaction.mode === 'multiple' ? 'checkbox' : 'radio'} aria-checked={selected} disabled={disabled || interaction.submitted} onClick={() => toggle(option.optionId)} className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/50'}`}>
-          <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${interaction.mode === 'multiple' ? 'rounded-sm' : 'rounded-full'} ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-transparent'}`} aria-hidden="true">{selected && <Check size={11} strokeWidth={3} />}</span>
+        return <button key={option.optionId} type="button" role={isMultipleMode ? 'checkbox' : 'radio'} aria-checked={selected} disabled={disabled || interaction.submitted} onClick={() => toggle(option.optionId)} className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/50'}`}>
+          <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${isMultipleMode ? 'rounded-sm' : 'rounded-full'} ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-transparent'}`} aria-hidden="true">{selected && <Check size={11} strokeWidth={3} />}</span>
           <span className="min-w-0"><span className="block text-xs font-medium text-slate-800">{option.label}{option.recommended && <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Gợi ý</span>}</span>{option.description && <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">{option.description}</span>}</span>
         </button>
       })}
@@ -233,6 +238,107 @@ function ChoiceInteraction({ interaction, conversationId, disabled, onSubmit, on
     {showValidation && <p className="mt-2 text-[11px] text-red-600" role="alert">Vui lòng chọn từ {interaction.minSelections} đến {interaction.maxSelections} lựa chọn.</p>}
     <button type="submit" disabled={disabled || interaction.submitted || (!canSubmit && !interaction.allowFreeText)} className="mt-2 min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition hover:bg-brand-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50">{interaction.submitLabel}</button>
   </form>
+}
+
+function ScopeChoiceInteraction({ interaction, disabled, onSubmit }: { interaction: DisplayInteraction; disabled: boolean; onSubmit: (selection: InteractionSubmission) => void }) {
+  const fields = interaction.fields ?? []
+  const [selectedByField, setSelectedByField] = useState<Record<string, string>>({})
+  const [showValidation, setShowValidation] = useState(false)
+  const selectedModel = selectedByField.vehicleModel
+  const selectedYear = selectedByField.modelYear
+  const vehicleField = fields.find((field) => field.field === 'vehicleModel')
+  const yearField = fields.find((field) => field.field === 'modelYear')
+  const selectedModelOption = vehicleField?.options.find((option) => option.optionId === selectedModel)
+  const selectedModelValue = selectedModelOption?.value || selectedModelOption?.label || selectedModel
+
+  const yearOptions = useMemo(() => {
+    if (!yearField || !selectedModelValue) return []
+    const filtered = yearField.options.filter((option) => {
+      const model = option.metadata?.vehicleModel
+      return !model || String(model) === String(selectedModelValue)
+    })
+    return filtered.length > 0 ? filtered : yearField.options
+  }, [selectedModelValue, yearField])
+
+  const selectedYearOption = yearOptions.find((option) => option.optionId === selectedYear)
+  const asksForYear = Boolean(selectedModel && yearField && yearOptions.length > 1)
+  const autoSelectedYear = selectedModel && yearOptions.length === 1 ? yearOptions[0] : undefined
+  const yearLabel = (option?: InteractionOption) => option?.value || option?.label || ''
+
+  useEffect(() => {
+    if (vehicleField?.options.length === 1) {
+      const singleton = vehicleField.options[0].optionId
+      setSelectedByField((current) => current.vehicleModel === singleton
+        ? current
+        : { ...current, vehicleModel: singleton })
+    }
+  }, [vehicleField])
+
+  useEffect(() => {
+    if (!selectedModel || !yearField) return
+    if (yearOptions.length === 1 && selectedYear !== yearOptions[0].optionId) {
+      setSelectedByField((current) => ({ ...current, modelYear: yearOptions[0].optionId }))
+    } else if (selectedYear && !yearOptions.some((option) => option.optionId === selectedYear)) {
+      setSelectedByField((current) => ({ ...current, modelYear: '' }))
+    }
+  }, [selectedModel, selectedYear, yearField, yearOptions])
+
+  const requiredFields = fields.filter((field) => field.required)
+  const canSubmit = requiredFields.every((field) => Boolean(selectedByField[field.field]))
+  const selectedIds = fields.map((field) => selectedByField[field.field]).filter(Boolean)
+  const optionLabel = (field: DisplayInteractionField, optionId: string) => field.options.find((option) => option.optionId === optionId)?.label
+
+  if (interaction.submitted) {
+    const labels = fields.map((field) => optionLabel(field, selectedByField[field.field])).filter(Boolean)
+    return <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5" aria-label={`${interaction.title}, đã chọn`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-emerald-900">Đã chọn: {labels.join(' · ')}</p><Check size={15} className="shrink-0 text-emerald-600" aria-hidden="true" /></div></div>
+  }
+
+  return <form onSubmit={(event) => { event.preventDefault(); if (!canSubmit) { setShowValidation(true); return }; onSubmit({ selectedOptionIds: selectedIds }) }} aria-label={interaction.title} className="mt-3 rounded-xl border border-brand-200 bg-white p-3 shadow-sm">
+    <div className="flex items-start gap-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700" aria-hidden="true"><Car size={16} /></span>
+      <div className="min-w-0"><p className="text-sm font-semibold text-slate-800">{interaction.title}</p>{interaction.description && <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{interaction.description}</p>}</div>
+    </div>
+
+    <div className={`mt-3 grid gap-2 ${asksForYear ? 'grid-cols-1 min-[420px]:grid-cols-[minmax(0,1.35fr)_minmax(0,0.75fr)]' : 'grid-cols-1'}`}>
+      {vehicleField && <label htmlFor={`${interaction.interactionId}-vehicle-model`} className="min-w-0">
+        <span className="mb-1 block text-[11px] font-semibold text-slate-600">{vehicleField.label}</span>
+        <span className="relative block">
+          <Car className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+          <select id={`${interaction.interactionId}-vehicle-model`} value={selectedModel || ''} disabled={disabled} onChange={(event) => { setSelectedByField((current) => ({ ...current, vehicleModel: event.target.value, modelYear: '' })); setShowValidation(false) }} aria-invalid={showValidation && !selectedModel} className="h-10 w-full appearance-none truncate rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-8 text-xs font-medium text-slate-800 outline-none transition hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+            <option value="">Chọn dòng xe</option>
+            {vehicleField.options.map((option) => <option key={option.optionId} value={option.optionId}>{option.label}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        </span>
+      </label>}
+
+      <AnimatePresence initial={false}>
+        {asksForYear && <motion.label key="scope-year" htmlFor={`${interaction.interactionId}-model-year`} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.12 }} className="min-w-0">
+          <span className="mb-1 block text-[11px] font-semibold text-slate-600">{yearField?.label}</span>
+          <span className="relative block">
+            <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <select id={`${interaction.interactionId}-model-year`} value={selectedYear || ''} disabled={disabled} onChange={(event) => { setSelectedByField((current) => ({ ...current, modelYear: event.target.value })); setShowValidation(false) }} aria-invalid={showValidation && !selectedYear} className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-8 text-xs font-medium text-slate-800 outline-none transition hover:border-brand-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+              <option value="">Chọn năm</option>
+              {yearOptions.map((option) => <option key={option.optionId} value={option.optionId}>{yearLabel(option)}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+          </span>
+        </motion.label>}
+      </AnimatePresence>
+    </div>
+
+    {autoSelectedYear && <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500"><CalendarDays size={13} className="text-brand-600" aria-hidden="true" />Năm áp dụng: <span className="font-semibold text-slate-700">{yearLabel(autoSelectedYear)}</span></p>}
+    {selectedModelOption && selectedYearOption && !autoSelectedYear && <p className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-700"><CheckCircle2 size={13} aria-hidden="true" /><span className="truncate">{selectedModelOption.label} · {yearLabel(selectedYearOption)}</span></p>}
+    {showValidation && <p className="mt-2 text-[11px] text-red-600" role="alert">Vui lòng chọn đủ dòng xe và năm áp dụng.</p>}
+    <button type="submit" disabled={disabled || !canSubmit} className="mt-3 min-h-10 w-full rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition hover:bg-brand-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50">{interaction.submitLabel}</button>
+  </form>
+}
+
+function safeRandomUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 }
 
 export function SalesAgentShell() {
@@ -273,16 +379,16 @@ export function SalesAgentShell() {
   let chatY = isMounted && !isExpanded ? position.y : 0
   let dragConstraints = { top: 0, bottom: 0, left: 0, right: 0 }
   if (typeof window !== 'undefined' && !isExpanded && isMounted) {
-    const isDesktop = window.innerWidth >= 768;
-    const paddingX = isDesktop ? 16 : 12;
-    const paddingY = isDesktop ? 16 : 12;
-    const chatWidth = isDesktop ? 420 : window.innerWidth - (paddingX * 2);
-    const chatHeight = isDesktop ? Math.min(680, window.innerHeight - 32) : Math.min(620, window.innerHeight - 24);
-    
-    const minY = Math.min(0, -(window.innerHeight - chatHeight - paddingY * 2));
-    const maxY = 0;
-    const minX = Math.min(0, -(window.innerWidth - chatWidth - paddingX * 2));
-    const maxX = 0;
+    const isDesktop = window.innerWidth >= 768
+    const paddingX = isDesktop ? 16 : 12
+    const paddingY = isDesktop ? 16 : 12
+    const chatWidth = isDesktop ? 420 : window.innerWidth - (paddingX * 2)
+    const chatHeight = isDesktop ? Math.min(680, window.innerHeight - 32) : Math.min(620, window.innerHeight - 24)
+
+    const minY = Math.min(0, -(window.innerHeight - chatHeight - paddingY * 2))
+    const maxY = 0
+    const minX = Math.min(0, -(window.innerWidth - chatWidth - paddingX * 2))
+    const maxX = 0
 
     dragConstraints = { top: minY, bottom: maxY, left: minX, right: maxX }
 
@@ -488,34 +594,6 @@ export function SalesAgentShell() {
     }
   }, [messages])
 
-  const [dismissedManualArticle, setDismissedManualArticle] = useState<string | null>(null)
-
-  // Find the latest user manual context to display in the right pane
-  const latestManualContext = useMemo(() => {
-    // Search from newest to oldest message
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.role === 'assistant') {
-        const refBlock = msg.blocks?.find(b => b.kind === 'MANUAL_REFERENCE')
-        if (refBlock && 'articleId' in refBlock && 'modelId' in refBlock) {
-          return { modelId: String(refBlock.modelId), articleId: String(refBlock.articleId) }
-        }
-        
-        if (msg.content) {
-          const match = msg.content.match(/\/user-manual\/([^\/]+)\/([^\)\s"']+)/);
-          if (match) {
-            return { modelId: decodeURIComponent(match[1]), articleId: match[2] };
-          }
-        }
-      }
-    }
-    return null;
-  }, [messages])
-
-  // Decide whether to show manual right pane
-  const showManualPanel = latestManualContext && dismissedManualArticle !== latestManualContext.articleId
-
-  // Auto-expand panel when manual is referenced has been removed per user request
   // Auto-expand textarea smoothly up to 5 lines
   useEffect(() => {
     const textarea = textareaRef.current
@@ -565,15 +643,14 @@ export function SalesAgentShell() {
 
   if (!salesAgentUiEnabled || pathname?.startsWith('/admin')) return null
 
-  async function send(messageOverride?: string, interactionResponse?: { interactionId: string; selectedOptionIds: string[]; freeText?: string; continuationToken: string }) {
+  async function send(messageOverride?: string, interactionResponse?: { interactionId: string; selectedOptionIds: string[]; freeText?: string; continuationToken: string }, suggestionSelection?: SalesAgentSuggestion) {
     const message = (messageOverride ?? draft).trim()
     if (!message || sending) return
     followBottomRef.current = true
     setShowScrollButton(false)
     setDraft('')
-    const generateId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15)
-    const assistantId = generateId()
-    const userMessage: DisplayMessage = { id: generateId(), role: 'user', content: message }
+    const assistantId = safeRandomUUID()
+    const userMessage: DisplayMessage = { id: safeRandomUUID(), role: 'user', content: message }
     const assistantMessage: DisplayMessage = { id: assistantId, role: 'assistant', content: '', pending: true }
     const history = limitSalesAgentHistory(messages.filter((item) => !item.pending).map(({ role, content }) => ({ role, content })))
     setMessages((items) => [...items, userMessage, assistantMessage])
@@ -581,7 +658,18 @@ export function SalesAgentShell() {
     try {
       const response = await fetch('/api/v1/sales-agent/messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, conversationId: conversationIdRef.current, guestHistory: history, interactionResponse, pageContext: { routeKey: pathname }, locale: 'vi-VN' }),
+        body: JSON.stringify({
+          message,
+          conversationId: conversationIdRef.current,
+          guestHistory: history,
+          interactionResponse,
+          suggestionSelection: suggestionSelection ? {
+            suggestionId: suggestionSelection.suggestionId,
+            entityIds: suggestionSelection.entityIds,
+            catalogVersion: suggestionSelection.catalogVersion,
+          } : undefined,
+          locale: 'vi-VN',
+        }),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: { message?: string } } | null
@@ -593,67 +681,70 @@ export function SalesAgentShell() {
       let buffer = ''
       let receivedText = false
       let receivedDone = false
+      const handleStreamPayload = (payload: Record<string, unknown>) => {
+        if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
+          const label = getToolStatusLabel(payload.tool)
+          setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
+        }
+        if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
+          receivedText = receivedText || payload.delta.length > 0
+          setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
+        }
+        if (payload.type === 'text_reset') {
+          receivedText = false
+          setMessages((items) => items.map((item) => item.id === assistantId ? {
+            ...item,
+            content: '',
+            blocks: undefined,
+            actions: undefined,
+            suggestions: undefined,
+          } : item))
+        }
+        if (payload.type === 'view_delta') {
+          const blocks = Array.isArray(payload.blocks) ? payload.blocks as AssistantBlock[] : undefined
+          const actions = Array.isArray(payload.actions) ? payload.actions as SalesAgentAction[] : undefined
+          const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions as SalesAgentSuggestion[] : undefined
+          const interaction = payload.interaction && typeof payload.interaction === 'object'
+            ? payload.interaction as DisplayInteraction
+            : undefined
+          setMessages((items) => items.map((item) => item.id === assistantId ? {
+            ...item,
+            ...(blocks !== undefined ? { blocks } : {}),
+            ...(actions !== undefined ? { actions } : {}),
+            ...(suggestions !== undefined ? { suggestions } : {}),
+            ...(interaction ? { interaction } : {}),
+          } : item))
+        }
+        if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
+          const vm = payload.viewModel as TurnViewModel
+          receivedText = receivedText || Boolean(vm.answer?.markdown)
+          setMessages((items) => items.map((item) => item.id === assistantId ? {
+            ...item,
+            content: vm.answer?.markdown || item.content,
+            blocks: vm.blocks,
+            actions: vm.actions,
+            suggestions: vm.suggestions,
+            interaction: vm.interaction as DisplayInteraction | undefined,
+          } : item))
+        }
+        if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
+        if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
+          setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
+        }
+        if (payload.type === 'done') receivedDone = true
+        if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
+      }
       while (true) {
         const part = await reader.read()
         if (part.done) break
         buffer += decoder.decode(part.value, { stream: true })
-        buffer = parseSseChunk(buffer, (payload) => {
-          if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
-            const label = getToolStatusLabel(payload.tool)
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
-          }
-          if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
-            receivedText = receivedText || payload.delta.length > 0
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
-          }
-          if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
-            const vm = payload.viewModel as TurnViewModel
-            setMessages((items) => items.map((item) => item.id === assistantId ? {
-              ...item,
-              content: vm.answer.markdown,
-              blocks: vm.blocks,
-              actions: vm.actions,
-              suggestions: vm.suggestions,
-            } : item))
-          }
-          if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
-          if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
-          }
-          if (payload.type === 'done') receivedDone = true
-          if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
-        })
+        buffer = parseSseChunk(buffer, handleStreamPayload)
       }
       // Flush a final UTF-8 code point and parse the last SSE event even when
       // the stream closes without an extra blank line.
       buffer += decoder.decode()
       if (buffer.trim()) {
-        parseSseChunk(`${buffer}\n\n`, (payload) => {
-          if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
-            const label = getToolStatusLabel(payload.tool)
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
-          }
-          if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
-            receivedText = receivedText || payload.delta.length > 0
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
-          }
-          if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
-            const vm = payload.viewModel as TurnViewModel
-            setMessages((items) => items.map((item) => item.id === assistantId ? {
-              ...item,
-              content: vm.answer.markdown,
-              blocks: vm.blocks,
-              actions: vm.actions,
-              suggestions: vm.suggestions,
-            } : item))
-          }
-          if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
-          if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
-          }
-          if (payload.type === 'done') receivedDone = true
-          if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
-        })
+        parseSseChunk(`${buffer}\n\n`, handleStreamPayload)
       }
       if (!receivedDone || !receivedText) throw new Error('Không nhận được câu trả lời từ agent.')
       setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, pending: false } : item))
@@ -679,7 +770,11 @@ export function SalesAgentShell() {
   }
 
   function submitInteraction(messageId: string, interaction: DisplayInteraction, selection: InteractionSubmission) {
-    const labels = selection.selectedOptionIds.map((optionId) => interaction.options.find((option) => option.optionId === optionId)?.label).filter(Boolean)
+    const allOptions = [
+      ...interaction.options,
+      ...(interaction.fields?.flatMap((field) => field.options) ?? []),
+    ]
+    const labels = selection.selectedOptionIds.map((optionId) => allOptions.find((option) => option.optionId === optionId)?.label).filter(Boolean)
     const message = selection.freeText || labels.join(', ')
     if (!message) return
     emitInteractionMetric({ event: 'interaction_submitted', slot: interaction.slot, mode: interaction.mode, resultCount: selection.selectedOptionIds.length })
@@ -878,53 +973,69 @@ export function SalesAgentShell() {
                 <div key={item.id} className={`flex min-w-0 ${item.role === 'user' ? 'justify-end' : 'w-full justify-start'}`}>
                   <div className={`min-w-0 max-w-full ${item.role === 'user' ? 'max-w-[84%] overflow-hidden rounded-2xl rounded-br-md bg-slate-900 px-3.5 py-2.5 text-white shadow-xs' : item.error ? 'w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5' : 'w-full py-1'}`}>
                     {item.role === 'assistant' ? (
-                      <div className="space-y-2.5">
-                        {item.content ? (
-                          <MarkdownMessage content={item.content} streaming={item.pending} />
-                        ) : item.pending ? (
-                          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
-                            <span className="relative flex h-2 w-2 shrink-0">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
-                            </span>
-                            <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
-                            <span className="font-medium">{item.statusText || 'Đang phân tích câu hỏi & lập kế hoạch…'}</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400">Không có câu trả lời.</p>
-                        )}
+                      (() => {
+                        const mediaBlock = item.blocks?.find(
+                          (b): b is Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }> => b.kind === 'KNOWLEDGE_MEDIA'
+                        )
+                        const mediaItems = mediaBlock?.items
 
-                        {/* Rich Blocks */}
-                        {item.blocks?.map((block, idx) => {
-                          if (block.kind === 'PRODUCT_LIST') {
-                            return (
-                              <ProductCardBlock
-                                key={`block-${idx}`}
-                                title={block.title}
-                                items={block.items}
-                              />
-                            )
-                          }
-                          if (block.kind === 'COMPARISON_TABLE') {
-                            return (
-                              <ComparisonCardBlock
-                                key={`block-${idx}`}
-                                criteria={block.criteria}
-                                products={block.products}
-                              />
-                            )
-                          }
-                          if (block.kind === 'MANUAL_IMAGE') {
-                            return (
-                              <ManualImageBlock
-                                key={`block-${idx}`}
-                                imageUrl={block.imageUrl}
-                                caption={block.caption}
-                              />
-                            )
-                          }
-                          return null
-                        })}
+                        return (
+                          <div className="space-y-2.5">
+                            {item.content ? (
+                              <MarkdownMessage content={item.content} mediaItems={mediaItems} streaming={item.pending} />
+                            ) : item.pending ? (
+                              <div className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 shadow-xs animate-in fade-in duration-200">
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
+                                </span>
+                                <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
+                                <span className="font-medium">{item.statusText || 'Đang phân tích câu hỏi & lập kế hoạch…'}</span>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-400">Không có câu trả lời.</p>
+                            )}
+
+                            {/* Rich Blocks */}
+                            {item.blocks?.map((block, idx) => {
+                              if (block.kind === 'PRODUCT_LIST') {
+                                return (
+                                  <ProductCardBlock
+                                    key={`block-${idx}`}
+                                    title={block.title}
+                                    items={block.items}
+                                  />
+                                )
+                              }
+                              if (block.kind === 'COMPARISON_TABLE') {
+                                return (
+                                  <ComparisonCardBlock
+                                    key={`block-${idx}`}
+                                    criteria={block.criteria}
+                                    products={block.products}
+                                  />
+                                )
+                              }
+                              if (block.kind === 'FACT_SUMMARY') {
+                                return <KnowledgeCitationBlock key={`block-${idx}`} {...block} />
+                              }
+                              if (block.kind === 'KNOWLEDGE_MEDIA') {
+                                if (item.pending) return null
+                                const content = item.content || ''
+                                const unreferencedItems = block.items.filter((media) => {
+                                  if (!media.url) return true
+                                  const filename = media.url.split('/').pop()?.replace(/\.png$/i, '')
+                                  const isEmbedded = Boolean(media.reference && content.includes(`[${media.reference}]`))
+                                    || content.includes(media.url)
+                                    || Boolean(filename && content.includes(filename))
+                                  return !isEmbedded
+                                })
+
+                                if (unreferencedItems.length === 0) return null
+                                return <KnowledgeMediaBlock key={`block-${idx}`} kind="KNOWLEDGE_MEDIA" title={block.title} items={unreferencedItems} />
+                              }
+                              return null
+                            })}
 
                         {/* Action Buttons */}
                         {item.actions && item.actions.length > 0 && (
@@ -932,19 +1043,27 @@ export function SalesAgentShell() {
                         )}
 
                         {/* Suggestion Chips */}
-                        {item.suggestions && item.suggestions.length > 0 && !item.pending && (
+                        {item.suggestions && item.suggestions.length > 0 && (
                           <SuggestionChips
                             suggestions={item.suggestions}
                             disabled={sending}
-                            onSelect={(payload) => void send(payload)}
+                            onSelect={(suggestion) => void send(suggestion.payload || suggestion.label, undefined, suggestion)}
                           />
                         )}
                       </div>
-                    ) : (
+                    )
+                  })()
+                ) : (
                       <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">{item.content}</p>
                     )}
 
-                    {item.interaction && (
+                    {item.interaction && (item.interaction.fields?.length ? (
+                      <ScopeChoiceInteraction
+                        interaction={item.interaction}
+                        disabled={sending}
+                        onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)}
+                      />
+                    ) : (
                       <ChoiceInteraction
                         interaction={item.interaction}
                         conversationId={conversationIdRef.current}
@@ -952,7 +1071,7 @@ export function SalesAgentShell() {
                         onSearchResult={(result, selectedOptionIds) => updateInteractionSearch(item.id, item.interaction!, result, selectedOptionIds)}
                         onSubmit={(selection) => void submitInteraction(item.id, item.interaction!, selection)}
                       />
-                    )}
+                    ))}
                   </div>
                 </div>
               ))}
@@ -1023,17 +1142,7 @@ export function SalesAgentShell() {
             >
               <div className="w-full min-w-[300px] py-5 space-y-4">
               
-              {showManualPanel ? (
-                <div className="flex-1 h-full min-h-0">
-                  <ManualReaderPanel 
-                    modelId={latestManualContext.modelId} 
-                    articleId={latestManualContext.articleId} 
-                    onClose={() => setDismissedManualArticle(latestManualContext.articleId)}
-                  />
-                </div>
-              ) : (
-                <>
-                  {/* Header Showcase */}
+              {/* Header Showcase */}
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
                 <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm mb-1.5">
                   <Zap size={16} className="text-amber-500" />
@@ -1132,9 +1241,6 @@ export function SalesAgentShell() {
                   </li>
                 </ul>
               </div>
-            </>
-          )}
-
               </div>
             </motion.div>
           )}

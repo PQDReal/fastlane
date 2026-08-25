@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fastlane.local/schemas/vf-visual-annotation-output.v1.json",
+  "title": "VF Visual Annotation Output v1",
+  "description": "Kết quả phân tích một visual packet. Trạng thái duyệt, URL phục vụ và asset ID vẫn do server quản lý.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packetId",
+    "decision",
+    "imageType",
+    "annotation",
+    "visibleText",
+    "relations",
+    "confidence",
+    "retrievalRecommendation",
+    "safetyCritical",
+    "notes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "packetId": {
+      "type": "string",
+      "pattern": "^visual_[a-f0-9]{32}$"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "ANNOTATE",
+        "DECORATIVE",
+        "UNREADABLE",
+        "NEEDS_REVIEW"
+      ]
+    },
+    "imageType": {
+      "type": "string",
+      "enum": [
+        "DIAGRAM",
+        "PROCEDURE_STEP",
+        "SCREENSHOT",
+        "WARNING",
+        "CONTROL_LOCATION",
+        "TABLE_LEGEND",
+        "ICON_MARKER",
+        "PHOTO",
+        "OTHER"
+      ]
+    },
+    "annotation": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title",
+            "summary",
+            "keywords"
+          ],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800
+            },
+            "keywords": {
+              "type": "array",
+              "maxItems": 12,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visibleText": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "targetOccurrenceId",
+          "description",
+          "confidence"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SAME_SEQUENCE",
+              "DETAIL_OF",
+              "LABELS",
+              "ILLUSTRATES",
+              "BEFORE_AFTER",
+              "STEP_OF",
+              "REFERENCES_TABLE",
+              "SAME_ASSET"
+            ]
+          },
+          "targetOccurrenceId": {
+            "type": "string",
+            "pattern": "^occ_[a-f0-9]{32}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "retrievalRecommendation": {
+      "type": "string",
+      "enum": [
+        "INCLUDE",
+        "EXCLUDE",
+        "REVIEW"
+      ]
+    },
+    "safetyCritical": {
+      "type": "boolean"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "ANNOTATE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "annotation": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "DECORATIVE",
+              "UNREADABLE"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "annotation": {
+            "type": "null"
+          },
+          "retrievalRecommendation": {
+            "const": "EXCLUDE"
+          }
+        }
+      }
+    }
+  ]
+}

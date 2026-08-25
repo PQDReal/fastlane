@@ -4,7 +4,7 @@ import {
   deleteKnowledgeDocument,
   getKnowledgeDocumentById,
   updateKnowledgeDocument,
-} from '@/lib/sales-agent/knowledge/repository'
+} from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -44,6 +44,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       category: body.category,
       contentMarkdown: body.contentMarkdown,
       summary: body.summary,
+      targetUrl: body.targetUrl !== undefined ? body.targetUrl : undefined,
+      authorId: user.id,
     })
 
     return NextResponse.json({ data: { document } })
@@ -60,7 +62,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params
-    const success = await deleteKnowledgeDocument(id)
+    const success = await deleteKnowledgeDocument(id, user.id)
     if (!success) {
       return NextResponse.json({ error: 'FAILED', message: 'Không thể xóa tài liệu.' }, { status: 500 })
     }

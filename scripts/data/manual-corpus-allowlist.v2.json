@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "2.0.0-code-ready",
+  "decisionId": "D-019-021",
+  "status": "CODE_READY_NOT_APPROVED_FOR_LIVE",
+  "approvedAt": null,
+  "source": {
+    "canonicalFixture": ".local/vinfast_manuals_copy/models/**/chapters/**/*.md",
+    "metadata": ".local/vinfast_manuals_copy/models/**/structured.json",
+    "rawReconciliation": ".local/normalized"
+  },
+  "expectedInventory": {
+    "manualEditions": 31,
+    "totalNodes": 2017,
+    "chapterNodes": 381,
+    "sectionNodes": 1636,
+    "contentNodes": 1633,
+    "emptyLeafNodes": 3,
+    "retainedImageOccurrences": 9043,
+    "canonicalUniqueAssets": null
+  },
+  "selectedEditionIds": [
+    "VF e34_2021",
+    "VF e34_2022",
+    "VF e34_2023",
+    "VF e34_2024",
+    "VF 3_2024",
+    "VF 3_2025",
+    "VF 3_2026",
+    "VF 5_2023",
+    "VF 5_2024",
+    "VF 5_2025",
+    "VF 5_2026",
+    "VF 6_2023",
+    "VF 6_2024",
+    "VF 6_2025",
+    "VF 6_2026",
+    "VF 7_2024",
+    "VF 7_2025",
+    "VF 7_2026",
+    "VF 8_2022",
+    "VF 8_2023",
+    "VF 8_2024",
+    "VF 8_2025",
+    "VF 8_2026",
+    "VF 8 - MY26_2026",
+    "VF 9_2023",
+    "VF 9_2024",
+    "VF 9_2025",
+    "VF 9_2026",
+    "VF MPV 7_2026",
+    "Lạc Hồng 900 LX_2025",
+    "Lạc Hồng 900 LX_2026"
+  ],
+  "identityPolicy": {
+    "joinKey": "canonical vehicle_key + model_year + locale",
+    "lacHongVehicleKey": "lac-hong-900-lx",
+    "displayName": "Lạc Hồng 900 LX"
+  },
+  "mutationPolicy": "Code and local build authority only. No live database write, migration apply, embedding call, vision call or storage upload is authorized without an explicit execution flag and user approval."
+}

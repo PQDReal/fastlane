@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/current-user'
-import { archiveKnowledgeDocument } from '@/lib/sales-agent/knowledge/repository'
+import { archiveKnowledgeDocument } from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -14,7 +14,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params
-    const document = await archiveKnowledgeDocument(id)
+    const document = await archiveKnowledgeDocument(id, user.id)
 
     return NextResponse.json({
       data: {

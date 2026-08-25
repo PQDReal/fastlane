@@ -7,6 +7,7 @@ import { createSalesAgentLanguageModel, type SalesAgentLanguageModel } from './a
 import { apiKeyPoolManager } from './key-pool'
 import { providerImplementations } from './http'
 import type { SalesAgentProviderConfig, SalesAgentProviderId, SalesAgentProviderInput, SalesAgentProviderResult } from './types'
+import { recordSalesAgentDebugEvent, type SalesAgentDebugContext } from '../debug-log'
 
 let cachedProviderConfigs: SalesAgentProviderConfig[] | null = null
 let lastProviderConfigsFetchedAt = 0
@@ -88,12 +89,13 @@ const SEEDED_ROUTER_INSTANCES: SalesAgentProviderConfig[] = [
   },
 ]
 
-export async function listSalesAgentProviderConfigs(): Promise<SalesAgentProviderConfig[]> {
+export async function listSalesAgentProviderConfigs(debugContext?: SalesAgentDebugContext): Promise<SalesAgentProviderConfig[]> {
   const now = Date.now()
   if (cachedProviderConfigs && now - lastProviderConfigsFetchedAt < PROVIDER_CACHE_TTL_MS) {
     return cachedProviderConfigs
   }
 
+  const startedAt = Date.now()
   try {
     const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
       setTimeout(() => resolve({ data: null, error: new Error('Supabase provider config fetch timeout') }), 2500),
@@ -108,6 +110,14 @@ export async function listSalesAgentProviderConfigs(): Promise<SalesAgentProvide
     if (error || !data || data.length === 0) {
       cachedProviderConfigs = SEEDED_ROUTER_INSTANCES
       lastProviderConfigsFetchedAt = now
+      recordSalesAgentDebugEvent('provider.config.fallback', debugContext, {
+        phase: 'registry_fetch',
+        reasonCode: error ? 'DB_ERROR' : 'EMPTY_RESULT',
+        source: 'seeded_defaults',
+        configCount: cachedProviderConfigs.length,
+        elapsedMs: Date.now() - startedAt,
+        error: error ? { name: 'ProviderConfigFetchError', message: error.message || String(error) } : undefined,
+      })
       return cachedProviderConfigs
     }
 
@@ -117,16 +127,31 @@ export async function listSalesAgentProviderConfigs(): Promise<SalesAgentProvide
 
     cachedProviderConfigs = configs
     lastProviderConfigsFetchedAt = now
+    recordSalesAgentDebugEvent('provider.config.fetch.completed', debugContext, {
+      phase: 'registry_fetch',
+      source: 'supabase',
+      configCount: configs.length,
+      enabledCount: configs.filter((config) => config.enabled).length,
+      elapsedMs: Date.now() - startedAt,
+    })
     return configs
   } catch (err: any) {
     console.warn('[SALES_AGENT_REGISTRY] Network exception fetching provider configs; falling back to router defaults:', err?.message)
     cachedProviderConfigs = SEEDED_ROUTER_INSTANCES
+    recordSalesAgentDebugEvent('provider.config.fallback', debugContext, {
+      phase: 'registry_fetch',
+      reasonCode: 'NETWORK_ERROR',
+      source: 'seeded_defaults',
+      configCount: cachedProviderConfigs.length,
+      elapsedMs: Date.now() - startedAt,
+      error: err instanceof Error ? { name: err.name, message: err.message } : String(err),
+    })
     return cachedProviderConfigs
   }
 }
 
-export async function getDefaultSalesAgentProviderConfig(): Promise<SalesAgentProviderConfig> {
-  const configs = await listSalesAgentProviderConfigs()
+export async function getDefaultSalesAgentProviderConfig(debugContext?: SalesAgentDebugContext): Promise<SalesAgentProviderConfig> {
+  const configs = await listSalesAgentProviderConfigs(debugContext)
   return (
     configs.find((config) => config.isDefault && config.enabled) ??
     configs.find((config) => config.enabled) ??
@@ -256,18 +281,18 @@ export async function completeWithSalesAgentProvider(input: SalesAgentProviderIn
   return providerImplementations[config.provider].complete(input, config)
 }
 
-export async function getSalesAgentLanguageModel(selectedIdOrProvider?: string): Promise<SalesAgentLanguageModel> {
-  const configs = await listSalesAgentProviderConfigs()
+export async function getSalesAgentLanguageModel(selectedIdOrProvider?: string, debugContext?: SalesAgentDebugContext): Promise<SalesAgentLanguageModel> {
+  const configs = await listSalesAgentProviderConfigs(debugContext)
   const config = selectedIdOrProvider
     ? configs.find((item) => item.id === selectedIdOrProvider || item.provider === selectedIdOrProvider)
-    : await getDefaultSalesAgentProviderConfig()
+    : await getDefaultSalesAgentProviderConfig(debugContext)
   if (!config) throw new Error('Provider agent không tồn tại.')
   if (!config.enabled) throw new Error('Provider agent đang được tắt.')
   return createSalesAgentLanguageModel(config)
 }
 
-export async function getAvailableFallbackLanguageModels(primaryProviderOrId?: string): Promise<SalesAgentLanguageModel[]> {
-  const configs = await listSalesAgentProviderConfigs()
+export async function getAvailableFallbackLanguageModels(primaryProviderOrId?: string, debugContext?: SalesAgentDebugContext): Promise<SalesAgentLanguageModel[]> {
+  const configs = await listSalesAgentProviderConfigs(debugContext)
   const fallbacks: SalesAgentLanguageModel[] = []
 
   // Sort by priority ASC
@@ -283,8 +308,13 @@ export async function getAvailableFallbackLanguageModels(primaryProviderOrId?: s
       try {
         const lm = createSalesAgentLanguageModel(config)
         fallbacks.push(lm)
-      } catch {
-        // Skip if provider initialization fails
+      } catch (error) {
+        recordSalesAgentDebugEvent('provider.fallback.initialization.failed', debugContext, {
+          provider: config.provider,
+          model: config.model,
+          reasonCode: 'MODEL_INITIALIZATION_ERROR',
+          error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+        })
       }
     }
   }
