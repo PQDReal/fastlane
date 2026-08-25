@@ -241,15 +241,7 @@ export function SalesAgentShell() {
   const position = useSalesAgentStore((state) => state.position)
   const setPosition = useSalesAgentStore((state) => state.setPosition)
 
-  const handleDragEnd = (event: any, info: any) => {
-    setPosition({
-      x: position.x + info.offset.x,
-      y: position.y + info.offset.y,
-    })
-  }
-  const dragControls = useDragControls()
   const [isExpanded, setIsExpanded] = useState(false)
-  
 
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [draft, setDraft] = useState('')
@@ -268,20 +260,6 @@ export function SalesAgentShell() {
     setIsMounted(true)
   }, [])
 
-  // Calculate bounds to prevent chat window from going completely off-screen
-  let chatX = isMounted && !isExpanded ? position.x : 0
-  let chatY = isMounted && !isExpanded ? position.y : 0
-  if (typeof window !== 'undefined' && !isExpanded && isMounted) {
-    const minY = 720 - window.innerHeight
-    const maxY = window.innerHeight - 100
-    if (chatY < minY) chatY = minY
-    if (chatY > maxY) chatY = maxY
-    
-    const minX = 460 - window.innerWidth
-    const maxX = window.innerWidth - 100
-    if (chatX < minX) chatX = minX
-    if (chatX > maxX) chatX = maxX
-  }
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
   const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null)
@@ -734,23 +712,17 @@ export function SalesAgentShell() {
             : 'fixed inset-x-3 bottom-3 z-[61] flex h-[min(620px,calc(100dvh-24px))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl md:inset-x-auto md:inset-y-auto md:right-4 md:bottom-4 md:h-[min(680px,calc(100dvh-2rem))] md:w-[420px]'
         }
         style={{ transformOrigin: isExpanded ? 'center' : 'calc(100% - 32px) calc(100% - 32px)' }}
-        initial={{ opacity: 0, scale: 0.85, x: chatX, y: chatY + 20 }}
-        animate={{ opacity: 1, scale: 1, x: chatX, y: chatY }}
-        exit={{ opacity: 0, scale: 0.85, x: chatX, y: chatY + 20 }}
+        initial={{ opacity: 0, scale: 0.85, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: 20 }}
         transition={{ 
           default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
         }}
-        drag={!isExpanded}
-        dragControls={dragControls}
-        dragListener={false}
-        dragMomentum={false}
-        onDragEnd={handleDragEnd}
       >
         {/* Header Bar */}
         <div 
-          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0 cursor-grab active:cursor-grabbing"
-          onPointerDown={(e) => dragControls.start(e)}
+          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0"
         >
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
@@ -1138,9 +1110,9 @@ export function SalesAgentShell() {
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
-        initial={{ opacity: 1, scale: 0.95, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
-        animate={{ opacity: 1, scale: 1, x: isMounted ? position.x : 0, y: isMounted ? position.y : 0 }}
-        exit={{ opacity: 0, scale: 0.85, x: isMounted ? position.x : 0, y: (isMounted ? position.y : 0) + 15 }}
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.85, y: 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed bottom-6 right-6 z-[55] flex items-center"
         style={floatingPosition ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto', bottom: 'auto' } : undefined}
