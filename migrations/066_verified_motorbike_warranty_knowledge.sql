@@ -128,6 +128,10 @@ $$;
 -- enriched chunk identity. Create that version only when the expanded schema
 -- is present; the original CMS schema does not have these tables/columns.
 do $$
+declare
+  migration_author_id uuid;
+  migration_reviewer_id uuid;
+  migration_activation_actor_id uuid;
 begin
   if to_regclass('public.sales_agent_knowledge_versions') is not null
     and exists (
@@ -137,10 +141,39 @@ begin
         and table_name = 'sales_agent_knowledge_chunks'
         and column_name = 'version_id'
     ) then
+    -- SQL migrations run outside the authenticated admin application, so
+    -- auth.uid() is unavailable. Reuse the latest complete CMS publication
+    -- actor set instead of inventing UUIDs that could violate actor FKs.
+    select
+      version.author_id,
+      version.reviewer_id,
+      version.activation_actor_id
+    into
+      migration_author_id,
+      migration_reviewer_id,
+      migration_activation_actor_id
+    from public.sales_agent_knowledge_versions version
+    where version.publication_status = 'PUBLISHED'
+      and version.index_status = 'READY'
+      and version.author_id is not null
+      and version.reviewer_id is not null
+      and version.activation_actor_id is not null
+    order by version.activated_at desc nulls last, version.created_at desc
+    limit 1;
+
+    if migration_author_id is null
+      or migration_reviewer_id is null
+      or migration_activation_actor_id is null then
+      raise exception using
+        message = 'Migration 066 requires an existing approved knowledge version actor set',
+        hint = 'Publish one knowledge document through the admin CMS, then rerun migration 066.';
+    end if;
+
     insert into public.sales_agent_knowledge_versions (
       id,
       document_id,
       version_no,
+      author_id,
       content_markdown,
       content_checksum,
       summary,
@@ -148,7 +181,9 @@ begin
       source_retrieved_at,
       publication_status,
       index_status,
+      reviewer_id,
       approved_at,
+      activation_actor_id,
       activated_at,
       activation_reason,
       effective_from,
@@ -158,6 +193,7 @@ begin
       '00000000-0000-4000-8000-000000000105',
       document.id,
       1,
+      migration_author_id,
       document.content_markdown,
       encode(digest(convert_to(document.content_markdown, 'UTF8'), 'sha256'), 'hex'),
       document.summary,
@@ -165,7 +201,9 @@ begin
       now(),
       'PUBLISHED',
       'READY',
+      migration_reviewer_id,
       now(),
+      migration_activation_actor_id,
       now(),
       'Admin-reviewed motorbike warranty migration 066',
       coalesce(document.published_at, now()),
@@ -176,11 +214,14 @@ begin
       content_markdown = excluded.content_markdown,
       content_checksum = excluded.content_checksum,
       summary = excluded.summary,
+      author_id = excluded.author_id,
       source_uri = excluded.source_uri,
       source_retrieved_at = excluded.source_retrieved_at,
       publication_status = excluded.publication_status,
       index_status = excluded.index_status,
+      reviewer_id = excluded.reviewer_id,
       approved_at = excluded.approved_at,
+      activation_actor_id = excluded.activation_actor_id,
       activated_at = excluded.activated_at,
       activation_reason = excluded.activation_reason,
       effective_from = excluded.effective_from;

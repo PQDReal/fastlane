@@ -34,6 +34,11 @@ describe('Migration 066: verified motorbike warranty knowledge', () => {
 
   it('supports both legacy and versioned knowledge chunk schemas', () => {
     expect(sql).toContain("to_regclass('public.sales_agent_knowledge_versions')")
+    expect(sql).toContain('migration_author_id')
+    expect(sql).toContain('migration_reviewer_id')
+    expect(sql).toContain('migration_activation_actor_id')
+    expect(sql).toContain("version.publication_status = 'PUBLISHED'")
+    expect(sql).toContain('Publish one knowledge document through the admin CMS')
     expect(sql).toContain('sales_agent_knowledge_index_generations')
     expect(sql).toContain('version_id')
     expect(sql).toContain('index_generation_id')
