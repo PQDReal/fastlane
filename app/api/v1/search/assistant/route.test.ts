@@ -87,6 +87,39 @@ describe('deterministic assistant canonical FAQ read', () => {
     expect(mocks.loadCanonicalAssistantFacts).not.toHaveBeenCalled()
   })
 
+  it('answers a bounded ambiguous model query with facts for each matching model', async () => {
+    process.env.CATALOG_FACT_READ_MODE = 'canonical'
+    mocks.retrieveCatalogProducts.mockResolvedValue([
+      {
+        ...product,
+        id: 'feliz-2025',
+        name: 'Feliz 2025',
+        facts: {
+          'specs.Loại pin/ắc quy': 'LFP',
+          'specs.Dung lượng pin/ắc quy': '2.4 kWh',
+        },
+      },
+      {
+        ...product,
+        id: 'feliz-ii',
+        name: 'Feliz II',
+        facts: {
+          'specs.Loại pin/ắc quy': 'LFP',
+          'specs.Dung lượng pin/ắc quy': '1.5 kWh (tùy chọn thêm 1 pin 1.5 kWh)',
+        },
+      },
+    ])
+
+    const response = await post('Feliz có pin bao nhiêu?')
+    const body = await response.json()
+
+    expect(body.data.message).toBe(
+      'Feliz 2025 có dung lượng pin: 2.4 kWh. Feliz II có dung lượng pin: 1.5 kWh (tùy chọn thêm 1 pin 1.5 kWh).',
+    )
+    expect(body.data.products.map((item: any) => item.name)).toEqual(['Feliz 2025', 'Feliz II'])
+    expect(mocks.loadCanonicalAssistantFacts).not.toHaveBeenCalled()
+  })
+
   it('keeps serving legacy data when the canonical tables are unavailable', async () => {
     process.env.CATALOG_FACT_READ_MODE = 'canonical'
     mocks.loadCanonicalAssistantFacts.mockResolvedValue({ status: 'unavailable', facts: [], errorCode: 'PGRST205' })

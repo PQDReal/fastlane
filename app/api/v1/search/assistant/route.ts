@@ -24,44 +24,49 @@ function focusFaqProducts(catalogQuery: string, products: Awaited<ReturnType<typ
 
 async function faqFallbackMessage(query: string, products: Awaited<ReturnType<typeof retrieveCatalogProducts>>) {
   const topic = findAssistantFaqTopic(query)
-  if (products.length !== 1) {
+  if (products.length === 0 || products.length > 3) {
     return /(bao hanh|chinh sach)/.test(query)
       ? 'Dữ liệu chính sách và bảo hành chưa được cập nhật.'
       : null
   }
   if (!topic) return null
-  const product = products[0]
   const mode = resolveCatalogFactReadMode()
-  const legacyValue = findLegacyAssistantFaqFact(topic, product.facts)
   const canonicalRead = mode !== 'legacy' && topic.cutover === 'READY'
-    ? await loadCanonicalAssistantFacts([product.id], [topic.canonicalKey])
+    ? await loadCanonicalAssistantFacts(products.map((product) => product.id), [topic.canonicalKey])
     : { status: 'available' as const, facts: [], errorCode: null }
-  const resolution = resolveAssistantFaqFact({
-    mode,
-    topic,
-    legacyValue,
-    canonicalReadStatus: canonicalRead.status,
-    canonicalFacts: canonicalRead.facts.filter((fact) => fact.productId === product.id),
-  })
+  const resolutions = products.map((product) => ({
+    product,
+    resolution: resolveAssistantFaqFact({
+      mode,
+      topic,
+      legacyValue: findLegacyAssistantFaqFact(topic, product.facts),
+      canonicalReadStatus: canonicalRead.status,
+      canonicalFacts: canonicalRead.facts.filter((fact) => fact.productId === product.id),
+    }),
+  }))
 
   if (mode !== 'legacy' && topic.cutover === 'READY') {
-    const logContext = {
-      productId: product.id,
-      canonicalKey: topic.canonicalKey,
-      mode,
-      status: resolution.shadowStatus,
-      errorCode: canonicalRead.errorCode,
-    }
-    if (canonicalRead.status === 'unavailable') {
-      console.warn('[CATALOG_FACT_READ] Canonical FAQ read unavailable; using legacy fallback.', logContext)
-    } else {
-      console.info(mode === 'shadow' ? '[CATALOG_FACT_SHADOW]' : '[CATALOG_FACT_READ]', logContext)
+    for (const { product, resolution } of resolutions) {
+      const logContext = {
+        productId: product.id,
+        canonicalKey: topic.canonicalKey,
+        mode,
+        status: resolution.shadowStatus,
+        errorCode: canonicalRead.errorCode,
+      }
+      if (canonicalRead.status === 'unavailable') {
+        console.warn('[CATALOG_FACT_READ] Canonical FAQ read unavailable; using legacy fallback.', logContext)
+      } else {
+        console.info(mode === 'shadow' ? '[CATALOG_FACT_SHADOW]' : '[CATALOG_FACT_READ]', logContext)
+      }
     }
   }
 
-  return resolution.value
-    ? `${product.name} có ${topic.label}: ${resolution.value}.`
-    : `Dữ liệu về ${topic.label} của ${products[0].name} chưa được cập nhật.`
+  return resolutions.map(({ product, resolution }) => (
+    resolution.value
+      ? `${product.name} có ${topic.label}: ${resolution.value}.`
+      : `Dữ liệu về ${topic.label} của ${product.name} chưa được cập nhật.`
+  )).join(' ')
 }
 
 export async function POST(request: Request) {

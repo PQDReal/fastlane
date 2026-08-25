@@ -2,7 +2,7 @@ import type { CanonicalAssistantFact, CatalogFactReadMode } from '@/lib/catalog-
 import { normalizeProductSearchText } from '@/lib/catalog/search'
 
 export type AssistantFaqTopic = {
-  canonicalKey: 'range_km' | 'max_power_kw' | 'top_speed_kmh' | 'battery_capacity_kwh'
+  canonicalKey: 'range_km' | 'max_power_kw' | 'top_speed_kmh' | 'battery_capacity_kwh' | 'battery_type'
   queryPattern: RegExp
   legacyFactPattern: RegExp
   label: string
@@ -37,11 +37,19 @@ export const ASSISTANT_FAQ_TOPICS: readonly AssistantFaqTopic[] = [
   },
   {
     canonicalKey: 'battery_capacity_kwh',
-    queryPattern: /(pin|dung luong)/,
-    legacyFactPattern: /(battery|capacity|pin|dung.luong)/i,
-    label: 'thông tin pin',
+    queryPattern: /(dung luong(?: pin)?|pin (?:co )?bao nhieu|pin.*kwh|bao nhieu.*pin)/,
+    legacyFactPattern: /(battery.?capacity|capacity|dung.?luong)/i,
+    label: 'dung lượng pin',
     cutover: 'HOLD',
     tolerance: 0.01,
+  },
+  {
+    canonicalKey: 'battery_type',
+    queryPattern: /(loai pin|pin gi|dung pin|pin nao)/,
+    legacyFactPattern: /(battery.?type|loai.?pin|loai.?ac.?quy)/i,
+    label: 'loại pin',
+    cutover: 'HOLD',
+    tolerance: 0,
   },
 ]
 

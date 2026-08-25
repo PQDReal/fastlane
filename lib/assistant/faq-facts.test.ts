@@ -23,7 +23,17 @@ describe('assistant FAQ fact cut-over', () => {
   it('maps deterministic FAQ wording to canonical keys', () => {
     expect(findAssistantFaqTopic('vf 9 toc do toi da')?.canonicalKey).toBe('top_speed_kmh')
     expect(findAssistantFaqTopic('feliz dung luong pin')?.canonicalKey).toBe('battery_capacity_kwh')
+    expect(findAssistantFaqTopic('feliz co pin bao nhieu')?.canonicalKey).toBe('battery_capacity_kwh')
+    expect(findAssistantFaqTopic('feliz dung pin gi')?.canonicalKey).toBe('battery_type')
     expect(findAssistantFaqTopic('vf 8 bao xa')?.canonicalKey).toBe('range_km')
+  })
+
+  it('does not confuse battery type with battery capacity', () => {
+    const capacityTopic = ASSISTANT_FAQ_TOPICS.find((topic) => topic.canonicalKey === 'battery_capacity_kwh')!
+    expect(findLegacyAssistantFaqFact(capacityTopic, {
+      'specs.Loại pin/ắc quy': 'LFP',
+      'specs.Dung lượng pin/ắc quy': '1.5 kWh',
+    })).toBe('1.5 kWh')
   })
 
   it('keeps legacy path matching isolated from the canonical key', () => {
