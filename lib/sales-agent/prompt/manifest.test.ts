@@ -54,18 +54,19 @@ describe('Sales Agent prompt capability gate', () => {
     expect(prompt.indexOf('[CATALOG_SNAPSHOT')).toBeGreaterThan(prompt.indexOf('## QUY TẮC TRÌNH BÀY MARKDOWN'))
   })
 
-  it('asks for contextual follow-up chips without restoring manual routes', () => {
+  it('instructs the model to provide natural follow-up guidance without leaking raw JSON', () => {
     const prompt = getSalesAgentSystemPrompt({ knowledgeEnabled: true })
-    expect(prompt).toContain('thêm đúng 3 gợi ý ngắn')
-    expect(prompt).toContain('"label":"Tên nút"')
+    expect(prompt).toContain('gợi mở 1-2 hướng tìm hiểu tiếp theo')
+    expect(prompt).toContain('Không in cú pháp JSON thô')
     expect(prompt).not.toContain('/user-manual')
     expect(prompt).not.toContain('search_user_manuals')
   })
 
-  it('instructs the model that vision/image upload is not supported and not to ask for screenshots', () => {
+  it('instructs the model that vision/image upload is not supported, encourages relevant manual visuals, and forbids asking for screenshots', () => {
     const prompt = getSalesAgentSystemPrompt({ knowledgeEnabled: true })
     expect(prompt).toContain('CHƯA hỗ trợ')
     expect(prompt).toContain('ảnh chụp màn hình')
     expect(prompt).toContain('vision')
+    expect(prompt).toContain('Khuyến khích tra cứu và đính kèm hình ảnh/sơ đồ kỹ thuật phù hợp')
   })
 })

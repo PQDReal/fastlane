@@ -693,4 +693,60 @@ describe('Canonical Response Composer', () => {
       expect(comparison.products[0].values['Tốc độ tối đa']).toBe('200 km/h')
     }
   })
+
+  it('strips leaked raw JSON suggestions from narrative markdown', () => {
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{
+          kind: 'ADVICE',
+          markdown: 'Hướng dẫn kết nối Wi-Fi trên xe VF 5.JSON{"label":"Kết nối Android Auto","intent":"Hướng dẫn Android Auto"}{"label":"Kết nối CarPlay","intent":"Hướng dẫn CarPlay"}',
+        }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence: new EvidenceLedger(),
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-strip-json',
+      turnId: 'turn-strip-json',
+      messageId: 'msg-strip-json',
+    })
+
+    expect(response.answer.markdown).toBe('Hướng dẫn kết nối Wi-Fi trên xe VF 5.')
+    expect(response.answer.markdown).not.toContain('JSON{')
+    expect(response.answer.markdown).not.toContain('Android Auto')
+  })
+
+  it('maintains contextual vehicle product suggestions when mentioned in narrative', () => {
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{
+          kind: 'ADVICE',
+          markdown: 'Hiện tại trên xe VinFast VF 5 bạn có thể bật màn hình trung tâm để thiết lập.',
+        }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence: new EvidenceLedger(),
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-vf5-context',
+      turnId: 'turn-vf5-context',
+      messageId: 'msg-vf5-context',
+      catalogProducts: [
+        { id: 'bike-1', name: 'Evo Ultra Super Lite', productType: 'BIKE', slug: 'evo-ultra-super-lite' },
+        { id: 'vf5-id', name: 'VinFast VF 5', productType: 'CAR', slug: 'vf-5' },
+      ],
+    })
+
+    expect(response.suggestions.map((s) => s.label)).toEqual([
+      'Thông số VinFast VF 5',
+      'Dự toán trả góp VinFast VF 5',
+      'Đặt lịch lái thử VinFast VF 5',
+    ])
+  })
 })

@@ -124,6 +124,13 @@ function findScopedCatalogProduct(
   })
 }
 
+function stripRawJsonSuggestions(markdown: string): string {
+  return markdown
+    .replace(/(?:JSON\s*)?\[\s*\{\s*"label"\s*:\s*"[^"]+".*?\}\s*\]/gis, '')
+    .replace(/(?:JSON\s*)?\{\s*"label"\s*:\s*"[^"]+".*?\}/gis, '')
+    .trim()
+}
+
 function appendKnowledgeNavigation(
   markdown: string,
   hasKnowledgeEvidence: boolean,
@@ -250,7 +257,15 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     ...item,
     reference: knowledgeMediaReference(index + 1),
   }))
-  const rawMarkdown = markdownParts.join('\n\n') || 'Thông tin tư vấn từ Fastlane.'
+  const rawMarkdown = stripRawJsonSuggestions(markdownParts.join('\n\n')) || 'Thông tin tư vấn từ Fastlane.'
+  const fallbackModel = scopeDiagnostics?.vehicleModel
+    || options.evidence.getAllFacts().find((f) => f.factPath === 'vehicleModel')?.valueHash
+    || options.knownEntities.getAllEntities().find((e) => e.kind === 'PRODUCT')?.name
+  const effectiveScopedProduct = scopedCatalogProduct
+    || findScopedCatalogProduct(fallbackModel, catalogSuggestionProducts)
+    || catalogSuggestionProducts.find((p) => (
+      p.productType === 'CAR' && rawMarkdown.toLowerCase().includes(p.name.toLowerCase())
+    ))
   const verifiedCatalogProducts = catalogSuggestionProducts.flatMap((product) => (
     product.slug && product.productType
       ? [{
@@ -267,7 +282,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
       [...knownProducts, ...verifiedCatalogProducts],
     ),
     hasKnowledgeEvidence && !isClarificationTurn,
-    scopedCatalogProduct,
+    scopedCatalogProduct || effectiveScopedProduct,
     primaryKnowledgeSource,
   )
   const compactMarkdown = compactKnowledgeMediaReferences(
@@ -423,7 +438,9 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
         name: product.name,
         productType: product.productType,
       })),
-      catalogProducts: scopedCatalogProduct ? [scopedCatalogProduct] : catalogSuggestionProducts,
+      catalogProducts: (scopedCatalogProduct || effectiveScopedProduct)
+        ? [scopedCatalogProduct || effectiveScopedProduct!]
+        : catalogSuggestionProducts,
       isClarificationTurn,
       isComparisonTurn,
       hasWarrantyOrBatteryPolicy,
