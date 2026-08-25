@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { BookOpen, Cpu, Sparkles } from 'lucide-react'
+import { BookOpen, Cpu, Images } from 'lucide-react'
 import { KnowledgeManager } from './knowledge-manager'
 import { SalesAgentProviderManager } from './sales-agent-provider-manager'
-import type { KnowledgeDocument } from '@/lib/sales-agent/knowledge/types'
+import { VisualKnowledgeReview } from './visual-knowledge-review'
+import type { KnowledgeDocumentSummary } from '@/lib/sales-agent/knowledge/types'
 
 type Props = {
-  initialDocuments: KnowledgeDocument[]
+  initialDocuments: KnowledgeDocumentSummary[]
   initialTotal: number
+  visualKnowledgeEnabled: boolean
 }
 
-export function AiManagementHub({ initialDocuments, initialTotal }: Props) {
-  const [activeTab, setActiveTab] = useState<'knowledge' | 'providers'>('knowledge')
+export function AiManagementHub({ initialDocuments, initialTotal, visualKnowledgeEnabled }: Props) {
+  const [activeTab, setActiveTab] = useState<'knowledge' | 'visual' | 'providers'>('knowledge')
 
   return (
     <div className="space-y-6">
@@ -27,6 +29,9 @@ export function AiManagementHub({ initialDocuments, initialTotal }: Props) {
           </div>
           <p className="mt-1 text-sm text-slate-500">
             Trung tâm điều hành AI: Quản lý cơ sở tri thức CMS và cấu hình Router đa nhà cung cấp, xoay vòng API Keys.
+          </p>
+          <p className="mt-2 text-xs text-slate-400">
+            Luồng tri thức: bản nháp → phê duyệt maker-checker → xếp hàng index → READY → publish. Admin không chỉnh sửa chunk hoặc vector trực tiếp.
           </p>
         </div>
       </div>
@@ -51,6 +56,23 @@ export function AiManagementHub({ initialDocuments, initialTotal }: Props) {
           </span>
         </button>
 
+        {visualKnowledgeEnabled && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'visual'}
+            onClick={() => setActiveTab('visual')}
+            className={`flex items-center gap-2.5 border-b-2 px-4 py-3.5 text-sm font-semibold transition-all ${
+              activeTab === 'visual'
+                ? 'rounded-t-lg border-brand-600 bg-brand-50/40 text-brand-600'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+            }`}
+          >
+            <Images size={18} className={activeTab === 'visual' ? 'text-brand-600' : 'text-slate-400'} />
+            <span>Duyệt ảnh tri thức</span>
+          </button>
+        )}
+
         <button
           type="button"
           role="tab"
@@ -70,6 +92,8 @@ export function AiManagementHub({ initialDocuments, initialTotal }: Props) {
       {/* Tab Content */}
       {activeTab === 'knowledge' ? (
         <KnowledgeManager initialDocuments={initialDocuments} initialTotal={initialTotal} />
+      ) : activeTab === 'visual' && visualKnowledgeEnabled ? (
+        <VisualKnowledgeReview />
       ) : (
         <SalesAgentProviderManager />
       )}

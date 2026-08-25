@@ -108,4 +108,16 @@ export class EvidenceLedger {
   getAllEvidence(): StoredEvidence[] {
     return Array.from(this.evidenceMap.values())
   }
+
+  getToolResult(toolCallId: string): ToolResult | undefined {
+    return this.toolResultsMap.get(toolCallId)
+  }
+
+  getAllToolResults(): ToolResult[] {
+    return Array.from(this.toolResultsMap.values())
+  }
+
+  getLatestToolResult(toolName: string): ToolResult | undefined {
+    return this.getAllToolResults().findLast((result) => result.tool === toolName)
+  }
 }

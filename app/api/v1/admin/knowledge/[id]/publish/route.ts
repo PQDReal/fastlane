@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/current-user'
-import { publishKnowledgeDocument } from '@/lib/sales-agent/knowledge/repository'
+import { publishKnowledgeDocument } from '@/lib/sales-agent/knowledge/versioned-admin-repository'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -14,7 +14,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params
-    const result = await publishKnowledgeDocument(id)
+    const result = await publishKnowledgeDocument(id, user.id)
 
     return NextResponse.json({
       data: {
@@ -24,9 +24,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       },
     })
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: error?.message || 'Lỗi xuất bản tài liệu.' },
-      { status: 500 },
-    )
+    const message = error?.message || 'Lỗi xuất bản tài liệu.'
+    const status = typeof message === 'string' && (message.startsWith('PUBLISH_NOT_') || message.startsWith('SOURCE_REQUIRED')) ? 409 : 500
+    return NextResponse.json({ error: status === 409 ? 'LIFECYCLE_GATE' : 'INTERNAL_ERROR', message }, { status })
   }
 }

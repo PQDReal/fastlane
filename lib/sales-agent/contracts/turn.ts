@@ -91,11 +91,6 @@ export const createSalesAgentTurnRequestSchema = z.object({
   conversationId: z.string().trim().min(1).optional(),
   clientTurnId: z.string().trim().min(1),
   input: salesAgentTurnInputSchema,
-  pageContext: z.object({
-    routeKey: z.string().trim().min(1).optional(),
-    currentProductId: z.string().trim().min(1).optional(),
-    currentProductType: productTypeSchema.optional(),
-  }).optional(),
   locale: z.literal('vi-VN').default('vi-VN'),
 })
 export type CreateSalesAgentTurnRequest = z.infer<typeof createSalesAgentTurnRequestSchema>
@@ -111,22 +106,30 @@ export type SalesAgentMessageRequest = {
   conversationId?: string
   message: string
   guestHistory?: SalesAgentMessage[]
+  suggestionSelection?: SalesAgentSuggestionSelection
   interactionResponse?: {
     interactionId: string
     selectedOptionIds: string[]
     freeText?: string
     continuationToken: string
   }
-  pageContext?: { routeKey: string; entityId?: string }
   locale?: 'vi-VN'
+}
+
+export type SalesAgentSuggestionSelection = {
+  suggestionId: string
+  entityIds?: string[]
+  catalogVersion?: number
 }
 
 export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessageRequest {
   if (!value || typeof value !== 'object') throw new SalesAgentRequestError('Request phải là JSON object.')
   const input = value as Record<string, unknown>
-  const message = typeof input.message === 'string' ? input.message.trim() : ''
-  if (!message) throw new SalesAgentRequestError('Vui lòng nhập câu hỏi cho agent.')
-  if (message.length > SALES_AGENT_MESSAGE_MAX_CHARS) throw new SalesAgentRequestError('Câu hỏi tối đa 2.000 ký tự.')
+  const rawMessage = typeof input.message === 'string' ? input.message.trim() : ''
+  const hasInteractionResponse = Boolean(input.interactionResponse && typeof input.interactionResponse === 'object')
+  if (!rawMessage && !hasInteractionResponse) throw new SalesAgentRequestError('Vui lòng nhập câu hỏi cho agent.')
+  if (rawMessage.length > SALES_AGENT_MESSAGE_MAX_CHARS) throw new SalesAgentRequestError('Câu hỏi tối đa 2.000 ký tự.')
+  const message = rawMessage || 'Người dùng đã gửi lựa chọn tương tác.'
 
   const history = Array.isArray(input.guestHistory) ? input.guestHistory : []
   const guestHistory = limitSalesAgentHistory(history.slice(-SALES_AGENT_MAX_HISTORY_MESSAGES).flatMap((item) => {
@@ -137,23 +140,29 @@ export function parseSalesAgentMessageRequest(value: unknown): SalesAgentMessage
     return content ? [{ role: row.role, content } as SalesAgentMessage] : []
   }))
 
-  const pageContext = input.pageContext && typeof input.pageContext === 'object'
-    ? {
-        routeKey: typeof (input.pageContext as Record<string, unknown>).routeKey === 'string'
-          ? String((input.pageContext as Record<string, unknown>).routeKey).slice(0, 120)
-          : '',
-        entityId: typeof (input.pageContext as Record<string, unknown>).entityId === 'string'
-          ? String((input.pageContext as Record<string, unknown>).entityId).slice(0, 120)
-          : undefined,
-      }
-    : undefined
+  let suggestionSelection: SalesAgentSuggestionSelection | undefined
+  if (input.suggestionSelection != null) {
+    if (!input.suggestionSelection || typeof input.suggestionSelection !== 'object') {
+      throw new SalesAgentRequestError('Lựa chọn gợi ý không hợp lệ.')
+    }
+    const selection = input.suggestionSelection as Record<string, unknown>
+    const suggestionId = typeof selection.suggestionId === 'string' ? selection.suggestionId.trim() : ''
+    const entityIds = Array.isArray(selection.entityIds)
+      ? selection.entityIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).map((value) => value.trim())
+      : undefined
+    const catalogVersion = typeof selection.catalogVersion === 'number' && Number.isFinite(selection.catalogVersion)
+      ? Math.max(0, Math.trunc(selection.catalogVersion))
+      : undefined
+    if (!suggestionId || suggestionId.length > 120) throw new SalesAgentRequestError('Lựa chọn gợi ý không hợp lệ.')
+    suggestionSelection = { suggestionId, ...(entityIds?.length ? { entityIds } : {}), ...(catalogVersion != null ? { catalogVersion } : {}) }
+  }
 
   return {
     conversationId: typeof input.conversationId === 'string' ? input.conversationId.slice(0, 120) : undefined,
     message,
     guestHistory,
+    suggestionSelection,
     interactionResponse: input.interactionResponse as any,
-    pageContext,
     locale: input.locale === 'vi-VN' || input.locale == null ? 'vi-VN' : undefined,
   }
 }

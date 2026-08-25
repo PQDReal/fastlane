@@ -1,6 +1,7 @@
 import 'server-only'
 
 import type { SalesAgentProviderId } from './types'
+import { recordSalesAgentDebugEvent } from '../debug-log'
 
 export interface ManagedApiKey {
   key: string
@@ -123,6 +124,12 @@ export class ApiKeyPoolManager {
       // 2. All keys are in cooldown; fallback to the one expiring soonest
       selectedKeyItem = pool.slice().sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0]
       console.warn(`[API_KEY_POOL] All keys for provider ${providerKey} are in cooldown. Reusing earliest expiring key (${selectedKeyItem.maskedKey}).`)
+      recordSalesAgentDebugEvent('provider.key.reused_cooldown', {}, {
+        provider: providerKey,
+        maskedKey: selectedKeyItem.maskedKey,
+        cooldownRemainingSec: Math.max(0, Math.ceil((selectedKeyItem.cooldownUntil - now) / 1000)),
+        activeKeys: healthyKeys.length,
+      })
     }
 
     selectedKeyItem.lastUsedAt = now
@@ -158,6 +165,12 @@ export class ApiKeyPoolManager {
       item.cooldownUntil = Date.now() + cooldownMs
     }
     console.warn(`[API_KEY_POOL] Provider ${providerKey} key ${item.maskedKey} placed in cooldown for ${cooldownMs / 1000}s (Error count: ${item.errorCount}).`)
+    recordSalesAgentDebugEvent('provider.key.cooldown', {}, {
+      provider: providerKey,
+      maskedKey: item.maskedKey,
+      cooldownMs,
+      errorCount: item.errorCount,
+    })
   }
 
   /**

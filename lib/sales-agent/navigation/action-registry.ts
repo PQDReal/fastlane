@@ -28,7 +28,7 @@ export function resolveActionHref(
       return '/cars'
 
     case 'BROWSE_CATALOG':
-      if (entityType === 'BIKE') return '/motorbikes'
+      if (entityType === 'BIKE') return '/bikes'
       if (entityType === 'ACCESSORY') return '/accessories'
       return '/cars'
 
@@ -42,7 +42,7 @@ export function resolveActionHref(
       return '/accessories'
 
     case 'CONSULT_AGENT':
-      return '/contact'
+      return '/support'
 
     default:
       return '/cars'

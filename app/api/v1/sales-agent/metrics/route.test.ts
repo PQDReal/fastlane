@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('server-only', () => ({}))
+
 const mocks = vi.hoisted(() => ({ record: vi.fn(), enabled: vi.fn(() => true) }))
 vi.mock('@/lib/sales-agent/telemetry', () => ({
   parseSalesAgentInteractionMetric: (value: unknown) => {

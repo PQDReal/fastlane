@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('server-only', () => ({}))
+
 const search = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/sales-agent/interactions/search', () => ({ searchSalesAgentInteraction: search }))
 
