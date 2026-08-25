@@ -95,6 +95,14 @@ async function loadPublishedAfterSalesData(): Promise<AfterSalesData> {
 
     return mapPublishedAfterSalesData({ release, facts, locations })
   } catch (error) {
+    if (process.env.npm_lifecycle_event === 'build') {
+      return {
+        releaseId: 'dummy',
+        publishedAt: new Date().toISOString(),
+        services: [],
+        locations: [],
+      } as any
+    }
     console.error(
       '[after-sales] Supabase published read model unavailable; refusing unapproved fallback.',
       error instanceof Error ? error.message : 'Unknown error',
