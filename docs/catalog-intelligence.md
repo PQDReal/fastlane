@@ -133,11 +133,51 @@ because the first milestone registers vehicle technical schemas only. They are
 not silently treated as complete; an accessory extractor will be introduced
 only after its allowed technical sections and canonical vocabulary are frozen.
 
+## Deterministic assistant FAQ cut-over
+
+The first consumer cut-over is intentionally limited to direct FAQ fact lookup.
+`CATALOG_FACT_READ_MODE` controls the server-side read path:
+
+- `legacy` is the default and does not query canonical tables;
+- `shadow` queries eligible canonical facts, records parity status and still
+  returns the legacy answer;
+- `canonical` returns an eligible canonical fact when exactly one context is
+  available.
+
+An invalid or missing mode always resolves to `legacy`. If the canonical schema
+cannot be queried, both `shadow` and `canonical` fall back to legacy and emit a
+structured warning. Once the schema is available, a missing canonical fact or
+an unexpected context split is not silently replaced by stale legacy data in
+`canonical` mode.
+
+The checked-in 2026-08-25 gate permits only `top_speed_kmh` for the current FAQ
+vocabulary. `range_km`, `battery_capacity_kwh` and `max_power_kw` remain on hold
+because the shadow audit found contextual splits or value mismatches. This
+allow-list must only be expanded after a new report passes the same gate.
+
+Runtime activation order:
+
+```powershell
+# 1. Apply migrations 064, 065 and 067 using the normal database deployment.
+# 2. Persist a bounded sample, then prove replay idempotency.
+npm run catalog-intelligence:backfill:apply -- --limit=10 --details
+npm run catalog-intelligence:backfill:apply -- --limit=10 --details
+
+# 3. Deploy with CATALOG_FACT_READ_MODE=shadow and review structured parity logs.
+# 4. Only after zero unexplained regressions, set canonical for the audited key.
+```
+
+The current database preflight on 2026-08-25 returned `PGRST205` for the three
+canonical tables, so the committed runtime remains dormant until the migrations
+and bounded apply are completed.
+
 ## Delivery order
 
 1. Deterministic vocabulary, extractors, resolver, unit parser and selector — complete.
 2. Observation/fact persistence worker and idempotent backfill apply mode — implemented; migration deployment and bounded production apply remain operational steps.
 3. Legacy-versus-canonical shadow comparison — implemented as a read-only gate.
-4. Gradual FAQ, entity-resolution, comparison, ranking and search cutover.
+4. Gradual FAQ, entity-resolution, comparison, ranking and search cutover — FAQ
+   read modes implemented; runtime activation is waiting for database migration
+   and bounded backfill.
 5. Coverage evaluator and review workflow.
 6. Optional LLM suggestions after real review decisions form a useful corpus.

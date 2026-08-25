@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { classifySearchQuery, normalizeAssistantQuery } from '@/lib/assistant/rules'
 import { retrieveCatalogProducts } from '@/lib/assistant/catalog-context'
+import {
+  findAssistantFaqTopic,
+  findLegacyAssistantFaqFact,
+  resolveAssistantFaqFact,
+} from '@/lib/assistant/faq-facts'
+import {
+  loadCanonicalAssistantFacts,
+  resolveCatalogFactReadMode,
+} from '@/lib/catalog-intelligence/assistant-facts'
 import type { AssistantResponse } from '@/lib/assistant/types'
-
-const FAQ_FACT_TOPICS = [
-  { query: /(di duoc|bao xa|pham vi|quang duong)/, fact: /(distance|range|quang.duong|pham.vi)/i, label: 'phạm vi di chuyển' },
-  { query: /(cong suat)/, fact: /(maxpower|max_power|powertrain|cong.suat)/i, label: 'công suất' },
-  { query: /(toc do)/, fact: /(topspeed|speed|toc.do)/i, label: 'tốc độ' },
-  { query: /(pin|dung luong)/, fact: /(battery|capacity|pin|dung.luong)/i, label: 'thông tin pin' },
-] as const
 
 function focusFaqProducts(catalogQuery: string, products: Awaited<ReturnType<typeof retrieveCatalogProducts>>) {
   const normalizedQuery = normalizeAssistantQuery(catalogQuery)
@@ -20,17 +22,45 @@ function focusFaqProducts(catalogQuery: string, products: Awaited<ReturnType<typ
   return exact.length ? exact : products
 }
 
-function faqFallbackMessage(query: string, products: Awaited<ReturnType<typeof retrieveCatalogProducts>>) {
-  const topic = FAQ_FACT_TOPICS.find((item) => item.query.test(query))
+async function faqFallbackMessage(query: string, products: Awaited<ReturnType<typeof retrieveCatalogProducts>>) {
+  const topic = findAssistantFaqTopic(query)
   if (products.length !== 1) {
     return /(bao hanh|chinh sach)/.test(query)
       ? 'Dữ liệu chính sách và bảo hành chưa được cập nhật.'
       : null
   }
   if (!topic) return null
-  const fact = Object.entries(products[0].facts ?? {}).find(([key]) => topic.fact.test(normalizeAssistantQuery(key)))
-  return fact
-    ? `${products[0].name} có ${topic.label}: ${fact[1]}.`
+  const product = products[0]
+  const mode = resolveCatalogFactReadMode()
+  const legacyValue = findLegacyAssistantFaqFact(topic, product.facts)
+  const canonicalRead = mode !== 'legacy' && topic.cutover === 'READY'
+    ? await loadCanonicalAssistantFacts([product.id], [topic.canonicalKey])
+    : { status: 'available' as const, facts: [], errorCode: null }
+  const resolution = resolveAssistantFaqFact({
+    mode,
+    topic,
+    legacyValue,
+    canonicalReadStatus: canonicalRead.status,
+    canonicalFacts: canonicalRead.facts.filter((fact) => fact.productId === product.id),
+  })
+
+  if (mode !== 'legacy' && topic.cutover === 'READY') {
+    const logContext = {
+      productId: product.id,
+      canonicalKey: topic.canonicalKey,
+      mode,
+      status: resolution.shadowStatus,
+      errorCode: canonicalRead.errorCode,
+    }
+    if (canonicalRead.status === 'unavailable') {
+      console.warn('[CATALOG_FACT_READ] Canonical FAQ read unavailable; using legacy fallback.', logContext)
+    } else {
+      console.info(mode === 'shadow' ? '[CATALOG_FACT_SHADOW]' : '[CATALOG_FACT_READ]', logContext)
+    }
+  }
+
+  return resolution.value
+    ? `${product.name} có ${topic.label}: ${resolution.value}.`
     : `Dữ liệu về ${topic.label} của ${products[0].name} chưa được cập nhật.`
 }
 
@@ -77,7 +107,10 @@ export async function POST(request: Request) {
     const rankingFact = rankingProduct && rule.filters.sortBy !== 'price'
       ? Object.entries(rankingProduct.facts ?? {}).find(([key]) => rankingPattern.test(normalizeAssistantQuery(key)))
       : undefined
-    const fallbackMessage = (rule.intent === 'product_faq' && faqFallbackMessage(rule.normalizedQuery, products)) || (rule.filters.sortBy && products.length === 0
+    const faqMessage = rule.intent === 'product_faq'
+      ? await faqFallbackMessage(rule.normalizedQuery, products)
+      : null
+    const fallbackMessage = faqMessage || (rule.filters.sortBy && products.length === 0
       ? `Mình chưa có thông tin ${rule.filters.sortBy === 'top_speed' ? 'tốc độ tối đa' : rule.filters.sortBy === 'range' ? 'phạm vi di chuyển' : rule.filters.sortBy === 'power' ? 'công suất' : 'dung lượng pin'} để xếp hạng cho sản phẩm “${rule.catalogQuery || query}”.`
       : products.length === 1
       ? `Mình đã tìm thấy ${products[0].name}${rankingFact ? `, thông số dùng để xếp hạng: ${rankingFact[1]}` : ''}${products[0].displayed_price ? `, giá hiện tại ${new Intl.NumberFormat('vi-VN').format(products[0].displayed_price)} ₫` : ''}.`
