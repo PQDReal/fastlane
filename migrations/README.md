@@ -88,6 +88,12 @@ The taxonomy v2 rollout is intentionally staged:
 
 The application never exposes the service-role key to the browser. The checkout RPC revokes direct execution from `public`, `anon`, and `authenticated`; only the server-side `service_role` may execute it.
 
+The verified motorbike warranty rollout is intentionally separate from the after-sales crawler:
+
+- `066_verified_motorbike_warranty_knowledge.sql` archives the mixed legacy warranty document and publishes the admin-reviewed motorbike policy with battery chemistry, invoice-date and issued-book context intact.
+- The application links the three current warranty books and the current model-specific owner manuals directly from VinFast. Migration `066` does not ingest PDF contents.
+- Apply `066` through the normal database migration workflow after deploying the code. A source-code commit does not mutate Supabase.
+
 The unified admin inventory read-model rollout is staged separately:
 
 - `057_admin_inventory_read_model.sql` adds the shared normalized search text,

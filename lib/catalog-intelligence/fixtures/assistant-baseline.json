@@ -1,0 +1,51 @@
+[
+  {
+    "query": "VF 8 chạy được bao xa?",
+    "intent": "product_faq",
+    "catalogQuery": "vf 8 chay",
+    "filters": {}
+  },
+  {
+    "query": "xe ô tô chạy xa nhất",
+    "intent": "recommendation",
+    "catalogQuery": "chay",
+    "filters": {
+      "productType": "car",
+      "sortBy": "range",
+      "sortDirection": "desc"
+    }
+  },
+  {
+    "query": "VF 9 tốc độ tối đa?",
+    "intent": "product_faq",
+    "catalogQuery": "vf 9",
+    "filters": {
+      "productType": "car"
+    }
+  },
+  {
+    "query": "Feliz có pin bao nhiêu?",
+    "intent": "product_faq",
+    "catalogQuery": "feliz",
+    "filters": {}
+  },
+  {
+    "query": "xe máy điện rẻ nhất",
+    "intent": "recommendation",
+    "catalogQuery": "",
+    "filters": {
+      "productType": "motorbike",
+      "sort": "price_asc",
+      "sortBy": "price",
+      "sortDirection": "asc"
+    }
+  },
+  {
+    "query": "xin chào, VF9 đi được bao xa",
+    "intent": "product_faq",
+    "catalogQuery": "vf 9",
+    "filters": {
+      "productType": "car"
+    }
+  }
+]

@@ -12,19 +12,19 @@ export const metadata: Metadata = {
 }
 
 export const revalidate = 300
-export const dynamic = 'force-dynamic'
 
 export default async function AfterSalesPage() {
   const [afterSalesData, manualModels] = await Promise.all([
     getAfterSalesData(),
     getManualModels(),
   ])
+  const initialData = { ...afterSalesData, workshops: [] }
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f8fafc]">
       <Header />
       <main className="flex-1 pt-[74px]">
-        <AfterSalesClient initialData={afterSalesData} manualModels={manualModels} />
+        <AfterSalesClient initialData={initialData} manualModels={manualModels} />
       </main>
       <Footer />
     </div>

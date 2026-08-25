@@ -2,11 +2,11 @@
   "schemaVersion": 2,
   "sourceSystem": "VINFAST_OFFICIAL",
   "acquisitionMode": "CURATED_BROWSER_VERIFIED",
-  "verifiedAt": "2026-08-18",
+  "verifiedAt": "2026-08-24",
   "notes": [
     "Direct server-side fetch can receive HTTP 403 from vinfastauto.com; the acquisition worker uses isolated Browserless sessions as the default verified fallback.",
     "The pipeline stores browser-captured HTML text and source-scoped official assets; manually transcribed facts remain separately identified in provenance.",
-    "Owner manuals for cars, electric motorbikes, and buses are outside this acquisition scope.",
+    "Nội dung PDF sổ bảo hành và hướng dẫn sử dụng chưa được ingest; ứng dụng hiện chỉ giữ danh mục link PDF chính thức để người dùng mở trực tiếp.",
     "Admin review is required before any CMS publication."
   ],
   "modelPowertrains": {
@@ -128,7 +128,7 @@
         "retainDomTextAnchors": true,
         "requireModelListExpansion": true
       },
-      "evidence": "Trang chính sách bảo hành xe máy điện chính thức; giữ nội dung tương tác và provenance để chờ admin review."
+      "evidence": "Admin đã đối chiếu ngày 2026-08-24: LFP phải tách theo ngày xuất hóa đơn/sổ được cấp; pin khác, pin đổi và các điều kiện pin thay thế giữ context riêng. Trang hiện liên kết 3 sổ bảo hành và 40 hướng dẫn sử dụng PDF chính thức; chỉ lưu link, chưa ingest nội dung PDF."
     },
     {
       "id": "vinfast-maintenance-motorbike",

@@ -15,6 +15,16 @@ import { guardUntrustedKnowledgeText } from '../../knowledge/untrusted-content'
 import { detectKnowledgeAmbiguity } from '../../knowledge/ambiguity'
 import type { KnowledgeScopeBinding } from '../../knowledge/scope-context'
 import { knowledgeScopeCatalogEngine, type KnowledgeScopeCatalogSnapshot } from '../../knowledge/scope-catalog'
+import {
+  findOfficialMotorbikeOwnerManual,
+  MOTORBIKE_WARRANTY_INTERNAL_URL,
+  MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+  VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
+} from '@/lib/after-sales/motorbike-warranty-policy'
+import {
+  findServiceLocationsRepository,
+  searchAfterSalesRepository,
+} from '../../after-sales/repository'
 import type {
   AppliedBinding,
   BrowseCatalogInput,
@@ -22,9 +32,12 @@ import type {
   DiscoverAccessoriesInput,
   EvidenceRecord,
   FactPointer,
+  FindServiceLocationsInput,
   GetProductDetailsInput,
   GetCurrentPromotionsInput,
   SearchKnowledgeInput,
+  SearchAfterSalesInput,
+  SearchUserManualsInput,
   ToolObservationRef,
   ToolResult,
 } from '../../contracts'
@@ -32,7 +45,20 @@ import type {
 export type ExecuteDataToolOptions = {
   /** Server-derived scope. Model-provided vehicleModel/modelYear are never authoritative. */
   knowledgeScope?: KnowledgeScopeBinding | null
+  retrievalService?: HybridHierarchicalRetrievalService
+  allowedVisualDrafts?: boolean
   signal?: AbortSignal
+}
+
+function isVerifiedMotorbikeWarrantyQuery(query: string): boolean {
+  const normalized = query
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .toLowerCase()
+  return /\bbao hanh\b/.test(normalized)
+    && /\b(?:pin|ac quy)\b/.test(normalized)
+    && /\b(?:xe may|evo|feliz|klara|vento|theon|motio|flazz|amio|kinet|kyo)\b/.test(normalized)
 }
 
 type KnowledgeScopeResolution = {
@@ -371,6 +397,48 @@ export async function executeDataTool(
       case 'search_knowledge': {
         executionPhase = 'knowledge_scope_and_retrieval'
         const input = args as SearchKnowledgeInput
+        if (isVerifiedMotorbikeWarrantyQuery(input.query)) {
+          const evidenceId = `ev-motorbike-warranty-${readAt}`
+          return {
+            schemaVersion: '2.0',
+            toolCallId,
+            tool: 'search_knowledge',
+            readAt,
+            dataAsOf,
+            evidence: [{
+              evidenceId,
+              source: { system: 'MEMORY', resource: 'verified_motorbike_warranty_policy' },
+              entity: { kind: 'KNOWLEDGE_SNIPPET', id: MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID },
+              facts: [
+                { factRef: `fact-motorbike-warranty-content-${toolCallId}`, factPath: 'content', valueHash: VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN },
+                { factRef: `fact-motorbike-warranty-route-${toolCallId}`, factPath: 'internal_url', valueHash: MOTORBIKE_WARRANTY_INTERNAL_URL },
+              ],
+              readAt,
+            }],
+            observation: {
+              observationId: `obs-${toolCallId}`,
+              toolCallId,
+              outcome: 'SUCCESS',
+              issueCodes: [],
+              inputHash: JSON.stringify(input),
+              readAt,
+            },
+            issues: [],
+            appliedBindings: [],
+            outcome: 'SUCCESS',
+            completeness: 'FULL',
+            data: {
+              snippets: [{
+                id: MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+                documentSlug: 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast',
+                title: 'Chính sách bảo hành pin xe máy điện VinFast đã xác minh',
+                content: VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
+                category: 'WARRANTY_BATTERY',
+                internalUrl: MOTORBIKE_WARRANTY_INTERNAL_URL,
+              }],
+            },
+          }
+        }
         // The model can suggest these fields, but only the server-derived scope
         // may become a retrieval filter or an ambiguity exemption.
         const inferredModel = options.knowledgeScope?.vehicleModel
@@ -469,9 +537,10 @@ export async function executeDataTool(
               ? { category: input.categories[0] as any }
               : {}),
           }
-          retrieval = await new HybridHierarchicalRetrievalService({
+          const retrievalService = options.retrievalService ?? new HybridHierarchicalRetrievalService({
             client: getSupabaseAdmin(),
-          }).retrieve(
+          })
+          retrieval = await retrievalService.retrieve(
             input.query,
             retrievalFilters,
             {
@@ -773,6 +842,70 @@ export async function executeDataTool(
           },
         }, options.knowledgeScope, input, scopeResolution)
       }
+
+      case 'search_user_manuals': {
+        const input = args as SearchUserManualsInput
+        const officialManual = findOfficialMotorbikeOwnerManual(input.query)
+
+        if (officialManual) {
+          const internalUrl = '/after-sales?vehicle=motorbike&tab=warranty#official-documents'
+          return {
+            schemaVersion: '2.0',
+            toolCallId,
+            tool: 'search_user_manuals',
+            readAt,
+            dataAsOf,
+            evidence: [{
+              evidenceId: `ev-official-manual-${officialManual.id}-${readAt}`,
+              source: { system: 'MEMORY', resource: 'verified_motorbike_owner_manual_links' },
+              entity: { kind: 'KNOWLEDGE_SNIPPET', id: officialManual.id },
+              facts: [
+                { factRef: `fact-official-manual-label-${officialManual.id}`, factPath: 'official_document_label', valueHash: officialManual.label },
+                { factRef: `fact-official-manual-url-${officialManual.id}`, factPath: 'official_document_url', valueHash: officialManual.url },
+                { factRef: `fact-official-manual-route-${officialManual.id}`, factPath: 'internal_url', valueHash: internalUrl },
+                { factRef: `fact-official-manual-boundary-${officialManual.id}`, factPath: 'content_boundary', valueHash: 'LINK_ONLY' },
+              ],
+              readAt,
+            }],
+            observation: {
+              observationId: `obs-${toolCallId}`,
+              toolCallId,
+              outcome: 'SUCCESS',
+              issueCodes: ['OFFICIAL_DOCUMENT_LINK_ONLY'],
+              inputHash: JSON.stringify(input),
+              readAt,
+            },
+            issues: [],
+            appliedBindings: [],
+            outcome: 'SUCCESS',
+            completeness: 'PARTIAL',
+            data: {
+              snippets: [],
+              officialDocuments: [{
+                id: officialManual.id,
+                label: officialManual.label,
+                sourceUrl: officialManual.url,
+                internalUrl,
+                contentBoundary: 'LINK_ONLY',
+              }],
+            },
+          }
+        }
+
+        const result = await executeDataTool('search_knowledge', {
+          query: input.query,
+          ...(input.modelSeries ? { vehicleModel: input.modelSeries } : {}),
+          ...(input.year ? { modelYear: input.year } : {}),
+          topK: input.topK ?? 3,
+        }, toolCallId, options)
+        return { ...result, tool: 'search_user_manuals' }
+      }
+
+      case 'search_after_sales':
+        return await searchAfterSalesRepository(args as SearchAfterSalesInput, toolCallId)
+
+      case 'find_service_locations':
+        return await findServiceLocationsRepository(args as FindServiceLocationsInput, toolCallId)
 
       default: {
         const exhaustiveCheck: never = name

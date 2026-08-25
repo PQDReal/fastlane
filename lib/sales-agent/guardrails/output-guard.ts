@@ -18,6 +18,8 @@ const INTERNAL_TOOL_SIGNATURE_PATTERNS: Array<{ regex: RegExp; replacement: stri
   { regex: /\bresolve_catalog_entities\b/g, replacement: 'Nhận diện sản phẩm' },
   { regex: /\bget_product_details\b/g, replacement: 'Xem chi tiết sản phẩm' },
   { regex: /\bsearch_knowledge\b/g, replacement: 'Tra cứu cẩm nang & tri thức' },
+  { regex: /\bsearch_after_sales\b/g, replacement: 'Tra cứu thông tin hậu mãi' },
+  { regex: /\bfind_service_locations\b/g, replacement: 'Tìm xưởng dịch vụ' },
   { regex: /\bdiscover_accessories\b/g, replacement: 'Tìm phụ kiện chính hãng' },
   { regex: /\bget_current_promotions\b/g, replacement: 'Kiểm tra khuyến mãi' },
 ]

@@ -18,4 +18,5 @@ export const RECOMMENDATION_WORDS = new Set([
 export const FAQ_WORDS = new Set([
   'di', 'duoc', 'bao', 'xa', 'thong', 'so', 'ky', 'thuat', 'pham', 'vi', 'toc', 'do',
   'cong', 'suat', 'chinh', 'sach', 'hanh', 'the', 'nao', 'nhieu', 'dung', 'luong', 'pin',
+  'gi',
 ])
