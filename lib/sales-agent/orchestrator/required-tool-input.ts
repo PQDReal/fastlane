@@ -4,7 +4,7 @@ import type { RequiredAfterSalesLookup } from './after-sales-intent'
 type RequiredToolContext = {
   userText: string
   afterSalesLookup: RequiredAfterSalesLookup | null
-  manualLookup: boolean
+  officialManualLookup: boolean
   warrantyKnowledgeLookup: boolean
 }
 
@@ -33,11 +33,6 @@ function inferModelSeries(text: string): string | undefined {
   const normalized = normalizeVietnamese(text)
   const vfMatch = normalized.match(/\bvf\s*(e?\d+)\b/)
   return vfMatch ? `VF ${vfMatch[1].toUpperCase()}` : undefined
-}
-
-function inferYear(text: string): number | undefined {
-  const match = text.match(/\b(20\d{2})\b/)
-  return match ? Number(match[1]) : undefined
 }
 
 function inferProvince(text: string): string | undefined {
@@ -85,13 +80,8 @@ export function canonicalizeRequiredToolInput(
     }
   }
 
-  if (toolName === 'search_user_manuals' && context.manualLookup) {
-    return {
-      ...input,
-      query: context.userText,
-      ...(inferModelSeries(context.userText) ? { modelSeries: inferModelSeries(context.userText) } : {}),
-      ...(inferYear(context.userText) ? { year: inferYear(context.userText) } : {}),
-    }
+  if (toolName === 'search_user_manuals' && context.officialManualLookup) {
+    return { ...input, query: context.userText }
   }
 
   if (toolName === 'search_knowledge' && context.warrantyKnowledgeLookup) {

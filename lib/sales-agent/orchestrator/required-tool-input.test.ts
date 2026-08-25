@@ -10,7 +10,7 @@ describe('required tool input canonicalization', () => {
       {
         userText: 'Các xưởng xe máy điện VinFast tại Hồ Chí Minh mở cửa lúc mấy giờ?',
         afterSalesLookup: { toolName: 'find_service_locations' },
-        manualLookup: false,
+        officialManualLookup: false,
         warrantyKnowledgeLookup: false,
       },
     )
@@ -24,23 +24,19 @@ describe('required tool input canonicalization', () => {
     expect(input.district).toBeUndefined()
   })
 
-  it('pins manual query, model and year to values in the user message', () => {
+  it('keeps the exact query for a verified link-only motorbike manual', () => {
     const input = canonicalizeRequiredToolInput(
       'search_user_manuals',
-      { query: 'cổng sạc', modelSeries: 'VF 9', year: 2023 },
+      { query: 'hướng dẫn chung' },
       {
-        userText: 'Vị trí cổng sạc của VF 8 đời 2024 ở đâu?',
+        userText: 'Hướng dẫn sử dụng xe Klara S',
         afterSalesLookup: null,
-        manualLookup: true,
+        officialManualLookup: true,
         warrantyKnowledgeLookup: false,
       },
     )
 
-    expect(input).toMatchObject({
-      query: 'Vị trí cổng sạc của VF 8 đời 2024 ở đâu?',
-      modelSeries: 'VF 8',
-      year: 2024,
-    })
+    expect(input).toMatchObject({ query: 'Hướng dẫn sử dụng xe Klara S' })
   })
 
   it('pins service type and explicit vehicle context for after-sales', () => {
@@ -50,7 +46,7 @@ describe('required tool input canonicalization', () => {
       {
         userText: 'VF 8 2024 cần bảo dưỡng định kỳ sau bao lâu?',
         afterSalesLookup: { toolName: 'search_after_sales', serviceType: 'maintenance' },
-        manualLookup: false,
+        officialManualLookup: false,
         warrantyKnowledgeLookup: false,
       },
     )

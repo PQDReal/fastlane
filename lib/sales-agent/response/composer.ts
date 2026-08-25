@@ -34,7 +34,7 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     if (item.kind === 'ADVICE') {
       markdownParts.push(item.markdown)
     } else if (item.kind === 'LIMITATION') {
-      markdownParts.push('*(Lưu ý: Một phần nguồn dữ liệu FASTLANE chưa trả về evidence phù hợp trong lượt này.)*')
+      markdownParts.push('*(Lưu ý: Một số thông tin chưa được tìm thấy trong catalog hiện tại)*')
     }
   }
 
@@ -196,31 +196,8 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
   }))
 
   // Smart contextual ambient suggestions
-  const successfulToolNames = new Set(
-    options.evidence.getAllToolResults()
-      .filter((result) => result.outcome === 'SUCCESS')
-      .map((result) => result.tool),
-  )
-  const officialManualLabel = allFacts.find((fact) => fact.factPath === 'official_document_label')?.valueHash
-  const manualModelId = allFacts.find((fact) => fact.factPath === 'model_id')?.valueHash
-  const manualContextLabel = officialManualLabel?.replace(/^HDSD xe\s+/i, '').trim()
-    || manualModelId?.replace(/_20\d{2}$/, '').trim()
-
   if (suggestions.length === 0) {
-    if (successfulToolNames.has('search_user_manuals') && manualContextLabel) {
-      suggestions.push(
-        {
-          suggestionId: `sug-1-${options.turnId}`,
-          label: `Chính sách bảo hành ${manualContextLabel}`,
-          payload: `Chính sách bảo hành ${manualContextLabel}`,
-        },
-        {
-          suggestionId: `sug-2-${options.turnId}`,
-          label: 'Tìm xưởng dịch vụ',
-          payload: `Tìm xưởng dịch vụ cho ${manualContextLabel}`,
-        },
-      )
-    } else if (isClarificationTurn) {
+    if (isClarificationTurn) {
       const isComparing = lowerMarkdown.includes('so sánh') || lowerMarkdown.includes('pin') || lowerMarkdown.includes('tốc độ')
       if (isComparing) {
         suggestions.push(
@@ -272,24 +249,14 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
-  const negativeObservations = options.evidence.getAllObservations().filter((observation) => (
-    observation.outcome === 'NO_MATCH'
-    || observation.outcome === 'REJECTED'
-    || observation.outcome === 'UNAVAILABLE'
-  ))
-  const hasFacts = options.evidence.getAllFacts().length > 0
   const hasPartialToolResult = options.evidence.getAllToolResults().some((result) => (
     result.outcome === 'SUCCESS' && result.completeness === 'PARTIAL'
   ))
-  const completeness = negativeObservations.length > 0
-    ? hasFacts ? 'PARTIAL' : 'NO_EVIDENCE'
-    : hasPartialToolResult
-      ? 'PARTIAL'
-      : plan.outcome === 'ANSWER'
-        ? 'COMPLETE'
-        : plan.outcome === 'DEGRADED'
-          ? 'NO_EVIDENCE'
-          : 'PARTIAL'
+  const completeness = plan.outcome === 'ANSWER'
+    ? (hasPartialToolResult ? 'PARTIAL' : 'COMPLETE')
+    : plan.outcome === 'DEGRADED'
+      ? 'NO_EVIDENCE'
+      : 'PARTIAL'
 
   return {
     schemaVersion: '2.0',

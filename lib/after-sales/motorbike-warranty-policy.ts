@@ -3,6 +3,7 @@ export const MOTORBIKE_WARRANTY_SOURCE_URL =
 
 export const MOTORBIKE_WARRANTY_REVIEWED_AT = '2026-08-24'
 export const MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID = '00000000-0000-4000-8000-000000000005'
+export const MOTORBIKE_WARRANTY_INTERNAL_URL = '/after-sales?vehicle=motorbike&tab=warranty#warranty-term'
 
 export type OfficialMotorbikeDocument = {
   id: string
@@ -173,7 +174,7 @@ Nguồn được admin xác minh ngày ${MOTORBIKE_WARRANTY_REVIEWED_AT}: ${MOTO
 - Pin LFP theo mô hình đổi pin: pin 8 năm, không giới hạn quãng đường; không dùng mốc này để suy ra thời hạn bảo hành toàn xe.
 
 ## Pin, ắc quy và phụ tùng khách hàng mua thay thế
-- Pin LFP được mua và lắp tại hệ thống VinFast: 5 năm hoặc 8 năm tùy sổ/chính sách áp dụng.
+- Pin LFP được mua và lắp tại hệ thống VinFast: 5 năm nếu thuộc sổ/chính sách LFP trước mốc 15/08/2025; 8 năm nếu thuộc sổ/chính sách LFP mới từ/sau mốc 15/08/2025. Phải đối chiếu đúng sổ được cấp, không gộp hai trường hợp thành một mốc chung.
 - Pin không phải LFP: 3 năm từ ngày mua. Ắc quy 12V: 1 năm. Phụ tùng khác không gồm pin và ắc quy 12V: 1 năm. Các mốc đều không giới hạn quãng đường.
 - Phụ tùng mua nhưng không được thay tại Xưởng dịch vụ/Đại lý phân phối VinFast không được bảo hành theo chính sách này.
 
@@ -188,4 +189,4 @@ Nguồn được admin xác minh ngày ${MOTORBIKE_WARRANTY_REVIEWED_AT}: ${MOTO
 - Sổ xe máy điện pin khác: https://static-cms-prod.vinfastauto.com/250528-xmd-pin-khac.pdf
 - Danh mục PDF hướng dẫn sử dụng chỉ được liên kết, chưa ingest nội dung vào Sales Agent.
 
-[Xem chính sách đã đối chiếu và tải đúng PDF](/after-sales?vehicle=motorbike&tab=warranty#warranty-term)`
+[Xem chính sách đã đối chiếu và tải đúng PDF](${MOTORBIKE_WARRANTY_INTERNAL_URL})`

@@ -1,7 +1,6 @@
 import 'server-only'
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { getManualModels } from '@/lib/api/manuals-server'
 import {
   MOTORBIKE_WARRANTY_REVIEWED_AT,
   MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
@@ -11,12 +10,6 @@ import { catalogCacheEngine } from '../cache/catalog-cache'
 import { chunkMarkdownDocument } from './chunker'
 import { embed } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import {
-  assertManualEmbeddingDimensions,
-  MANUAL_EMBEDDING_MODEL,
-  MANUAL_EMBEDDING_PROVIDER_OPTIONS,
-} from './manual-embedding-config'
-import { inferManualModelSeries } from './manual-model-resolver'
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -42,21 +35,19 @@ function isExplicitCarKnowledgeQuery(query: string) {
     .test(normalized)
 }
 
-const VERIFIED_BUILTIN_DOCS: KnowledgeDocument[] = [
-  {
-    id: MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
-    slug: 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast',
-    title: 'Chính sách bảo hành pin xe máy điện VinFast đã xác minh',
-    category: 'WARRANTY_BATTERY',
-    status: 'PUBLISHED',
-    publishedVersion: 1,
-    summary: 'Chính sách đã đối chiếu theo công nghệ pin, ngày xuất hóa đơn và sổ bảo hành chính thức.',
-    contentMarkdown: VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
-    createdAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
-    updatedAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
-    publishedAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
-  },
-]
+const VERIFIED_BUILTIN_DOCS: KnowledgeDocument[] = [{
+  id: MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+  slug: 'chinh-sach-bao-hanh-pin-xe-may-dien-vinfast',
+  title: 'Chính sách bảo hành pin xe máy điện VinFast đã xác minh',
+  category: 'WARRANTY_BATTERY',
+  status: 'PUBLISHED',
+  publishedVersion: 1,
+  summary: 'Chính sách đã đối chiếu theo công nghệ pin, ngày xuất hóa đơn và sổ bảo hành chính thức.',
+  contentMarkdown: VERIFIED_MOTORBIKE_WARRANTY_KNOWLEDGE_MARKDOWN,
+  createdAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
+  updatedAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
+  publishedAt: `${MOTORBIKE_WARRANTY_REVIEWED_AT}T00:00:00.000Z`,
+}]
 
 // In-memory fallback seeds if database table is not yet migrated in local dev environment
 const FALLBACK_SEEDED_DOCS: KnowledgeDocument[] = [
@@ -64,12 +55,12 @@ const FALLBACK_SEEDED_DOCS: KnowledgeDocument[] = [
   {
     id: '00000000-0000-4000-8000-000000000001',
     slug: 'chinh-sach-bao-hanh-xe-dien-vinfast',
-    title: 'Tài liệu bảo hành legacy đã lưu trữ',
+    title: 'Chính sách bảo hành ô tô & pin xe điện VinFast',
     category: 'WARRANTY_BATTERY',
     status: 'ARCHIVED',
     publishedVersion: 1,
-    summary: 'Không sử dụng: dữ liệu cũ đã bị lưu trữ vì trộn nhiều loại xe và làm mất context chính sách.',
-    contentMarkdown: '# Tài liệu đã lưu trữ\n\nKhông sử dụng tài liệu legacy này để tư vấn bảo hành.',
+    summary: 'Quy định chi tiết về thời hạn bảo hành xe 10 năm/200.000km và chính sách bảo hành pin cao áp không giới hạn km.',
+    contentMarkdown: `# Chính Sách Bảo Hành Xe Điện VinFast\n\n## 1. Thời hạn bảo hành xe\n- Các dòng ô tô điện VinFast (VF 5, VF 6, VF 7, VF 8, VF 9, VF e34) được áp dụng chính sách bảo hành chính hãng **10 năm hoặc 200.000 km** (tùy điều kiện nào đến trước).\n- Dòng xe mini-SUV VinFast VF 3 được bảo hành chính hãng **7 năm hoặc 160.000 km**.\n- Các dòng xe máy điện (Evo 200, Feliz S, Klara S, Vento S, Theon S) được bảo hành **5 năm hoặc không giới hạn số km**.\n\n## 2. Chính sách bảo hành pin cao áp\n- Đối với khách hàng mua xe kèm pin: Pin cao áp được bảo hành **10 năm không giới hạn số km** cho các dòng ô tô VF 5, VF 6, VF 7, VF 8, VF 9; và **8 năm không giới hạn km** cho VF 3.\n- Đối với khách hàng thuê pin: VinFast cam kết bảo dưỡng, sửa chữa và thay mới pin miễn phí hoàn toàn khi dung lượng tiếp nhận sạc tối đa (SoH) giảm xuống dưới 70%.\n\n## 3. Dịch vụ cứu hộ & sạc lưu động\n- Dịch vụ cứu hộ 24/7 hoàn toàn miễn phí trong suốt thời gian bảo hành.\n- Hỗ trợ cứu hộ pin lưu động (Mobile Charging) và sửa chữa lưu động (Mobile Service) tại 63 tỉnh thành trên toàn quốc.`,
     createdAt: '2026-08-15T00:00:00.000Z',
     updatedAt: '2026-08-15T00:00:00.000Z',
     publishedAt: '2026-08-15T00:00:00.000Z',
@@ -529,12 +520,13 @@ export async function searchKnowledgeRepository(query: string, limit: number = 4
 
     const merged = [...verifiedResults, ...scored]
       .sort((a, b) => b.score - a.score)
-      .filter((result, index, items) => items.findIndex((candidate) =>
-        candidate.documentId === result.documentId && candidate.sectionTitle === result.sectionTitle,
-      ) === index)
+      .filter((result, index, items) => items.findIndex((candidate) => (
+        candidate.documentId === result.documentId && candidate.sectionTitle === result.sectionTitle
+      )) === index)
 
-    if (merged.length === 0) return searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
-    return merged.slice(0, limit)
+    return merged.length > 0
+      ? merged.slice(0, limit)
+      : searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
   } catch {
     return searchFallbackSeededDocs(cleanQuery, queryTerms, limit)
   }
@@ -603,140 +595,19 @@ export type ManualSearchResult = {
   content: string
   imageUrl?: string
   similarity: number
-  retrievalMode: 'SEMANTIC' | 'LEXICAL'
-}
-
-const MANUAL_LEXICAL_STOP_WORDS = new Set([
-  'cua', 'cho', 'voi', 'dau', 'nao', 'nhu', 'the', 'doi', 'nam', 'vinfast', 'vi', 'tri',
-  'huong', 'dan', 'su', 'dung', 'xe', 'o', 'tai', 'co', 'khong', 'mot', 'cac', 'la',
-])
-
-function normalizeManualSearchText(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/đ/g, 'd')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-async function searchUserManualLexically(
-  query: string,
-  modelSeries?: string,
-  year?: number,
-  limit: number = 3,
-): Promise<ManualSearchResult[]> {
-  const supabase = getSupabaseAdmin()
-  let modelQuery = supabase.from('manual_models').select('id')
-  if (modelSeries) modelQuery = modelQuery.eq('model_series', modelSeries)
-  if (year) modelQuery = modelQuery.eq('year', String(year))
-  const modelResult = await modelQuery
-  if (modelResult.error) throw new Error(modelResult.error.message)
-  const modelIds = (modelResult.data ?? []).map((row) => row.id)
-  if (modelIds.length === 0) return []
-
-  const articleResult = await supabase
-    .from('manual_articles')
-    .select('id,title')
-    .in('model_id', modelIds)
-  if (articleResult.error) throw new Error(articleResult.error.message)
-  const articles = articleResult.data ?? []
-  const articleIds = articles.map((article) => article.id)
-  if (articleIds.length === 0) return []
-
-  const normalizedQuery = normalizeManualSearchText(query)
-  const terms = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])]
-    .filter((term) => {
-      const normalized = normalizeManualSearchText(term)
-      return normalized.length >= 3
-        && !MANUAL_LEXICAL_STOP_WORDS.has(normalized)
-        && !/^20\d{2}$/.test(normalized)
-    })
-    .slice(0, 6)
-  if (terms.length === 0) return []
-  const normalizedTerms = terms.map(normalizeManualSearchText)
-
-  const lexicalFilter = terms
-    .flatMap((term) => [`section_title.ilike.%${term}%`, `content.ilike.%${term}%`])
-    .join(',')
-  const keyPhrase = terms.join(' ')
-  const [phraseResult, termResult] = await Promise.all([
-    supabase
-      .from('manual_article_chunks')
-      .select('id,article_id,chunk_index,section_title,content,image_url')
-      .in('article_id', articleIds)
-      .or(`section_title.ilike.%${keyPhrase}%,content.ilike.%${keyPhrase}%`)
-      .limit(Math.max(limit * 10, 30)),
-    supabase
-      .from('manual_article_chunks')
-      .select('id,article_id,chunk_index,section_title,content,image_url')
-      .in('article_id', articleIds)
-      .or(lexicalFilter)
-      .limit(Math.max(limit * 30, 90)),
-  ])
-  if (phraseResult.error) throw new Error(phraseResult.error.message)
-  if (termResult.error) throw new Error(termResult.error.message)
-  const chunksById = new Map(
-    [...(phraseResult.data ?? []), ...(termResult.data ?? [])].map((row) => [row.id, row]),
-  )
-
-  const articleTitles = new Map(articles.map((article) => [article.id, article.title]))
-  const queryPhrases = [normalizedQuery, normalizedTerms.join(' ')]
-    .filter((phrase) => phrase.length >= 5)
-  return [...chunksById.values()]
-    .map((row) => {
-      const articleText = normalizeManualSearchText(articleTitles.get(row.article_id) ?? '')
-      const sectionText = normalizeManualSearchText(row.section_title ?? '')
-      const contentText = normalizeManualSearchText(row.content ?? '')
-      const termScore = normalizedTerms.reduce((score, term) => (
-        score
-        + (sectionText.includes(term) ? 10 : 0)
-        + (articleText.includes(term) ? 5 : 0)
-        + (contentText.includes(term) ? 2 : 0)
-      ), 0)
-      const phraseScore = queryPhrases.reduce((score, phrase) => (
-        score
-        + (sectionText.includes(phrase) ? 30 : 0)
-        + (articleText.includes(phrase) ? 18 : 0)
-        + (contentText.includes(phrase) ? 10 : 0)
-      ), 0)
-      return {
-        result: {
-          chunkId: row.id,
-          articleId: row.article_id,
-          articleTitle: articleTitles.get(row.article_id) ?? '',
-          sectionTitle: row.section_title ?? '',
-          content: row.content,
-          imageUrl: row.image_url ?? undefined,
-          similarity: 0,
-          retrievalMode: 'LEXICAL',
-        } satisfies ManualSearchResult,
-        score: termScore + phraseScore,
-        chunkIndex: row.chunk_index,
-      }
-    })
-    .sort((left, right) => right.score - left.score || left.chunkIndex - right.chunkIndex)
-    .slice(0, limit)
-    .map((item) => item.result)
 }
 
 export async function searchUserManualRepository(query: string, modelSeries?: string, year?: number, limit: number = 3): Promise<ManualSearchResult[]> {
   const cleanQuery = (query || '').trim()
   if (!cleanQuery) return []
-  const manualModels = modelSeries ? [] : await getManualModels()
-  const resolvedModelSeries = modelSeries || inferManualModelSeries(
-    cleanQuery,
-    manualModels.map((model) => model.model_series),
-  )
 
   try {
+    // Generate embedding for the query
     const { embedding } = await embed({
-      model: openai.embedding(MANUAL_EMBEDDING_MODEL),
+      // @ts-expect-error - The dimensions option is passed properly at runtime but SDK typings don't recognize it
+      model: openai.embedding('text-embedding-3-small', { dimensions: 512 }),
       value: cleanQuery,
-      providerOptions: MANUAL_EMBEDDING_PROVIDER_OPTIONS,
     })
-    assertManualEmbeddingDimensions(embedding)
 
     const supabase = getSupabaseAdmin()
 
@@ -746,11 +617,14 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
       query_embedding: `[${embedding.slice(0, 512).join(',')}]`,
       match_threshold: 0.3,
       match_count: limit,
-      filter_model_series: resolvedModelSeries || null,
+      filter_model_series: modelSeries || null,
       filter_year: year ? year.toString() : null
     })
 
-    if (error) throw new Error(error.message)
+    if (error) {
+      console.warn('match_manual_chunks failed:', error)
+      return []
+    }
 
     // Fallback: If no results found and a year was specified, try searching without the year
     if ((!data || data.length === 0) && year) {
@@ -758,7 +632,7 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
         query_embedding: `[${embedding.slice(0, 512).join(',')}]`,
         match_threshold: 0.3,
         match_count: limit,
-        filter_model_series: resolvedModelSeries || null,
+        filter_model_series: modelSeries || null,
         filter_year: null
       })
 
@@ -776,11 +650,10 @@ export async function searchUserManualRepository(query: string, modelSeries?: st
       sectionTitle: row.section_title,
       content: row.content,
       imageUrl: row.image_url,
-      similarity: row.similarity,
-      retrievalMode: 'SEMANTIC',
+      similarity: row.similarity
     }))
   } catch (err) {
-    console.warn('searchUserManualRepository semantic search failed; using lexical fallback:', err)
-    return searchUserManualLexically(cleanQuery, resolvedModelSeries, year, limit)
+    console.error('searchUserManualRepository error:', err)
+    return []
   }
 }

@@ -8,24 +8,23 @@ import remarkMath from 'remark-math'
 import Link from 'next/link'
 import { ManualImageBlock } from './manual-image-block'
 
-type SafeMarkdownHref = { href: string; external: boolean }
-
-function safeMarkdownHref(href?: string): SafeMarkdownHref | null {
+function safeInternalHref(href?: string) {
   if (!href) return null
-  if (href.startsWith('#')) return { href, external: false }
-  if (href.startsWith('/') && !href.startsWith('//')) return { href, external: false }
+  if (href.startsWith('#')) return href
+  if (href.startsWith('/') && !href.startsWith('//')) return href
+  return null
+}
 
+function safeOfficialDocumentHref(href?: string) {
+  if (!href) return null
   try {
     const url = new URL(href)
-    const trustedVinFastHost = url.hostname === 'vinfastauto.com' || url.hostname.endsWith('.vinfastauto.com')
-    if (url.protocol === 'https:' && trustedVinFastHost) {
-      return { href: url.toString(), external: true }
-    }
+    return url.protocol === 'https:' && url.hostname === 'static-cms-prod.vinfastauto.com'
+      ? url.toString()
+      : null
   } catch {
-    // Malformed links remain non-interactive.
+    return null
   }
-
-  return null
 }
 
 function normalizeMathDelimiters(content: string) {
@@ -90,15 +89,7 @@ function completeMarkdownTable(content: string, streaming: boolean) {
   return content
 }
 
-export function MarkdownMessage({
-  content,
-  streaming = false,
-  onNavigate,
-}: {
-  content: string
-  streaming?: boolean
-  onNavigate?: () => void
-}) {
+export function MarkdownMessage({ content, streaming = false }: { content: string; streaming?: boolean }) {
   let displayContent = content
   const suggestionStartIndex = displayContent.search(/\[\s*\{\s*"(label|intent)"/)
   if (suggestionStartIndex !== -1) {
@@ -139,14 +130,15 @@ export function MarkdownMessage({
         },
         pre: ({ node: _node, ...props }) => <pre data-scrollable className="my-2 w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg bg-slate-900 p-3 text-xs leading-5" {...props} />,
         a: ({ node: _node, href, children, ...props }) => {
-          const safeLink = safeMarkdownHref(href)
-          if (!safeLink) return <span className="font-medium text-slate-700 underline decoration-dotted" title="Liên kết chưa được xác minh">{children}</span>
-          if (safeLink.external) {
-            return <a href={safeLink.href} target="_blank" rel="noreferrer noopener" className="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800" {...props} onClick={onNavigate}>{children}</a>
+          const safeHref = safeInternalHref(href)
+          const officialDocumentHref = safeOfficialDocumentHref(href)
+          if (officialDocumentHref) {
+            return <a href={officialDocumentHref} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800" {...props}>{children}</a>
           }
+          if (!safeHref) return <span className="font-medium text-slate-700 underline decoration-dotted" title="Liên kết chưa được xác minh">{children}</span>
           // Use Next.js Link for client-side navigation to prevent full page reloads
           // which might unexpectedly trigger middleware auth redirects on some environments
-          return <Link href={safeLink.href} prefetch className="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800" {...props} onClick={onNavigate}>{children}</Link>
+          return <Link href={safeHref} className="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800" {...props}>{children}</Link>
         },
         img: ({ node: _node, alt, src }) => src ? <ManualImageBlock imageUrl={String(src)} caption={alt ? String(alt) : undefined} /> : null,
         }}

@@ -129,11 +129,11 @@
     "expectedCompleteness": "PARTIAL",
     "requiredAnswerTermGroups": [
       ["HDSD xe Klara S"],
-      ["chưa được ingest"],
+      ["chưa được ingest", "chưa được hệ thống trích xuất", "chưa trích xuất"],
       ["static-cms-prod.vinfastauto.com"],
       ["/after-sales?vehicle=motorbike&tab=warranty#official-documents"]
     ],
-    "forbiddenAnswerTerms": ["VF 5", "VF%205", "/user-manual/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "forbiddenAnswerTerms": ["VF 5", "VF%205", "/user-manual/", "đời năm nào", "đời xe nào", "suggestionIntents", "\"label\"", "\"intent\""],
     "currentStatus": "PASS"
   },
   {

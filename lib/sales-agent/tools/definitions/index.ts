@@ -7,7 +7,11 @@ import { compareProductsRepository } from '../../catalog/comparison'
 import { getCurrentPromotionsRepository } from '../../catalog/promotions'
 import { discoverSalesAgentAccessories } from '../../catalog/accessories'
 import { searchKnowledgeRepository, searchUserManualRepository } from '../../knowledge/repository'
-import { findOfficialMotorbikeOwnerManual } from '@/lib/after-sales/motorbike-warranty-policy'
+import {
+  findOfficialMotorbikeOwnerManual,
+  MOTORBIKE_WARRANTY_INTERNAL_URL,
+  MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID,
+} from '@/lib/after-sales/motorbike-warranty-policy'
 import {
   findServiceLocationsRepository,
   searchAfterSalesRepository,
@@ -147,6 +151,9 @@ export async function executeDataTool(
               title: `${r.documentTitle} - ${r.sectionTitle}`,
               content: r.content,
               category: r.category,
+              ...(r.documentId === MOTORBIKE_WARRANTY_KNOWLEDGE_DOCUMENT_ID
+                ? { internalUrl: MOTORBIKE_WARRANTY_INTERNAL_URL }
+                : {}),
             })),
           },
         }
@@ -156,6 +163,7 @@ export async function executeDataTool(
         const input = args as SearchUserManualsInput
         const officialManual = findOfficialMotorbikeOwnerManual(input.query)
         if (officialManual) {
+          const internalUrl = '/after-sales?vehicle=motorbike&tab=warranty#official-documents'
           const evidence: EvidenceRecord[] = [{
             evidenceId: `ev-official-manual-${officialManual.id}-${readAt}`,
             source: { system: 'MEMORY', resource: 'verified_motorbike_owner_manual_links' },
@@ -170,6 +178,11 @@ export async function executeDataTool(
                 factRef: `fact-official-manual-url-${officialManual.id}`,
                 factPath: 'official_document_url',
                 valueHash: officialManual.url,
+              },
+              {
+                factRef: `fact-official-manual-route-${officialManual.id}`,
+                factPath: 'internal_url',
+                valueHash: internalUrl,
               },
               {
                 factRef: `fact-official-manual-boundary-${officialManual.id}`,
@@ -205,7 +218,8 @@ export async function executeDataTool(
               officialDocuments: [{
                 id: officialManual.id,
                 label: officialManual.label,
-                url: officialManual.url,
+                sourceUrl: officialManual.url,
+                internalUrl,
                 contentBoundary: 'LINK_ONLY',
               }],
             },
@@ -223,7 +237,6 @@ export async function executeDataTool(
             { factRef: `fact-manual-title-${k.chunkId}`, factPath: 'title', valueHash: k.articleTitle },
             { factRef: `fact-manual-section-${k.chunkId}`, factPath: 'section', valueHash: k.sectionTitle },
             { factRef: `fact-manual-content-${k.chunkId}`, factPath: 'content', valueHash: k.content },
-            { factRef: `fact-manual-retrieval-${k.chunkId}`, factPath: 'retrieval_mode', valueHash: k.retrievalMode },
             { factRef: `fact-manual-articleId-${k.chunkId}`, factPath: 'article_id', valueHash: parsedArticleId },
             { factRef: `fact-manual-modelId-${k.chunkId}`, factPath: 'model_id', valueHash: parsedModelId },
           ]
@@ -259,7 +272,7 @@ export async function executeDataTool(
           issues: [],
           appliedBindings: [],
           outcome: searchResults.length > 0 ? 'SUCCESS' : 'NO_MATCH',
-          completeness: searchResults.every((result) => result.retrievalMode === 'SEMANTIC') ? 'FULL' : 'PARTIAL',
+          completeness: 'FULL',
           data: {
             snippets: searchResults.map((r) => {
               const lastUnderscore = r.articleId.lastIndexOf('_')
@@ -272,7 +285,6 @@ export async function executeDataTool(
                 title: `${r.articleTitle} - ${r.sectionTitle}`,
                 content: r.content,
                 imageUrl: r.imageUrl,
-                retrievalMode: r.retrievalMode,
               }
             }),
           },
@@ -284,7 +296,6 @@ export async function executeDataTool(
 
       case 'find_service_locations':
         return await findServiceLocationsRepository(args as FindServiceLocationsInput, toolCallId)
-
 
       default: {
         const exhaustiveCheck: never = name

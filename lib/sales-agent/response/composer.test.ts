@@ -171,102 +171,20 @@ describe('Canonical Response Composer', () => {
     expect(response.suggestions.some((s) => s.label.includes('VF 8 vs VF 9'))).toBe(true)
   })
 
-  it('marks a failed lookup without facts as NO_EVIDENCE', () => {
+  it('propagates a link-only data boundary without changing answer composition', () => {
     const evidence = new EvidenceLedger()
-    const knownEntities = new KnownEntityLedger()
     const readAt = new Date().toISOString()
-    const observation = {
-      observationId: 'obs-no-manual',
-      toolCallId: 'call-manual',
-      outcome: 'NO_MATCH' as const,
-      issueCodes: [],
-      inputHash: '{}',
-      readAt,
-    }
-    evidence.recordObservation(observation)
-
-    const response = composeTurnResponse({
-      rawPlan: {
-        schemaVersion: '2.0',
-        outcome: 'DEGRADED',
-        narrative: [
-          { kind: 'ADVICE', markdown: 'Không có evidence phù hợp.' },
-          { kind: 'LIMITATION', observations: [observation] },
-        ],
-        views: [],
-        suggestionIntents: [],
-        actionIntents: [],
-      },
-      evidence,
-      knownEntities,
-      conversationRef: 'conv-123',
-      turnId: 'turn-456',
-      messageId: 'msg-789',
-    })
-
-    expect(response.answer.completeness).toBe('NO_EVIDENCE')
-  })
-
-  it('marks mixed success and failed lookups as PARTIAL', () => {
-    const evidence = new EvidenceLedger()
-    const knownEntities = new KnownEntityLedger()
-    const readAt = new Date().toISOString()
-    evidence.recordEvidence([{
-      evidenceId: 'ev-after-sales',
-      source: { system: 'SUPABASE', resource: 'after_sales_published_facts' },
-      entity: { kind: 'AFTER_SALES_FACT', id: 'fact-1' },
-      facts: [{ factRef: 'fact-1', factPath: 'value', valueHash: '12.000 km' }],
-      readAt,
-    }])
-    evidence.recordObservation({
-      observationId: 'obs-secondary-miss',
-      toolCallId: 'call-secondary',
-      outcome: 'NO_MATCH',
-      issueCodes: [],
-      inputHash: '{}',
-      readAt,
-    })
-
-    const response = composeTurnResponse({
-      rawPlan: {
-        schemaVersion: '2.0',
-        outcome: 'ANSWER',
-        narrative: [{ kind: 'ADVICE', markdown: 'Mốc đã xác minh là 12.000 km.' }],
-        views: [],
-        suggestionIntents: [],
-        actionIntents: [],
-      },
-      evidence,
-      knownEntities,
-      conversationRef: 'conv-123',
-      turnId: 'turn-456',
-      messageId: 'msg-789',
-    })
-
-    expect(response.answer.completeness).toBe('PARTIAL')
-  })
-
-  it('propagates PARTIAL completeness from a successful tool result', () => {
-    const evidence = new EvidenceLedger()
-    const knownEntities = new KnownEntityLedger()
-    const readAt = new Date().toISOString()
-    evidence.recordToolResult('call-partial', {
+    evidence.recordToolResult('call-link-only', {
       schemaVersion: '2.0',
-      toolCallId: 'call-partial',
+      toolCallId: 'call-link-only',
       tool: 'search_user_manuals',
       readAt,
-      evidence: [{
-        evidenceId: 'ev-lexical',
-        source: { system: 'SUPABASE', resource: 'manual_article_chunks' },
-        entity: { kind: 'KNOWLEDGE_SNIPPET', id: 'chunk-1' },
-        facts: [{ factRef: 'fact-lexical', factPath: 'content', valueHash: 'Nội dung HDSD' }],
-        readAt,
-      }],
+      evidence: [],
       observation: {
-        observationId: 'obs-partial',
-        toolCallId: 'call-partial',
+        observationId: 'obs-link-only',
+        toolCallId: 'call-link-only',
         outcome: 'SUCCESS',
-        issueCodes: [],
+        issueCodes: ['OFFICIAL_DOCUMENT_LINK_ONLY'],
         inputHash: '{}',
         readAt,
       },
@@ -274,25 +192,26 @@ describe('Canonical Response Composer', () => {
       appliedBindings: [],
       outcome: 'SUCCESS',
       completeness: 'PARTIAL',
-      data: { snippets: [] },
+      data: { officialDocuments: [] },
     })
 
     const response = composeTurnResponse({
       rawPlan: {
         schemaVersion: '2.0',
         outcome: 'ANSWER',
-        narrative: [{ kind: 'ADVICE', markdown: 'Kết quả lexical có giới hạn.' }],
+        narrative: [{ kind: 'ADVICE', markdown: 'PDF chính thức hiện ở mức liên kết.' }],
         views: [],
         suggestionIntents: [],
         actionIntents: [],
       },
       evidence,
-      knownEntities,
-      conversationRef: 'conv-123',
-      turnId: 'turn-456',
-      messageId: 'msg-789',
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-link-only',
+      turnId: 'turn-link-only',
+      messageId: 'msg-link-only',
     })
 
+    expect(response.answer.markdown).toBe('PDF chính thức hiện ở mức liên kết.')
     expect(response.answer.completeness).toBe('PARTIAL')
   })
 })

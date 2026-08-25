@@ -10,7 +10,6 @@ const toolContractSource = readFileSync(join(root, 'lib/sales-agent/contracts/to
 const cacheSource = readFileSync(join(root, 'lib/sales-agent/cache/catalog-cache.ts'), 'utf8')
 const repositorySource = readFileSync(join(root, 'lib/sales-agent/knowledge/repository.ts'), 'utf8')
 const embedderSource = readFileSync(join(root, 'lib/sales-agent/knowledge/manual-embedder.ts'), 'utf8')
-const embeddingConfigSource = readFileSync(join(root, 'lib/sales-agent/knowledge/manual-embedding-config.ts'), 'utf8')
 const manualMigrationSource = readFileSync(join(root, 'migrations/061_update_embedding_dimensions.sql'), 'utf8')
 const auditSource = readFileSync(join(root, 'scripts/audit-sales-agent-after-sales-state.mjs'), 'utf8')
 
@@ -43,11 +42,8 @@ describe('Sales Agent after-sales access audit snapshot', () => {
 
   it('keeps the manual query and ingestion dimensions aligned with pgvector', () => {
     expect(cacheSource).toContain('.limit(200)')
-    expect(embeddingConfigSource).toContain('MANUAL_EMBEDDING_DIMENSIONS = 512')
-    expect(repositorySource).toContain('MANUAL_EMBEDDING_PROVIDER_OPTIONS')
-    expect(repositorySource).toContain('assertManualEmbeddingDimensions(embedding)')
-    expect(embedderSource).toContain('MANUAL_EMBEDDING_PROVIDER_OPTIONS')
-    expect(embedderSource).toContain('embeddings.forEach(assertManualEmbeddingDimensions)')
+    expect(repositorySource).toContain("openai.embedding('text-embedding-3-small', { dimensions: 512 })")
+    expect(embedderSource).toContain("openai.embedding('text-embedding-3-small', { dimensions: 512 })")
     expect(manualMigrationSource).toContain('vector(512)')
   })
 
@@ -62,6 +58,7 @@ describe('Sales Agent after-sales access audit snapshot', () => {
     const queryCases = cases.filter((item) => item.query)
     expect(queryCases.every((item) => ['COMPLETE', 'PARTIAL'].includes(item.expectedCompleteness ?? ''))).toBe(true)
     expect(queryCases.find((item) => item.id === 'klara-s-official-manual')?.expectedCompleteness).toBe('PARTIAL')
+    expect(cases.find((item) => item.id === 'klara-s-official-manual')?.forbiddenAnswerTerms).toContain('đời năm nào')
     expect(queryCases.every((item) => (item.requiredAnswerTermGroups ?? []).length > 0)).toBe(true)
     expect(queryCases.every((item) => (item.forbiddenAnswerTerms ?? []).includes('suggestionIntents'))).toBe(true)
     expect(auditSource).toContain("process.argv.includes('--assert')")

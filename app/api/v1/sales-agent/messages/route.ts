@@ -14,7 +14,6 @@ import { validateSalesAgentInteractionProducts, SalesAgentInteractionValidationE
 import { recordSalesAgentDebugEvent } from '@/lib/sales-agent/debug-log'
 import { runTurn } from '@/lib/sales-agent/orchestrator/run-turn'
 import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
-import { chunkGroundedMarkdown } from '@/lib/sales-agent/response/stream-markdown'
 import {
   evaluateInputGuardrails,
   evaluateOutputGuardrails,
@@ -40,27 +39,7 @@ function responseHeaders() {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
   }
-}
-
-async function streamGroundedMarkdown(
-  markdown: string,
-  send: (value: SalesAgentSseEvent) => void,
-  signal?: AbortSignal,
-) {
-  const chunks = chunkGroundedMarkdown(markdown)
-
-  for (let index = 0; index < chunks.length; index++) {
-    if (signal?.aborted) return false
-    send({ type: 'text_delta', delta: chunks[index] })
-
-    if (index < chunks.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 12))
-    }
-  }
-
-  return true
 }
 
 function streamResponse(payload: {
@@ -166,8 +145,17 @@ export async function POST(request: Request) {
             },
           }
 
-          const streamed = await streamGroundedMarkdown(fallbackText, send, request.signal)
-          if (!streamed) return
+          const words = fallbackText.split(/(\s+)/)
+          let chunkBuffer = ''
+          for (let i = 0; i < words.length; i++) {
+            chunkBuffer += words[i]
+            if (chunkBuffer.length >= 16 || i === words.length - 1) {
+              if (request.signal?.aborted) return
+              send({ type: 'text_delta', delta: chunkBuffer })
+              chunkBuffer = ''
+              await new Promise((resolve) => setTimeout(resolve, 15))
+            }
+          }
           send({ type: 'turn_view', viewModel: safeViewModel })
           send({ type: 'done', provider: 'guardrail', model: 'defense-pipeline', finishReason: 'stop' })
           return
@@ -203,17 +191,22 @@ export async function POST(request: Request) {
 
         send({ type: 'tool_status', tool: 'thinking', status: 'running' })
 
+        let hasStreamedFirstDelta = false
         const turnResult = await runTurn({
           input: turnInput,
           history: history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
           signal: request.signal,
+          onTextDelta: (delta) => {
+            if (request.signal?.aborted) return
+            if (!hasStreamedFirstDelta) {
+              hasStreamedFirstDelta = true
+              send({ type: 'tool_status', tool: 'composing', status: 'running' })
+            }
+            send({ type: 'text_delta', delta })
+          },
           onToolCall: (toolName) => send({ type: 'tool_status', tool: toolName, status: 'running' }),
           onToolResult: (toolName, res) => {
-            const status = res.outcome === 'SUCCESS'
-              ? 'complete'
-              : res.outcome === 'NO_MATCH'
-                ? 'not_found'
-                : 'error'
+            const status = res.outcome === 'SUCCESS' ? 'complete' : res.outcome === 'NO_MATCH' ? 'not_found' : 'running'
             send({ type: 'tool_status', tool: toolName, status: status as any })
           },
         })
@@ -230,11 +223,6 @@ export async function POST(request: Request) {
         // 3. Post-LLM Output Guardrail (Secret Redaction & PII Solicitation Prevention)
         const { sanitized: safeMarkdown } = evaluateOutputGuardrails(viewModel.answer.markdown)
         viewModel.answer.markdown = safeMarkdown
-
-        // Chỉ stream từng phần nhỏ sau khi evidence composer và output guardrail đã hoàn tất.
-        send({ type: 'tool_status', tool: 'composing', status: 'running' })
-        const streamed = await streamGroundedMarkdown(safeMarkdown, send, request.signal)
-        if (!streamed) return
 
         recordSalesAgentDebugEvent('turn.completed', { conversationId, messageId }, {
           text: viewModel.answer.markdown,

@@ -24,17 +24,25 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('So sánh nhanh')
   })
 
-  it('allows internal and official VinFast navigation but neutralizes untrusted links', () => {
+  it('allows internal navigation but neutralizes external and protocol-relative links', () => {
     const markup = renderToStaticMarkup(
-      <MarkdownMessage content={'[Xem VF 8](/cars/vf-8) [PDF chính thức](https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf) [Trang lạ](https://example.com) [Không an toàn](//example.com)'} />,
+      <MarkdownMessage content={'[Xem VF 8](/cars/vf-8) [Trang lạ](https://example.com) [Không an toàn](//example.com)'} />,
     )
 
     expect(markup).toContain('href="/cars/vf-8"')
-    expect(markup).toContain('href="https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf"')
-    expect(markup).toContain('target="_blank"')
     expect(markup).not.toContain('href="https://example.com"')
     expect(markup).not.toContain('href="//example.com"')
     expect(markup).toContain('Liên kết chưa được xác minh')
+  })
+
+  it('allows direct links only to the official VinFast PDF host', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage content={'[HDSD Klara S](https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf)'} />,
+    )
+
+    expect(markup).toContain('href="https://static-cms-prod.vinfastauto.com/hdsd/klara-s.pdf"')
+    expect(markup).toContain('target="_blank"')
+    expect(markup).toContain('rel="noopener noreferrer"')
   })
 
   it('does not interpret raw HTML supplied by the model', () => {
@@ -68,5 +76,14 @@ describe('MarkdownMessage', () => {
 
     expect(markup).toContain('<pre')
     expect(markup).toContain('const vehicle')
+  })
+
+  it('keeps model-selected manual images in the formatted answer', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage content={'![Vị trí túi khí](https://static-cms-prod.vinfastauto.com/manual-airbag.png)'} />,
+    )
+
+    expect(markup).toContain('manual-airbag.png')
+    expect(markup).toContain('Vị trí túi khí')
   })
 })

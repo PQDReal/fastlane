@@ -2,11 +2,6 @@
 
 import { embedMany } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import {
-  assertManualEmbeddingDimensions,
-  MANUAL_EMBEDDING_MODEL,
-  MANUAL_EMBEDDING_PROVIDER_OPTIONS,
-} from './manual-embedding-config'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import * as cheerio from 'cheerio'
 import fs from 'fs'
@@ -144,11 +139,10 @@ export async function embedManualArticle(articleId: string): Promise<number> {
   const valuesToEmbed = chunks.map((c) => `Tiêu đề: ${article.title}\nPhần: ${c.sectionTitle}\nNội dung: ${c.content}`)
   
   const { embeddings } = await embedMany({
-    model: openai.embedding(MANUAL_EMBEDDING_MODEL),
+    // @ts-expect-error - The dimensions option is passed properly at runtime but SDK typings don't recognize it
+    model: openai.embedding('text-embedding-3-small', { dimensions: 512 }),
     values: valuesToEmbed,
-    providerOptions: MANUAL_EMBEDDING_PROVIDER_OPTIONS,
   })
-  embeddings.forEach(assertManualEmbeddingDimensions)
 
   // 4. Delete existing chunks for this article
   await supabase.from('manual_article_chunks').delete().eq('article_id', articleId)
