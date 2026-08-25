@@ -65,7 +65,6 @@ export default async function ManualArticlePage(props: {
 
   // Get search data (all articles for this model)
   const searchData = tree
-    .filter((item) => item.content_html && item.content_html.trim().length > 0)
     .map((item) => ({ id: item.id, title: item.title }))
 
   return (

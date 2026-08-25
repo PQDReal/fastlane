@@ -67,8 +67,17 @@ export function ArticleContent({ contentHtml, modelId, modelName, modelYear, art
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return []
     const query = searchQuery.toLowerCase()
-    return searchData.filter(item => item.title.toLowerCase().includes(query)).slice(0, 10)
-  }, [searchQuery, searchData])
+    
+    const articleMatches = searchData
+      .filter(item => item.title.toLowerCase().includes(query))
+      .map(item => ({ ...item, type: 'article' }))
+      
+    const tocMatches = tocItems
+      .filter(item => item.title.toLowerCase().includes(query))
+      .map(item => ({ ...item, type: 'toc' }))
+
+    return [...tocMatches, ...articleMatches].slice(0, 10)
+  }, [searchQuery, searchData, tocItems])
 
   return (
     <div className="w-full relative">
@@ -110,15 +119,23 @@ export function ArticleContent({ contentHtml, modelId, modelName, modelYear, art
               {searchResults.length > 0 ? (
                 <ul className="py-1">
                   {searchResults.map((item) => (
-                    <li key={item.id}>
+                    <li key={`${item.type}-${item.id}`}>
                       <button
                         className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                        onClick={() => {
-                          router.push(`/user-manual/${encodeURIComponent(modelId)}/${encodeURIComponent(item.id)}`)
+                        onMouseDown={(e) => {
+                          e.preventDefault() // Prevent input blur
+                          if (item.type === 'toc') {
+                            document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          } else {
+                            router.push(`/user-manual/${encodeURIComponent(modelId)}/${encodeURIComponent(item.id)}`)
+                          }
                           setSearchQuery('')
                           setShowDropdown(false)
                         }}
                       >
+                        {item.type === 'toc' ? (
+                          <span className="text-[#836100] mr-2 font-medium">Mục lục:</span>
+                        ) : null}
                         {item.title}
                       </button>
                     </li>
