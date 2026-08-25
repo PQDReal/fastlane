@@ -1256,11 +1256,7 @@ export function SalesAgentShell() {
     {!open && (
       <motion.div
         key="sales-agent-floating-trigger"
-<<<<<<< HEAD
-        initial={{ opacity: 0, scale: 0.85 }}
-=======
         initial={{ opacity: 1, scale: 0.95 }}
->>>>>>> origin/develop
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.85, y: 15 }}
         transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
