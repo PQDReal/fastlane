@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, BookOpenText, CalendarDays, CarFront, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, BookOpenText, CalendarDays, CarFront, ExternalLink, ShieldCheck } from 'lucide-react'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
@@ -82,8 +82,19 @@ export default async function KnowledgeSourcePage({
             </div>
 
             <div className="px-5 py-6 sm:px-8 sm:py-8">
-              <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm leading-6 text-blue-900">
-                Đây là đúng đoạn nguồn RAG mà trợ lý đã dùng cho câu trả lời. Nội dung chỉ được hiển thị khi tài liệu vẫn là phiên bản đang phát hành.
+              <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-900">
+                <p className="leading-relaxed">
+                  Đây là đúng đoạn nguồn RAG mà trợ lý đã dùng cho câu trả lời. Nội dung chỉ được hiển thị khi tài liệu vẫn là phiên bản đang phát hành.
+                </p>
+                {source.targetUrl && (
+                  <Link
+                    href={source.targetUrl}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-800 active:scale-95 shrink-0"
+                  >
+                    <span>Đến trang tài liệu gốc</span>
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                )}
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
                 <MarkdownMessage content={source.content} />

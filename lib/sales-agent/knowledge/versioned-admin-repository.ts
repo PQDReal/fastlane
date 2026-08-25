@@ -18,7 +18,7 @@ const DB_TIMEOUT_MS = Number.isFinite(configuredDbTimeoutMs) && configuredDbTime
     ? 15_000
     : 8_000
 const DEFAULT_GENERATION_ID = OPENAI_EMBEDDING_GENERATION_ID
-const DOCUMENT_SUMMARY_COLUMNS = 'id,slug,title,category,status,published_version,summary,author_email,created_at,updated_at,published_at,active_version_id,lifecycle_status,deleted_at'
+const DOCUMENT_SUMMARY_COLUMNS = 'id,slug,title,category,status,published_version,summary,author_email,created_at,updated_at,published_at,active_version_id,lifecycle_status,deleted_at,target_url'
 const DOCUMENT_DETAIL_COLUMNS = `${DOCUMENT_SUMMARY_COLUMNS},content_markdown`
 const VERSION_SUMMARY_COLUMNS = 'id,document_id,version_no,summary,publication_status,index_status,approved_at,created_at'
 const VERSION_DETAIL_COLUMNS = `${VERSION_SUMMARY_COLUMNS},content_markdown,content_checksum,effective_from,effective_to`
@@ -93,6 +93,7 @@ function mapDocumentSummary(
     status,
     publishedVersion: runtimePublished ? Number(activeVersion?.version_no ?? row.published_version ?? 0) : 0,
     summary: visibleVersion?.summary ?? row.summary ?? null,
+    targetUrl: row.target_url ?? null,
     authorEmail: row.author_email ?? null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
@@ -241,6 +242,7 @@ export async function createKnowledgeDocument(payload: {
   category: KnowledgeCategory
   contentMarkdown: string
   summary?: string
+  targetUrl?: string
   authorEmail?: string
   authorId?: string
 }): Promise<KnowledgeDocument> {
@@ -258,14 +260,27 @@ export async function createKnowledgeDocument(payload: {
     authorId: payload.authorId,
   })
 
-  if (payload.authorEmail?.trim()) {
+  const docUpdates: Record<string, any> = {}
+  if (payload.authorEmail?.trim()) docUpdates.author_email = payload.authorEmail.trim()
+  if (payload.targetUrl?.trim()) docUpdates.target_url = payload.targetUrl.trim()
+
+  if (Object.keys(docUpdates).length > 0) {
     const { error } = await withTimeout(
       supabase
         .from('sales_agent_knowledge_documents')
-        .update({ author_email: payload.authorEmail.trim() })
+        .update(docUpdates)
         .eq('id', created.document.id),
     )
-    if (error) throw new Error(`Không thể lưu tác giả tài liệu: ${error.message}`)
+    if (error) throw new Error(`Không thể lưu thông tin bổ sung tài liệu: ${error.message}`)
+
+    if (payload.targetUrl?.trim()) {
+      await withTimeout(
+        supabase
+          .from('sales_agent_knowledge_versions')
+          .update({ target_url: payload.targetUrl.trim() })
+          .eq('id', created.version.id),
+      )
+    }
   }
 
   return {
@@ -277,6 +292,7 @@ export async function createKnowledgeDocument(payload: {
     publishedVersion: 0,
     contentMarkdown: created.version.contentMarkdown,
     summary: created.version.summary,
+    targetUrl: payload.targetUrl?.trim() || null,
     authorEmail: payload.authorEmail?.trim() || null,
     createdAt: created.document.createdAt,
     updatedAt: created.document.updatedAt,
@@ -294,7 +310,7 @@ export async function createKnowledgeDocument(payload: {
 
 export async function updateKnowledgeDocument(
   id: string,
-  payload: { title?: string; category?: KnowledgeCategory; contentMarkdown?: string; summary?: string; authorId?: string },
+  payload: { title?: string; category?: KnowledgeCategory; contentMarkdown?: string; summary?: string; targetUrl?: string; authorId?: string },
 ): Promise<KnowledgeDocument> {
   const current = await getKnowledgeDocumentById(id)
   if (!current) throw new Error('Tài liệu không tồn tại.')
@@ -306,19 +322,30 @@ export async function updateKnowledgeDocument(
   if (!latest) throw new Error('Tài liệu chưa có phiên bản bất biến.')
 
   const repo = new VersionedKnowledgeRepository(supabase)
-  await repo.createNewVersionDraft(
+  const newVersion = await repo.createNewVersionDraft(
     id,
     payload.contentMarkdown?.trim() ?? latest.content_markdown,
     payload.authorId,
     payload.summary !== undefined ? payload.summary?.trim() : latest.summary || undefined,
   )
 
-  const updates: Record<string, string> = {}
+  const updates: Record<string, any> = {}
   if (payload.title?.trim()) updates.title = payload.title.trim()
   if (payload.category) updates.category = payload.category
+  if (payload.targetUrl !== undefined) updates.target_url = payload.targetUrl.trim() || null
+
   if (Object.keys(updates).length > 0) {
     const { error } = await withTimeout(supabase.from('sales_agent_knowledge_documents').update(updates).eq('id', id))
     if (error) throw new Error(`Không thể cập nhật thông tin tài liệu: ${error.message}`)
+
+    if (updates.target_url !== undefined && newVersion?.id) {
+      await withTimeout(
+        supabase
+          .from('sales_agent_knowledge_versions')
+          .update({ target_url: updates.target_url })
+          .eq('id', newVersion.id),
+      )
+    }
   }
 
   return (await getKnowledgeDocumentById(id)) || current

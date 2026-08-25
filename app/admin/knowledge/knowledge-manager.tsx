@@ -12,6 +12,7 @@ import {
   Eye,
   FileText,
   Layers,
+  Link as LinkIcon,
   Plus,
   RefreshCw,
   Search,
@@ -63,6 +64,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
   const [editorSlug, setEditorSlug] = useState('')
   const [editorCategory, setEditorCategory] = useState<KnowledgeCategory>('WARRANTY_BATTERY')
   const [editorSummary, setEditorSummary] = useState('')
+  const [editorTargetUrl, setEditorTargetUrl] = useState('')
   const [editorMarkdown, setEditorMarkdown] = useState('')
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write')
   const [isSaving, setIsSaving] = useState(false)
@@ -102,6 +104,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
     setEditorSlug('')
     setEditorCategory('WARRANTY_BATTERY')
     setEditorSummary('')
+    setEditorTargetUrl('/after-sales')
     setEditorMarkdown(`# Tiêu Đề Bài Viết\n\n## 1. Mục chính thứ nhất\nNội dung chi tiết...\n\n## 2. Mục chính thứ hai\nNội dung chi tiết...`)
     setActiveTab('write')
     setIsEditorOpen(true)
@@ -113,6 +116,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
     setEditorSlug(doc.slug)
     setEditorCategory(doc.category)
     setEditorSummary(doc.summary || '')
+    setEditorTargetUrl(doc.targetUrl || '')
     setEditorMarkdown('')
     setActiveTab('write')
     setIsEditorOpen(true)
@@ -132,6 +136,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
       setEditorSlug(detail.slug)
       setEditorCategory(detail.category)
       setEditorSummary(detail.summary || '')
+      setEditorTargetUrl(detail.targetUrl || '')
       setEditorMarkdown(detail.contentMarkdown)
     } catch (error) {
       setIsEditorOpen(false)
@@ -170,6 +175,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
             title: editorTitle,
             category: editorCategory,
             summary: editorSummary,
+            targetUrl: editorTargetUrl.trim() || undefined,
             contentMarkdown: editorMarkdown,
           }),
         })
@@ -184,6 +190,7 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
             slug: editorSlug || undefined,
             category: editorCategory,
             summary: editorSummary,
+            targetUrl: editorTargetUrl.trim() || undefined,
             contentMarkdown: editorMarkdown,
           }),
         })
@@ -413,9 +420,24 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                 filteredDocs.map((doc) => (
                   <tr key={doc.id} className="transition hover:bg-slate-50/70">
                     <td className="px-4 py-3.5 font-medium text-slate-900">
-                      <div className="flex flex-col">
+                      <div className="flex flex-col gap-1">
                         <span className="font-semibold text-slate-900">{doc.title}</span>
-                        <span className="text-[11px] text-slate-400 font-mono">{doc.slug}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] text-slate-400 font-mono">{doc.slug}</span>
+                          {doc.targetUrl && (
+                            <a
+                              href={doc.targetUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10.5px] font-medium text-blue-700 hover:bg-blue-100 transition"
+                              title={`Mở trang đích: ${doc.targetUrl}`}
+                            >
+                              <LinkIcon size={10} />
+                              <span className="truncate max-w-[200px]">{doc.targetUrl}</span>
+                              <ExternalLink size={9} />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap">
@@ -615,16 +637,70 @@ export function KnowledgeManager({ initialDocuments, initialTotal }: Props) {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tóm tắt ngắn (Summary)
-                  </label>
-                  <input
-                    value={editorSummary}
-                    onChange={(e) => setEditorSummary(e.target.value)}
-                    placeholder="Mô tả ngắn gọn nội dung tài liệu để dễ dàng nhận diện..."
-                    className="h-10 w-full rounded-xl border border-slate-200 px-3 text-xs sm:text-sm text-slate-800 outline-none focus:border-brand-500"
-                  />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Tóm tắt ngắn (Summary)
+                    </label>
+                    <input
+                      value={editorSummary}
+                      onChange={(e) => setEditorSummary(e.target.value)}
+                      placeholder="Mô tả ngắn gọn nội dung tài liệu để dễ dàng nhận diện..."
+                      className="h-10 w-full rounded-xl border border-slate-200 px-3 text-xs sm:text-sm text-slate-800 outline-none focus:border-brand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Liên kết trang hỗ trợ (Target URL)
+                      </label>
+                      <span className="text-[10.5px] text-slate-400">Điều hướng khi AI tư vấn</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        value={editorTargetUrl}
+                        onChange={(e) => setEditorTargetUrl(e.target.value)}
+                        placeholder="VD: /after-sales, /user-manual/VF%205_2024..."
+                        className="h-10 w-full rounded-xl border border-slate-200 px-3 pr-8 font-mono text-xs sm:text-sm text-slate-800 outline-none focus:border-brand-500"
+                      />
+                      {editorTargetUrl && (
+                        <a
+                          href={editorTargetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-brand-600"
+                          title="Mở thử liên kết"
+                        >
+                          <ExternalLink size={15} />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Quick Pointer Suggest Helper */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] font-semibold text-slate-400 mr-0.5">Gợi ý nhanh:</span>
+                      {[
+                        { label: '/after-sales', url: '/after-sales' },
+                        { label: '/deposit', url: '/deposit' },
+                        { label: '/cost-estimator', url: '/cost-estimator' },
+                        { label: '/rescue', url: '/rescue' },
+                        { label: '/test-drive', url: '/test-drive' },
+                        { label: '/user-manual/VF%203_2024', url: '/user-manual/VF%203_2024' },
+                        { label: '/user-manual/VF%205_2024', url: '/user-manual/VF%205_2024' },
+                        { label: '/user-manual/VF%208_2024', url: '/user-manual/VF%208_2024' },
+                      ].map((item) => (
+                        <button
+                          key={item.url}
+                          type="button"
+                          onClick={() => setEditorTargetUrl(item.url)}
+                          className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10.5px] font-mono text-slate-600 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition cursor-pointer"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Markdown Editor & Live Preview Tabs */}

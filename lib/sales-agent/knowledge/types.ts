@@ -25,6 +25,7 @@ export type KnowledgeDocumentSummary = {
   status: KnowledgeStatus
   publishedVersion: number
   summary?: string | null
+  targetUrl?: string | null
   authorEmail?: string | null
   createdAt: string
   updatedAt: string
@@ -43,6 +44,7 @@ export type KnowledgeChunk = {
   chunkIndex: number
   sectionTitle: string
   content: string
+  targetUrl?: string | null
   tags: string[]
   isActive: boolean
   createdAt: string
@@ -56,6 +58,7 @@ export type KnowledgeSearchResult = {
   category: KnowledgeCategory
   sectionTitle: string
   content: string
+  targetUrl?: string | null
   tags: string[]
   score: number
 }

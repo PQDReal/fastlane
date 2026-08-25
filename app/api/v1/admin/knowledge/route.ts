@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       category: body.category,
       contentMarkdown: body.contentMarkdown,
       summary: body.summary,
+      targetUrl: body.targetUrl || undefined,
       authorEmail: user.email,
       authorId: user.id,
     })

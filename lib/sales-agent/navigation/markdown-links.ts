@@ -40,7 +40,10 @@ function verifiedStaticHref(href: string) {
   try {
     const parsed = new URL(href, 'https://fastlane.invalid')
     if (parsed.origin !== 'https://fastlane.invalid') return null
-    return VERIFIED_STATIC_ROUTES.has(parsed.pathname) ? href : null
+    if (VERIFIED_STATIC_ROUTES.has(parsed.pathname)) return href
+    if (parsed.pathname.startsWith('/user-manual')) return href
+    if (parsed.pathname.startsWith('/knowledge/source/')) return href
+    return null
   } catch {
     return null
   }

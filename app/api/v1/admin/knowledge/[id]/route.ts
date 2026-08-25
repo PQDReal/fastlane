@@ -44,6 +44,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       category: body.category,
       contentMarkdown: body.contentMarkdown,
       summary: body.summary,
+      targetUrl: body.targetUrl !== undefined ? body.targetUrl : undefined,
       authorId: user.id,
     })
 

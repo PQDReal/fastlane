@@ -38,7 +38,15 @@ export function salesAgentKnowledgeSourceUrl(chunkId: string) {
 
 export function isSalesAgentInternalUrl(value: string) {
   return /^\/(?:cars|bikes|accessories)(?:\/[A-Za-z0-9._~%-]+)?$/.test(value)
+    || /^\/user-manual(?:\/[A-Za-z0-9._~%-]+(?:\/[A-Za-z0-9._~%-]+)?)?$/i.test(value)
     || /^\/knowledge\/source\/[0-9a-f-]{36}$/i.test(value)
     || value === '/compare'
     || value === '/after-sales'
+    || value === '/deposit'
+    || value === '/cost-estimator'
+    || value === '/rescue'
+    || value === '/promotions'
+    || value === '/test-drive'
+    || value === '/showrooms'
+    || value === '/support'
 }

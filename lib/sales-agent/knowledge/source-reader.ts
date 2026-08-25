@@ -17,6 +17,7 @@ export type KnowledgeSource = {
   sectionAnchor: string
   hierarchyPath: string
   content: string
+  targetUrl: string | null
   citationId: string
   effectiveFrom: string | null
 }
@@ -43,7 +44,7 @@ export async function getKnowledgeSourceByChunkId(chunkId: string): Promise<Know
   const supabase = getSupabaseAdmin()
   const { data: chunkData, error: chunkError } = await supabase
     .from('sales_agent_knowledge_chunks')
-    .select('id, document_id, version_id, section_title, section_anchor, hierarchy_path, source_node_id, content')
+    .select('id, document_id, version_id, section_title, section_anchor, hierarchy_path, source_node_id, content, target_url')
     .eq('id', chunkId)
     .eq('is_active', true)
     .maybeSingle()
@@ -59,7 +60,7 @@ export async function getKnowledgeSourceByChunkId(chunkId: string): Promise<Know
   const [documentResult, versionResult] = await Promise.all([
     supabase
       .from('sales_agent_knowledge_documents')
-      .select('id, document_key, title, category, vehicle_model, model_year, locale, lifecycle_status, active_version_id, deleted_at')
+      .select('id, document_key, title, category, vehicle_model, model_year, locale, lifecycle_status, active_version_id, deleted_at, target_url')
       .eq('id', documentId)
       .maybeSingle(),
     supabase
@@ -95,6 +96,10 @@ export async function getKnowledgeSourceByChunkId(chunkId: string): Promise<Know
   const content = String(chunk.content || '').trim()
   if (!documentKey || !Number.isInteger(versionNo) || versionNo < 1 || !content) return null
 
+  const targetUrl = typeof chunk.target_url === 'string' && chunk.target_url.trim()
+    ? chunk.target_url.trim()
+    : (typeof document.target_url === 'string' && document.target_url.trim() ? document.target_url.trim() : null)
+
   return {
     chunkId,
     documentKey,
@@ -110,6 +115,7 @@ export async function getKnowledgeSourceByChunkId(chunkId: string): Promise<Know
     sectionAnchor,
     hierarchyPath: String(chunk.hierarchy_path || ''),
     content,
+    targetUrl,
     citationId: generateCitationId({
       documentKey,
       versionNo,
