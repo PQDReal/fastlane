@@ -1,0 +1,147 @@
+[
+  {
+    "id": "motorbike-warranty-context",
+    "flow": "warranty",
+    "query": "Chính sách bảo hành pin của VinFast Evo là bao lâu?",
+    "expectedPublishedEvidence": "LFP trước mốc: pin 5 năm; LFP chính sách mới: pin 8 năm; pin khác: 3 năm",
+    "expectedTool": "search_knowledge",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["5 năm"],
+      ["8 năm"],
+      ["3 năm"],
+      ["/after-sales?vehicle=motorbike&tab=warranty#warranty-term"]
+    ],
+    "forbiddenAnswerTerms": ["/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "car-warranty-vf8",
+    "flow": "warranty",
+    "query": "VF 8 được bảo hành xe và pin bao lâu?",
+    "expectedPublishedEvidence": "Xe nguyên bản và pin nguyên bản trong điều kiện sử dụng tiêu chuẩn: 10 năm hoặc 200.000 km",
+    "expectedTool": "search_after_sales",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["10 năm"],
+      ["200.000 km", "200,000 km"],
+      ["/after-sales?vehicle=car&tab=warranty#warranty-term"]
+    ],
+    "forbiddenAnswerTerms": ["vehicle=motorbike", "/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "car-maintenance-schedule",
+    "flow": "maintenance",
+    "query": "VF 8 2024 cần bảo dưỡng định kỳ sau bao lâu hoặc bao nhiêu km?",
+    "expectedPublishedEvidence": "Xe điện: 12.000 km hoặc hàng năm",
+    "expectedTool": "search_after_sales",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["12.000 km", "12,000 km"],
+      ["hàng năm", "12 tháng"],
+      ["/after-sales?vehicle=car&tab=maintenance#maintenance-schedule"]
+    ],
+    "forbiddenAnswerTerms": ["/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "motorbike-brake-maintenance",
+    "flow": "maintenance",
+    "query": "Xe máy điện VinFast cần bảo dưỡng phanh sau bao lâu hoặc bao nhiêu km?",
+    "expectedPublishedEvidence": "Dầu phanh: 1.000 km hoặc 6 tháng; hệ thống phanh: 5.000 km hoặc 6 tháng",
+    "expectedTool": "search_after_sales",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["1.000 km", "1,000 km"],
+      ["5.000 km", "5,000 km"],
+      ["6 tháng"],
+      ["/after-sales?vehicle=motorbike&tab=maintenance#maintenance-schedule"]
+    ],
+    "forbiddenAnswerTerms": ["/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "repair-appointment-window",
+    "flow": "repair",
+    "query": "Khi đã đặt lịch sửa chữa VinFast, khách hàng có thể đến trong khoảng bao nhiêu phút so với giờ hẹn?",
+    "expectedPublishedEvidence": "Khoảng tiếp nhận lịch hẹn: 30 phút",
+    "expectedTool": "search_after_sales",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["30 phút"],
+      ["/after-sales?vehicle=car&tab=repair#repair-process"]
+    ],
+    "forbiddenAnswerTerms": ["/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "rescue-response-time",
+    "flow": "rescue",
+    "query": "Cứu hộ VinFast phản hồi yêu cầu trong bao lâu?",
+    "expectedPublishedEvidence": "Chuyển điều phối: 10 phút; gọi lại và xuất phát: 15 phút",
+    "expectedTool": "search_after_sales",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["10 phút"],
+      ["15 phút"],
+      ["/after-sales?vehicle=car&tab=rescue#rescue-information"]
+    ],
+    "forbiddenAnswerTerms": ["/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "motorbike-workshops-hcm",
+    "flow": "workshop",
+    "query": "Các xưởng xe máy điện VinFast tại Hồ Chí Minh mở cửa lúc mấy giờ?",
+    "expectedPublishedEvidence": "5 xưởng đã publish tại Hồ Chí Minh; giờ công bố 08h00–21h00",
+    "expectedTool": "find_service_locations",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["5 xưởng", "5 địa điểm", "tổng cộng 5"],
+      ["08:00", "08h00", "8:00"],
+      ["21:00", "21h00"],
+      ["/after-sales?vehicle=motorbike&tab=workshop"]
+    ],
+    "forbiddenAnswerTerms": ["/knowledge/", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "vf8-manual-charge-port",
+    "flow": "manual",
+    "query": "Vị trí cổng sạc của VF 8 đời 2024 ở đâu?",
+    "expectedPublishedEvidence": "Kết quả semantic search từ manual VF 8 2024",
+    "expectedTool": "search_user_manuals",
+    "expectedCompleteness": "COMPLETE",
+    "requiredAnswerTermGroups": [
+      ["cổng sạc"],
+      ["/user-manual/VF%208_2024/"]
+    ],
+    "forbiddenAnswerTerms": ["chưa tìm thấy", "chưa thể xác nhận", "sẽ không suy đoán", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "klara-s-official-manual",
+    "flow": "manual",
+    "query": "Hướng dẫn sử dụng xe Klara S",
+    "expectedPublishedEvidence": "PDF HDSD Klara S chính thức hiện ở trạng thái LINK_ONLY, chưa ingest nội dung",
+    "expectedTool": "search_user_manuals",
+    "expectedCompleteness": "PARTIAL",
+    "requiredAnswerTermGroups": [
+      ["HDSD xe Klara S"],
+      ["chưa được ingest", "chưa được hệ thống trích xuất", "chưa trích xuất"],
+      ["static-cms-prod.vinfastauto.com"],
+      ["/after-sales?vehicle=motorbike&tab=warranty#official-documents"]
+    ],
+    "forbiddenAnswerTerms": ["VF 5", "VF%205", "/user-manual/", "đời năm nào", "đời xe nào", "suggestionIntents", "\"label\"", "\"intent\""],
+    "currentStatus": "PASS"
+  },
+  {
+    "id": "official-pdf-content",
+    "flow": "official_pdf",
+    "query": null,
+    "expectedPublishedEvidence": "3 sổ bảo hành và 40 HDSD chỉ được liên kết trực tiếp",
+    "expectedTool": null,
+    "currentStatus": "LINK_ONLY"
+  }
+]

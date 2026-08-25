@@ -3,7 +3,7 @@ import type { FactPointer, ProductType, ToolObservationRef, ToolResult } from '.
 export type IndexedFact = {
   factRef: string
   evidenceId: string
-  entityKind: 'PRODUCT' | 'PROMOTION' | 'KNOWLEDGE_SNIPPET' | 'ORDER'
+  entityKind: 'PRODUCT' | 'PROMOTION' | 'KNOWLEDGE_SNIPPET' | 'ORDER' | 'AFTER_SALES_FACT' | 'SERVICE_LOCATION'
   entityId: string
   factPath: string
   valueHash: string
@@ -16,7 +16,7 @@ export type StoredEvidence = {
     resource: string
   }
   entity: {
-    kind: 'PRODUCT' | 'PROMOTION' | 'KNOWLEDGE_SNIPPET' | 'ORDER'
+    kind: 'PRODUCT' | 'PROMOTION' | 'KNOWLEDGE_SNIPPET' | 'ORDER' | 'AFTER_SALES_FACT' | 'SERVICE_LOCATION'
     id: string
   }
   facts: Array<{

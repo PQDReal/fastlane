@@ -116,6 +116,40 @@ export const searchKnowledgeInputSchema = z.object({
 })
 export type SearchKnowledgeInput = z.infer<typeof searchKnowledgeInputSchema>
 
+export const searchUserManualsInputSchema = z.object({
+  query: z.string().trim().min(1).max(200),
+  modelSeries: z.string().trim().optional(),
+  year: z.number().int().optional(),
+  topK: z.number().int().min(1).max(5).default(3),
+})
+export type SearchUserManualsInput = z.infer<typeof searchUserManualsInputSchema>
+
+export const afterSalesVehicleTypeSchema = z.enum(['car', 'motorbike', 'bus'])
+export type AfterSalesVehicleType = z.infer<typeof afterSalesVehicleTypeSchema>
+
+export const searchAfterSalesInputSchema = z.object({
+  serviceType: z.enum(['warranty', 'maintenance', 'repair', 'rescue']),
+  vehicleType: afterSalesVehicleTypeSchema.optional(),
+  model: z.string().trim().min(1).max(80).optional(),
+  query: z.string().trim().min(1).max(300),
+  topK: z.number().int().min(1).max(10).default(6),
+})
+export type SearchAfterSalesInput = z.infer<typeof searchAfterSalesInputSchema>
+
+export const findServiceLocationsInputSchema = z.object({
+  vehicleType: afterSalesVehicleTypeSchema.optional(),
+  category: z.enum([
+    'official_car_workshop',
+    'partner_car_workshop',
+    'electric_motorbike_workshop',
+  ]).optional(),
+  province: z.string().trim().min(1).max(100).optional(),
+  district: z.string().trim().min(1).max(100).optional(),
+  query: z.string().trim().min(1).max(300),
+  limit: z.number().int().min(1).max(20).default(8),
+})
+export type FindServiceLocationsInput = z.infer<typeof findServiceLocationsInputSchema>
+
 // Terminal Tool Inputs
 export const submitResponseInputSchema = z.object({
   plan: agentResponsePlanSchema,
@@ -136,7 +170,14 @@ export const evidenceRecordSchema = z.object({
     resource: z.string().trim().min(1),
   }),
   entity: z.object({
-    kind: z.enum(['PRODUCT', 'PROMOTION', 'KNOWLEDGE_SNIPPET', 'ORDER']),
+    kind: z.enum([
+      'PRODUCT',
+      'PROMOTION',
+      'KNOWLEDGE_SNIPPET',
+      'ORDER',
+      'AFTER_SALES_FACT',
+      'SERVICE_LOCATION',
+    ]),
     id: z.string().trim().min(1),
   }),
   facts: z.array(z.object({
@@ -191,6 +232,8 @@ export interface ToolDiagnostics {
     catalogEpoch?: number
     sources?: Record<string, string>
     ignoredRawFields?: string[]
+    scopeEnforcement?: 'ENFORCED' | 'UNSCOPED' | 'AMBIGUOUS'
+    fallbackApplied?: boolean
   }
   visualLookup?: {
     enabled: boolean
@@ -226,7 +269,7 @@ export type ToolResult<TSuccess = any, TNeedsInput = any, TNoMatch = any> = {
   | { outcome: 'UNAVAILABLE'; data: null; retryAfterMs?: number }
 )
 
-export const DATA_TOOL_NAMES = [
+export const RUNTIME_DATA_TOOL_NAMES = [
   'browse_catalog',
   'get_product_details',
   'compare_products',
@@ -234,9 +277,20 @@ export const DATA_TOOL_NAMES = [
   'discover_accessories',
   'search_knowledge',
 ] as const
+export type RuntimeDataToolName = typeof RUNTIME_DATA_TOOL_NAMES[number]
+
+export const COMPAT_DATA_TOOL_NAMES = [
+  'search_user_manuals',
+  'search_after_sales',
+  'find_service_locations',
+] as const
+export const DATA_TOOL_NAMES = [
+  ...RUNTIME_DATA_TOOL_NAMES,
+  ...COMPAT_DATA_TOOL_NAMES,
+] as const
 export type DataToolName = typeof DATA_TOOL_NAMES[number]
 
-export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }> = {
+export const TOOL_CONTRACTS: Record<RuntimeDataToolName, { description: string; inputSchema: z.ZodTypeAny }> = {
   browse_catalog: {
     description: 'Duyệt và phân trang danh mục xe FASTLANE (ô tô, xe máy) theo loại và khoảng giá. Không dùng cho phụ kiện và không dùng chuỗi search query tự do.',
     inputSchema: browseCatalogInputSchema,
@@ -269,8 +323,8 @@ export const TOOL_CONTRACTS: Record<DataToolName, { description: string; inputSc
  */
 export function getAvailableToolContracts(
   knowledgeEnabled: boolean,
-): Partial<Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }>> {
-  const contracts: Partial<Record<DataToolName, { description: string; inputSchema: z.ZodTypeAny }>> = {
+): Partial<Record<RuntimeDataToolName, { description: string; inputSchema: z.ZodTypeAny }>> {
+  const contracts: Partial<Record<RuntimeDataToolName, { description: string; inputSchema: z.ZodTypeAny }>> = {
     ...TOOL_CONTRACTS,
   }
   if (!knowledgeEnabled) delete contracts.search_knowledge

@@ -5,7 +5,14 @@ import { interactionIntentSchema, salesAgentInteractionSchema } from './interact
 export const factPointerSchema = z.object({
   factRef: z.string().trim().min(1),
   evidenceId: z.string().trim().min(1),
-  entityKind: z.enum(['PRODUCT', 'PROMOTION', 'KNOWLEDGE_SNIPPET', 'ORDER']),
+  entityKind: z.enum([
+    'PRODUCT',
+    'PROMOTION',
+    'KNOWLEDGE_SNIPPET',
+    'ORDER',
+    'AFTER_SALES_FACT',
+    'SERVICE_LOCATION',
+  ]),
   entityId: z.string().trim().min(1),
   factPath: z.string().trim().min(1),
 })

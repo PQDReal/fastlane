@@ -375,6 +375,9 @@ describe('Canonical Response Composer', () => {
         inputHash: '{}',
         readAt,
       },
+      issues: [],
+      appliedBindings: [],
+      data: {},
       diagnostics: {
         scope: {
           vehicleModel: 'VF 5',
@@ -749,5 +752,49 @@ describe('Canonical Response Composer', () => {
       'Dự toán trả góp VinFast VF 5',
       'Đặt lịch lái thử VinFast VF 5',
     ])
+  })
+
+  it('propagates a link-only data boundary without changing answer composition', () => {
+    const evidence = new EvidenceLedger()
+    const readAt = new Date().toISOString()
+    evidence.recordToolResult('call-link-only', {
+      schemaVersion: '2.0',
+      toolCallId: 'call-link-only',
+      tool: 'search_user_manuals',
+      readAt,
+      evidence: [],
+      observation: {
+        observationId: 'obs-link-only',
+        toolCallId: 'call-link-only',
+        outcome: 'SUCCESS',
+        issueCodes: ['OFFICIAL_DOCUMENT_LINK_ONLY'],
+        inputHash: '{}',
+        readAt,
+      },
+      issues: [],
+      appliedBindings: [],
+      outcome: 'SUCCESS',
+      completeness: 'PARTIAL',
+      data: { officialDocuments: [] },
+    })
+
+    const response = composeTurnResponse({
+      rawPlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{ kind: 'ADVICE', markdown: 'PDF chính thức hiện ở mức liên kết.' }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      evidence,
+      knownEntities: new KnownEntityLedger(),
+      conversationRef: 'conv-link-only',
+      turnId: 'turn-link-only',
+      messageId: 'msg-link-only',
+    })
+
+    expect(response.answer.markdown).toBe('PDF chính thức hiện ở mức liên kết.')
+    expect(response.answer.completeness).toBe('PARTIAL')
   })
 })

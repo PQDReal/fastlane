@@ -60,17 +60,20 @@ export class HybridHierarchicalRetrievalService {
   private defaultGenerationId: string
   private client?: SupabaseClient
 
-  constructor(options: RetrievalServiceOptions = {}) {
-    this.client = options.client
-    this.ftsAdapter = new PostgresFtsAdapter(options.client)
+  constructor(options: RetrievalServiceOptions | SupabaseClient = {}) {
+    const resolvedOptions: RetrievalServiceOptions = 'from' in options && 'rpc' in options
+      ? { client: options as SupabaseClient }
+      : options as RetrievalServiceOptions
+    this.client = resolvedOptions.client
+    this.ftsAdapter = new PostgresFtsAdapter(resolvedOptions.client)
     this.vectorAdapter = new VectorCandidateAdapter(
-      options.embeddingConfig,
-      options.client,
-      options.defaultGenerationId ?? OPENAI_EMBEDDING_GENERATION_ID,
-      options.embeddingProvider,
+      resolvedOptions.embeddingConfig,
+      resolvedOptions.client,
+      resolvedOptions.defaultGenerationId ?? OPENAI_EMBEDDING_GENERATION_ID,
+      resolvedOptions.embeddingProvider,
     )
     this.defaultGenerationId =
-      options.defaultGenerationId ?? OPENAI_EMBEDDING_GENERATION_ID
+      resolvedOptions.defaultGenerationId ?? OPENAI_EMBEDDING_GENERATION_ID
   }
 
   private async resolveRuntimeState(requestedGenerationId?: string, signal?: AbortSignal): Promise<{

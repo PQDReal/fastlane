@@ -459,8 +459,11 @@ export function composeTurnResponse(options: ComposeOptions): TurnViewModel {
     }
   }
 
+  const hasPartialToolResult = options.evidence.getAllToolResults().some((result) => (
+    result.outcome === 'SUCCESS' && result.completeness === 'PARTIAL'
+  ))
   const completeness = plan.outcome === 'ANSWER'
-    ? 'COMPLETE'
+    ? (hasPartialToolResult ? 'PARTIAL' : 'COMPLETE')
     : plan.outcome === 'DEGRADED'
       ? 'NO_EVIDENCE'
       : 'PARTIAL'
