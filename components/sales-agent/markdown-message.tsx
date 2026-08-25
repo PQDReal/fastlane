@@ -7,7 +7,7 @@ import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ShieldAlert, X, ZoomIn } from 'lucide-react'
+import { ImageIcon, ShieldAlert, X, ZoomIn } from 'lucide-react'
 import type { AssistantBlock } from '@/lib/sales-agent/contracts'
 import { isAllowedKnowledgeMediaUrl } from '@/lib/sales-agent/knowledge/media-url'
 import { knowledgeMediaReference } from '@/lib/sales-agent/knowledge/media-reference'
@@ -129,8 +129,12 @@ function InlineImage({
   mediaItems?: KnowledgeMediaItem[]
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const validUrl = safeImageUrl(src)
   const matchedMeta = mediaItems?.find((item) => item.url === validUrl || item.alt === alt)
+  const isLoaded = Boolean(validUrl && loadedUrl === validUrl)
+  const hasFailed = Boolean(validUrl && failedUrl === validUrl)
 
   useEffect(() => {
     if (!isOpen) return
@@ -151,26 +155,53 @@ function InlineImage({
     <figure className="my-3 block overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 transition hover:border-brand-300">
       <div
         role="button"
-        tabIndex={0}
-        onClick={() => setIsOpen(true)}
+        tabIndex={isLoaded ? 0 : -1}
+        aria-disabled={!isLoaded}
+        aria-busy={!isLoaded && !hasFailed}
+        onClick={() => {
+          if (isLoaded) setIsOpen(true)
+        }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (isLoaded && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             setIsOpen(true)
           }
         }}
-        className="group relative flex max-h-72 w-full cursor-zoom-in items-center justify-center overflow-hidden bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        className={`group relative flex h-48 w-full items-center justify-center overflow-hidden bg-slate-100 sm:h-56 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${isLoaded ? 'cursor-zoom-in' : 'cursor-default'}`}
       >
+        {!isLoaded && !hasFailed ? (
+          <div className="absolute inset-0 flex animate-pulse flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400" aria-label="Đang tải hình minh họa">
+            <ImageIcon className="h-7 w-7" aria-hidden="true" />
+            <span className="text-[11px] font-medium">Đang tải hình minh họa…</span>
+          </div>
+        ) : null}
+        {hasFailed ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-100 px-4 text-center text-slate-500" role="status">
+            <ImageIcon className="h-7 w-7" aria-hidden="true" />
+            <span className="text-[11px] font-medium">Chưa tải được hình minh họa</span>
+          </div>
+        ) : null}
         <img
           src={validUrl}
           alt={caption || 'Hình minh họa tài liệu'}
-          className="max-h-72 w-full object-contain transition duration-200 group-hover:scale-[1.02]"
+          className={`h-full w-full object-contain transition duration-200 ${isLoaded ? 'opacity-100 group-hover:scale-[1.02]' : 'opacity-0'}`}
           loading="lazy"
+          decoding="async"
+          onLoad={() => {
+            setFailedUrl(null)
+            setLoadedUrl(validUrl)
+          }}
+          onError={() => {
+            setLoadedUrl(null)
+            setFailedUrl(validUrl)
+          }}
         />
-        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-slate-900/65 px-2 py-1 text-[11px] font-medium text-white opacity-0 backdrop-blur-xs transition group-hover:opacity-100">
-          <ZoomIn className="h-3.5 w-3.5" />
-          <span>Phóng to</span>
-        </div>
+        {isLoaded ? (
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-slate-900/65 px-2 py-1 text-[11px] font-medium text-white opacity-0 backdrop-blur-xs transition group-hover:opacity-100">
+            <ZoomIn className="h-3.5 w-3.5" />
+            <span>Phóng to</span>
+          </div>
+        ) : null}
       </div>
       {caption && (
         <figcaption className="flex items-center justify-between gap-2 border-t border-slate-200/80 px-3 py-2 text-xs text-slate-600">

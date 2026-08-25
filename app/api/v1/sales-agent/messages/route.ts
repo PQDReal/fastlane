@@ -31,12 +31,155 @@ export type SalesAgentSseEvent =
   | { type: 'tool_status'; tool: string; status: 'running' | 'complete' | 'not_found' | 'error' | 'OK' }
   | { type: 'text_delta'; delta: string; provisional?: boolean; attempt?: number }
   | { type: 'text_reset'; reason: 'retry' | 'final_reconciliation' }
+  | {
+      type: 'view_delta'
+      blocks?: TurnViewModel['blocks']
+      actions?: TurnViewModel['actions']
+      suggestions?: TurnViewModel['suggestions']
+      interaction?: TurnViewModel['interaction']
+    }
   | { type: 'turn_view'; viewModel: TurnViewModel }
   | { type: 'done'; provider: string; model: string; finishReason: SalesAgentFinishReason }
   | { type: 'error'; code: string; message: string; retryable: boolean }
 
 function event(value: SalesAgentSseEvent) {
   return `data: ${JSON.stringify(value)}\n\n`
+}
+
+type ViewDelta = Extract<SalesAgentSseEvent, { type: 'view_delta' }>
+
+function canonicalTextDeltas(markdown: string) {
+  const targetLength = Math.max(28, Math.ceil(markdown.length / 48))
+  const tokens = markdown.split(/(\s+)/).filter(Boolean)
+  const deltas: string[] = []
+  let current = ''
+
+  for (const token of tokens) {
+    if (current && current.length + token.length > targetLength) {
+      deltas.push(current)
+      current = token
+    } else {
+      current += token
+    }
+  }
+  if (current) deltas.push(current)
+  return deltas.length > 0 ? deltas : [markdown]
+}
+
+function progressiveViewDeltas(viewModel: TurnViewModel) {
+  const partialBlocks = new Map<number, TurnViewModel['blocks'][number]>()
+  const blockDeltas: ViewDelta[] = []
+  const actionDeltas: ViewDelta[] = []
+  const suggestionDeltas: ViewDelta[] = []
+  const blockSnapshot = () => [...partialBlocks.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([, block]) => block)
+
+  // Media metadata is sent before text so an inline [media:n] reference can
+  // reserve a stable image frame as soon as it reaches the client.
+  viewModel.blocks.forEach((block, index) => {
+    if (block.kind === 'KNOWLEDGE_MEDIA') partialBlocks.set(index, block)
+  })
+  const initial = partialBlocks.size > 0
+    ? ({ type: 'view_delta', blocks: blockSnapshot() } satisfies ViewDelta)
+    : undefined
+
+  viewModel.blocks.forEach((block, index) => {
+    if (block.kind === 'KNOWLEDGE_MEDIA') return
+
+    if (block.kind === 'PRODUCT_LIST') {
+      for (let count = 1; count <= block.items.length; count += 1) {
+        partialBlocks.set(index, { ...block, items: block.items.slice(0, count) })
+        blockDeltas.push({ type: 'view_delta', blocks: blockSnapshot() })
+      }
+      return
+    }
+
+    if (block.kind === 'FACT_SUMMARY') {
+      for (let count = 1; count <= block.facts.length; count += 1) {
+        partialBlocks.set(index, { ...block, facts: block.facts.slice(0, count) })
+        blockDeltas.push({ type: 'view_delta', blocks: blockSnapshot() })
+      }
+      return
+    }
+
+    partialBlocks.set(index, block)
+    blockDeltas.push({ type: 'view_delta', blocks: blockSnapshot() })
+  })
+
+  for (let count = 1; count <= viewModel.actions.length; count += 1) {
+    actionDeltas.push({ type: 'view_delta', actions: viewModel.actions.slice(0, count) })
+  }
+  for (let count = 1; count <= viewModel.suggestions.length; count += 1) {
+    suggestionDeltas.push({ type: 'view_delta', suggestions: viewModel.suggestions.slice(0, count) })
+  }
+
+  return {
+    initial,
+    blockDeltas,
+    actionDeltas,
+    suggestionDeltas,
+    interactionDelta: viewModel.interaction
+      ? ({ type: 'view_delta', interaction: viewModel.interaction } satisfies ViewDelta)
+      : undefined,
+  }
+}
+
+async function streamCanonicalView(options: {
+  send: (value: SalesAgentSseEvent) => void
+  viewModel: TurnViewModel
+  signal?: AbortSignal
+}) {
+  const textDeltas = canonicalTextDeltas(options.viewModel.answer.markdown)
+  const progressive = progressiveViewDeltas(options.viewModel)
+  const delayMs = process.env.NODE_ENV === 'test' ? 0 : 12
+  const streams = [
+    { deltas: progressive.blockDeltas, start: 0.4, end: 0.86, next: 0 },
+    { deltas: progressive.actionDeltas, start: 0.68, end: 0.92, next: 0 },
+    { deltas: progressive.suggestionDeltas, start: 0.64, end: 0.96, next: 0 },
+  ]
+  let interactionSent = false
+
+  if (progressive.initial) options.send(progressive.initial)
+
+  for (let index = 0; index < textDeltas.length; index += 1) {
+    if (options.signal?.aborted) return false
+    options.send({ type: 'text_delta', delta: textDeltas[index], provisional: false })
+
+    const progress = (index + 1) / textDeltas.length
+    // Each UI lane has its own window so a long product list cannot push all
+    // sources or suggestions into the final network chunk.
+    for (const stream of streams) {
+      const targetCount = progress < stream.start
+        ? 0
+        : Math.ceil(((progress - stream.start) / (stream.end - stream.start)) * stream.deltas.length)
+      while (stream.next < Math.min(targetCount, stream.deltas.length)) {
+        options.send(stream.deltas[stream.next])
+        stream.next += 1
+      }
+    }
+    if (!interactionSent && progressive.interactionDelta && progress >= 0.72) {
+      options.send(progressive.interactionDelta)
+      interactionSent = true
+    }
+
+    if (delayMs > 0 && index < textDeltas.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+
+  for (const stream of streams) {
+    while (stream.next < stream.deltas.length) {
+      if (options.signal?.aborted) return false
+      options.send(stream.deltas[stream.next])
+      stream.next += 1
+    }
+  }
+  if (!interactionSent && progressive.interactionDelta) {
+    options.send(progressive.interactionDelta)
+  }
+  options.send({ type: 'turn_view', viewModel: options.viewModel })
+  return true
 }
 
 function responseHeaders(requestId?: string) {
@@ -112,9 +255,9 @@ function streamResponse(payload: {
         if (fallbackSent) {
           const fallbackText = 'Hệ thống tư vấn AI tạm thời chưa thể hoàn tất câu trả lời. Bạn vui lòng thử lại sau ít phút; FASTLANE sẽ không suy đoán khi chưa có dữ liệu xác minh.'
           const { sanitized } = evaluateOutputGuardrails(fallbackText)
+          const viewModel = fallbackViewModel(payload.conversationId, payload.messageId, sanitized)
           send({ type: 'tool_status', tool: 'fallback', status: 'error' })
-          send({ type: 'text_delta', delta: sanitized, provisional: false })
-          send({ type: 'turn_view', viewModel: fallbackViewModel(payload.conversationId, payload.messageId, sanitized) })
+          await streamCanonicalView({ send, viewModel, signal: payload.signal })
           send({ type: 'done', provider: 'fallback', model: 'deterministic', finishReason: 'error' })
         }
       } finally {
@@ -292,18 +435,8 @@ export async function POST(request: Request) {
             },
           }
 
-          const words = fallbackText.split(/(\s+)/)
-          let chunkBuffer = ''
-          for (let i = 0; i < words.length; i++) {
-            chunkBuffer += words[i]
-            if (chunkBuffer.length >= 16 || i === words.length - 1) {
-              if (request.signal?.aborted) return
-              send({ type: 'text_delta', delta: chunkBuffer, provisional: false })
-              chunkBuffer = ''
-              await new Promise((resolve) => setTimeout(resolve, 15))
-            }
-          }
-          send({ type: 'turn_view', viewModel: safeViewModel })
+          const streamed = await streamCanonicalView({ send, viewModel: safeViewModel, signal: request.signal })
+          if (!streamed) return
           send({ type: 'done', provider: 'guardrail', model: 'defense-pipeline', finishReason: 'stop' })
           recordSalesAgentDebugEvent('turn.completed', debugContext, {
             outcome: 'GUARDRAIL_REDIRECT',
@@ -456,8 +589,8 @@ export async function POST(request: Request) {
           send({ type: 'text_reset', reason: 'final_reconciliation' })
         }
         firstFinalDeltaMs = Date.now() - streamStartedAt
-        send({ type: 'text_delta', delta: viewModel.answer.markdown, provisional: false })
-        send({ type: 'turn_view', viewModel })
+        const streamed = await streamCanonicalView({ send, viewModel, signal: request.signal })
+        if (!streamed) return
         recordSalesAgentDebugEvent('stream.completed', debugContext, {
           ttftMs: firstProvisionalDeltaMs ?? firstFinalDeltaMs,
           firstProvisionalDeltaMs,

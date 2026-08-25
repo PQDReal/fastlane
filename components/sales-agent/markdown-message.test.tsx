@@ -87,6 +87,9 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('<figure')
     expect(markup).toContain('src="https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png"')
     expect(markup).toContain('Cổng sạc CCS2')
+    expect(markup).toContain('h-48')
+    expect(markup).toContain('sm:h-56')
+    expect(markup).toContain('Đang tải hình minh họa…')
   })
 
   it('resolves compact media references to the exact approved URL', () => {

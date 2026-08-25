@@ -681,79 +681,70 @@ export function SalesAgentShell() {
       let buffer = ''
       let receivedText = false
       let receivedDone = false
+      const handleStreamPayload = (payload: Record<string, unknown>) => {
+        if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
+          const label = getToolStatusLabel(payload.tool)
+          setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
+        }
+        if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
+          receivedText = receivedText || payload.delta.length > 0
+          setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
+        }
+        if (payload.type === 'text_reset') {
+          receivedText = false
+          setMessages((items) => items.map((item) => item.id === assistantId ? {
+            ...item,
+            content: '',
+            blocks: undefined,
+            actions: undefined,
+            suggestions: undefined,
+          } : item))
+        }
+        if (payload.type === 'view_delta') {
+          const blocks = Array.isArray(payload.blocks) ? payload.blocks as AssistantBlock[] : undefined
+          const actions = Array.isArray(payload.actions) ? payload.actions as SalesAgentAction[] : undefined
+          const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions as SalesAgentSuggestion[] : undefined
+          const interaction = payload.interaction && typeof payload.interaction === 'object'
+            ? payload.interaction as DisplayInteraction
+            : undefined
+          setMessages((items) => items.map((item) => item.id === assistantId ? {
+            ...item,
+            ...(blocks !== undefined ? { blocks } : {}),
+            ...(actions !== undefined ? { actions } : {}),
+            ...(suggestions !== undefined ? { suggestions } : {}),
+            ...(interaction ? { interaction } : {}),
+          } : item))
+        }
+        if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
+          const vm = payload.viewModel as TurnViewModel
+          receivedText = receivedText || Boolean(vm.answer?.markdown)
+          setMessages((items) => items.map((item) => item.id === assistantId ? {
+            ...item,
+            content: vm.answer?.markdown || item.content,
+            blocks: vm.blocks,
+            actions: vm.actions,
+            suggestions: vm.suggestions,
+            interaction: vm.interaction as DisplayInteraction | undefined,
+          } : item))
+        }
+        if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
+        if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
+          setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
+        }
+        if (payload.type === 'done') receivedDone = true
+        if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
+      }
       while (true) {
         const part = await reader.read()
         if (part.done) break
         buffer += decoder.decode(part.value, { stream: true })
-        buffer = parseSseChunk(buffer, (payload) => {
-          if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
-            const label = getToolStatusLabel(payload.tool)
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
-          }
-          if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
-            receivedText = receivedText || payload.delta.length > 0
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
-          }
-          if (payload.type === 'text_reset') {
-            receivedText = false
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: '' } : item))
-          }
-          if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
-            const vm = payload.viewModel as TurnViewModel
-            receivedText = receivedText || Boolean(vm.answer?.markdown)
-            setMessages((items) => items.map((item) => item.id === assistantId ? {
-              ...item,
-              content: vm.answer?.markdown || item.content,
-              blocks: vm.blocks,
-              actions: vm.actions,
-              suggestions: vm.suggestions,
-              interaction: vm.interaction as DisplayInteraction | undefined,
-            } : item))
-          }
-          if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
-          if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
-          }
-          if (payload.type === 'done') receivedDone = true
-          if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
-        })
+        buffer = parseSseChunk(buffer, handleStreamPayload)
       }
       // Flush a final UTF-8 code point and parse the last SSE event even when
       // the stream closes without an extra blank line.
       buffer += decoder.decode()
       if (buffer.trim()) {
-        parseSseChunk(`${buffer}\n\n`, (payload) => {
-          if (payload.type === 'tool_status' && typeof payload.tool === 'string') {
-            const label = getToolStatusLabel(payload.tool)
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, statusText: label } : item))
-          }
-          if (payload.type === 'text_delta' && typeof payload.delta === 'string') {
-            receivedText = receivedText || payload.delta.length > 0
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: item.content + payload.delta } : item))
-          }
-          if (payload.type === 'text_reset') {
-            receivedText = false
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, content: '' } : item))
-          }
-          if (payload.type === 'turn_view' && payload.viewModel && typeof payload.viewModel === 'object') {
-            const vm = payload.viewModel as TurnViewModel
-            receivedText = receivedText || Boolean(vm.answer?.markdown)
-            setMessages((items) => items.map((item) => item.id === assistantId ? {
-              ...item,
-              content: vm.answer?.markdown || item.content,
-              blocks: vm.blocks,
-              actions: vm.actions,
-              suggestions: vm.suggestions,
-              interaction: vm.interaction as DisplayInteraction | undefined,
-            } : item))
-          }
-          if (payload.type === 'meta' && typeof payload.conversationId === 'string') conversationIdRef.current = payload.conversationId
-          if (payload.type === 'interaction' && payload.interaction && typeof payload.interaction === 'object') {
-            setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, interaction: payload.interaction as DisplayInteraction } : item))
-          }
-          if (payload.type === 'done') receivedDone = true
-          if (payload.type === 'error' && typeof payload.message === 'string') throw new Error(payload.message)
-        })
+        parseSseChunk(`${buffer}\n\n`, handleStreamPayload)
       }
       if (!receivedDone || !receivedText) throw new Error('Không nhận được câu trả lời từ agent.')
       setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, pending: false } : item))
@@ -1029,6 +1020,7 @@ export function SalesAgentShell() {
                                 return <KnowledgeCitationBlock key={`block-${idx}`} {...block} />
                               }
                               if (block.kind === 'KNOWLEDGE_MEDIA') {
+                                if (item.pending) return null
                                 const content = item.content || ''
                                 const unreferencedItems = block.items.filter((media) => {
                                   if (!media.url) return true
@@ -1051,7 +1043,7 @@ export function SalesAgentShell() {
                         )}
 
                         {/* Suggestion Chips */}
-                        {item.suggestions && item.suggestions.length > 0 && !item.pending && (
+                        {item.suggestions && item.suggestions.length > 0 && (
                           <SuggestionChips
                             suggestions={item.suggestions}
                             disabled={sending}

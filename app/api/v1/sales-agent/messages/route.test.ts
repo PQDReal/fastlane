@@ -14,6 +14,7 @@ describe('Canonical Sales Agent message API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.SALES_AGENT_ENABLED = 'true'
+    process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED = 'true'
     mocks.runTurn.mockResolvedValue({
       text: 'VF 8 là dòng SUV điện cỡ D cao cấp của VinFast.',
       responsePlan: {
@@ -120,6 +121,63 @@ describe('Canonical Sales Agent message API', () => {
     expect(view).toBeGreaterThan(reset)
     expect(events[view].viewModel.answer.markdown).toBe('Bản trả lời đã chuẩn hóa.')
     expect(events.find((item) => item.type === 'text_delta' && item.provisional === false)?.delta).toBe('Bản trả lời đã chuẩn hóa.')
+  })
+
+  it('streams canonical text, sources and suggestions progressively before turn_view', async () => {
+    process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED = 'false'
+    const markdown = [
+      'VF 8 phù hợp cho nhu cầu di chuyển gia đình và đường dài.',
+      'Xe có không gian rộng, nhiều trang bị hỗ trợ và các lựa chọn phiên bản khác nhau.',
+      'Bạn nên đối chiếu phiên bản, năm sản xuất và chính sách hiện hành trước khi đặt cọc.',
+    ].join(' ')
+    mocks.composeTurnResponse.mockReturnValueOnce({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-progressive',
+      turnId: 'turn-progressive',
+      messageId: 'msg-progressive',
+      answer: { markdown, completeness: 'COMPLETE' },
+      blocks: [{
+        kind: 'FACT_SUMMARY',
+        facts: [
+          { label: 'Nguồn tham chiếu [1]', value: 'Sổ tay VF 8 — Tổng quan' },
+          { label: 'Nguồn tham chiếu [2]', value: 'Sổ tay VF 8 — Vận hành' },
+        ],
+      }],
+      actions: [],
+      suggestions: [
+        { suggestionId: 'sug-price', label: 'Xem giá VF 8' },
+        { suggestionId: 'sug-compare', label: 'So sánh VF 8 và VF 9' },
+      ],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8', locale: 'vi-VN' }),
+    }))
+    const events = (await response.text())
+      .split('\n\n')
+      .filter((chunk) => chunk.startsWith('data: '))
+      .map((chunk) => JSON.parse(chunk.slice(6)) as Record<string, any>)
+    const finalTextEvents = events.filter((item) => item.type === 'text_delta' && item.provisional === false)
+    const sourceCounts = events
+      .filter((item) => item.type === 'view_delta' && Array.isArray(item.blocks))
+      .map((item) => item.blocks.find((block: any) => block.kind === 'FACT_SUMMARY')?.facts.length)
+      .filter((count) => typeof count === 'number')
+    const suggestionCounts = events
+      .filter((item) => item.type === 'view_delta' && Array.isArray(item.suggestions))
+      .map((item) => item.suggestions.length)
+    const firstSuggestion = events.findIndex((item) => item.type === 'view_delta' && item.suggestions?.length === 1)
+    const lastTextDelta = events.findLastIndex((item) => item.type === 'text_delta' && item.provisional === false)
+    const turnView = events.findIndex((item) => item.type === 'turn_view')
+
+    expect(finalTextEvents.length).toBeGreaterThan(2)
+    expect(finalTextEvents.map((item) => item.delta).join('')).toBe(markdown)
+    expect(sourceCounts).toEqual([1, 2])
+    expect(suggestionCounts).toEqual([1, 2])
+    expect(firstSuggestion).toBeGreaterThanOrEqual(0)
+    expect(firstSuggestion).toBeLessThan(lastTextDelta)
+    expect(turnView).toBeGreaterThan(lastTextDelta)
   })
 
   it('rejects empty messages before calling orchestrator', async () => {
