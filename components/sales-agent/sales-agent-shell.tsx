@@ -1,6 +1,6 @@
 'use client'
 
-import { AnimatePresence, motion, useReducedMotion, useDragControls } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowDown, ArrowUp, Bot, CalendarDays, Car, Check, CheckCircle2, ChevronDown, ChevronRight, Loader2, Maximize2, Minimize2, RotateCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import Link from 'next/link'
@@ -347,14 +347,6 @@ export function SalesAgentShell() {
   const position = useSalesAgentStore((state) => state.position)
   const setPosition = useSalesAgentStore((state) => state.setPosition)
 
-  const handleDragEnd = (event: any, info: any) => {
-    setPosition({
-      x: position.x + info.offset.x,
-      y: position.y + info.offset.y,
-    })
-  }
-  const dragControls = useDragControls()
-
   const [isExpanded, setIsExpanded] = useState(false)
 
   const [messages, setMessages] = useState<DisplayMessage[]>([])
@@ -374,30 +366,7 @@ export function SalesAgentShell() {
     setIsMounted(true)
   }, [])
 
-  // Calculate bounds to prevent chat window from going completely off-screen
-  let chatX = isMounted && !isExpanded ? position.x : 0
-  let chatY = isMounted && !isExpanded ? position.y : 0
-  let dragConstraints = { top: 0, bottom: 0, left: 0, right: 0 }
-  if (typeof window !== 'undefined' && !isExpanded && isMounted) {
-    const isDesktop = window.innerWidth >= 768
-    const paddingX = isDesktop ? 16 : 12
-    const paddingY = isDesktop ? 16 : 12
-    const chatWidth = isDesktop ? 420 : window.innerWidth - (paddingX * 2)
-    const chatHeight = isDesktop ? Math.min(680, window.innerHeight - 32) : Math.min(620, window.innerHeight - 24)
 
-    const minY = Math.min(0, -(window.innerHeight - chatHeight - paddingY * 2))
-    const maxY = 0
-    const minX = Math.min(0, -(window.innerWidth - chatWidth - paddingX * 2))
-    const maxX = 0
-
-    dragConstraints = { top: minY, bottom: maxY, left: minX, right: maxX }
-
-    if (chatY < minY) chatY = minY
-    if (chatY > maxY) chatY = maxY
-    
-    if (chatX < minX) chatX = minX
-    if (chatX > maxX) chatX = maxX
-  }
   const reduceMotion = useReducedMotion()
   const conversationIdRef = useRef<string | undefined>(undefined)
   const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null)
@@ -847,17 +816,10 @@ export function SalesAgentShell() {
           default: { duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] },
           layout: { type: 'spring', bounce: 0, duration: 0.25 }
         }}
-        drag={!isExpanded}
-        dragConstraints={dragConstraints}
-        dragControls={dragControls}
-        dragListener={false}
-        dragMomentum={false}
-        onDragEnd={handleDragEnd}
       >
         {/* Header Bar */}
         <div 
-          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0 cursor-grab active:cursor-grabbing"
-          onPointerDown={(e) => dragControls.start(e)}
+          className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white shrink-0"
         >
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-xs">
