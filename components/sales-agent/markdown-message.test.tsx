@@ -148,4 +148,46 @@ describe('MarkdownMessage', () => {
     expect(markup).toContain('Sơ đồ cổng sạc AC Type 2')
     expect(markup).toContain('Lưu ý an toàn')
   })
+
+  it('converts [image:1] tags immediately into a placeholder skeleton frame even without mediaItems', () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Sơ đồ động cơ:\n\n[image:1]\n\nChi tiết công suất.'}
+        streaming
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain('Đang tải hình minh họa…')
+    expect(markup).not.toContain('[image:1]')
+  })
+
+  it('resolves [image: 1] with space to matching media items', () => {
+    const url = 'https://om.vinfastauto.com/vfom/0d/d1a9/1a965/vi/assets/images/item61636_122988.png'
+    const markup = renderToStaticMarkup(
+      <MarkdownMessage
+        content={'Sơ đồ cổng sạc VF 9:\n\n[image: 1]\n\nChi tiết phần AC và DC.'}
+        mediaItems={[
+          {
+            assetId: 'asset-1',
+            annotationId: 'ann-1',
+            title: 'Cổng sạc CCS2',
+            summary: 'Sơ đồ cổng sạc',
+            url,
+            alt: 'Cổng sạc CCS2',
+            mimeType: 'image/png',
+            width: 690,
+            height: 388,
+            safetyCritical: false,
+            citationId: 'cite:vinfast:vf-9',
+            reference: 'media:1',
+          },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('<figure')
+    expect(markup).toContain(`src="${url}"`)
+    expect(markup).not.toContain('[image: 1]')
+  })
 })

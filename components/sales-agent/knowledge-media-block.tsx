@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ImageIcon, ShieldAlert, X } from 'lucide-react'
 import type { AssistantBlock } from '@/lib/sales-agent/contracts'
 
+
 type KnowledgeMediaBlockProps = Extract<AssistantBlock, { kind: 'KNOWLEDGE_MEDIA' }>
 type KnowledgeMediaItem = KnowledgeMediaBlockProps['items'][number]
 
-export function KnowledgeMediaBlock({ title, items }: KnowledgeMediaBlockProps) {
+function KnowledgeMediaBlockImpl({ title, items }: KnowledgeMediaBlockProps) {
   const [selected, setSelected] = useState<KnowledgeMediaItem | null>(null)
 
   useEffect(() => {
@@ -108,3 +109,6 @@ export function KnowledgeMediaBlock({ title, items }: KnowledgeMediaBlockProps) 
     </aside>
   )
 }
+
+export const KnowledgeMediaBlock = React.memo(KnowledgeMediaBlockImpl)
+

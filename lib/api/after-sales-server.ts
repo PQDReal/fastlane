@@ -99,8 +99,11 @@ async function loadPublishedAfterSalesData(): Promise<AfterSalesData> {
       return {
         releaseId: 'dummy',
         publishedAt: new Date().toISOString(),
-        services: [],
-        locations: [],
+        warranties: [],
+        maintenances: [],
+        repairs: [],
+        rescues: [],
+        workshops: [],
       } as any
     }
     console.error(
