@@ -287,7 +287,10 @@ export class HybridHierarchicalRetrievalService {
         tracker.recordVector(Date.now() - vectorStartedAt, vectorCandidates.length)
       }
     } else {
-      const vectorTimeoutMs = Math.max(1, options.vectorTimeoutMs ?? 4_000)
+      // Embedding and the database RPC share this branch. Four seconds was
+      // too short for a normal embedding request plus a cold HNSW RPC, which
+      // made hybrid retrieval degrade even when the indexed query was healthy.
+      const vectorTimeoutMs = Math.max(1, options.vectorTimeoutMs ?? 6_000)
       const runVectorBounded = async () => {
         let timer: ReturnType<typeof setTimeout> | undefined
         try {

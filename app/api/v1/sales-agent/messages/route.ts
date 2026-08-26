@@ -438,7 +438,18 @@ export async function POST(request: Request) {
             },
           }
 
-          const streamed = await streamCanonicalView({ send, viewModel: safeViewModel, signal: request.signal })
+          let firstGuardrailDeltaMs: number | undefined
+          const sendGuardrailEvent = (event: SalesAgentSseEvent) => {
+            if (event.type === 'text_delta' && firstGuardrailDeltaMs === undefined) {
+              firstGuardrailDeltaMs = Date.now() - streamStartedAt
+            }
+            send(event)
+          }
+          const streamed = await streamCanonicalView({
+            send: sendGuardrailEvent,
+            viewModel: safeViewModel,
+            signal: request.signal,
+          })
           if (!streamed) return
           send({ type: 'done', provider: 'guardrail', model: 'defense-pipeline', finishReason: 'stop' })
           recordSalesAgentDebugEvent('turn.completed', debugContext, {
@@ -454,7 +465,8 @@ export async function POST(request: Request) {
             provider: 'guardrail',
             model: 'defense-pipeline',
             finishReason: 'stop',
-            ttftMs: Date.now() - streamStartedAt,
+            ttftMs: firstGuardrailDeltaMs ?? Date.now() - streamStartedAt,
+            firstFinalDeltaMs: firstGuardrailDeltaMs,
             totalMs: Date.now() - streamStartedAt,
             provisionalDeltaCount: 0,
             resetCount: 0,

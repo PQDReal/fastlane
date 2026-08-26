@@ -7,10 +7,11 @@ type PublicInfoPageProps = {
   eyebrow?: string
   title: string
   intro: string
+  maxWidth?: string
   children: React.ReactNode
 }
 
-export function PublicInfoPage({ eyebrow = 'FASTLANE', title, intro, children }: PublicInfoPageProps) {
+export function PublicInfoPage({ eyebrow = 'FASTLANE', title, intro, maxWidth = 'max-w-5xl', children }: PublicInfoPageProps) {
   return (
     <main className="min-h-screen bg-[#f5f6f7] text-slate-900">
       <Header />
@@ -26,7 +27,7 @@ export function PublicInfoPage({ eyebrow = 'FASTLANE', title, intro, children }:
         </div>
       </section>
       <section className="mx-auto max-w-[1440px] px-6 py-12 sm:py-16 lg:px-12 lg:py-20">
-        <div className="mx-auto max-w-5xl">{children}</div>
+        <div className={`mx-auto ${maxWidth}`}>{children}</div>
       </section>
       <Footer />
     </main>

@@ -9,30 +9,15 @@ export const metadata: Metadata = {
   description: 'Thông tin hệ thống showroom và điểm trải nghiệm FASTLANE.',
 }
 
-const regions = [
-  { title: 'Miền Bắc', description: 'Điểm trải nghiệm và tư vấn tại Hà Nội cùng các tỉnh phía Bắc.' },
-  { title: 'Miền Trung', description: 'Hỗ trợ khách hàng tại Đà Nẵng và các tỉnh miền Trung.' },
-  { title: 'Miền Nam', description: 'Showroom và dịch vụ tư vấn tại TP. Hồ Chí Minh cùng các tỉnh phía Nam.' },
-]
-
 export default function ShowroomsPage() {
   return (
     <PublicInfoPage
       eyebrow=""
       title="Hệ thống showroom"
       intro=""
+      maxWidth="max-w-7xl"
     >
       <ShowroomsClient />
-      {/* <div className="grid gap-4 md:grid-cols-3">
-        {regions.map((region) => (
-          <article key={region.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <MapPin className="text-brand-700" size={24} />
-            <h2 className="mt-6 text-xl font-semibold text-slate-950">{region.title}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{region.description}</p>
-            <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-slate-400">Đang cập nhật điểm gần bạn</p>
-          </article>
-        ))}
-      </div> */}
       <div className="mt-12 grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-slate-950 p-7 text-white">
           <Building2 className="text-brand-300" size={25} />

@@ -288,7 +288,7 @@ export async function getSalesAgentLanguageModel(selectedIdOrProvider?: string, 
     : await getDefaultSalesAgentProviderConfig(debugContext)
   if (!config) throw new Error('Provider agent không tồn tại.')
   if (!config.enabled) throw new Error('Provider agent đang được tắt.')
-  return createSalesAgentLanguageModel(config)
+  return createSalesAgentLanguageModel(config, undefined, debugContext)
 }
 
 export async function getAvailableFallbackLanguageModels(primaryProviderOrId?: string, debugContext?: SalesAgentDebugContext): Promise<SalesAgentLanguageModel[]> {
@@ -306,7 +306,7 @@ export async function getAvailableFallbackLanguageModels(primaryProviderOrId?: s
     const customKeys = config.customApiKeys || []
     if (rawKeys.length > 0 || customKeys.length > 0) {
       try {
-        const lm = createSalesAgentLanguageModel(config)
+        const lm = createSalesAgentLanguageModel(config, undefined, debugContext)
         fallbacks.push(lm)
       } catch (error) {
         recordSalesAgentDebugEvent('provider.fallback.initialization.failed', debugContext, {
