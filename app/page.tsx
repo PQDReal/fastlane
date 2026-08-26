@@ -139,11 +139,11 @@ async function loadHomeVehicles(): Promise<HomeVehicle[]> {
       const range = firstText(
         type === 'CAR'
           ? formatCarRange(
-              carAppView.range ||
-                carSpecs.powertrain?.distance ||
-                productSpecifications.range_text ||
-                productSpecifications.range_km,
-            )
+            carAppView.range ||
+            carSpecs.powertrain?.distance ||
+            productSpecifications.range_text ||
+            productSpecifications.range_km,
+          )
           : productSpecifications['Quãng đường đi được mỗi lần sạc'],
         type === 'CAR' ? 'Đang cập nhật' : 'Đang cập nhật',
       )
@@ -160,9 +160,9 @@ async function loadHomeVehicles(): Promise<HomeVehicle[]> {
       const colorNames = type === 'BIKE' && Array.isArray(product.colors)
         ? product.colors
         : firstText(productSpecifications['Màu sắc'], '')
-            .split(/[;,]/)
-            .map((item) => item.trim())
-            .filter(Boolean)
+          .split(/[;,]/)
+          .map((item) => item.trim())
+          .filter(Boolean)
 
       return {
         id: product.id,
@@ -256,7 +256,7 @@ export default async function Home() {
             }}
             className="absolute top-1/2 w-[350px] -translate-y-1/2 lg:w-[550px]"
           >
-            <img src="https://i.ibb.co/kgBZKZgC/404-car.png" alt="FastLane Car" className="h-auto w-full drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]" />
+            <img src="https://res.cloudinary.com/dawbec7mw/image/upload/v1787712098/fastlane/products/404-car_1787712097071.png" alt="FastLane Car" className="h-auto w-full drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]" />
           </MotionDiv>
         </MotionDiv>
 

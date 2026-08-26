@@ -157,21 +157,21 @@ export function VietMapLocationMap({
 
         map.on('zoomend', () => {
           if (map && mapContainerRef.current?.parentElement) {
-             const zoom = map.getZoom()
-             const el = mapContainerRef.current.parentElement
-             
-             if (zoom >= 14) el.classList.add('map-zoomed-in')
-             else el.classList.remove('map-zoomed-in')
+            const zoom = map.getZoom()
+            const el = mapContainerRef.current.parentElement
 
-             if (zoom < 7) el.classList.add('map-zoomed-out')
-             else el.classList.remove('map-zoomed-out')
+            if (zoom >= 14) el.classList.add('map-zoomed-in')
+            else el.classList.remove('map-zoomed-in')
+
+            if (zoom < 7) el.classList.add('map-zoomed-out')
+            else el.classList.remove('map-zoomed-out')
           }
         })
         if (map.getZoom() >= 14) {
-           mapContainerRef.current?.parentElement?.classList.add('map-zoomed-in')
+          mapContainerRef.current?.parentElement?.classList.add('map-zoomed-in')
         }
         if (map.getZoom() < 7) {
-           mapContainerRef.current?.parentElement?.classList.add('map-zoomed-out')
+          mapContainerRef.current?.parentElement?.classList.add('map-zoomed-out')
         }
 
         mapRef.current = map
@@ -224,7 +224,7 @@ export function VietMapLocationMap({
           <div id="marker-${location.id}" class="showroom-marker flex items-center justify-center w-full h-full transition-transform duration-300">
             <div class="marker-dot w-2.5 h-2.5 rounded-full border-[1.5px] border-white shadow-sm" style="background-color: ${borderColor};"></div>
             <div class="marker-image relative w-9 h-9 rounded-full overflow-hidden border-[3px] bg-slate-900 shadow-md" style="border-color: ${borderColor};">
-              <img src="https://i.ibb.co/HfD71Lq2/fastlane-loading.png" alt="Logo" class="w-full h-full object-cover p-1" />
+              <img src="https://res.cloudinary.com/dawbec7mw/image/upload/v1787712193/fastlane/products/fastlane-loading_1787712191879.png" alt="Logo" class="w-full h-full object-cover p-1" />
             </div>
           </div>
         `,
@@ -237,8 +237,8 @@ export function VietMapLocationMap({
         icon: customIcon,
         title: location.name,
       }).bindPopup(createPopupContent(location), { offset: [0, -10], autoPan: false })
-      
-      ;(marker as any).locationId = location.id
+
+        ; (marker as any).locationId = location.id
 
       marker.on('click', () => {
         onSelectLocation?.(location)
@@ -304,7 +304,7 @@ export function VietMapLocationMap({
         }
       `}</style>
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
-      
+
       <button
         onClick={toggleFullscreen}
         className="absolute bottom-6 right-6 z-[400] flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-md transition hover:bg-slate-50 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
