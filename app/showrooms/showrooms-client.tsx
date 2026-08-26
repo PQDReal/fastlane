@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CarFront, Check, ChevronDown, MapPin, Search, Bike, Wrench } from 'lucide-react'
+import { CarFront, Check, ChevronDown, Search, Bike, Wrench } from 'lucide-react'
 import {
   ShowroomLocation,
   VietMapLocationMap,
 } from '@/components/showrooms/vietmap-location-map'
+import { VietmapSearchBox } from '@/components/showrooms/vietmap-search-box'
 import type { Showroom } from '@/lib/showrooms/types'
 
 function normalizeProvinceName(value: string | null | undefined) {
@@ -35,6 +36,7 @@ export function ShowroomsClient() {
   const [provinceId, setProvinceId] = useState('')
   const [categories, setCategories] = useState<Array<ShowroomLocation['category']>>(['car', 'motorbike', 'workshop'])
   const [selectedLocation, setSelectedLocation] = useState<ShowroomLocation | null>(null)
+  const [searchedLocation, setSearchedLocation] = useState<{ lat: number; lng: number; address: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -115,12 +117,20 @@ export function ShowroomsClient() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">Tìm địa điểm</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950">Showroom & điểm dịch vụ</h2>
           </div>
-          <MapPin className="mt-1 text-brand-700" size={23} />
         </div>
 
-        <label className="relative mt-6 block">
-          <span className="sr-only">Tìm theo tên hoặc địa chỉ</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <div className="mt-6">
+          <VietmapSearchBox onSelect={(location) => {
+            setSearchedLocation(location)
+            setSelectedLocation(null)
+          }} />
+        </div>
+
+        <div className="mt-6 border-t border-slate-100 pt-6">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.1em] text-brand-700">Lọc danh sách showroom</p>
+          <label className="relative mt-2 block">
+            <span className="sr-only">Lọc theo tên hoặc địa chỉ</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             value={keyword}
             onChange={(event) => {
@@ -157,7 +167,6 @@ export function ShowroomsClient() {
               { value: 'workshop' as const, label: 'Xưởng dịch vụ', icon: Wrench },
             ].map(({ value, label, icon: Icon }) => {
               const checked = categories.includes(value)
-              const isWorkshop = value === 'workshop'
               return (
                 <button
                   key={value}
@@ -186,6 +195,7 @@ export function ShowroomsClient() {
             Xóa bộ lọc
           </button>
         </div>
+        </div>
 
         <div className="mt-4 max-h-[350px] space-y-2 overflow-y-auto pr-1 lg:max-h-[390px]">
           {loading && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Đang tải dữ liệu showroom...</p>}
@@ -206,7 +216,7 @@ export function ShowroomsClient() {
         </div>
       </aside>
 
-      <VietMapLocationMap locations={filteredLocations} selectedLocation={selectedLocation} onSelectLocation={setSelectedLocation} />
+      <VietMapLocationMap locations={filteredLocations} selectedLocation={selectedLocation} searchedLocation={searchedLocation} onSelectLocation={setSelectedLocation} />
     </div>
   )
 }
