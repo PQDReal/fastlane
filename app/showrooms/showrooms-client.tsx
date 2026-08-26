@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CarFront, Check, ChevronDown, MapPin, Search, Bike } from 'lucide-react'
+import { CarFront, Check, ChevronDown, MapPin, Search, Bike, Wrench } from 'lucide-react'
 import {
   ShowroomLocation,
   VietMapLocationMap,
@@ -33,16 +33,40 @@ export function ShowroomsClient() {
   const [error, setError] = useState<string | null>(null)
   const [keyword, setKeyword] = useState('')
   const [provinceId, setProvinceId] = useState('')
-  const [categories, setCategories] = useState<Array<ShowroomLocation['category']>>(['car', 'motorbike'])
+  const [categories, setCategories] = useState<Array<ShowroomLocation['category']>>(['car', 'motorbike', 'workshop'])
   const [selectedLocation, setSelectedLocation] = useState<ShowroomLocation | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    void fetch('/api/v1/showrooms', { cache: 'no-store' })
-      .then(async (response) => {
-        const payload = await response.json() as { data?: Showroom[]; error?: { message?: string } }
-        if (!response.ok) throw new Error(payload.error?.message || 'Không thể tải danh sách showroom.')
-        if (!cancelled) setLocations((payload.data ?? []).map(toLocation))
+    void Promise.all([
+      fetch('/api/v1/showrooms', { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/v1/after-sales/workshops', { cache: 'no-store' }).then(r => r.json())
+    ])
+      .then(([showroomsPayload, workshopsPayload]) => {
+        if (cancelled) return
+        
+        let allLocations: ShowroomLocation[] = []
+        
+        if (showroomsPayload.data) {
+          allLocations = allLocations.concat(showroomsPayload.data.map(toLocation))
+        }
+        
+        if (workshopsPayload.success && Array.isArray(workshopsPayload.data)) {
+          const workshops: ShowroomLocation[] = workshopsPayload.data.map((workshop: any) => ({
+            id: `ws-${workshop.id}`,
+            name: workshop.name,
+            address: workshop.address,
+            lat: workshop.latitude ?? 0,
+            lng: workshop.longitude ?? 0,
+            hotline: workshop.phone,
+            category: 'workshop',
+            provinceId: normalizeProvinceName(workshop.city) || workshop.city,
+            provinceName: workshop.city,
+          }))
+          allLocations = allLocations.concat(workshops)
+        }
+        
+        setLocations(allLocations)
       })
       .catch((reason: unknown) => {
         if (!cancelled) setError(reason instanceof Error ? reason.message : 'Không thể tải danh sách showroom.')
@@ -84,7 +108,7 @@ export function ShowroomsClient() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="grid gap-5 items-start lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -130,8 +154,10 @@ export function ShowroomsClient() {
             {[
               { value: 'car' as const, label: 'Showroom ô tô', icon: CarFront },
               { value: 'motorbike' as const, label: 'Showroom xe máy điện', icon: Bike },
+              { value: 'workshop' as const, label: 'Xưởng dịch vụ', icon: Wrench },
             ].map(({ value, label, icon: Icon }) => {
               const checked = categories.includes(value)
+              const isWorkshop = value === 'workshop'
               return (
                 <button
                   key={value}
@@ -154,7 +180,7 @@ export function ShowroomsClient() {
         <div className="mt-7 flex items-center justify-start border-t border-slate-100 pt-5">
           <button
             type="button"
-            onClick={() => { setKeyword(''); setProvinceId(''); setCategories(['car', 'motorbike']); setSelectedLocation(null) }}
+            onClick={() => { setKeyword(''); setProvinceId(''); setCategories(['car', 'motorbike', 'workshop']); setSelectedLocation(null) }}
             className="text-xs font-semibold text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             Xóa bộ lọc
