@@ -20,8 +20,29 @@ export function VietmapSearchBox({
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  
+  const [apiKey, setApiKey] = useState<string | null | undefined>(
+    process.env.NEXT_PUBLIC_VIETMAP_SEARCH_API_KEY || process.env.NEXT_PUBLIC_VIETMAP_API_KEY || undefined
+  )
 
-  const apiKey = process.env.NEXT_PUBLIC_VIETMAP_SEARCH_API_KEY || process.env.NEXT_PUBLIC_VIETMAP_API_KEY
+  useEffect(() => {
+    if (apiKey !== undefined) return
+    let cancelled = false
+
+    void fetch('/api/v1/maps/vietmap-config', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = (await response.json()) as { data?: { searchApiKey?: string | null } }
+        if (!response.ok) throw new Error('Không thể đọc cấu hình VietMap.')
+        if (!cancelled) setApiKey(payload.data?.searchApiKey?.trim() || null)
+      })
+      .catch((error) => {
+        if (!cancelled) setApiKey(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiKey])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
