@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Maximize, Minimize } from 'lucide-react'
+import { Maximize, Minimize, Navigation, Loader2 } from 'lucide-react'
 import type {
   Marker as LeafletMarker,
   Map as LeafletMap,
@@ -55,10 +55,12 @@ function createPopupContent(location: ShowroomLocation) {
 export function VietMapLocationMap({
   locations,
   selectedLocation,
+  searchedLocation,
   onSelectLocation,
 }: {
   locations: ShowroomLocation[]
   selectedLocation: ShowroomLocation | null
+  searchedLocation?: { lat: number; lng: number; address: string } | null
   onSelectLocation?: (location: ShowroomLocation) => void
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -73,6 +75,56 @@ export function VietMapLocationMap({
   const [apiKey, setApiKey] = useState<string | null | undefined>(
     process.env.NEXT_PUBLIC_VIETMAP_API_KEY || undefined
   )
+  const [isLocating, setIsLocating] = useState(false)
+  const userMarkerRef = useRef<LeafletMarker | null>(null)
+  const searchedMarkerRef = useRef<LeafletMarker | null>(null)
+
+  const locateUser = () => {
+    if (!navigator.geolocation) {
+      setMapError('Trình duyệt không hỗ trợ định vị.')
+      return
+    }
+
+    setIsLocating(true)
+    setMapError(null)
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false)
+        const { latitude, longitude } = position.coords
+        
+        if (mapRef.current && leafletRef.current) {
+          const map = mapRef.current
+          const leaflet = leafletRef.current
+          
+          if (!userMarkerRef.current) {
+             const userIcon = leaflet.divIcon({
+                className: 'bg-transparent border-0',
+                html: '<div class="w-4 h-4 bg-red-500 border-2 border-white rounded-full shadow-[0_0_0_4px_rgba(239,68,68,0.3)] animate-pulse"></div>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+             })
+             userMarkerRef.current = leaflet.marker([latitude, longitude], { icon: userIcon, zIndexOffset: 1000 }).addTo(map)
+             userMarkerRef.current.bindPopup('<div class="text-sm font-medium py-1">Vị trí của bạn</div>')
+          } else {
+             userMarkerRef.current.setLatLng([latitude, longitude])
+          }
+          
+          map.setView([latitude, longitude], 14, { animate: true })
+        }
+      },
+      (error) => {
+        setIsLocating(false)
+        console.error('Lỗi định vị:', error)
+        if (error.code === error.PERMISSION_DENIED) {
+           setMapError('Vui lòng cấp quyền truy cập vị trí để sử dụng tính năng này.')
+        } else {
+           setMapError('Không thể lấy vị trí hiện tại.')
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  }
 
   useEffect(() => {
     if (apiKey !== undefined) return
@@ -289,6 +341,28 @@ export function VietMapLocationMap({
     }
   }, [selectedLocation, locations])
 
+  useEffect(() => {
+    if (!searchedLocation || !mapRef.current || !leafletRef.current) return
+    const map = mapRef.current
+    const leaflet = leafletRef.current
+
+    if (!searchedMarkerRef.current) {
+      const icon = leaflet.divIcon({
+        className: 'bg-transparent border-0',
+        html: '<div class="flex items-center justify-center w-8 h-8 bg-brand-500 text-white rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      })
+      searchedMarkerRef.current = leaflet.marker([searchedLocation.lat, searchedLocation.lng], { icon, zIndexOffset: 1000 }).addTo(map)
+    } else {
+      searchedMarkerRef.current.setLatLng([searchedLocation.lat, searchedLocation.lng])
+    }
+    
+    searchedMarkerRef.current.bindPopup(`<div class="text-sm font-medium py-1">${searchedLocation.address}</div>`).openPopup()
+    map.setView([searchedLocation.lat, searchedLocation.lng], 14, { animate: true })
+  }, [searchedLocation])
+
   return (
     <div ref={wrapperRef} className={`relative overflow-hidden bg-slate-100 ${isFullscreen ? 'h-screen w-screen rounded-none border-none' : 'h-[500px] rounded-2xl border border-slate-200 shadow-sm lg:h-[720px]'}`}>
       <style>{`
@@ -308,13 +382,23 @@ export function VietMapLocationMap({
       `}</style>
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-      <button
-        onClick={toggleFullscreen}
-        className="absolute bottom-6 right-6 z-[400] flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-md transition hover:bg-slate-50 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-        aria-label={isFullscreen ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
-      >
-        {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
-      </button>
+      <div className="absolute bottom-6 right-6 z-[400] flex flex-col gap-2">
+        <button
+          onClick={locateUser}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-md transition hover:bg-slate-50 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          title="Vị trí của tôi"
+          aria-label="Vị trí của tôi"
+        >
+          {isLocating ? <Loader2 size={20} className="animate-spin" /> : <Navigation size={20} />}
+        </button>
+        <button
+          onClick={toggleFullscreen}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-md transition hover:bg-slate-50 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          aria-label={isFullscreen ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
+        >
+          {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+        </button>
+      </div>
       {apiKey !== null && !mapReady && !mapError && (
         <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-100/90 p-6 text-center text-sm text-slate-600">
           Đang tải bản đồ VietMap...
