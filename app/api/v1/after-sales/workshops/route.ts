@@ -6,7 +6,7 @@ export const revalidate = 300
 
 export async function GET(request: Request) {
   const vehicle = new URL(request.url).searchParams.get('vehicle')
-  if (vehicle !== 'car' && vehicle !== 'motorbike') {
+  if (vehicle && vehicle !== 'car' && vehicle !== 'motorbike') {
     return NextResponse.json(
       { success: false, message: 'Loại xe không hợp lệ.' },
       { status: 400 },
@@ -15,7 +15,9 @@ export async function GET(request: Request) {
 
   try {
     const data = await getAfterSalesData()
-    const workshops = data.workshops.filter((workshop) => workshop.services.includes(vehicle))
+    const workshops = vehicle
+      ? data.workshops.filter((workshop) => workshop.services.includes(vehicle as any))
+      : data.workshops
 
     return NextResponse.json({
       success: true,

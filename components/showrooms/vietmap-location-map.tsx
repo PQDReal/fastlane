@@ -14,7 +14,7 @@ export type ShowroomLocation = {
   lat: number
   lng: number
   hotline?: string
-  category: 'car' | 'motorbike'
+  category: 'car' | 'motorbike' | 'workshop'
   provinceId?: string
   provinceName?: string
 }
@@ -70,9 +70,12 @@ export function VietMapLocationMap({
   const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [apiKey, setApiKey] = useState<string | null | undefined>(undefined)
+  const [apiKey, setApiKey] = useState<string | null | undefined>(
+    process.env.NEXT_PUBLIC_VIETMAP_API_KEY || undefined
+  )
 
   useEffect(() => {
+    if (apiKey !== undefined) return
     let cancelled = false
 
     void fetch('/api/v1/maps/vietmap-config', { cache: 'no-store' })
@@ -91,7 +94,7 @@ export function VietMapLocationMap({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [apiKey])
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -217,7 +220,7 @@ export function VietMapLocationMap({
     }
 
     locations.forEach((location) => {
-      const borderColor = location.category === 'car' ? '#1769e0' : '#c38d00'
+      const borderColor = location.category === 'car' ? '#1769e0' : location.category === 'motorbike' ? '#c38d00' : '#16a34a'
       const customIcon = leaflet.divIcon({
         className: 'bg-transparent border-0 cursor-pointer',
         html: `
@@ -287,7 +290,7 @@ export function VietMapLocationMap({
   }, [selectedLocation, locations])
 
   return (
-    <div ref={wrapperRef} className={`relative overflow-hidden bg-slate-100 ${isFullscreen ? 'h-screen w-screen rounded-none border-none' : 'min-h-[460px] rounded-2xl border border-slate-200 shadow-sm lg:min-h-[680px]'}`}>
+    <div ref={wrapperRef} className={`relative overflow-hidden bg-slate-100 ${isFullscreen ? 'h-screen w-screen rounded-none border-none' : 'h-[500px] rounded-2xl border border-slate-200 shadow-sm lg:h-[720px]'}`}>
       <style>{`
         .leaflet-tile-pane { filter: grayscale(100%); opacity: 0.8; }
         .showroom-marker .marker-image { display: none; }
