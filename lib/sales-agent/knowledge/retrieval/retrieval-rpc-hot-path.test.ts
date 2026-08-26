@@ -88,7 +88,7 @@ describe('retrieval RPC hot paths', () => {
     )
   })
 
-  it('keeps exact vector search for selective scopes', async () => {
+  it('uses the HNSW filtered vector search for selective scopes', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [rpcRow], error: null })
     const embeddingProvider = {
       generateEmbeddings: vi.fn().mockResolvedValue({
@@ -108,8 +108,8 @@ describe('retrieval RPC hot paths', () => {
 
     expect(results).toHaveLength(1)
     expect(rpc).toHaveBeenCalledWith(
-      'sales_agent_search_knowledge_vector',
-      expect.not.objectContaining({ p_candidate_limit: expect.anything() })
+      'sales_agent_search_knowledge_vector_hnsw_filtered',
+      expect.objectContaining({ p_candidate_limit: 100, p_vehicle_model: 'VF 8', p_model_year: 2023 })
     )
   })
 

@@ -175,18 +175,25 @@ export class VectorCandidateAdapter {
               || filters.category
               || (filters.vehicleType && filters.vehicleType !== 'ALL')
           )
-          let { data, error } = hasSelectiveScope
-            ? await runRpc('sales_agent_search_knowledge_vector', commonParams)
-            : await runRpc('sales_agent_search_knowledge_vector_hnsw', {
-                ...commonParams,
-                p_candidate_limit: candidateLimit,
-              })
+          const primaryRpc = hasSelectiveScope
+            ? 'sales_agent_search_knowledge_vector_hnsw_filtered'
+            : 'sales_agent_search_knowledge_vector_hnsw'
+
+          let { data, error } = await runRpc(primaryRpc, {
+            ...commonParams,
+            p_candidate_limit: candidateLimit,
+          })
 
           // Deploys may briefly run application code before PostgREST refreshes
-          // the new broad-query function. Preserve availability with the
-          // previous exact RPC only for a missing-function/schema-cache error.
-          if (!hasSelectiveScope && error && isMissingRpc(error)) {
-            const fallback = await runRpc('sales_agent_search_knowledge_vector', commonParams)
+          // the new filtered function. Fall back smoothly if needed.
+          if (error && isMissingRpc(error)) {
+            const fallbackRpc = hasSelectiveScope
+              ? 'sales_agent_search_knowledge_vector_hnsw'
+              : 'sales_agent_search_knowledge_vector'
+            const fallbackParams = fallbackRpc === 'sales_agent_search_knowledge_vector'
+              ? commonParams
+              : { ...commonParams, p_candidate_limit: candidateLimit }
+            const fallback = await runRpc(fallbackRpc, fallbackParams)
             data = fallback.data
             error = fallback.error
           }

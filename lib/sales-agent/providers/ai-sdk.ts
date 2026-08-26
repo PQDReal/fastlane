@@ -7,8 +7,10 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
 
+import { type SalesAgentDebugContext } from '../debug-log'
 import type { SalesAgentProviderConfig } from './types'
 import { apiKeyPoolManager } from './key-pool'
+import { createObservedProviderFetch } from './observed-fetch'
 
 export type SalesAgentLanguageModel = {
   model: LanguageModel
@@ -16,6 +18,7 @@ export type SalesAgentLanguageModel = {
   modelId: string
   config: SalesAgentProviderConfig
   usedApiKey: string
+  setActiveProviderCallKey?: (modelCallKey: string | undefined) => void
 }
 
 /**
@@ -26,18 +29,21 @@ export type SalesAgentLanguageModel = {
 export function createSalesAgentLanguageModel(
   config: SalesAgentProviderConfig,
   explicitApiKey?: string,
+  debugContext?: SalesAgentDebugContext,
 ): SalesAgentLanguageModel {
   const apiKey = explicitApiKey || apiKeyPoolManager.getNextKey(config.provider, config.apiKeyEnv)
+  const observedFetch = createObservedProviderFetch({ config, debugContext })
 
   switch (config.provider) {
     case 'openai': {
-      const provider = createOpenAI({ apiKey, baseURL: config.baseUrl })
+      const provider = createOpenAI({ apiKey, baseURL: config.baseUrl, fetch: observedFetch })
       return {
         model: provider.responses(config.model),
         provider: config.provider,
         modelId: config.model,
         config,
         usedApiKey: apiKey,
+        setActiveProviderCallKey: observedFetch.setActiveModelCallKey,
       }
     }
     case 'anthropic': {
@@ -48,6 +54,7 @@ export function createSalesAgentLanguageModel(
         modelId: config.model,
         config,
         usedApiKey: apiKey,
+        setActiveProviderCallKey: observedFetch.setActiveModelCallKey,
       }
     }
     case 'gemini': {
@@ -71,7 +78,7 @@ export function createSalesAgentLanguageModel(
       }
     }
     case 'openai-compatible': {
-      const provider = createOpenAICompatible({ apiKey, baseURL: config.baseUrl, name: 'fastlane-openai-compatible' })
+      const provider = createOpenAICompatible({ apiKey, baseURL: config.baseUrl, name: 'fastlane-openai-compatible', fetch: observedFetch })
       return {
         model: provider.chatModel(config.model),
         provider: config.provider,
