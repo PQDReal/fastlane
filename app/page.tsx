@@ -271,10 +271,10 @@ export default async function Home() {
           />
 
           <MotionDiv
-            initial={{ opacity: 0, filter: 'blur(8px)', y: 24 }}
-            whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+            initial={{ opacity: 0, filter: 'blur(8px)', x: -300 }}
+            whileInView={{ opacity: 1, filter: 'blur(0px)', x: 0 }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8, delay: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 1.5, delay: 0.2, ease: 'easeOut' }}
             className="relative grid gap-14 lg:grid-cols-[1.15fr_0.85fr] lg:items-end"
           >
             <div>
