@@ -353,9 +353,6 @@ describe('Canonical Response Composer', () => {
       dataAsOf: readAt,
       outcome: 'SUCCESS',
       completeness: 'FULL',
-      data: null,
-      issues: [],
-      appliedBindings: [],
       evidence: [{
         evidenceId: `ev-kb-${chunkId}-${readAt}`,
         source: { system: 'SUPABASE', resource: 'knowledge_chunks' },

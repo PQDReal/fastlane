@@ -251,6 +251,143 @@ describe('runTurn budgets and finalization', () => {
     expect(JSON.stringify(modelToolResult)).not.toContain('Phần hiển thị khác không liên quan')
   })
 
+  it('keeps large catalog payloads compact in the model-facing tool result', async () => {
+    mocks.executeDataTool.mockResolvedValue({
+      schemaVersion: '2.0',
+      toolCallId: 'call-product-details',
+      tool: 'get_product_details',
+      readAt: new Date().toISOString(),
+      dataAsOf: new Date().toISOString(),
+      evidence: [],
+      observation: {
+        observationId: 'obs-product-details',
+        toolCallId: 'call-product-details',
+        outcome: 'SUCCESS',
+        issueCodes: [],
+        inputHash: '{}',
+        readAt: new Date().toISOString(),
+      },
+      issues: [],
+      appliedBindings: [],
+      outcome: 'SUCCESS',
+      completeness: 'FULL',
+      data: {
+        products: [{
+          productId: 'prod-vf8',
+          name: 'VinFast VF 8',
+          productType: 'CAR',
+          description: 'Mô tả dài không cần đưa nguyên văn vào prompt.',
+          pricing: { from: 898000000, to: 1091000000, currency: 'VND' },
+          specs: {
+            battery_capacity_kwh: { displayValue: '87.7 kWh', rawValue: '87.7 kWh', factRef: 'fact-secret' },
+          },
+          variants: [{ id: 'variant-1', name: 'VF 8 Eco', sku: 'CAR-1', price: 898000000, isActive: true }],
+        }],
+      },
+    })
+
+    let modelToolResult: unknown
+    mocks.streamText.mockImplementation((options) => ({
+      ...completedStream(),
+      text: (async () => {
+        modelToolResult = await options.tools.get_product_details.execute({ productIds: ['prod-vf8'] })
+        return 'Giá VF 8 hiện có trong dữ liệu đã xác minh.'
+      })(),
+    }))
+
+    await runTurn({ input: { kind: 'USER_MESSAGE', text: 'Giá VinFast VF 8' } })
+
+    expect(modelToolResult).toMatchObject({
+      outcome: 'SUCCESS',
+      data: {
+        products: [{
+          id: 'prod-vf8',
+          name: 'VinFast VF 8',
+          pricing: { from: 898000000, to: 1091000000, currency: 'VND' },
+          specs: { battery_capacity_kwh: '87.7 kWh' },
+          variantCount: 1,
+          variants: [{ name: 'VF 8 Eco', code: 'CAR-1', price: 898000000 }],
+        }],
+      },
+    })
+    expect(JSON.stringify(modelToolResult)).not.toContain('fact-secret')
+    expect(JSON.stringify(modelToolResult)).not.toContain('Mô tả dài')
+  })
+
+  it('removes redundant unavailable comparison rows from the model-facing tool result', async () => {
+    mocks.executeDataTool.mockResolvedValue({
+      schemaVersion: '2.0',
+      toolCallId: 'call-compare-products',
+      tool: 'compare_products',
+      readAt: new Date().toISOString(),
+      dataAsOf: new Date().toISOString(),
+      evidence: [],
+      observation: {
+        observationId: 'obs-compare-products',
+        toolCallId: 'call-compare-products',
+        outcome: 'SUCCESS',
+        issueCodes: [],
+        inputHash: '{}',
+        readAt: new Date().toISOString(),
+      },
+      issues: [],
+      outcome: 'SUCCESS',
+      completeness: 'FULL',
+      data: {
+        products: [
+          { productId: 'vf6', name: 'VinFast VF 6', productType: 'CAR', price: 646000000 },
+          { productId: 'vf7', name: 'VinFast VF 7', productType: 'CAR', price: 740000000 },
+        ],
+        rows: [
+          {
+            criterion: 'price',
+            label: 'Giá khởi điểm',
+            unit: 'VNĐ',
+            values: [
+              { productId: 'vf6', productName: 'VinFast VF 6', value: '646.000.000 VNĐ', factRef: 'fact-price-vf6' },
+              { productId: 'vf7', productName: 'VinFast VF 7', value: '740.000.000 VNĐ', factRef: 'fact-price-vf7' },
+            ],
+          },
+          {
+            criterion: 'range',
+            label: 'Tầm hoạt động',
+            values: [
+              { productId: 'vf6', productName: 'VinFast VF 6', value: 'Chưa cập nhật', factRef: 'fact-range-vf6' },
+              { productId: 'vf7', productName: 'VinFast VF 7', value: 'Chưa cập nhật', factRef: 'fact-range-vf7' },
+            ],
+          },
+        ],
+        highlights: [],
+      },
+    })
+
+    let modelToolResult: any
+    mocks.streamText.mockImplementation((options) => ({
+      ...completedStream(),
+      text: (async () => {
+        modelToolResult = await options.tools.compare_products.execute({
+          productMentions: ['VinFast VF 6', 'VinFast VF 7'],
+          criteria: ['Giá bán', 'Tầm hoạt động'],
+        })
+        return 'Đã tổng hợp so sánh.'
+      })(),
+    }))
+
+    await runTurn({ input: { kind: 'USER_MESSAGE', text: 'So sánh VF 6 và VF 7' } })
+
+    expect(modelToolResult).toMatchObject({
+      outcome: 'SUCCESS',
+      data: {
+        rows: [{
+          criterion: 'price',
+          values: [{ productId: 'vf6' }, { productId: 'vf7' }],
+        }],
+        unavailableCriteria: ['Tầm hoạt động'],
+      },
+    })
+    expect(modelToolResult.data.rows[0].values[0]).not.toHaveProperty('productName')
+  })
+
   it('logs retrieval phase diagnostics without exposing them to the model', async () => {
     mocks.isKnowledgeEnabled.mockReturnValue(true)
     mocks.executeDataTool.mockResolvedValue({

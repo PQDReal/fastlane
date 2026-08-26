@@ -95,6 +95,119 @@ function visualUsageHint(reference: string, labels: unknown) {
   return `Nếu ảnh giúp làm rõ thao tác, chèn [${reference}] gần câu liên quan; không tự tạo hoặc suy đoán ký hiệu.`
 }
 
+function compactProductForModel(product: any): Record<string, unknown> {
+  const specs = product?.specs && typeof product.specs === 'object' && !Array.isArray(product.specs)
+    ? Object.fromEntries(
+      Object.entries(product.specs)
+        .map(([key, value]: [string, any]) => {
+          const compactValue = value && typeof value === 'object'
+            ? (value.displayValue ?? value.rawValue ?? value.value ?? value.label)
+            : value
+          return [key, compactValue]
+        })
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .slice(0, 24),
+    )
+    : undefined
+
+  const variants = Array.isArray(product?.variants)
+    ? product.variants.slice(0, 24).map((variant: any) => ({
+      id: variant?.id,
+      name: variant?.name,
+      code: variant?.code ?? variant?.sku,
+      price: variant?.price,
+      monthlyPrice: variant?.monthlyPrice,
+      isActive: variant?.isActive,
+    }))
+    : undefined
+
+  return {
+    id: product?.id ?? product?.productId,
+    name: product?.name,
+    slug: product?.slug,
+    productType: product?.productType,
+    url: product?.url,
+    thumbnailUrl: product?.thumbnailUrl,
+    price: product?.price,
+    pricing: product?.pricing,
+    ...(specs && Object.keys(specs).length > 0 ? { specs } : {}),
+    ...(variants ? { variantCount: product.variants.length, variants } : {}),
+  }
+}
+
+function compactAccessoryForModel(item: any): Record<string, unknown> {
+  const facts = item?.facts && typeof item.facts === 'object' && !Array.isArray(item.facts)
+    ? Object.fromEntries(
+      Object.entries(item.facts)
+        .map(([key, value]) => [key, typeof value === 'string' ? value.slice(0, 320) : value])
+        .slice(0, 4),
+    )
+    : undefined
+
+  return {
+    id: item?.id ?? item?.productId,
+    name: item?.name,
+    slug: item?.slug,
+    url: item?.url,
+    price: item?.price,
+    isActive: item?.isActive,
+    associationStatus: item?.associationStatus,
+    ...(facts && Object.keys(facts).length > 0 ? { facts } : {}),
+  }
+}
+
+function isUnavailableCompareValue(value: unknown) {
+  if (value == null) return true
+  const normalized = String(value).trim().toLowerCase()
+  return normalized === ''
+    || normalized === 'chưa cập nhật'
+    || normalized === 'chưa có dữ liệu'
+    || normalized === 'không có dữ liệu'
+    || normalized === 'n/a'
+    || normalized === 'na'
+    || normalized === 'unknown'
+    || normalized === 'not available'
+}
+
+function compactCompareForModel(data: any) {
+  const rows = Array.isArray(data?.rows) ? data.rows.slice(0, 12) : []
+  const compactRows: Array<Record<string, unknown>> = []
+  const unavailableCriteria: string[] = []
+
+  for (const row of rows) {
+    const values = Array.isArray(row?.values) ? row.values.slice(0, 6) : []
+    const availableValues = values
+      .filter((value: any) => !isUnavailableCompareValue(value?.value))
+      .map((value: any) => ({
+        productId: value?.productId,
+        value: typeof value?.value === 'string' ? value.value.slice(0, 240) : value?.value,
+        factRef: value?.factRef,
+      }))
+
+    if (availableValues.length === 0) {
+      const criterion = row?.label ?? row?.criterion
+      if (typeof criterion === 'string' && criterion.trim()) unavailableCriteria.push(criterion.trim())
+      continue
+    }
+
+    compactRows.push({
+      criterion: row?.criterion,
+      label: row?.label,
+      unit: row?.unit,
+      values: availableValues,
+    })
+  }
+
+  return {
+    products: Array.isArray(data?.products)
+      ? data.products.slice(0, 4).map((product: any) => compactProductForModel(product))
+      : data?.products,
+    rows: compactRows,
+    ...(unavailableCriteria.length > 0 ? { unavailableCriteria } : {}),
+    highlights: Array.isArray(data?.highlights) ? data.highlights.slice(0, 8) : data?.highlights,
+  }
+}
+
 function summarizeToolData(toolName: string, data: any, forModel = false): unknown {
   if (!data) return null
   if (toolName === 'browse_catalog' && Array.isArray(data.items)) {
@@ -110,10 +223,20 @@ function summarizeToolData(toolName: string, data: any, forModel = false): unkno
     }
   }
   if (toolName === 'get_product_details' && Array.isArray(data.products)) {
-    return { products: data.products.slice(0, 3) }
+    return {
+      products: data.products.slice(0, 3).map((product: any) => (
+        forModel ? compactProductForModel(product) : product
+      )),
+    }
   }
   if (toolName === 'compare_products') {
-    return { products: data.products, rows: data.rows, highlights: data.highlights }
+    return forModel
+      ? compactCompareForModel(data)
+      : {
+          products: data.products,
+          rows: data.rows,
+          highlights: data.highlights,
+        }
   }
   if (toolName === 'search_knowledge' && Array.isArray(data.snippets)) {
     const mediaReferences = new Map<string, string>()
@@ -163,7 +286,11 @@ function summarizeToolData(toolName: string, data: any, forModel = false): unkno
     return { promotions: data.promotions.slice(0, 8) }
   }
   if (toolName === 'discover_accessories' && Array.isArray(data.items)) {
-    return { items: data.items.slice(0, 8) }
+    return {
+      items: data.items.slice(0, 8).map((item: any) => (
+        forModel ? compactAccessoryForModel(item) : item
+      )),
+    }
   }
   return { dataType: typeof data }
 }
@@ -467,6 +594,9 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
 
   let toolCallsCount = 0
   let toolCallSequence = 0
+  let activeModelAttempt = 0
+  let activeModelStep: number | undefined
+  let activeModelStepStartedAt: number | undefined
   const executedToolCounts = new Map<DataToolName, number>()
   const providerInitStartedAt = Date.now()
   let lm: SalesAgentLanguageModel
@@ -489,6 +619,9 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
     recordSalesAgentDebugEvent('tool.completed', options.context, {
       tool: toolName,
       toolCallId: result.toolCallId,
+      modelAttempt: activeModelAttempt || undefined,
+      modelStep: activeModelStep,
+      stepElapsedMs: activeModelStepStartedAt == null ? undefined : Date.now() - activeModelStepStartedAt,
       durationMs,
       outcome: result.outcome,
       completeness: result.outcome === 'SUCCESS' ? result.completeness : undefined,
@@ -543,6 +676,9 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         recordSalesAgentDebugEvent('tool.requested', options.context, {
           tool: toolName,
           toolCallId,
+          modelAttempt: activeModelAttempt || undefined,
+          modelStep: activeModelStep,
+          stepElapsedMs: activeModelStepStartedAt == null ? undefined : Date.now() - activeModelStepStartedAt,
           rawInput: input,
           effectiveInput: bindingResult.effectiveInput,
           hasConflict: Boolean(bindingResult.conflict),
@@ -608,9 +744,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         return {
           outcome: result.outcome,
           completeness: result.outcome === 'SUCCESS' ? result.completeness : undefined,
-            data: toolName === 'search_knowledge'
-              ? summarizeToolData(toolName, result.data, true)
-            : result.data,
+          data: summarizeToolData(toolName, result.data, true),
           issues: result.issues,
         }
       },
@@ -663,6 +797,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
   let completedModel = lm.modelId
   let streamAttempt = 0
   let provisionalDeltaCount = 0
+  let providerCallSequence = 0
   const providerAttempts: Array<{
     attempt: number
     provider: string
@@ -688,7 +823,7 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
 
       const currentModel = keyAttempt === 0
         ? activeModel
-        : createSalesAgentLanguageModel(activeModel.config)
+        : createSalesAgentLanguageModel(activeModel.config, undefined, options.context)
       const priorEvidence = evidence.getAllToolResults().length > 0
       const forceFinalFromStart = priorEvidence && (keyAttempt > 0 || activeModel !== lm)
       const evidenceContext = modelEvidenceContext(evidence)
@@ -697,6 +832,9 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
         : baseMessages
 
       const attempt = ++streamAttempt
+      activeModelAttempt = attempt
+      activeModelStep = undefined
+      activeModelStepStartedAt = undefined
       const attemptStartedAt = Date.now()
       recordSalesAgentDebugEvent('model.attempt.started', options.context, {
         attempt,
@@ -709,6 +847,9 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
       })
 
       try {
+        const stepStartedAt = new Map<number, number>()
+        const stepFirstTextAt = new Set<number>()
+        let activeProviderCallKey: string | undefined
         const remainingTotalMs = Math.max(250, deadline - Date.now())
         const streamResult = streamText({
           model: currentModel.model,
@@ -728,8 +869,82 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           maxOutputTokens: Math.max(100, budget.maxOutputTokens - budget.finalResponseTokens),
           onChunk: ({ chunk }: { chunk: { type?: string; text?: string } }) => {
             if (chunk.type !== 'text-delta' || !chunk.text || needsInputDetected) return
+            if (activeModelStep != null && !stepFirstTextAt.has(activeModelStep)) {
+              stepFirstTextAt.add(activeModelStep)
+              recordSalesAgentDebugEvent('model.step.first_text_delta', options.context, {
+                attempt,
+                stepNumber: activeModelStep,
+                elapsedMs: activeModelStepStartedAt == null ? undefined : Date.now() - activeModelStepStartedAt,
+                attemptElapsedMs: Date.now() - attemptStartedAt,
+              })
+            }
             provisionalDeltaCount += 1
             options.onTextDelta?.(chunk.text, { provisional: true, attempt })
+          },
+          onLanguageModelCallStart: (event: any) => {
+            const providerCallSequenceForEvent = ++providerCallSequence
+            activeProviderCallKey = `${attempt}:${activeModelStep ?? -1}:${providerCallSequenceForEvent}`
+            currentModel.setActiveProviderCallKey?.(activeProviderCallKey)
+            recordSalesAgentDebugEvent('model.provider_call.started', options.context, {
+              attempt,
+              stepNumber: activeModelStep,
+              modelCallKey: activeProviderCallKey,
+              callId: event.callId,
+              provider: event.provider,
+              model: event.modelId,
+              toolCount: Array.isArray(event.tools) ? event.tools.length : undefined,
+            })
+          },
+          onLanguageModelCallEnd: (event: any) => {
+            recordSalesAgentDebugEvent('model.provider_call.completed', options.context, {
+              attempt,
+              stepNumber: activeModelStep,
+              modelCallKey: activeProviderCallKey,
+              callId: event.callId,
+              provider: event.provider,
+              model: event.modelId,
+              responseId: event.responseId,
+              finishReason: event.finishReason,
+              usage: event.usage,
+              performance: event.performance,
+              providerMetadata: event.providerMetadata,
+            })
+            currentModel.setActiveProviderCallKey?.(undefined)
+            activeProviderCallKey = undefined
+          },
+          onStepStart: ({ stepNumber, toolChoice, activeTools }: any) => {
+            const startedAt = Date.now()
+            stepStartedAt.set(stepNumber, startedAt)
+            activeModelStep = stepNumber
+            activeModelStepStartedAt = startedAt
+            recordSalesAgentDebugEvent('model.step.started', options.context, {
+              attempt,
+              stepNumber,
+              elapsedSinceAttemptStartMs: startedAt - attemptStartedAt,
+              toolChoice: toolChoice?.type ?? toolChoice,
+              activeTools: Array.isArray(activeTools) ? activeTools : undefined,
+            })
+          },
+          onStepEnd: (stepResult: any) => {
+            const endedAt = Date.now()
+            const perf = stepResult.performance || {}
+            const stepNumber = Number(stepResult.stepNumber)
+            const startedAt = stepStartedAt.get(stepNumber)
+            recordSalesAgentDebugEvent('model.step.completed', options.context, {
+              attempt,
+              stepNumber,
+              elapsedMs: startedAt == null ? perf.stepTimeMs : endedAt - startedAt,
+              stepTimeMs: perf.stepTimeMs,
+              responseTimeMs: perf.responseTimeMs,
+              timeToFirstOutputMs: perf.timeToFirstOutputMs,
+              toolExecutionMs: perf.toolExecutionMs,
+              toolCalls: Array.isArray(stepResult.toolCalls)
+                ? stepResult.toolCalls.map((call: any) => call.toolName).filter(Boolean)
+                : [],
+              toolResultCount: Array.isArray(stepResult.toolResults) ? stepResult.toolResults.length : 0,
+              finishReason: stepResult.finishReason,
+              usage: stepResult.usage,
+            })
           },
           prepareStep: ({ stepNumber, steps: completedSteps }) => {
             const usedTokens = outputTokensUsed(completedSteps)
@@ -850,6 +1065,16 @@ export async function runTurn(options: RunTurnOptions): Promise<RunTurnResult> {
           outcome: 'SUCCESS',
           finishReason: currentFinishReason,
           elapsedMs,
+          stepCount: currentSteps.length,
+          stepSummaries: currentSteps.map((step: any) => ({
+            stepNumber: step.stepNumber,
+            finishReason: step.finishReason,
+            toolCalls: Array.isArray(step.toolCalls)
+              ? step.toolCalls.map((call: any) => call.toolName).filter(Boolean)
+              : [],
+            usage: step.usage,
+            performance: step.performance,
+          })),
         })
         break modelLoop
       } catch (error: any) {
