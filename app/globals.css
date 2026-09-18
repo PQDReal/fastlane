@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'British Empire';
+  src: url('/fonts/Fontspring-DEMO-britishempire-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  /* Tailwind handles font-family and colors now via layout.tsx */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none
+}
+
+.header-brand {
+  font-family: 'British Empire', Arial, sans-serif;
+  font-size: 35px;
+  font-weight: 700;
+  color: #836100;
+}
+
+.hero-sunlight {
+  position: relative;
+  color: #c8a10bed;
+}
+
+.home-hero {
+  min-height: 100svh;
+}
+
+.home-hero-overlay {
+  background: linear-gradient(180deg, rgb(15 11 9 / 0.58) 0%, rgb(15 12 10 / 0.23) 35%, rgb(8 8 9 / 0.2) 57%, rgb(5 5 6 / 0.82) 100%), rgb(22 17 13 / 0.18);
+}
+
+.hero-copy,
+.hero-light {
+  display: block;
+}
+
+.hero-copy>span,
+.hero-light>span {
+  display: block;
+  padding-block: 0.06em 0.1em;
+}
+
+.hero-light {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  background: linear-gradient(105deg,
+      transparent 34%,
+      #ffe985 45%,
+      #fffbd8 50%,
+      #ffd24a 55%,
+      transparent 66%);
+  background-size: 240% 100%;
+  background-position: 120% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  pointer-events: none;
+  opacity: 0;
+  animation: sunlight-sweep 9s ease-in-out infinite;
+}
+
+@keyframes sunlight-sweep {
+
+  0%,
+  14% {
+    background-position: 120% 0;
+    opacity: 0;
+  }
+
+  24% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  70% {
+    background-position: -120% 0;
+    opacity: 0.65;
+  }
+
+  86%,
+  100% {
+    background-position: -120% 0;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-light {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.hero-title-shadow {
+  text-shadow: 0 4px 32px rgb(0 0 0 / 0.28);
+}
+
+.hero-copy-shadow {
+  text-shadow: 0 2px 18px rgb(0 0 0 / 0.5);
+}
+
+@media (max-height: 760px) and (min-width: 1024px) {
+  .hero-title-shadow {
+    font-size: clamp(3rem, 5.4vw, 6rem);
+  }
+}
+
+.scroll-line {
+  box-shadow: 0 0 12px rgb(255 255 255 / 0.15);
+}
+
+.scroll-line-pulse {
+  animation: scroll-line-pulse 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  filter: drop-shadow(0 0 5px rgb(255 255 255 / 0.9));
+}
+
+@keyframes scroll-line-pulse {
+  0% {
+    transform: translateY(-2rem);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  75%,
+  100% {
+    transform: translateY(5rem);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-line-pulse {
+    animation: none;
+    opacity: 0.65;
+    transform: translateY(1.5rem);
+  }
+}
+
+.navigation-speed-trace {
+  stroke-dasharray: 27 73;
+  stroke-dashoffset: 100;
+  animation: navigation-speed-trace 0.72s linear infinite;
+  filter: drop-shadow(0 0 2px rgb(155 114 0 / 0.45));
+}
+
+.navigation-speed-trace-secondary {
+  stroke-dasharray: 16 84;
+  animation-duration: 0.72s;
+  animation-delay: 0.045s;
+  opacity: 0.9;
+}
+
+@keyframes sales-agent-drag {
+  0%, 100% { transform: scale(1.06) rotate(-1.5deg); }
+  50% { transform: scale(1.1) rotate(1.5deg); }
+}
+
+.sales-agent-dragging {
+  animation: sales-agent-drag 0.42s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes navigation-speed-trace {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dashoffset: 100;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-speed-trace {
+    animation: none;
+    stroke-dasharray: 100 0;
+    opacity: 0.8;
+  }
+}
+
+/* Fastlane sleek scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
+.horizontal-scroll-smooth {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar {
+  height: 4px;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar-track {
+  background: transparent;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+.horizontal-scroll-smooth::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}

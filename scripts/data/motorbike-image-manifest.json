@@ -1,0 +1,628 @@
+[
+  {
+    "slug": "amio",
+    "listingImage": "https://i.postimg.cc/Hs9T68jB/Amio.png",
+    "heroImage": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp",
+    "colors": [
+      {
+        "name": "Xám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6bfb1c9b/images/AMIO/GRC.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw309dec48/images/XMD/AMIO/GRC.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwb65eff0f/images/AMIO/BAU.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfe4277ce/images/XMD/AMIO/BAU.png"
+      },
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwd571bd90/images/AMIO/REQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6fe7c438/images/XMD/AMIO/REQ.png"
+      },
+      {
+        "name": "Xanh Ngọc",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw09bbb441/images/AMIO/BUW.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw82c23602/images/XMD/AMIO/BUW.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw4710981f/images/AMIO/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dweae83896/images/XMD/AMIO/WHR.png"
+      }
+    ],
+    "detailImages": [
+      "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-0.webp",
+      "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-3.webp",
+      "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-4.webp"
+    ]
+  },
+  {
+    "slug": "amio-s",
+    "listingImage": "https://i.postimg.cc/RFn2YhQG/Amio-S.png",
+    "heroImage": "https://i.postimg.cc/RFn2YhQG/Amio-S.png",
+    "colors": [
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw30baeb3a/images/AMIOS/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw96656368/images/XMD/AMIOS/WHR.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwd94fdb45/images/AMIOS/BAU.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc03b603c/images/XMD/AMIOS/BAU.png"
+      },
+      {
+        "name": "Xanh Ngọc",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2968b7a5/images/AMIOS/BUW.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw89643329/images/XMD/AMIOS/BUW.png"
+      },
+      {
+        "name": "Xám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw456930a6/images/AMIOS/GRC.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw34c29db9/images/XMD/AMIOS/GRC.png"
+      },
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw21a1da0f/images/AMIOS/REQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7f462880/images/XMD/AMIOS/REQ.png"
+      }
+    ],
+    "detailImages": [
+      "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-1.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-2.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-3.webp"
+    ]
+  },
+  {
+    "slug": "amio-s2",
+    "listingImage": "https://i.postimg.cc/FzQQZhvr/Amio-S2.png",
+    "heroImage": "https://i.postimg.cc/FzQQZhvr/Amio-S2.png",
+    "colors": [
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw947c41f7/images/AMIOS2/REQ2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw7d3efc0c/images/XMD/AMIOS2/REQ2.png"
+      },
+      {
+        "name": "Trắng Tím",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8b96114c/images/AMIOS2/WHRY2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3c50083a/images/XMD/AMIOS2/WHRY2.png"
+      },
+      {
+        "name": "Trắng Đen",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe752518a/images/AMIOS2/WHRX2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw64ed4e30/images/XMD/AMIOS2/WHRX2.png"
+      },
+      {
+        "name": "Xanh Ngọc",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw91df0e66/images/AMIOS2/BUW2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf33920e5/images/XMD/AMIOS2/BUW2.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2916e066/images/AMIOS2/BAU2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8547efe0/images/XMD/AMIOS2/BAU2.png"
+      }
+    ],
+    "detailImages": [
+      "https://static-cms-prod.vinfastauto.com/amio-s2-ngoaithat-p1.png",
+      "https://static-cms-prod.vinfastauto.com/amio-s2-ngoaithat-p2.png",
+      "https://static-cms-prod.vinfastauto.com/amio-s2-ngoaithat-p3.png"
+    ]
+  },
+  {
+    "slug": "evo",
+    "listingImage": "https://i.postimg.cc/9XG2fwPH/Evo.png",
+    "heroImage": "https://i.postimg.cc/9XG2fwPH/Evo.png",
+    "colors": [
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw4b5d84e8/images/EVO/WHR1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8fee860b/images/XMD/EVO/WHR1.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw828718ab/images/EVO/GNV1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8dcea793/images/XMD/EVO/GNV1.png"
+      },
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw4f0f0610/images/EVO/REQ1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw577ff483/images/XMD/EVO/REQ1.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw201415e9/images/EVO/BAU1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw2a6589ac/images/XMD/EVO/BAU1.png"
+      }
+    ],
+    "detailImages": [
+      "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-1.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-2.webp"
+    ]
+  },
+  {
+    "slug": "evo-grand-lite",
+    "listingImage": "https://i.postimg.cc/NjKP5Wh8/Evo-Grand-Lite.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1cb815c5/landingpage/lp-xmd/evo-grand-lite/hero.webp",
+    "colors": [
+      {
+        "name": "Vàng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwd7f8a0ca/images/EVOGRANDLITE/YES1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw42f0dd05/images/XMD/EVOGRANDLITE/YES1.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw728ca924/images/EVOGRANDLITE/WHR1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw819fbd3f/images/XMD/EVOGRANDLITE/WHR1.png"
+      },
+      {
+        "name": "Lavender Sữa",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw927ad8f8/images/EVOGRANDLITE/PUL1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw983ee5f2/images/XMD/EVOGRANDLITE/PUL1.png"
+      },
+      {
+        "name": "Đen nhám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw962d65e1/images/EVOGRANDLITE/BAR2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1f2cb61a/images/XMD/EVOGRANDLITE/BAR2.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw27227dbc/landingpage/lp-xmd/evo-grand-lite/spec-1.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw733fbf0c/landingpage/lp-xmd/evo-grand-lite/spec-2.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa8551436/landingpage/lp-xmd/evo-grand-lite/spec-3.webp"
+    ]
+  },
+  {
+    "slug": "evo-lite",
+    "listingImage": "https://i.postimg.cc/MK587krr/Evo-Lite.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw54db00e4/landingpage/lp-xmd/img-sale-evolite.webp",
+    "colors": [
+      {
+        "name": "Đen",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw38d330a7/images/EVOLITE/HPBAR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8957a32/images/XMD/EVOLITE/HPBAR.png"
+      },
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwb02b2fac/images/EVOLITE/REQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9fdd1e80/images/XMD/EVOLITE/REQ.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwca3b86e6/images/EVOLITE/GNV.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw35e08fa0/images/XMD/EVOLITE/GNV.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw4f1c1a98/images/EVOLITE/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw60333d23/images/XMD/EVOLITE/WHR.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3400df9b/landingpage/lp-xmd/img-sale-evolite-01.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6358353f/landingpage/lp-xmd/img-sale-evolite-02.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6855710d/landingpage/lp-xmd/img-sale-evolite-03.webp"
+    ]
+  },
+  {
+    "slug": "evo-lite-neo",
+    "listingImage": "https://i.postimg.cc/5thc4f6S/Evo-Lite-Neo.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw315440cf/images/PDP-XMD/evoliteneo/img-banner-info-sp.webp",
+    "colors": [
+      {
+        "name": "Đen nhám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw25ba0f5d/images/PDP-XMD/evoliteneo/img-top-evoliteneo-black.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5b7d4ede/images/PDP-XMD/color/evo-black.png"
+      },
+      {
+        "name": "Đỏ tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwff05400c/images/PDP-XMD/evoliteneo/img-top-evoliteneo-red.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwda679f8f/images/PDP-XMD/color/evo-red.png"
+      },
+      {
+        "name": "Xanh tím than",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwea30c14b/images/PDP-XMD/evoliteneo/img-top-evoliteneo-blue.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c44a070/images/PDP-XMD/color/evo-blue.png"
+      },
+      {
+        "name": "Xanh rêu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8f4cd014/images/PDP-XMD/evoliteneo/img-top-evoliteneo-green.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfea9c516/images/PDP-XMD/color/evo-green.png"
+      },
+      {
+        "name": "Trắng ngọc trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw69cf1811/images/PDP-XMD/evoliteneo/img-top-evoliteneo-white.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd52b0fb5/images/PDP-XMD/color/evo-white.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4af425ea/images/PDP-XMD/evoliteneo/img-part-01.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3ce0ce72/images/PDP-XMD/evoliteneo/img-part-02.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb20f683e/images/PDP-XMD/evoliteneo/img-part-03.webp"
+    ]
+  },
+  {
+    "slug": "evo-neo",
+    "listingImage": "https://i.postimg.cc/fb0Fg152/Evo-Neo.png",
+    "heroImage": "https://i.postimg.cc/fb0Fg152/Evo-Neo.png",
+    "colors": [
+      {
+        "name": "Đen nhám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/BAR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5b7d4ede/images/PDP-XMD/color/evo-black.png"
+      },
+      {
+        "name": "Đỏ tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/REQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwda679f8f/images/PDP-XMD/color/evo-red.png"
+      },
+      {
+        "name": "Xanh tím than",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/BUR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c44a070/images/PDP-XMD/color/evo-blue.png"
+      },
+      {
+        "name": "Xanh rêu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/GNQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfea9c516/images/PDP-XMD/color/evo-green.png"
+      },
+      {
+        "name": "Trắng ngọc trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd52b0fb5/images/PDP-XMD/color/evo-white.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/PDP-XMD/evoneo/img-part-01.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/PDP-XMD/evoneo/img-part-02.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/images/PDP-XMD/evoneo/img-part-03.webp"
+    ]
+  },
+  {
+    "slug": "evo-grand",
+    "listingImage": "https://i.postimg.cc/XJShMxzy/Evo-Grand.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw997effec/landingpage/lp-xmd/evo-grand/hero.webp",
+    "colors": [
+      {
+        "name": "Đen nhám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw31a70006/images/EVOGRAND/BAR2.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcf3d4b1b/images/XMD/EVOGRAND/BAR2.png"
+      },
+      {
+        "name": "Đỏ tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw86d8839d/images/EVOGRAND/REQ1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8ad706fc/images/XMD/EVOGRAND/REQ1.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0d888ce5/images/EVOGRAND/WHR1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc01ecba9/images/XMD/EVOGRAND/WHR1.png"
+      },
+      {
+        "name": "Vàng cát",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw99dd9858/images/EVOGRAND/YES1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0e7707d9/images/XMD/EVOGRAND/YES1.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw1cced0c4/images/EVOGRAND/GNV1.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwaf718d4e/images/XMD/EVOGRAND/GNV1.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd763e9fe/landingpage/lp-xmd/evo-grand/spec-1.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8452aa12/landingpage/lp-xmd/evo-grand/spec-2.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb3a81469/landingpage/lp-xmd/evo-grand/spec-3.webp"
+    ]
+  },
+  {
+    "slug": "feliz-2025",
+    "listingImage": "https://i.postimg.cc/MGRPYVpJ/Feliz-2025.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd78a9097/images/PDP-XMD/feliz/2025/img-top-feliz-light-green.webp",
+    "colors": [
+      {
+        "name": "Vàng Cát",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw740865fe/images/FELIZ/YES.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1ee71eba/images/XMD/FELIZ/YES.png"
+      },
+      {
+        "name": "Xanh rêu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw728dbc8c/images/FELIZ/GNQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe349543a/images/XMD/FELIZ/GNQ.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwc9b0cb19/images/FELIZ/GNV.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6637c856/images/XMD/FELIZ/GNV.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0dbe34c9/images/FELIZ/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8df15111/images/XMD/FELIZ/WHR.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/FELIZ/BAU.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfea26326/images/XMD/FELIZ/BAU.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb0f6b3c3/images/PDP-XMD/feliz/2025/img-part-01.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw96609ef2/images/PDP-XMD/feliz/2025/img-part-02.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae438f74/images/PDP-XMD/feliz/2025/img-part-03.webp"
+    ]
+  },
+  {
+    "slug": "feliz-ii",
+    "listingImage": "https://i.postimg.cc/nzJdSrXY/Feliz-II.png",
+    "heroImage": "https://i.postimg.cc/nzJdSrXY/Feliz-II.png",
+    "colors": [
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw021c8021/images/FELIZII/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw659f6baa/images/XMD/FELIZII/WHR.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0e52ff42/images/FELIZII/BAU.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe94ee603/images/XMD/FELIZII/BAU.png"
+      },
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw708fe59f/images/FELIZII/REQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5217bbfa/images/XMD/FELIZII/REQ.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8c21d03d/images/FELIZII/GNV.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw96b7db2a/images/XMD/FELIZII/GNV.png"
+      }
+    ],
+    "detailImages": [
+      "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-1.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-2.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-3.webp"
+    ]
+  },
+  {
+    "slug": "flazz",
+    "listingImage": "https://i.postimg.cc/W3w5BVr3/Flazz.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwdc2a54bc/images/PDP-XMD/flazz/img-banner-info.webp",
+    "colors": [
+      {
+        "name": "Đỏ tươi - Đen nhám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw29fad4c1/images/PDP-XMD/flazz/img-flazz-red.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw45bfc087/images/PDP-XMD/flazz/color/red.png"
+      },
+      {
+        "name": "Đen bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw962b3335/images/PDP-XMD/flazz/img-flazz-black.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcee15d11/images/PDP-XMD/flazz/color/black.png"
+      },
+      {
+        "name": "Xanh rêu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwaf3ef2ca/images/PDP-XMD/flazz/img-flazz-blue.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa4335c6e/images/PDP-XMD/flazz/color/blue.png"
+      },
+      {
+        "name": "Trắng ngọc trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbd6e7bfa/images/PDP-XMD/flazz/img-flazz-white.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8e83325/images/PDP-XMD/flazz/color/white.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4649b914/images/PDP-XMD/flazz/img-part-1.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9c61f4c8/images/PDP-XMD/flazz/img-part-2.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc3252fa8/images/PDP-XMD/flazz/img-part-3.webp"
+    ]
+  },
+  {
+    "slug": "flazz-max",
+    "listingImage": "https://i.postimg.cc/QNS6SXhf/Flazz-Max.png",
+    "heroImage": "https://i.postimg.cc/QNS6SXhf/Flazz-Max.png",
+    "colors": [
+      {
+        "name": "Đỏ Đen",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw99cf4ce9/images/FLAZZMAX/REQVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw59dddeb7/images/XMD/FLAZZMAX/REQVN.png"
+      },
+      {
+        "name": "Trắng Cam",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5aa49368/images/FLAZZMAX/WHRVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw3a0ad6c7/images/XMD/FLAZZMAX/WHRVN.png"
+      },
+      {
+        "name": "Xanh",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw24cc2114/images/FLAZZMAX/BUZVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe9568dcb/images/XMD/FLAZZMAX/BUZVN.png"
+      },
+      {
+        "name": "Đen",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwb0f372c5/images/FLAZZMAX/BAUVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0d2ef4ee/images/XMD/FLAZZMAX/BAUVN.png"
+      }
+    ],
+    "detailImages": [
+      "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-1.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-2.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-3.webp"
+    ]
+  },
+  {
+    "slug": "kinet",
+    "listingImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+    "colors": [
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc9e08ce9/images/XMD/KINET/BAUVN.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw2618206a/images/XMD/KINET/WHRVN.png"
+      },
+      {
+        "name": "Xám Xi Măng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbb8ed54d/images/XMD/KINET/GRCVN.png"
+      },
+      {
+        "name": "Đỏ Đen",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw403de5bd/images/XMD/KINET/REQVN.png"
+      },
+      {
+        "name": "Nâu Ánh Kim",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4d630d91/images/XMD/KINET/BRQVN.png"
+      }
+    ],
+    "detailImages": [
+      "https://static-cms-prod.vinfastauto.com/vinfast-kinet-mau-xam-den-sau.webp",
+      "https://static-cms-prod.vinfastauto.com/vinfast-kinet-mau-xam-den-cop.webp",
+      "https://static-cms-prod.vinfastauto.com/vinfast-kinet-mau-xam-den-banh.webp"
+    ]
+  },
+  {
+    "slug": "kyo",
+    "listingImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+    "colors": [
+      {
+        "name": "Nâu Ánh Kim",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwabb414a6/images/XMD/KYO/BRQVN.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf926d65f/images/XMD/KYO/WHRVN.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwac87e2fc/images/XMD/KYO/GNVVN.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0526b17e/images/XMD/KYO/BAUVN.png"
+      },
+      {
+        "name": "Đỏ",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3416186/images/XMD/KYO/REQVN.png"
+      }
+    ],
+    "detailImages": [
+      "https://static-cms-prod.vinfastauto.com/vinfast-kyo-mau-nau-sau.webp",
+      "https://static-cms-prod.vinfastauto.com/vinfast-kyo-mau-nau-cop.webp",
+      "https://static-cms-prod.vinfastauto.com/vinfast-kyo-mau-nau-san.webp"
+    ]
+  },
+  {
+    "slug": "vero-x",
+    "listingImage": "https://i.postimg.cc/5twgzJsv/Vero-X.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw90ac0a73/images/PDP-XMD/verox/img-top-verox-green.webp",
+    "colors": [
+      {
+        "name": "Xanh rêu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd220e20e/images/PDP-XMD/verox/img-top-verox-blue.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf7e16145/images/PDP-XMD/verox/green.png"
+      },
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw90ac0a73/images/PDP-XMD/verox/img-top-verox-green.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5c8f2353/images/PDP-XMD/verox/light-green.png"
+      },
+      {
+        "name": "Đen nhám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbd62324c/images/PDP-XMD/verox/img-top-verox-black.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw41160ba1/images/PDP-XMD/verox/black.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc4efb443/images/PDP-XMD/verox/img-top-verox-white.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4bd6c6a1/images/PDP-XMD/verox/white.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1db03b3a/images/PDP-XMD/verox/img-part-1.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4deafce9/images/PDP-XMD/verox/img-part-2.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe5b21171/images/PDP-XMD/verox/img-part-3.webp"
+    ]
+  },
+  {
+    "slug": "viper",
+    "listingImage": "https://i.postimg.cc/HsVt2XSg/Viper.png",
+    "heroImage": "https://i.postimg.cc/HsVt2XSg/Viper.png",
+    "colors": [
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw64b3fd5b/images/VIPER/REQ.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0a71f8b3/images/XMD/VIPER/REQ.png"
+      },
+      {
+        "name": "Vàng Cát",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6a9b6df7/images/VIPER/YES.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5af30945/images/XMD/VIPER/YES.png"
+      },
+      {
+        "name": "Xám",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwa2a6e3a3/images/VIPER/GRC.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0d2221f8/images/XMD/VIPER/GRC.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw3870f710/images/VIPER/WHR.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/VIPER/WHR.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw54d11c00/images/VIPER/BAU.png",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw61e981c4/images/XMD/VIPER/BAU.png"
+      }
+    ],
+    "detailImages": [
+      "https://vinfastauto.com/themes/porto/img/pdp-page/viper/front-view.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/viper/trunk-view.webp",
+      "https://vinfastauto.com/themes/porto/img/pdp-page/viper/footrest-view.webp"
+    ]
+  },
+  {
+    "slug": "zgoo",
+    "listingImage": "https://i.postimg.cc/kgSvr93v/ZGoo.png",
+    "heroImage": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa628ce34/images/PDP-XMD/zgoo/img-zgoo-green.webp",
+    "colors": [
+      {
+        "name": "Xanh Oliu",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwf7bf4981/images/ZGOO/GNV.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw26f88e83/images/XMD/ZGOO/GNV.png"
+      },
+      {
+        "name": "Đỏ Tươi",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw80bd769f/images/ZGOO/REQ.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0d589bfb/images/XMD/ZGOO/REQ.png"
+      },
+      {
+        "name": "Trắng Ngọc Trai",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0acd4199/images/ZGOO/WHR.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf9875d4b/images/XMD/ZGOO/WHR.png"
+      },
+      {
+        "name": "Đen Bóng",
+        "imageUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe60529cb/images/ZGOO/BAU.webp",
+        "swatchUrl": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw76e02c1c/images/XMD/ZGOO/BAU.png"
+      }
+    ],
+    "detailImages": [
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6a6d2472/images/PDP-XMD/zgoo/img-part-1.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb4a07416/images/PDP-XMD/zgoo/img-part-2.webp",
+      "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc08f11c3/images/PDP-XMD/zgoo/img-part-3.webp"
+    ]
+  }
+]

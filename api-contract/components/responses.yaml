@@ -1,0 +1,319 @@
+Cart:
+  description: Repriced cart
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/CartResponse' }
+Category:
+  description: Category
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/CategoryResponse' }
+CategoryList:
+  description: Category list
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/CategoryListResponse' }
+CustomerProfile:
+  description: Current customer profile
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/CustomerProfileResponse' }
+DashboardSummary:
+  description: Admin dashboard summary
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/DashboardSummaryResponse' }
+ProductPage:
+  description: Product page
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ProductPageResponse' }
+ProductDetail:
+  description: Product detail
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ProductDetailResponse' }
+ProductImage:
+  description: Product image
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ProductImageResponse' }
+Variant:
+  description: Variant
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/VariantResponse' }
+Order:
+  description: Order detail
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/OrderResponse' }
+OrderPage:
+  description: Order page
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/OrderPageResponse' }
+AdminOrderPage:
+  description: Administrative order page with customer and recipient match context
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/AdminOrderPageResponse' }
+MockPayment:
+  description: Mock payment simulation result and current order
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/MockPaymentResponse' }
+MockRefund:
+  description: Mock refund simulation result and current order
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/MockRefundResponse' }
+Promotion:
+  description: Promotion
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/PromotionResponse' }
+PromotionPage:
+  description: Promotion page
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/PromotionPageResponse' }
+TestDriveAvailability:
+  description: Available slots and the single server-owned test-drive location
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveAvailabilityResponse' }
+TestDriveRequest:
+  description: Test-drive request
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveRequestResponse' }
+TestDriveRequestPage:
+  description: Paginated test-drive requests
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveRequestPageResponse' }
+TestDriveSettings:
+  description: Singleton test-drive location and schedule settings
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveSettingsResponse' }
+ConsultationRequest:
+  description: Consultation request
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationRequestResponse' }
+ConsultationRequestPage:
+  description: Paginated consultation requests
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationRequestPageResponse' }
+OnRoadEstimate:
+  description: Advisory, versioned on-road estimate
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/OnRoadEstimateResponse' }
+InstallmentEstimate:
+  description: Advisory declining-balance installment schedule
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/InstallmentEstimateResponse' }
+FeePolicy:
+  description: Versioned on-road fee policy
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/FeePolicyResponse' }
+FeePolicyPage:
+  description: Paginated fee policies
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/FeePolicyPageResponse' }
+LoanPackage:
+  description: Versioned installment package
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/LoanPackageResponse' }
+LoanPackagePage:
+  description: Paginated installment packages
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/LoanPackagePageResponse' }
+Unauthorized:
+  description: Missing, invalid, or expired access token.
+  x-error-codes: [AUTHENTICATION_REQUIRED, INVALID_ACCESS_TOKEN]
+  headers:
+    WWW-Authenticate:
+      schema: { type: string }
+      description: Bearer authentication challenge.
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: AUTHENTICATION_REQUIRED, message: Authentication is required., requestId: req_01J00000000000000000000000 } }
+Forbidden:
+  description: Principal lacks the required role or at least one required permission.
+  x-error-codes: [INSUFFICIENT_PERMISSION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INSUFFICIENT_PERMISSION, message: Permission is insufficient., requestId: req_01J00000000000000000000000 } }
+NotFound:
+  description: Resource does not exist or is not visible to this principal.
+  x-error-codes: [RESOURCE_NOT_FOUND]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: RESOURCE_NOT_FOUND, message: Resource was not found., requestId: req_01J00000000000000000000000 } }
+Conflict:
+  description: Request conflicts with current state or a unique constraint.
+  x-error-codes: [CONFLICT, CATEGORY_IN_USE, DUPLICATE_CATEGORY_SLUG, DUPLICATE_PRODUCT_SLUG, DUPLICATE_SKU, DUPLICATE_PROMOTION_CODE, INVENTORY_VERSION_CONFLICT]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: CONFLICT, message: Request conflicts with current state., requestId: req_01J00000000000000000000000 } }
+OutOfStock:
+  description: Đã đạt giới hạn tối đa của mặt hàng này
+  x-error-codes: [OUT_OF_STOCK]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: OUT_OF_STOCK, message: Đã đạt giới hạn tối đa của mặt hàng này, requestId: req_01J00000000000000000000000 } }
+CheckoutConflict:
+  description: Cart, configured price, stock, or idempotency fingerprint changed and checkout cannot complete.
+  x-error-codes: [CART_CHANGED, PRICE_CHANGED, OUT_OF_STOCK, IDEMPOTENCY_KEY_REUSED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      examples:
+        cartChanged:
+          value: { error: { code: CART_CHANGED, message: Cart changed; review it before retrying., requestId: req_01J00000000000000000000000 } }
+        priceChanged:
+          value: { error: { code: PRICE_CHANGED, message: Price changed; review it before retrying., requestId: req_01J00000000000000000000000 } }
+        keyReused:
+          value: { error: { code: IDEMPOTENCY_KEY_REUSED, message: Idempotency key was reused with a different request., requestId: req_01J00000000000000000000000 } }
+InvalidPromotion:
+  description: Promotion cannot be applied to the current cart.
+  x-error-codes: [PROMOTION_INVALID, PROMOTION_INACTIVE, PROMOTION_NOT_STARTED, PROMOTION_EXPIRED, PROMOTION_MINIMUM_NOT_MET, PROMOTION_USAGE_LIMIT_REACHED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: PROMOTION_INVALID, message: Promotion cannot be applied., requestId: req_01J00000000000000000000000 } }
+InvalidOrderTransition:
+  description: Requested transition conflicts with current order state or expectedCurrentStatus.
+  x-error-codes: [INVALID_ORDER_TRANSITION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INVALID_ORDER_TRANSITION, message: Order transition is not allowed., requestId: req_01J00000000000000000000000 } }
+MockPaymentConflict:
+  description: Mock payment conflicts with the order state or with an earlier idempotency fingerprint.
+  x-error-codes: [INVALID_ORDER_TRANSITION, IDEMPOTENCY_KEY_REUSED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      examples:
+        invalidTransition:
+          value: { error: { code: INVALID_ORDER_TRANSITION, message: Order is not eligible for its next payment., requestId: req_01J00000000000000000000000 } }
+        keyReused:
+          value: { error: { code: IDEMPOTENCY_KEY_REUSED, message: Idempotency key was reused with another order or result., requestId: req_01J00000000000000000000000 } }
+CancellationConflict:
+  description: Cancellation conflicts with current order state or with an earlier idempotency fingerprint.
+  x-error-codes: [INVALID_ORDER_TRANSITION, IDEMPOTENCY_KEY_REUSED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INVALID_ORDER_TRANSITION, message: Order can no longer be cancelled from its current state., requestId: req_01J00000000000000000000000 } }
+MockRefundConflict:
+  description: Mock refund conflicts with refund state or with an earlier idempotency fingerprint.
+  x-error-codes: [INVALID_ORDER_TRANSITION, IDEMPOTENCY_KEY_REUSED, REFUND_NOT_ALLOWED]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: REFUND_NOT_ALLOWED, message: No refundable amount is pending for this order., requestId: req_01J00000000000000000000000 } }
+ValidationError:
+  description: Request syntax, parameters, or schema are invalid.
+  x-error-codes: [VALIDATION_FAILED, DATE_RANGE_INVALID]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example:
+        error:
+          code: VALIDATION_FAILED
+          message: Request validation failed.
+          requestId: req_01J00000000000000000000000
+          fields:
+            - { path: shippingAddress.phoneNumber, code: INVALID_PHONE }
+BusinessRuleError:
+  description: Request is well-formed but violates a business invariant.
+  x-error-codes: [PRODUCT_NOT_PURCHASABLE, PRODUCT_CONFIGURATION_INVALID, ORDER_CANCELLATION_NOT_ALLOWED, PAYMENT_DEADLINE_EXPIRED, REFUND_NOT_ALLOWED, CART_EMPTY, BUSINESS_RULE_VIOLATION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: BUSINESS_RULE_VIOLATION, message: Business rule was violated., requestId: req_01J00000000000000000000000 } }
+TestDriveConflict:
+  description: The slot, duplicate fingerprint, expected state, or confirmed capacity conflicts with the request.
+  x-error-codes: [TEST_DRIVE_SLOT_UNAVAILABLE, DUPLICATE_TEST_DRIVE_REQUEST, INVALID_TEST_DRIVE_TRANSITION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: TEST_DRIVE_SLOT_UNAVAILABLE, message: The selected test-drive slot is no longer available., requestId: req_01J00000000000000000000000 } }
+PrepurchaseTransitionConflict:
+  description: The expected consultation state does not match or the transition is invalid.
+  x-error-codes: [INVALID_CONSULTATION_TRANSITION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INVALID_CONSULTATION_TRANSITION, message: Consultation transition is not allowed., requestId: req_01J00000000000000000000000 } }
+PrepurchaseBusinessRuleError:
+  description: A pre-purchase resource or selection is not currently eligible.
+  x-error-codes: [TEST_DRIVE_LOCATION_UNAVAILABLE, TEST_DRIVE_PRODUCT_UNAVAILABLE, PRODUCT_NOT_PURCHASABLE, PRODUCT_CONFIGURATION_INVALID, BUSINESS_RULE_VIOLATION]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: TEST_DRIVE_LOCATION_UNAVAILABLE, message: Test drives are not available at the configured location., requestId: req_01J00000000000000000000000 } }
+EstimateUnavailable:
+  description: Required fee or loan policy is missing, inactive, or incompatible with the calculation input.
+  x-error-codes: [ESTIMATE_POLICY_UNAVAILABLE, LOAN_PACKAGE_UNAVAILABLE, PRODUCT_NOT_PURCHASABLE, PRODUCT_CONFIGURATION_INVALID, PROMOTION_INVALID]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: ESTIMATE_POLICY_UNAVAILABLE, message: A required estimate policy is unavailable., requestId: req_01J00000000000000000000000 } }
+EstimateConflict:
+  description: The referenced on-road calculation is stale and must be recalculated.
+  x-error-codes: [ESTIMATE_STALE]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: ESTIMATE_STALE, message: Recalculate the on-road estimate before continuing., requestId: req_01J00000000000000000000000 } }
+PolicyConflict:
+  description: A policy/settings version is stale or overlaps an existing effective version.
+  x-error-codes: [POLICY_VERSION_CONFLICT, SETTINGS_VERSION_CONFLICT]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: POLICY_VERSION_CONFLICT, message: Policy version conflicts with current state., requestId: req_01J00000000000000000000000 } }
+TooManyRequests:
+  description: Rate limit exceeded.
+  x-error-codes: [RATE_LIMIT_EXCEEDED]
+  headers:
+    Retry-After: { schema: { type: integer, minimum: 1 }, description: Seconds before retrying. }
+    X-RateLimit-Limit: { schema: { type: integer, minimum: 1 } }
+    X-RateLimit-Remaining: { schema: { type: integer, minimum: 0 } }
+    X-RateLimit-Reset: { schema: { type: integer, minimum: 0 }, description: Unix epoch seconds when the window resets. }
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: RATE_LIMIT_EXCEEDED, message: Rate limit exceeded., requestId: req_01J00000000000000000000000 } }
+InternalServerError:
+  description: Unexpected server error. Internal details are not exposed.
+  x-error-codes: [INTERNAL_ERROR]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INTERNAL_ERROR, message: Unexpected server error., requestId: req_01J00000000000000000000000 } }
+ServiceUnavailable:
+  description: A required database capability has not been deployed or is temporarily unavailable.
+  x-error-codes: [INTERNAL_ERROR]
+  content:
+    application/json:
+      schema: { $ref: '../openapi.yaml#/components/schemas/ErrorResponse' }
+      example: { error: { code: INTERNAL_ERROR, message: Required catalog persistence capability is unavailable., requestId: req_01J00000000000000000000000 } }

@@ -1,0 +1,299 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  runTurn: vi.fn(),
+  composeTurnResponse: vi.fn(),
+}))
+vi.mock('@/lib/sales-agent/orchestrator/run-turn', () => ({ runTurn: mocks.runTurn }))
+vi.mock('@/lib/sales-agent/response/composer', () => ({ composeTurnResponse: mocks.composeTurnResponse }))
+vi.mock('server-only', () => ({}))
+
+import { POST } from './route'
+
+describe('Canonical Sales Agent message API', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.SALES_AGENT_ENABLED = 'true'
+    process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED = 'true'
+    mocks.runTurn.mockResolvedValue({
+      text: 'VF 8 là dòng SUV điện cỡ D cao cấp của VinFast.',
+      responsePlan: {
+        schemaVersion: '2.0',
+        outcome: 'ANSWER',
+        narrative: [{ kind: 'ADVICE', markdown: 'VF 8 là dòng SUV điện cỡ D cao cấp của VinFast.' }],
+        views: [],
+        suggestionIntents: [],
+        actionIntents: [],
+      },
+      knownEntities: { getAllEntities: () => [] },
+      bindings: { getAllBindings: () => [] },
+      evidence: { getAllEvidence: () => [], getAllObservations: () => [] },
+      toolCallsCount: 1,
+      stepsCount: 1,
+      finishReason: 'stop',
+      provider: 'openai',
+      model: 'test-model',
+    })
+    mocks.composeTurnResponse.mockReturnValue({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-123',
+      turnId: 'turn-123',
+      messageId: 'msg-123',
+      answer: {
+        markdown: 'VF 8 là dòng SUV điện cỡ D cao cấp của VinFast.',
+        completeness: 'COMPLETE',
+      },
+      blocks: [],
+      actions: [],
+      suggestions: [{ suggestionId: 'sug-1', label: 'Giá VF 8' }],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+  })
+
+  it('returns SSE metadata, turn_view and done events', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8', locale: 'vi-VN' }),
+    }))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+    const body = await response.text()
+    expect(body).toContain('"type":"meta"')
+    expect(body).toContain('"type":"turn_view"')
+    expect(body).toContain('"markdown":"VF 8 là dòng SUV điện cỡ D cao cấp của VinFast."')
+    expect(body).toContain('"type":"done"')
+  })
+
+  it('emits provisional text before the canonical turn_view and reconciles it', async () => {
+    process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED = 'true'
+    mocks.composeTurnResponse.mockReturnValueOnce({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-stream',
+      turnId: 'turn-stream',
+      messageId: 'msg-stream',
+      answer: { markdown: 'Bản trả lời đã chuẩn hóa.', completeness: 'COMPLETE' },
+      blocks: [],
+      actions: [],
+      suggestions: [],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+    mocks.runTurn.mockImplementationOnce(async (options: any) => {
+      options.onTextDelta?.('Bản nháp chưa kiểm duyệt.', { provisional: true, attempt: 1 })
+      return {
+        text: 'Bản nháp chưa kiểm duyệt.',
+        responsePlan: {
+          schemaVersion: '2.0',
+          outcome: 'ANSWER',
+          narrative: [{ kind: 'ADVICE', markdown: 'Bản nháp chưa kiểm duyệt.' }],
+          views: [],
+          suggestionIntents: [],
+          actionIntents: [],
+        },
+        knownEntities: { getAllEntities: () => [] },
+        bindings: { getAllBindings: () => [] },
+        evidence: { getAllEvidence: () => [], getAllObservations: () => [] },
+        toolCallsCount: 0,
+        stepsCount: 1,
+        finishReason: 'stop',
+        provider: 'openai',
+        model: 'test-model',
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      }
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8', locale: 'vi-VN' }),
+    }))
+    const body = await response.text()
+    const events = body
+      .split('\n\n')
+      .filter((chunk) => chunk.startsWith('data: '))
+      .map((chunk) => JSON.parse(chunk.slice(6)) as Record<string, any>)
+    const firstDelta = events.findIndex((item) => item.type === 'text_delta')
+    const reset = events.findIndex((item) => item.type === 'text_reset')
+    const view = events.findIndex((item) => item.type === 'turn_view')
+    expect(firstDelta).toBeGreaterThanOrEqual(0)
+    expect(events[firstDelta]).toMatchObject({ provisional: true, delta: 'Bản nháp chưa kiểm duyệt.' })
+    expect(reset).toBeGreaterThan(firstDelta)
+    expect(events[reset]).toMatchObject({ reason: 'final_reconciliation' })
+    expect(view).toBeGreaterThan(reset)
+    expect(events[view].viewModel.answer.markdown).toBe('Bản trả lời đã chuẩn hóa.')
+    expect(events.find((item) => item.type === 'text_delta' && item.provisional === false)?.delta).toBe('Bản trả lời đã chuẩn hóa.')
+  })
+
+  it('streams canonical text, sources and suggestions progressively before turn_view', async () => {
+    process.env.SALES_AGENT_PROVISIONAL_STREAM_ENABLED = 'false'
+    const markdown = [
+      'VF 8 phù hợp cho nhu cầu di chuyển gia đình và đường dài.',
+      'Xe có không gian rộng, nhiều trang bị hỗ trợ và các lựa chọn phiên bản khác nhau.',
+      'Bạn nên đối chiếu phiên bản, năm sản xuất và chính sách hiện hành trước khi đặt cọc.',
+    ].join(' ')
+    mocks.composeTurnResponse.mockReturnValueOnce({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-progressive',
+      turnId: 'turn-progressive',
+      messageId: 'msg-progressive',
+      answer: { markdown, completeness: 'COMPLETE' },
+      blocks: [{
+        kind: 'FACT_SUMMARY',
+        facts: [
+          { label: 'Nguồn tham chiếu [1]', value: 'Sổ tay VF 8 — Tổng quan' },
+          { label: 'Nguồn tham chiếu [2]', value: 'Sổ tay VF 8 — Vận hành' },
+        ],
+      }],
+      actions: [],
+      suggestions: [
+        { suggestionId: 'sug-price', label: 'Xem giá VF 8' },
+        { suggestionId: 'sug-compare', label: 'So sánh VF 8 và VF 9' },
+      ],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8', locale: 'vi-VN' }),
+    }))
+    const events = (await response.text())
+      .split('\n\n')
+      .filter((chunk) => chunk.startsWith('data: '))
+      .map((chunk) => JSON.parse(chunk.slice(6)) as Record<string, any>)
+    const finalTextEvents = events.filter((item) => item.type === 'text_delta' && item.provisional === false)
+    const sourceCounts = events
+      .filter((item) => item.type === 'view_delta' && Array.isArray(item.blocks))
+      .map((item) => item.blocks.find((block: any) => block.kind === 'FACT_SUMMARY')?.facts.length)
+      .filter((count) => typeof count === 'number')
+    const suggestionCounts = events
+      .filter((item) => item.type === 'view_delta' && Array.isArray(item.suggestions))
+      .map((item) => item.suggestions.length)
+    const firstSuggestion = events.findIndex((item) => item.type === 'view_delta' && item.suggestions?.length === 1)
+    const lastTextDelta = events.findLastIndex((item) => item.type === 'text_delta' && item.provisional === false)
+    const turnView = events.findIndex((item) => item.type === 'turn_view')
+
+    expect(finalTextEvents.length).toBeGreaterThan(2)
+    expect(finalTextEvents.map((item) => item.delta).join('')).toBe(markdown)
+    expect(sourceCounts).toEqual([1, 2])
+    expect(suggestionCounts).toEqual([1, 2])
+    expect(firstSuggestion).toBeGreaterThanOrEqual(0)
+    expect(firstSuggestion).toBeLessThan(lastTextDelta)
+    expect(turnView).toBeGreaterThan(lastTextDelta)
+  })
+
+  it('rejects empty messages before calling orchestrator', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: '   ' }),
+    }))
+    expect(response.status).toBe(400)
+    expect(mocks.runTurn).not.toHaveBeenCalled()
+  })
+
+  it('redacts sensitive values before calling orchestrator', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Số điện thoại của tôi là 0912345678, OTP 123456' }),
+    }))
+    await response.text()
+    const input = mocks.runTurn.mock.calls[0][0].input
+    expect(input.text).not.toContain('0912345678')
+    expect(input.text).not.toContain('123456')
+  })
+
+  it('does not forward page context to the chat orchestrator', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: 'Cách kết nối Wi-Fi',
+        pageContext: { routeKey: '/cars/vf-5', entityId: 'vf5-id' },
+      }),
+    }))
+    await response.text()
+
+    expect(mocks.runTurn.mock.calls[0][0]).not.toHaveProperty('pageContext')
+  })
+
+  it('fails closed when the feature flag is off', async () => {
+    process.env.SALES_AGENT_ENABLED = 'false'
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Xin chào' }),
+    }))
+    expect(response.status).toBe(503)
+    expect(mocks.runTurn).not.toHaveBeenCalled()
+  })
+
+  it('rejects a stale suggestion that references an inactive catalog entity', async () => {
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: 'Giá xe',
+        suggestionSelection: { suggestionId: 'sug-stale', entityIds: ['removed-product'] },
+      }),
+    }))
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ error: { code: 'SUGGESTION_STALE' } })
+    expect(mocks.runTurn).not.toHaveBeenCalled()
+  })
+
+  it('applies output guardrails before emitting any text delta', async () => {
+    mocks.composeTurnResponse.mockReturnValueOnce({
+      schemaVersion: '2.0',
+      conversationRef: 'conv-safe',
+      turnId: 'turn-safe',
+      messageId: 'msg-safe',
+      answer: {
+        markdown: 'Khóa máy chủ là sk-abcdefghijklmnopqrstuvwxyz123456.',
+        completeness: 'COMPLETE',
+      },
+      blocks: [],
+      actions: [],
+      suggestions: [],
+      grounding: { dataAsOf: new Date().toISOString(), warnings: [] },
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Tư vấn VF 8' }),
+    }))
+    const body = await response.text()
+
+    expect(mocks.runTurn.mock.calls[0][0].onTextDelta).toEqual(expect.any(Function))
+    expect(body).not.toContain('sk-abcdefghijklmnopqrstuvwxyz123456')
+    expect(body).toContain('THÔNG TIN ĐÃ ĐƯỢC ẨN')
+  })
+
+  it('returns a deterministic turn_view and done event when the orchestrator throws', async () => {
+    mocks.runTurn.mockRejectedValueOnce(new Error('provider down'))
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Giá VF 8' }),
+    }))
+    const body = await response.text()
+
+    expect(body).toContain('"type":"turn_view"')
+    expect(body).toContain('"finishReason":"error"')
+    expect(body).not.toContain('"type":"error"')
+  })
+
+  it('forwards the real provider, model and budget finish reason', async () => {
+    mocks.runTurn.mockResolvedValueOnce({
+      ...(await mocks.runTurn()),
+      finishReason: 'budget_exceeded',
+      provider: 'anthropic',
+      model: 'fallback-model',
+    })
+
+    const response = await POST(new Request('http://localhost/api/v1/sales-agent/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'So sánh VF 8 và VF 9' }),
+    }))
+    const body = await response.text()
+
+    expect(body).toContain('"provider":"anthropic"')
+    expect(body).toContain('"model":"fallback-model"')
+    expect(body).toContain('"finishReason":"budget_exceeded"')
+  })
+})

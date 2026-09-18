@@ -1,0 +1,78 @@
+PercentageDiscount:
+  type: object
+  additionalProperties: false
+  required: [type, value]
+  properties:
+    type: { type: string, enum: [percentage] }
+    value: { type: number, exclusiveMinimum: 0, maximum: 100, multipleOf: 0.01, example: 10 }
+FixedAmountDiscount:
+  type: object
+  additionalProperties: false
+  required: [type, value]
+  properties:
+    type: { type: string, enum: [fixed_amount] }
+    value: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+PromotionDiscount:
+  oneOf:
+    - { $ref: '../../openapi.yaml#/components/schemas/PercentageDiscount' }
+    - { $ref: '../../openapi.yaml#/components/schemas/FixedAmountDiscount' }
+  discriminator:
+    propertyName: type
+    mapping:
+      percentage: '../../openapi.yaml#/components/schemas/PercentageDiscount'
+      fixed_amount: '../../openapi.yaml#/components/schemas/FixedAmountDiscount'
+Promotion:
+  type: object
+  additionalProperties: false
+  required: [id, code, discount, minimumOrderAmount, startsAt, endsAt, usageLimit, usedCount, isActive]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Z0-9_-]+$' }
+    discount: { $ref: '../../openapi.yaml#/components/schemas/PromotionDiscount' }
+    minimumOrderAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    usageLimit: { oneOf: [{ type: integer, minimum: 1 }, { type: 'null' }] }
+    usedCount: { type: integer, minimum: 0, readOnly: true }
+    isActive: { type: boolean }
+PromotionCreateRequest:
+  type: object
+  additionalProperties: false
+  description: endsAt, when present, must be later than startsAt.
+  required: [code, discount, minimumOrderAmount, startsAt, isActive]
+  examples:
+    - code: WELCOME10
+      discount: { type: percentage, value: 10 }
+      minimumOrderAmount: '100000000'
+      startsAt: '2026-07-20T00:00:00+07:00'
+      endsAt: '2026-08-20T00:00:00+07:00'
+      usageLimit: 100
+      isActive: true
+  properties:
+    code: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', description: Trimmed and normalized to uppercase by the server. }
+    discount: { $ref: '../../openapi.yaml#/components/schemas/PromotionDiscount' }
+    minimumOrderAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    usageLimit: { oneOf: [{ type: integer, minimum: 1 }, { type: 'null' }] }
+    isActive: { type: boolean }
+PromotionPatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: Promotion type is immutable; after applying the patch, endsAt must be null or later than startsAt.
+  properties:
+    code: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', description: Trimmed and normalized to uppercase by the server. }
+    discount: { $ref: '../../openapi.yaml#/components/schemas/PromotionDiscount' }
+    minimumOrderAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    startsAt: { type: string, format: date-time }
+    endsAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    usageLimit: { oneOf: [{ type: integer, minimum: 1 }, { type: 'null' }] }
+    isActive: { type: boolean }
+PromotionResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/Promotion' } } }
+PromotionPageResponse:
+  type: object
+  required: [data, meta]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/Promotion' } }
+    meta: { $ref: '../../openapi.yaml#/components/schemas/PageMeta' }

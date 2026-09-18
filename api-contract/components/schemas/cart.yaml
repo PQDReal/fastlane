@@ -1,0 +1,157 @@
+AddCartItemRequest:
+  type: object
+  additionalProperties: false
+  required: [variantId, quantity]
+  examples:
+    - variantId: 123e4567-e89b-12d3-a456-426614174002
+      quantity: 1
+  properties:
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    quantity: { type: integer, minimum: 1 }
+UpdateCartItemRequest:
+  type: object
+  additionalProperties: false
+  required: [quantity]
+  properties:
+    quantity: { type: integer, minimum: 1 }
+ApplyPromotionRequest:
+  type: object
+  additionalProperties: false
+  required: [code, cartItemIds]
+  examples:
+    - { code: WELCOME10, cartItemIds: [123e4567-e89b-12d3-a456-426614174005] }
+  properties:
+    code: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$', example: WELCOME10 }
+    cartItemIds:
+      type: array
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+SelectedProductOption:
+  type: object
+  additionalProperties: false
+  required: [groupId, groupCode, groupName, valueId, valueCode, valueName, priceAdjustment]
+  properties:
+    groupId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    groupCode: { type: string, minLength: 1, maxLength: 80 }
+    groupName: { type: string, minLength: 1, maxLength: 160 }
+    valueId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    valueCode: { type: string, minLength: 1, maxLength: 80 }
+    valueName: { type: string, minLength: 1, maxLength: 160 }
+    priceAdjustment: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+CartItem:
+  type: object
+  additionalProperties: false
+  required: [id, variantId, productId, productSlug, productName, productKind, purchaseTerms, sku, variantAttributes, selectedOptions, quantity, unitListPrice, unitSalePrice, unitOptionTotal, unitPrice, unitAmountDueNow, lineTotal, lineAmountDueNow]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productSlug:
+      type: string
+      pattern: '^[a-z0-9-]+$'
+      description: Stable catalog route used to open the accessory detail page.
+    productName: { type: string, minLength: 1, maxLength: 200 }
+    productKind: { $ref: '../../openapi.yaml#/components/schemas/ProductKind' }
+    purchaseTerms: { $ref: '../../openapi.yaml#/components/schemas/PurchaseTerms' }
+    sku: { type: string, minLength: 1, maxLength: 80 }
+    variantAttributes: { type: object, additionalProperties: { type: string } }
+    selectedOptions: { type: array, maxItems: 20, items: { $ref: '../../openapi.yaml#/components/schemas/SelectedProductOption' } }
+    quantity: { type: integer, minimum: 1 }
+    unitListPrice: { $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }
+    unitSalePrice: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }, { type: 'null' }] }
+    unitOptionTotal:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
+      description: Sum of selected option price adjustments for one unit.
+    unitPrice:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }]
+      description: Effective variant price plus unitOptionTotal, before cart-level promotion.
+    unitAmountDueNow:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/PositiveMoney' }]
+      description: Before cart-level promotion; equals unitPrice for full payment or the fixed per-unit deposit capped at unitPrice.
+    lineTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    lineAmountDueNow: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    imageUrl:
+      oneOf: [{ type: string, format: uri }, { type: 'null' }]
+      description: Optional catalog thumbnail used by cart UI.
+    availableQuantity:
+      type: integer
+      minimum: 0
+      description: Provisional availability at pricedAt; checkout rechecks inventory.
+AppliedPromotion:
+  type: object
+  additionalProperties: false
+  required: [promotionId, code, discount, discountAmount]
+  properties:
+    promotionId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 3, maxLength: 64 }
+    discount: { $ref: '../../openapi.yaml#/components/schemas/PromotionDiscount' }
+    discountAmount: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+CartPricing:
+  type: object
+  additionalProperties: false
+  required: [currency, subtotal, discountTotal, grandTotal, amountDueNow, balanceDue]
+  properties:
+    currency: { type: string, enum: [VND] }
+    subtotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    discountTotal:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
+      description: Never exceeds subtotal.
+    grandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    amountDueNow:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
+      description: Server-calculated amount accepted and paid at checkout. Promotion discount reduces balance due first, then amount due now.
+    balanceDue:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
+      description: grandTotal minus amountDueNow; collected later for deposit purchases.
+Cart:
+  type: object
+  additionalProperties: false
+  required: [id, version, pricedAt, items, promotion, pricing]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    version: { type: integer, minimum: 0, description: 'Increments whenever cart items, promotion, or calculated pricing changes.' }
+    pricedAt: { type: string, format: date-time }
+    items: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/CartItem' } }
+    promotion: { oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/AppliedPromotion' }, { type: 'null' }] }
+    pricing: { $ref: '../../openapi.yaml#/components/schemas/CartPricing' }
+CartResponse: { type: object, required: [data], properties: { data: { $ref: '../../openapi.yaml#/components/schemas/Cart' } } }
+CheckoutRequest:
+  type: object
+  additionalProperties: false
+  required: [cartItemIds, expectedCartVersion, acceptedGrandTotal, acceptedAmountDueNow, shippingAddress]
+  examples:
+    - cartItemIds: [123e4567-e89b-12d3-a456-426614174005]
+      expectedCartVersion: 4
+      acceptedGrandTotal: '1200000000'
+      acceptedAmountDueNow: '30000000'
+      shippingAddress:
+        recipientName: Nguyễn Văn A
+        phoneNumber: '+84901234567'
+        line1: 1 Đường Nguyễn Huệ
+        communeLevel:
+          code: '26734'
+          name: Phường Bến Nghé
+          type: WARD
+        province:
+          code: '79'
+          name: Hồ Chí Minh
+        countryCode: VN
+      note: Liên hệ trước khi giao.
+  properties:
+    cartItemIds:
+      type: array
+      minItems: 1
+      maxItems: 100
+      uniqueItems: true
+      items: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+      description: Cart item rows explicitly selected by the customer for this checkout. Unselected rows remain in the active cart.
+    expectedCartVersion: { type: integer, minimum: 0 }
+    acceptedGrandTotal: { $ref: '../../openapi.yaml#/components/schemas/Money' }
+    acceptedAmountDueNow:
+      allOf: [{ $ref: '../../openapi.yaml#/components/schemas/Money' }]
+      description: Must equal the server-repriced cart amountDueNow or checkout returns CART_CHANGED or PRICE_CHANGED.
+    promotionCode: { type: string, minLength: 3, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' }
+    shippingAddress: { $ref: '../../openapi.yaml#/components/schemas/ShippingAddress' }
+    note: { type: string, maxLength: 500 }

@@ -1,0 +1,7 @@
+bearerAuth:
+  type: http
+  scheme: bearer
+  bearerFormat: JWT
+  description: |
+    Auth0 RS256 JWT access token for this API. Deployment configuration supplies issuer, audience, JWKS URI, and namespaced roles claim.
+    The backend validates signature, iss, aud, exp, role, permissions, and resource ownership. ID tokens are not accepted as API credentials.

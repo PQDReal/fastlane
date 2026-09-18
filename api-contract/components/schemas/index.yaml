@@ -1,0 +1,416 @@
+HealthResponse:
+  $ref: './common.yaml#/HealthResponse'
+Uuid:
+  $ref: './common.yaml#/Uuid'
+Money:
+  $ref: './common.yaml#/Money'
+PositiveMoney:
+  $ref: './common.yaml#/PositiveMoney'
+ErrorCode:
+  $ref: './common.yaml#/ErrorCode'
+ValidationFieldCode:
+  $ref: './common.yaml#/ValidationFieldCode'
+ErrorField:
+  $ref: './common.yaml#/ErrorField'
+ErrorResponse:
+  $ref: './common.yaml#/ErrorResponse'
+PageMeta:
+  $ref: './common.yaml#/PageMeta'
+ShippingAddress:
+  $ref: './common.yaml#/ShippingAddress'
+CustomerProfile:
+  $ref: './common.yaml#/CustomerProfile'
+CustomerProfilePatchRequest:
+  $ref: './common.yaml#/CustomerProfilePatchRequest'
+CustomerProfileResponse:
+  $ref: './common.yaml#/CustomerProfileResponse'
+CustomerReference:
+  $ref: './common.yaml#/CustomerReference'
+OrderStatusCounts:
+  $ref: './common.yaml#/OrderStatusCounts'
+DashboardSummary:
+  $ref: './common.yaml#/DashboardSummary'
+DashboardSummaryResponse:
+  $ref: './common.yaml#/DashboardSummaryResponse'
+
+AdminInventoryStatus:
+  $ref: './admin-inventory.yaml#/AdminInventoryStatus'
+AdminInventoryItem:
+  $ref: './admin-inventory.yaml#/AdminInventoryItem'
+AdminInventoryStatusCounts:
+  $ref: './admin-inventory.yaml#/AdminInventoryStatusCounts'
+AdminInventorySummary:
+  $ref: './admin-inventory.yaml#/AdminInventorySummary'
+AdminInventoryFilterProduct:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterProduct'
+AdminInventoryFilterValue:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterValue'
+AdminInventoryFilterOptions:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterOptions'
+AdminInventoryQueryData:
+  $ref: './admin-inventory.yaml#/AdminInventoryQueryData'
+AdminInventoryQueryResponse:
+  $ref: './admin-inventory.yaml#/AdminInventoryQueryResponse'
+AdminInventoryFilterOptionsResponse:
+  $ref: './admin-inventory.yaml#/AdminInventoryFilterOptionsResponse'
+
+Category:
+  $ref: './product.yaml#/Category'
+CategoryResponse:
+  $ref: './product.yaml#/CategoryResponse'
+CategoryListResponse:
+  $ref: './product.yaml#/CategoryListResponse'
+CategoryCreateRequest:
+  $ref: './product.yaml#/CategoryCreateRequest'
+CategoryPatchRequest:
+  $ref: './product.yaml#/CategoryPatchRequest'
+ProductKind:
+  $ref: './product.yaml#/ProductKind'
+PurchaseMode:
+  $ref: './product.yaml#/PurchaseMode'
+CancellationCutoff:
+  $ref: './product.yaml#/CancellationCutoff'
+CancellationPolicy:
+  $ref: './product.yaml#/CancellationPolicy'
+PurchaseTerms:
+  $ref: './product.yaml#/PurchaseTerms'
+BatteryOption:
+  $ref: './product.yaml#/BatteryOption'
+Price:
+  $ref: './product.yaml#/Price'
+Variant:
+  $ref: './product.yaml#/Variant'
+VariantResponse:
+  $ref: './product.yaml#/VariantResponse'
+PriceRange:
+  $ref: './product.yaml#/PriceRange'
+ProductOptionValue:
+  $ref: './product.yaml#/ProductOptionValue'
+ProductOptionGroup:
+  $ref: './product.yaml#/ProductOptionGroup'
+ProductSpecification:
+  $ref: './product.yaml#/ProductSpecification'
+AccessoryContentSectionType:
+  $ref: './product.yaml#/AccessoryContentSectionType'
+AccessoryContentAttribute:
+  $ref: './product.yaml#/AccessoryContentAttribute'
+AccessoryContentSection:
+  $ref: './product.yaml#/AccessoryContentSection'
+AccessoryContentV1:
+  $ref: './product.yaml#/AccessoryContentV1'
+ProductImage:
+  $ref: './product.yaml#/ProductImage'
+ProductImageCreateRequest:
+  $ref: './product.yaml#/ProductImageCreateRequest'
+ProductImagePatchRequest:
+  $ref: './product.yaml#/ProductImagePatchRequest'
+ProductImageResponse:
+  $ref: './product.yaml#/ProductImageResponse'
+CatalogCollectionKind:
+  $ref: './product.yaml#/CatalogCollectionKind'
+CatalogVehicleFilterMode:
+  $ref: './product.yaml#/CatalogVehicleFilterMode'
+CatalogVehicleModel:
+  $ref: './product.yaml#/CatalogVehicleModel'
+CatalogCollection:
+  $ref: './product.yaml#/CatalogCollection'
+AdminCatalogCollection:
+  $ref: './product.yaml#/AdminCatalogCollection'
+CatalogCollectionMembership:
+  $ref: './product.yaml#/CatalogCollectionMembership'
+ProductSummary:
+  $ref: './product.yaml#/ProductSummary'
+ProductDetail:
+  $ref: './product.yaml#/ProductDetail'
+ProductDetailResponse:
+  $ref: './product.yaml#/ProductDetailResponse'
+ProductPageResponse:
+  $ref: './product.yaml#/ProductPageResponse'
+VariantCreateRequest:
+  $ref: './product.yaml#/VariantCreateRequest'
+VariantPatchRequest:
+  $ref: './product.yaml#/VariantPatchRequest'
+InventoryUpdateRequest:
+  $ref: './product.yaml#/InventoryUpdateRequest'
+AdminAccessoryContentSectionInput:
+  $ref: './product.yaml#/AdminAccessoryContentSectionInput'
+AdminAccessoryContentInput:
+  $ref: './product.yaml#/AdminAccessoryContentInput'
+AdminAccessoryOptionValueInput:
+  $ref: './product.yaml#/AdminAccessoryOptionValueInput'
+AdminAccessoryOptionGroupInput:
+  $ref: './product.yaml#/AdminAccessoryOptionGroupInput'
+AdminAccessoryVariantInput:
+  $ref: './product.yaml#/AdminAccessoryVariantInput'
+AdminAccessoryCompatibilityMode:
+  $ref: './product.yaml#/AdminAccessoryCompatibilityMode'
+AdminAccessoryCategoryAssignment:
+  $ref: './product.yaml#/AdminAccessoryCategoryAssignment'
+AdminAccessoryWriteRequest:
+  $ref: './product.yaml#/AdminAccessoryWriteRequest'
+AdminAccessorySaveResult:
+  $ref: './product.yaml#/AdminAccessorySaveResult'
+AdminAccessorySaveResponse:
+  $ref: './product.yaml#/AdminAccessorySaveResponse'
+AdminAccessoryDraftAttribute:
+  $ref: './product.yaml#/AdminAccessoryDraftAttribute'
+AdminAccessoryDraftSection:
+  $ref: './product.yaml#/AdminAccessoryDraftSection'
+AdminAccessoryDraftOptionValue:
+  $ref: './product.yaml#/AdminAccessoryDraftOptionValue'
+AdminAccessoryDraftOptionGroup:
+  $ref: './product.yaml#/AdminAccessoryDraftOptionGroup'
+AdminAccessoryDraftVariant:
+  $ref: './product.yaml#/AdminAccessoryDraftVariant'
+AdminAccessoryDraft:
+  $ref: './product.yaml#/AdminAccessoryDraft'
+AdminAccessoryEditorData:
+  $ref: './product.yaml#/AdminAccessoryEditorData'
+AdminAccessoryEditorResponse:
+  $ref: './product.yaml#/AdminAccessoryEditorResponse'
+AccessoryTemplateAttributeDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateAttributeDefinition'
+AccessoryTemplateSectionDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateSectionDefinition'
+AccessoryTemplateOptionValueDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateOptionValueDefinition'
+AccessoryTemplateOptionGroupDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateOptionGroupDefinition'
+AccessoryTemplateDefinition:
+  $ref: './accessory-template.yaml#/AccessoryTemplateDefinition'
+AccessoryTemplateVersion:
+  $ref: './accessory-template.yaml#/AccessoryTemplateVersion'
+AdminAccessoryTemplate:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplate'
+AdminAccessoryTemplateListResponse:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateListResponse'
+AdminAccessoryTemplateCategoryLookup:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateCategoryLookup'
+AdminAccessoryTemplateLookups:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateLookups'
+AdminAccessoryTemplateLookupsResponse:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateLookupsResponse'
+AdminAccessoryTemplateCreateRequest:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateCreateRequest'
+AdminAccessoryTemplatePatchRequest:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplatePatchRequest'
+AdminAccessoryTemplateVersionRequest:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateVersionRequest'
+AdminAccessoryTemplateResponse:
+  $ref: './accessory-template.yaml#/AdminAccessoryTemplateResponse'
+ServiceLabel:
+  $ref: './product.yaml#/ServiceLabel'
+ServiceLabelListResponse:
+  $ref: './product.yaml#/ServiceLabelListResponse'
+ServiceLabelCreateRequest:
+  $ref: './product.yaml#/ServiceLabelCreateRequest'
+ServiceLabelPatchRequest:
+  $ref: './product.yaml#/ServiceLabelPatchRequest'
+ReplaceProductServiceLabelsRequest:
+  $ref: './product.yaml#/ReplaceProductServiceLabelsRequest'
+ReplaceProductServiceLabelsResponse:
+  $ref: './product.yaml#/ReplaceProductServiceLabelsResponse'
+
+AddCartItemRequest:
+  $ref: './cart.yaml#/AddCartItemRequest'
+UpdateCartItemRequest:
+  $ref: './cart.yaml#/UpdateCartItemRequest'
+ApplyPromotionRequest:
+  $ref: './cart.yaml#/ApplyPromotionRequest'
+SelectedProductOption:
+  $ref: './cart.yaml#/SelectedProductOption'
+CartItem:
+  $ref: './cart.yaml#/CartItem'
+AppliedPromotion:
+  $ref: './cart.yaml#/AppliedPromotion'
+CartPricing:
+  $ref: './cart.yaml#/CartPricing'
+Cart:
+  $ref: './cart.yaml#/Cart'
+CartResponse:
+  $ref: './cart.yaml#/CartResponse'
+CheckoutRequest:
+  $ref: './cart.yaml#/CheckoutRequest'
+
+OrderStatus:
+  $ref: './order.yaml#/OrderStatus'
+PaymentStatus:
+  $ref: './order.yaml#/PaymentStatus'
+PaymentTransactionType:
+  $ref: './order.yaml#/PaymentTransactionType'
+PaymentTransactionStage:
+  $ref: './order.yaml#/PaymentTransactionStage'
+PaymentTransactionStatus:
+  $ref: './order.yaml#/PaymentTransactionStatus'
+RefundStatus:
+  $ref: './order.yaml#/RefundStatus'
+CancellationActor:
+  $ref: './order.yaml#/CancellationActor'
+CancellationReason:
+  $ref: './order.yaml#/CancellationReason'
+OrderItem:
+  $ref: './order.yaml#/OrderItem'
+OrderPricing:
+  $ref: './order.yaml#/OrderPricing'
+PaymentSchedule:
+  $ref: './order.yaml#/PaymentSchedule'
+PaymentTransaction:
+  $ref: './order.yaml#/PaymentTransaction'
+OrderRefund:
+  $ref: './order.yaml#/OrderRefund'
+OrderCancellation:
+  $ref: './order.yaml#/OrderCancellation'
+OrderPayment:
+  $ref: './order.yaml#/OrderPayment'
+OrderSummary:
+  $ref: './order.yaml#/OrderSummary'
+AdminOrderSummary:
+  $ref: './order.yaml#/AdminOrderSummary'
+Order:
+  $ref: './order.yaml#/Order'
+OrderResponse:
+  $ref: './order.yaml#/OrderResponse'
+MockPaymentRequest:
+  $ref: './order.yaml#/MockPaymentRequest'
+MockPaymentMeta:
+  $ref: './order.yaml#/MockPaymentMeta'
+MockPaymentResponse:
+  $ref: './order.yaml#/MockPaymentResponse'
+CancelOrderRequest:
+  $ref: './order.yaml#/CancelOrderRequest'
+MockRefundRequest:
+  $ref: './order.yaml#/MockRefundRequest'
+MockRefundMeta:
+  $ref: './order.yaml#/MockRefundMeta'
+MockRefundResponse:
+  $ref: './order.yaml#/MockRefundResponse'
+OrderPageResponse:
+  $ref: './order.yaml#/OrderPageResponse'
+AdminOrderPageResponse:
+  $ref: './order.yaml#/AdminOrderPageResponse'
+OrderTransitionRequest:
+  $ref: './order.yaml#/OrderTransitionRequest'
+
+PercentageDiscount:
+  $ref: './promotion.yaml#/PercentageDiscount'
+FixedAmountDiscount:
+  $ref: './promotion.yaml#/FixedAmountDiscount'
+PromotionDiscount:
+  $ref: './promotion.yaml#/PromotionDiscount'
+Promotion:
+  $ref: './promotion.yaml#/Promotion'
+PromotionCreateRequest:
+  $ref: './promotion.yaml#/PromotionCreateRequest'
+PromotionPatchRequest:
+  $ref: './promotion.yaml#/PromotionPatchRequest'
+PromotionResponse:
+  $ref: './promotion.yaml#/PromotionResponse'
+PromotionPageResponse:
+  $ref: './promotion.yaml#/PromotionPageResponse'
+
+ContactInput:
+  $ref: './prepurchase.yaml#/ContactInput'
+ConsentInput:
+  $ref: './prepurchase.yaml#/ConsentInput'
+ProvinceReference:
+  $ref: './prepurchase.yaml#/ProvinceReference'
+TestDriveLocation:
+  $ref: './prepurchase.yaml#/TestDriveLocation'
+TestDriveSlotStatus:
+  $ref: './prepurchase.yaml#/TestDriveSlotStatus'
+TestDriveSlot:
+  $ref: './prepurchase.yaml#/TestDriveSlot'
+TestDriveAvailability:
+  $ref: './prepurchase.yaml#/TestDriveAvailability'
+TestDriveAvailabilityResponse:
+  $ref: './prepurchase.yaml#/TestDriveAvailabilityResponse'
+CreateTestDriveRequest:
+  $ref: './prepurchase.yaml#/CreateTestDriveRequest'
+TestDriveRequestStatus:
+  $ref: './prepurchase.yaml#/TestDriveRequestStatus'
+TestDriveRequestSummary:
+  $ref: './prepurchase.yaml#/TestDriveRequestSummary'
+TestDriveStatusHistoryEntry:
+  $ref: './prepurchase.yaml#/TestDriveStatusHistoryEntry'
+TestDriveRequestDetail:
+  $ref: './prepurchase.yaml#/TestDriveRequestDetail'
+TestDriveRequestResponse:
+  $ref: './prepurchase.yaml#/TestDriveRequestResponse'
+TestDriveRequestPageResponse:
+  $ref: './prepurchase.yaml#/TestDriveRequestPageResponse'
+TestDriveTransitionAction:
+  $ref: './prepurchase.yaml#/TestDriveTransitionAction'
+TestDriveTransitionRequest:
+  $ref: './prepurchase.yaml#/TestDriveTransitionRequest'
+DayOfWeek:
+  $ref: './prepurchase.yaml#/DayOfWeek'
+TestDriveBusinessHours:
+  $ref: './prepurchase.yaml#/TestDriveBusinessHours'
+TestDriveBlackoutPeriod:
+  $ref: './prepurchase.yaml#/TestDriveBlackoutPeriod'
+TestDriveSettings:
+  $ref: './prepurchase.yaml#/TestDriveSettings'
+TestDriveSettingsPatchRequest:
+  $ref: './prepurchase.yaml#/TestDriveSettingsPatchRequest'
+TestDriveSettingsResponse:
+  $ref: './prepurchase.yaml#/TestDriveSettingsResponse'
+ConsultationStatus:
+  $ref: './prepurchase.yaml#/ConsultationStatus'
+CreateConsultationRequest:
+  $ref: './prepurchase.yaml#/CreateConsultationRequest'
+ConsultationLead:
+  $ref: './prepurchase.yaml#/ConsultationLead'
+ConsultationRequestResponse:
+  $ref: './prepurchase.yaml#/ConsultationRequestResponse'
+ConsultationRequestPageResponse:
+  $ref: './prepurchase.yaml#/ConsultationRequestPageResponse'
+ConsultationTransitionRequest:
+  $ref: './prepurchase.yaml#/ConsultationTransitionRequest'
+EstimateSelection:
+  $ref: './prepurchase.yaml#/EstimateSelection'
+OnRoadEstimateRequest:
+  $ref: './prepurchase.yaml#/OnRoadEstimateRequest'
+EstimateBreakdownCategory:
+  $ref: './prepurchase.yaml#/EstimateBreakdownCategory'
+EstimateBreakdownLine:
+  $ref: './prepurchase.yaml#/EstimateBreakdownLine'
+OnRoadEstimate:
+  $ref: './prepurchase.yaml#/OnRoadEstimate'
+OnRoadEstimateResponse:
+  $ref: './prepurchase.yaml#/OnRoadEstimateResponse'
+FeePolicyStatus:
+  $ref: './prepurchase.yaml#/FeePolicyStatus'
+FeeCalculationType:
+  $ref: './prepurchase.yaml#/FeeCalculationType'
+FeeCalculationBase:
+  $ref: './prepurchase.yaml#/FeeCalculationBase'
+FeePolicyCreateRequest:
+  $ref: './prepurchase.yaml#/FeePolicyCreateRequest'
+FeePolicyPatchRequest:
+  $ref: './prepurchase.yaml#/FeePolicyPatchRequest'
+FeePolicy:
+  $ref: './prepurchase.yaml#/FeePolicy'
+FeePolicyResponse:
+  $ref: './prepurchase.yaml#/FeePolicyResponse'
+FeePolicyPageResponse:
+  $ref: './prepurchase.yaml#/FeePolicyPageResponse'
+LoanPackageStatus:
+  $ref: './prepurchase.yaml#/LoanPackageStatus'
+LoanPackageCreateRequest:
+  $ref: './prepurchase.yaml#/LoanPackageCreateRequest'
+LoanPackagePatchRequest:
+  $ref: './prepurchase.yaml#/LoanPackagePatchRequest'
+LoanPackage:
+  $ref: './prepurchase.yaml#/LoanPackage'
+LoanPackageResponse:
+  $ref: './prepurchase.yaml#/LoanPackageResponse'
+LoanPackagePageResponse:
+  $ref: './prepurchase.yaml#/LoanPackagePageResponse'
+InstallmentEstimateRequest:
+  $ref: './prepurchase.yaml#/InstallmentEstimateRequest'
+InstallmentPaymentRow:
+  $ref: './prepurchase.yaml#/InstallmentPaymentRow'
+InstallmentEstimate:
+  $ref: './prepurchase.yaml#/InstallmentEstimate'
+InstallmentEstimateResponse:
+  $ref: './prepurchase.yaml#/InstallmentEstimateResponse'

@@ -1,9 +1,17 @@
-.env
-.env.*
-!.env.example
-__pycache__/
-*.pyc
-.venv/
 node_modules/
-.DS_Store
-Thumbs.db
+.next/
+.npm-cache/
+*.log
+*.tsbuildinfo
+.env*
+!.env.example
+.local/
+
+# Generated crawl, extraction, verification, and normalization artifacts.
+# Runtime data is read from Supabase; these files may be regenerated locally.
+/public/data/after-sales*.json
+/public/data/by_type/vf_manual_articles.json
+/public/data/by_type/manual_vehicles.json
+/public/assets/images/
+/*.traineddata
+/scripts/data.zip

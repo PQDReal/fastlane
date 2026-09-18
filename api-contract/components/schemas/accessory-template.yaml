@@ -1,0 +1,164 @@
+AccessoryTemplateAttributeDefinition:
+  type: object
+  additionalProperties: false
+  required: [key, label]
+  properties:
+    key: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:_[a-z0-9]+)*$' }
+    label: { type: string, minLength: 1, maxLength: 200 }
+    defaultValue: { type: string, maxLength: 1000 }
+AccessoryTemplateSectionDefinition:
+  type: object
+  additionalProperties: false
+  required: [key, type, title]
+  properties:
+    key: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:_[a-z0-9]+)*$' }
+    type: { type: string, enum: [TECHNICAL_SPECS, FEATURES, USAGE_GUIDE, CARE_GUIDE, INSTALLATION_GUIDE, PACKAGE_CONTENTS, WARRANTY, SHIPPING_NOTE, PURCHASE_NOTE, SAFETY_NOTE, CAR_GALLERY, OTHER] }
+    title: { type: string, minLength: 1, maxLength: 200 }
+    attributes:
+      type: array
+      maxItems: 100
+      items: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateAttributeDefinition' }
+    items: { type: array, maxItems: 100, items: { type: string, maxLength: 2000 } }
+    bodyPlaceholder: { type: string, maxLength: 1000 }
+AccessoryTemplateOptionValueDefinition:
+  type: object
+  additionalProperties: false
+  required: [code, name]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 80 }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    colorHex: { type: [string, 'null'], maxLength: 20 }
+AccessoryTemplateOptionGroupDefinition:
+  type: object
+  additionalProperties: false
+  required: [key, code, name, displayType]
+  properties:
+    key: { type: string, minLength: 1, maxLength: 80 }
+    code: { type: string, minLength: 1, maxLength: 80 }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    displayType: { type: string, enum: [BUTTON, SWATCH, SELECT] }
+    minimumSelections: { type: integer, minimum: 0, maximum: 20 }
+    maximumSelections: { type: integer, minimum: 1, maximum: 20 }
+    values:
+      type: array
+      maxItems: 100
+      items: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateOptionValueDefinition' }
+AccessoryTemplateDefinition:
+  type: object
+  additionalProperties: false
+  required: [schema, suggestedCategorySlugs, suggestedOptionCodes, sections]
+  properties:
+    schema: { type: string, const: accessory_template_v1 }
+    suggestedCategorySlugs: { type: array, maxItems: 20, items: { type: string, maxLength: 200 } }
+    suggestedOptionCodes: { type: array, maxItems: 20, items: { type: string, maxLength: 80 } }
+    sections:
+      type: array
+      maxItems: 30
+      items: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateSectionDefinition' }
+    optionGroups:
+      type: array
+      maxItems: 20
+      items: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateOptionGroupDefinition' }
+AccessoryTemplateVersion:
+  type: object
+  additionalProperties: false
+  required: [id, templateId, version, definition, changeNote, createdAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    templateId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    version: { type: integer, minimum: 1 }
+    definition: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateDefinition' }
+    changeNote: { type: [string, 'null'], maxLength: 500 }
+    createdAt: { type: string, format: date-time }
+AdminAccessoryTemplate:
+  type: object
+  additionalProperties: false
+  required: [id, code, name, groupName, description, displayOrder, isActive, currentVersion, usageCount, currentVersionId, definition, createdAt, updatedAt]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    groupName: { type: [string, 'null'], maxLength: 100 }
+    description: { type: [string, 'null'], maxLength: 1000 }
+    displayOrder: { type: integer, minimum: 0 }
+    isActive: { type: boolean }
+    currentVersion: { type: integer, minimum: 1 }
+    usageCount: { type: integer, minimum: 0 }
+    currentVersionId: { type: [string, 'null'], format: uuid }
+    definition:
+      oneOf:
+        - { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateDefinition' }
+        - { type: 'null' }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+    version:
+      oneOf:
+        - { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateVersion' }
+        - { type: 'null' }
+AdminAccessoryTemplateListResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplate' } }
+AdminAccessoryTemplateCategoryLookup:
+  type: object
+  additionalProperties: false
+  required: [id, slug, name, displayOrder]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    slug: { type: string, minLength: 1, maxLength: 200 }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    displayOrder: { type: integer, minimum: 0 }
+AdminAccessoryTemplateLookups:
+  type: object
+  additionalProperties: false
+  required: [groups, categories]
+  properties:
+    groups: { type: array, items: { type: string, minLength: 1, maxLength: 100 } }
+    categories: { type: array, items: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplateCategoryLookup' } }
+AdminAccessoryTemplateLookupsResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplateLookups' }
+AdminAccessoryTemplateCreateRequest:
+  type: object
+  additionalProperties: false
+  required: [name, definition]
+  properties:
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', description: Optional stable code; generated from name when omitted. }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    groupName: { type: [string, 'null'], maxLength: 100 }
+    description: { type: [string, 'null'], maxLength: 1000 }
+    displayOrder: { type: integer, minimum: 0 }
+    isActive: { type: boolean }
+    definition: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateDefinition' }
+    changeNote: { type: [string, 'null'], maxLength: 500 }
+AdminAccessoryTemplatePatchRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    code: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    name: { type: string, minLength: 1, maxLength: 200 }
+    groupName: { type: [string, 'null'], maxLength: 100 }
+    description: { type: [string, 'null'], maxLength: 1000 }
+    displayOrder: { type: integer, minimum: 0 }
+    isActive: { type: boolean }
+    expectedUpdatedAt: { type: string, format: date-time }
+AdminAccessoryTemplateVersionRequest:
+  type: object
+  additionalProperties: false
+  required: [definition]
+  properties:
+    definition: { $ref: '../../openapi.yaml#/components/schemas/AccessoryTemplateDefinition' }
+    changeNote: { type: [string, 'null'], maxLength: 500 }
+    expectedUpdatedAt: { type: string, format: date-time }
+AdminAccessoryTemplateResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '../../openapi.yaml#/components/schemas/AdminAccessoryTemplate' }

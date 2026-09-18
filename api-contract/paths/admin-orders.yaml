@@ -1,0 +1,178 @@
+/admin/promotions:
+  get:
+    tags: [Admin Promotions]
+    operationId: listAdminPromotions
+    x-prd-references: [US-A05, FR-ADMN-05]
+    summary: List promotions
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [promotion:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/PromotionPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  post:
+    tags: [Admin Promotions]
+    operationId: createPromotion
+    x-prd-references: [US-A05, FR-ADMN-05, BR-03, BR-05]
+    summary: Create a promotion
+    description: endsAt, when supplied, must be later than startsAt; otherwise the server returns DATE_RANGE_INVALID.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [promotion:manage]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/PromotionCreateRequest' }
+    responses:
+      '201': { $ref: '../openapi.yaml#/components/responses/Promotion' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/promotions/{promotionId}:
+  get:
+    tags: [Admin Promotions]
+    operationId: getAdminPromotion
+    x-prd-references: [US-A05, FR-ADMN-05]
+    summary: Get a promotion
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [promotion:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PromotionId' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Promotion' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  patch:
+    tags: [Admin Promotions]
+    operationId: updatePromotion
+    x-prd-references: [US-A05, FR-ADMN-05, BR-03, BR-05]
+    summary: Update a promotion
+    description: Promotion type is immutable. endsAt, when supplied, must be later than startsAt after applying the patch.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [promotion:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PromotionId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/PromotionPatchRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Promotion' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { $ref: '../openapi.yaml#/components/responses/BusinessRuleError' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+  delete:
+    tags: [Admin Promotions]
+    operationId: deactivatePromotion
+    x-prd-references: [US-A05, FR-ADMN-05, BR-05]
+    summary: Deactivate a promotion
+    description: Soft delete keeps order and promotion-usage audit history intact.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [promotion:manage]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PromotionId' }
+    responses:
+      '204': { description: Promotion deactivated }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/orders:
+  get:
+    tags: [Admin Orders]
+    operationId: listAdminOrders
+    x-prd-references: [US-A06, US-A08, FR-ADMN-06]
+    summary: List all orders for fulfilment
+    description: |
+      q matches order number, customer email, recipient name, or normalized phone number.
+      createdFrom and createdTo are inclusive RFC 3339 instants; createdFrom must not exceed createdTo.
+      Results expose only the recipient name and normalized phone needed to identify a match; full shipping address remains detail-only.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [orders:read:any]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/Query' }
+      - { $ref: '../openapi.yaml#/components/parameters/OrderStatus' }
+      - { $ref: '../openapi.yaml#/components/parameters/CreatedFrom' }
+      - { $ref: '../openapi.yaml#/components/parameters/CreatedTo' }
+      - { $ref: '../openapi.yaml#/components/parameters/OrderSort' }
+      - { $ref: '../openapi.yaml#/components/parameters/Page' }
+      - { $ref: '../openapi.yaml#/components/parameters/Limit' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/AdminOrderPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/orders/{orderId}:
+  get:
+    tags: [Admin Orders]
+    operationId: getAdminOrder
+    x-prd-references: [US-A06, FR-ADMN-06]
+    summary: Get an order for fulfilment
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [orders:read:any]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/OrderId' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Order' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }
+/admin/orders/{orderId}/transitions:
+  post:
+    tags: [Admin Orders]
+    operationId: transitionOrder
+    x-prd-references: [US-A07, FR-ADMN-06, BR-05, BR-06]
+    summary: Apply a valid order status transition
+    description: |
+      Admin transitions are Created to Cancelled; DepositPaid to Paid or Cancelled; Paid to Shipped or Cancelled; and Shipped to Completed.
+      Mock payment performs Created to DepositPaid/Paid and DepositPaid to Paid. Admin DepositPaid to Paid records externally collected balance.
+      Cancelling Created, DepositPaid, or Paid restores inventory and promotion usage exactly once, snapshots the admin reason, and creates a pending refund when the policy calculation is positive.
+    security: [{ bearerAuth: [] }]
+    x-required-roles: [admin]
+    x-required-permissions: [orders:fulfill]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/OrderId' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/OrderTransitionRequest' }
+    responses:
+      '200': { $ref: '../openapi.yaml#/components/responses/Order' }
+      '400': { $ref: '../openapi.yaml#/components/responses/ValidationError' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthorized' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/InvalidOrderTransition' }
+      '429': { $ref: '../openapi.yaml#/components/responses/TooManyRequests' }
+      '500': { $ref: '../openapi.yaml#/components/responses/InternalServerError' }

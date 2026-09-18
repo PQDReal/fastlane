@@ -1,0 +1,280 @@
+openapi: 3.1.0
+info:
+  title: Fastlane E-Commerce API
+  version: 0.5.0-draft
+  summary: Contract-first REST API for the Fastlane B2C MVP
+  description: |
+    Week-1 API contract aligned with PRD Fastlane E-Commerce v1.0.0.
+    This artifact defines the integration boundary before backend, storefront, admin, database, and infrastructure work are merged.
+    All money values are non-negative whole-VND strings. Pricing, option compatibility, deposit schedules, promotion eligibility, and inventory are calculated on the server.
+    Catalog content is available only in vi-VN. UI and error messages are localized by the client from stable error codes.
+    Authentication and registration use Auth0 Universal Login; this API does not duplicate Auth0 login, registration, or logout endpoints.
+  license:
+    name: Internal training use only
+    identifier: LicenseRef-Internal-Training
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+    description: Local development
+tags:
+  - name: System
+    description: Service health and readiness.
+  - name: Catalog
+    description: Public VinFast product discovery, category filtering, and detail.
+  - name: Profile
+    description: Current authenticated customer profile and default shipping address.
+  - name: Cart
+    description: Current authenticated customer cart and one optional promotion code.
+  - name: Checkout
+    description: Transactional order creation and local-only mock payment.
+  - name: Orders
+    description: Current customer order history and status tracking.
+  - name: Pre-purchase
+    description: Public single-location test-drive requests, consultation leads, and advisory cost estimates.
+  - name: Admin Dashboard
+    description: Optional MVP operational summary for the admin panel.
+  - name: Admin Catalog
+    description: Category, product, variant, image, price, and inventory administration.
+  - name: Admin Promotions
+    description: Promotion campaign administration.
+  - name: Admin Orders
+    description: Order search, fulfilment detail, and forward-only state transitions.
+  - name: Admin Pre-purchase
+    description: Single test-drive location, request operations, and versioned estimate policies.
+security:
+  - bearerAuth: []
+x-prd-alignment:
+  document: PRD - Fastlane E-Commerce
+  version: 1.0.0
+  date: '2026-07-22'
+  contractScope: API contract only; implementation artifacts owned by other team members may be delivered later.
+  priorities:
+    must: Contracted as required behavior.
+    should: Contracted for integration planning; implementation may be staged.
+    could: Contracted only where already in scope or needed by the documented admin surface.
+x-contract-boundary:
+  included: [catalog, profile, cart, promotion, checkout, orders, inventory, prepurchase, admin]
+  external: [Auth0 Universal Login]
+  deferredImplementationArtifacts: [database migrations, application code, UI, CI, Docker Compose, deployment]
+x-business-rules:
+  BR-01: A customer must be authenticated to checkout.
+  BR-02: A cart must contain at least one item to checkout.
+  BR-03: A cart and resulting order accept at most one promotion code.
+  BR-04: Cart operations do not reserve inventory; checkout rechecks and decrements stock atomically.
+  BR-05: Only administrators may call management operations directly; authenticated customer workflows may trigger server-owned atomic inventory and promotion mutations.
+  BR-06: Order status transitions are forward-only; Completed and Cancelled are terminal.
+  BR-07: Product list and sale prices are strictly positive whole-VND values.
+  BR-08: A promotion endsAt, when present, must be later than startsAt after create or patch.
+  BR-09: A public product is active and exposes only active variants; an out-of-stock active variant remains visible but is not purchasable.
+  BR-10: Shipping addresses follow the 2-tier local government model (Law 72/2025/QH15); when codes are supplied, communeLevel.code must belong to province.code or return 422 ADDRESS_ADMIN_AREA_MISMATCH.
+  BR-11: productKind is the stable workflow discriminator; category remains a mutable merchandising taxonomy.
+  BR-12: Full-payment products have no depositAmount; deposit products require a positive fixed per-unit depositAmount.
+  BR-13: Selected option values must satisfy group cardinality, be active, belong to the product, and be compatible with the selected variant SKU.
+  BR-14: grandTotal equals amountDueNow plus balanceDue; the server is authoritative for every pricing component.
+  BR-15: Initial-payment, balance-payment, and grace deadlines are derived from snapshotted purchase terms and evaluated using UTC instants.
+  BR-16: Cancellation eligibility and refund amount use the immutable order-level policy snapshot; inventory and promotion usage are restored exactly once.
+  BR-17: Automatic expiry, overdue marking, cancellation, charge, and refund processing are idempotent and auditable.
+  BR-18: Full-payment products cannot use before_balance_due cutoff; mixed-order cancellation derives the most restrictive valid item policy.
+x-pricebook-policy:
+  pricebook: DEFAULT_VND
+  currency: VND
+  effectivePrice: salePrice when present; otherwise listPrice.
+  saleInvariant: salePrice must be lower than listPrice.
+  promotionBasis: Promotion applies to the subtotal calculated from effective item prices.
+  optionPricing: Selected non-inventory option price adjustments are added to the effective variant price before promotion calculation.
+  depositBasis: A deposit product contributes its fixed per-unit deposit capped at its configured unit price to the pre-discount amount due now; a full-payment product contributes its full configured price.
+  discountAllocation: Promotion discount reduces the pre-discount balance first, then the amount due now; amountDueNow plus balanceDue always equals grandTotal.
+  percentageRounding: Round half up to the nearest whole VND.
+  discountCap: Cart discountTotal never exceeds subtotal.
+  publicPriceRange: Calculated from effective prices of active variants, including active variants that are currently out of stock.
+x-inventory-policy:
+  sellableUnit: Product variant.
+  cartReservation: Cart operations check current availability but do not reserve stock.
+  checkout: Atomically decrement stock using a conditional update when the Created order is committed.
+  cancellation: Cancelling Created, DepositPaid, or Paid, or expiring unpaid Created, restores inventory and promotion usage exactly once.
+  concurrency: Every inventory mutation increments inventoryVersion and rejects a stale expectedVersion.
+  mutationAuthority: Admin management endpoints mutate stock directly; checkout and cancellation mutate it only inside server-owned transactions.
+x-order-state-machine:
+  initialStatus: Created
+  paymentTransition: Approved local mock payment moves Created to DepositPaid when balanceDue is positive, Created to Paid when fully paid, and DepositPaid to Paid after collecting balanceDue.
+  adminTransitions: [Created-to-Cancelled, DepositPaid-to-Paid, DepositPaid-to-Cancelled, Paid-to-Shipped, Paid-to-Cancelled, Shipped-to-Completed]
+  customerTransitions: [Created-to-Cancelled, DepositPaid-to-Cancelled, Paid-to-Cancelled-before-shipping]
+  automaticTransitions: [Created-to-Expired-at-initialPaymentDueAt, DepositPaid-paymentStatus-to-BalanceOverdue-at-balanceDueAt, DepositPaid-to-Cancelled-at-gracePeriodEndsAt]
+  terminalStatuses: [Completed, Cancelled, Expired]
+  createdStockHold: Created and DepositPaid orders retain decremented inventory and consumed promotion usage until full payment, cancellation, or expiry.
+  automaticExpiry: Unpaid Created expires at initialPaymentDueAt; overdue DepositPaid auto-cancels at gracePeriodEndsAt.
+x-payment-deadline-policy:
+  clock: UTC RFC 3339 instants generated by the server.
+  initialPayment: initialPaymentDueAt equals order createdAt plus the most restrictive item initialPaymentWindowMinutes.
+  balancePayment: After successful deposit, balanceDueAt equals deposit-paid time plus the most restrictive item balancePaymentWindowDays.
+  gracePeriod: gracePeriodEndsAt equals balanceDueAt plus the most restrictive item gracePeriodHours.
+  overdue: Crossing balanceDueAt changes payment status to BalanceOverdue without changing order status DepositPaid.
+  expiry: Crossing initialPaymentDueAt while unpaid changes order and payment status to Expired and restores inventory/promotion exactly once.
+  graceExpiry: Crossing gracePeriodEndsAt while balance remains auto-cancels the order, calculates refund, and restores inventory/promotion exactly once.
+  lateCallback: A payment callback received after Cancelled or Expired cannot revive the order and requires reconciliation.
+  reminders: Notification workers may use schedule timestamps; notification delivery is outside this API contract.
+x-refund-policy:
+  snapshot: Checkout derives an immutable order policy from item policies using customer-allowed-for-all, earliest cutoff with before_initial_payment before before_balance_due before before_shipping, lowest applicable refund percentage, and summed cancellation fees.
+  voluntaryFormula: refundableAmount equals max(0, round-half-up(amountPaid times refundPercentage divided by 100) minus cancellationFeeAmount), capped at amountPaid.
+  overdueFormula: System cancellation after grace uses overdueRefundPercentage in the same formula.
+  merchantCancellation: Admin cancellation for inventory_unavailable or admin_decision refunds 100 percent of amountPaid with zero cancellation fee.
+  noCharge: Cancellation before successful payment produces RefundStatus NotRequired and refundable amount zero.
+  asynchronous: Cancellation records RefundStatus Pending when refundableAmount is positive; mock-refund only simulates the external refund outcome.
+  audit: amountPaid remains gross successful charges; amountRefunded and immutable charge/refund transactions preserve audit history.
+x-product-publication-policy:
+  publicVisibility: Public catalog endpoints return active products and active variants only.
+  outOfStockVisibility: Active variants with zero available quantity remain visible with isPurchasable false.
+  activation: An active product must have at least one active variant and exactly one thumbnail image.
+  thumbnails: A product has at most one thumbnail; setting another image as thumbnail atomically demotes the previous thumbnail.
+x-product-configuration-policy:
+  typedWorkflow: productKind drives purchase workflow independently from category.
+  sellableCore: Variant owns SKU, base price, battery acquisition mode, and inventory.
+  dynamicOptions: Option groups model non-inventory configuration and additive prices; any choice that changes SKU or inventory must remain a variant attribute.
+  compatibility: Empty compatibleVariantSkus means every product variant; otherwise the selected variant SKU must be listed.
+  stableIdentity: Admin option replacement upserts by group/value code, preserves IDs for matching codes, and archives removed codes.
+  cartValidation: Add and reprice validate option ownership, active state, group cardinality, uniqueness, and SKU compatibility.
+  snapshots: Cart and order items retain option names, codes, and price adjustments so later catalog edits cannot rewrite an order.
+x-single-showroom-policy:
+  cardinality: Exactly one server-owned test-drive location is configured for the MVP.
+  clientSelection: Public operations never accept showroomId or locationId; availability responses include the configured location.
+  availability: Slots use Asia/Ho_Chi_Minh, business hours, blackout periods, supported products, and confirmed-capacity counts.
+  reservation: Selecting or requesting a slot does not reserve it; only an Admin CONFIRM transition consumes capacity.
+  deactivation: The location cannot be deactivated while unresolved future CONFIRMED appointments exist.
+  history: Test-drive requests retain a location snapshot so later settings changes do not rewrite history.
+x-prepurchase-estimate-policy:
+  advisory: On-road and installment calculations are estimates, not quotations or credit approval.
+  priceAuthority: Catalog, option, promotion, fee, and loan values are resolved by the server; client-supplied totals are never accepted.
+  locality: Registration province selects fee policies independently of the single showroom location.
+  vat: VAT already included in catalog price is informational and is not added twice; missing tax-inclusion metadata fails calculation.
+  missingPolicy: A missing mandatory active fee or compatible loan package fails instead of silently contributing zero.
+  versioning: Effective or previously used policy versions are immutable and every result records its source versions and generatedAt.
+  rounding: Percentage amounts and repayment rows use half-up whole-VND rounding; the final principal row reconciles balance to zero.
+  handoff: Checkout receives identifiers/configuration only and always re-prices before order creation.
+x-filter-policy:
+  priceRange: minPrice and maxPrice are inclusive; when both are supplied, minPrice must be less than or equal to maxPrice.
+  createdRange: createdFrom and createdTo are inclusive RFC 3339 instants; when both are supplied, createdFrom must be less than or equal to createdTo.
+x-dashboard-policy:
+  lowStockThreshold: Configurable by deployment; defaults to 5 available units.
+x-rate-limit-policy:
+  scope: All endpoints in this contract; deployments may exempt health checks through infrastructure configuration.
+  responseStatus: 429
+  responseHeaders: [Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset]
+x-localization:
+  defaultLocale: vi-VN
+  fallbackLocale: vi-VN
+  supportedCatalogLocales: [vi-VN]
+  errorLocalization: client-side from error.code
+  futureCatalogTranslation: Product and category translations will be introduced before Accept-Language is supported by catalog endpoints.
+x-authorization-model:
+  identityProvider: Auth0
+  loginFlow: Universal Login with Authorization Code and PKCE in the web client.
+  tokenType: JWT access token
+  signingAlgorithm: RS256
+  requiredClaims: [iss, sub, aud, exp]
+  rolesClaim: Configured namespaced Auth0 custom claim; environment-specific URI is not hard-coded in this contract.
+  permissionsClaim: permissions
+  roles: [customer, admin]
+  endpointAuthorization: x-required-permissions
+  permissionSemantics: Every permission listed by an operation is required.
+  hiddenResourcePolicy: Ownership failures return 404 instead of revealing another customer's resource.
+  customerMapping: Backend maps the validated issuer plus subject claims to the local customer record; customerId is never accepted from customer write requests.
+  ownership: Customer profile, order, cart, and mock-payment endpoints additionally verify that the authenticated subject owns the requested resource.
+paths:
+  /health:
+    $ref: './paths/catalog.yaml#/~1health'
+  /categories:
+    $ref: './paths/catalog.yaml#/~1categories'
+  /products:
+    $ref: './paths/catalog.yaml#/~1products'
+  /products/{slug}:
+    $ref: './paths/catalog.yaml#/~1products~1{slug}'
+  /test-drive/availability:
+    $ref: './paths/prepurchase.yaml#/~1test-drive~1availability'
+  /test-drive/requests:
+    $ref: './paths/prepurchase.yaml#/~1test-drive~1requests'
+  /consultation-requests:
+    $ref: './paths/prepurchase.yaml#/~1consultation-requests'
+  /estimates/on-road:
+    $ref: './paths/prepurchase.yaml#/~1estimates~1on-road'
+  /estimates/installment:
+    $ref: './paths/prepurchase.yaml#/~1estimates~1installment'
+  /users/me:
+    $ref: './paths/catalog.yaml#/~1users~1me'
+  /cart:
+    $ref: './paths/cart.yaml#/~1cart'
+  /cart/items:
+    $ref: './paths/cart.yaml#/~1cart~1items'
+  /cart/items/{itemId}:
+    $ref: './paths/cart.yaml#/~1cart~1items~1{itemId}'
+  /cart/promotion:
+    $ref: './paths/cart.yaml#/~1cart~1promotion'
+  /checkout:
+    $ref: './paths/checkout.yaml#/~1checkout'
+  /orders:
+    $ref: './paths/orders.yaml#/~1orders'
+  /orders/{orderId}:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}'
+  /orders/{orderId}/cancellation:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}~1cancellation'
+  /orders/{orderId}/mock-payment:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}~1mock-payment'
+  /orders/{orderId}/mock-refund:
+    $ref: './paths/orders.yaml#/~1orders~1{orderId}~1mock-refund'
+  /admin/dashboard/summary:
+    $ref: './paths/admin-products.yaml#/~1admin~1dashboard~1summary'
+  /admin/categories:
+    $ref: './paths/admin-products.yaml#/~1admin~1categories'
+  /admin/categories/{categoryId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1categories~1{categoryId}'
+  /admin/products:
+    $ref: './paths/admin-products.yaml#/~1admin~1products'
+  /admin/products/{productId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}'
+  /admin/products/{productId}/variants:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1variants'
+  /admin/variants/{variantId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1variants~1{variantId}'
+  /admin/products/{productId}/images:
+    $ref: './paths/admin-products.yaml#/~1admin~1products~1{productId}~1images'
+  /admin/product-images/{imageId}:
+    $ref: './paths/admin-products.yaml#/~1admin~1product-images~1{imageId}'
+  /admin/variants/{variantId}/inventory:
+    $ref: './paths/admin-products.yaml#/~1admin~1variants~1{variantId}~1inventory'
+  /admin/promotions:
+    $ref: './paths/admin-orders.yaml#/~1admin~1promotions'
+  /admin/promotions/{promotionId}:
+    $ref: './paths/admin-orders.yaml#/~1admin~1promotions~1{promotionId}'
+  /admin/orders:
+    $ref: './paths/admin-orders.yaml#/~1admin~1orders'
+  /admin/orders/{orderId}:
+    $ref: './paths/admin-orders.yaml#/~1admin~1orders~1{orderId}'
+  /admin/orders/{orderId}/transitions:
+    $ref: './paths/admin-orders.yaml#/~1admin~1orders~1{orderId}~1transitions'
+  /admin/test-drive/requests:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1requests'
+  /admin/test-drive/requests/{requestId}:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1requests~1{requestId}'
+  /admin/test-drive/requests/{requestId}/transitions:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1requests~1{requestId}~1transitions'
+  /admin/test-drive/settings:
+    $ref: './paths/prepurchase.yaml#/~1admin~1test-drive~1settings'
+  /admin/consultation-requests:
+    $ref: './paths/prepurchase.yaml#/~1admin~1consultation-requests'
+  /admin/consultation-requests/{requestId}/transitions:
+    $ref: './paths/prepurchase.yaml#/~1admin~1consultation-requests~1{requestId}~1transitions'
+  /admin/fee-policies:
+    $ref: './paths/prepurchase.yaml#/~1admin~1fee-policies'
+  /admin/fee-policies/{feePolicyId}:
+    $ref: './paths/prepurchase.yaml#/~1admin~1fee-policies~1{feePolicyId}'
+  /admin/loan-packages:
+    $ref: './paths/prepurchase.yaml#/~1admin~1loan-packages'
+  /admin/loan-packages/{loanPackageId}:
+    $ref: './paths/prepurchase.yaml#/~1admin~1loan-packages~1{loanPackageId}'
+components:
+  securitySchemes:
+    $ref: './components/security.yaml'
+  parameters:
+    $ref: './components/parameters.yaml'
+  responses:
+    $ref: './components/responses.yaml'
+  schemas:
+    $ref: './components/schemas/index.yaml'

@@ -1,0 +1,71 @@
+Query:
+  name: q
+  in: query
+  description: Trimmed free-text query. Empty or whitespace-only values are invalid when supplied.
+  schema: { type: string, minLength: 1, maxLength: 120 }
+CategorySlug:
+  name: category
+  in: query
+  schema: { type: string, minLength: 1, maxLength: 160, pattern: '^[a-z0-9-]+$' }
+CategoryIdFilter: { name: categoryId, in: query, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+MinimumPrice:
+  name: minPrice
+  in: query
+  description: Inclusive minimum effective active-variant price. Must not exceed maxPrice when both are supplied.
+  schema: { $ref: '../openapi.yaml#/components/schemas/Money' }
+MaximumPrice:
+  name: maxPrice
+  in: query
+  description: Inclusive maximum effective active-variant price. Must be greater than or equal to minPrice when both are supplied.
+  schema: { $ref: '../openapi.yaml#/components/schemas/Money' }
+IsActive: { name: isActive, in: query, schema: { type: boolean } }
+CreatedFrom:
+  name: createdFrom
+  in: query
+  description: Inclusive RFC 3339 lower bound. Must not be later than createdTo when both are supplied.
+  schema: { type: string, format: date-time }
+CreatedTo:
+  name: createdTo
+  in: query
+  description: Inclusive RFC 3339 upper bound. Must not be earlier than createdFrom when both are supplied.
+  schema: { type: string, format: date-time }
+Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+Sort:
+  name: sort
+  in: query
+  description: relevance requires q. If omitted, q uses relevance and requests without q use newest.
+  schema: { type: string, enum: [relevance, newest, price_asc, price_desc] }
+OrderSort: { name: sort, in: query, schema: { type: string, enum: [created_desc, created_asc, status_asc], default: created_desc } }
+ProductSlug: { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 220, pattern: '^[a-z0-9-]+$' } }
+ProductId: { name: productId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+ServiceLabelId: { name: labelId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+ProductIdQuery: { name: productId, in: query, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+CategoryId: { name: categoryId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+VariantId: { name: variantId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+ProductImageId: { name: imageId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+CartItemId: { name: itemId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+OrderId: { name: orderId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+PromotionId: { name: promotionId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+OrderStatus: { name: status, in: query, schema: { $ref: '../openapi.yaml#/components/schemas/OrderStatus' } }
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: true
+  description: Opaque client-generated key, retained for at least 24 hours for this customer and endpoint.
+  schema: { type: string, minLength: 8, maxLength: 255, pattern: '^[A-Za-z0-9._:-]+$' }
+DateFrom:
+  name: dateFrom
+  in: query
+  description: Inclusive local calendar date in the single location timezone. Must not exceed dateTo.
+  schema: { type: string, format: date }
+DateTo:
+  name: dateTo
+  in: query
+  description: Inclusive local calendar date in the single location timezone. Must not be earlier than dateFrom.
+  schema: { type: string, format: date }
+PrepurchaseRequestId: { name: requestId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+TestDriveStatus: { name: status, in: query, schema: { $ref: '../openapi.yaml#/components/schemas/TestDriveRequestStatus' } }
+ConsultationStatus: { name: status, in: query, schema: { $ref: '../openapi.yaml#/components/schemas/ConsultationStatus' } }
+FeePolicyId: { name: feePolicyId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }
+LoanPackageId: { name: loanPackageId, in: path, required: true, schema: { $ref: '../openapi.yaml#/components/schemas/Uuid' } }

@@ -1,0 +1,472 @@
+import 'server-only'
+
+import { ApiRouteError } from '@/lib/api/errors'
+import type { DepositSelectionInput } from '@/lib/deposit/order-input'
+import { DepositInputError } from '@/lib/deposit/order-input'
+import { matchesDepositVehicleVariant } from '@/lib/deposit/vehicle-variant'
+import { quoteProductPromotion } from '@/lib/promotions/quote'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import {
+  listMotorbikeCatalog,
+  type MotorbikeCatalogItem,
+} from '@/lib/motorbike-catalog'
+
+type UnknownRecord = Record<string, unknown>
+
+type DepositCatalogProduct = {
+  id: string
+  name: string
+  slug: string
+  displayed_price: number
+  specifications: unknown
+  motorbike?: MotorbikeCatalogItem
+}
+
+type OptionGroupRow = {
+  id: string
+  code: string
+  name: string
+  minimum_selections: number
+  maximum_selections: number
+}
+
+type OptionValueRow = {
+  id: string
+  option_group_id: string
+  code: string
+  name: string
+  price_adjustment: number | string
+}
+
+export type DepositVehicleQuote = {
+  productId: string
+  variantId: string | null
+  depositAmount: number
+  subtotal: number
+  discountAmount: number
+  totalEstimatedPrice: number
+  promotion: {
+    id: string
+    code: string
+    name: string
+  } | null
+}
+
+function key(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function modelKey(value: unknown) {
+  return key(value)
+    .replace(/^vinfast/, '')
+    .replace(/theallnew2026$/, '')
+}
+
+function money(value: unknown): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : 0
+}
+
+function object(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as UnknownRecord
+    : {}
+}
+
+function array(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function namedOptions(value: unknown): Array<{
+  id: string
+  code: string
+  name: string
+  price: number
+}> {
+  return array(value).flatMap((raw) => {
+    if (typeof raw === 'string') {
+      return [{ id: raw, code: raw, name: raw, price: 0 }]
+    }
+    const candidate = object(raw)
+    const name = String(
+      candidate.name ?? candidate.color_name ?? candidate.label ?? '',
+    ).trim()
+    if (!name) return []
+    return [{
+      id: String(candidate.id ?? candidate.code ?? name).trim(),
+      code: String(candidate.code ?? candidate.id ?? name).trim(),
+      name,
+      price: money(
+        candidate.price_adjustment ??
+        candidate.price_delta ??
+        candidate.price,
+      ),
+    }]
+  })
+}
+
+function recursivelyNamedOptions(value: unknown, property: string) {
+  const found: ReturnType<typeof namedOptions> = []
+  const visit = (candidate: unknown) => {
+    if (!candidate || typeof candidate !== 'object') return
+    if (Array.isArray(candidate)) {
+      candidate.forEach(visit)
+      return
+    }
+    const record = candidate as UnknownRecord
+    if (Array.isArray(record[property])) {
+      found.push(...namedOptions(record[property]))
+    }
+    Object.values(record).forEach(visit)
+  }
+  visit(value)
+  return Array.from(new Map(found.map((item) => [key(item.name), item])).values())
+}
+
+function exactOption(
+  options: Array<{ id: string; code: string; name: string; price: number }>,
+  selected: string,
+) {
+  const selectedKey = key(selected)
+  return options.find((option) =>
+    key(option.id) === selectedKey ||
+    key(option.code) === selectedKey ||
+    key(option.name) === selectedKey
+  )
+}
+
+async function findProduct(
+  input: DepositSelectionInput,
+): Promise<DepositCatalogProduct> {
+  if (input.vehicleType === 'motorbike') {
+    const catalog = await listMotorbikeCatalog()
+    const requestedExact = key(input.vehicleModel)
+    const exactMatches = catalog.filter((product) =>
+      [product.name, product.slug].some((value) => key(value) === requestedExact),
+    )
+    const requested = modelKey(input.vehicleModel)
+    const matches = exactMatches.length > 0
+      ? exactMatches
+      : catalog.filter((product) =>
+          [product.name, product.slug].some((value) => modelKey(value) === requested),
+        )
+    if (matches.length !== 1) {
+      throw new DepositInputError(
+        matches.length === 0
+          ? 'Mẫu xe không tồn tại hoặc đã ngừng hoạt động.'
+          : 'Mẫu xe không xác định duy nhất. Vui lòng chọn lại.',
+        'car_model',
+      )
+    }
+    const motorbike = matches[0]
+    return {
+      id: motorbike.productId,
+      name: motorbike.name,
+      slug: motorbike.slug,
+      displayed_price: motorbike.displayedPrice,
+      specifications: motorbike.specifications,
+      motorbike,
+    }
+  }
+
+  const supabase = getSupabaseAdmin()
+  const result = await supabase
+    .from('products')
+    .select('id,name,slug,displayed_price,product_type,specifications')
+    .eq('is_active', true)
+    .in('product_type', ['CAR'])
+  if (result.error) throw result.error
+
+  const requestedExact = key(input.vehicleModel)
+  const candidateNames = (product: (typeof result.data)[number]) => {
+    const specifications = object(product.specifications)
+    return [
+      product.name,
+      product.slug,
+      specifications.name,
+      specifications.slug,
+    ]
+  }
+  const exactMatches = (result.data ?? []).filter((product) =>
+    candidateNames(product).some((value) => key(value) === requestedExact),
+  )
+  const requested = modelKey(input.vehicleModel)
+  const matches = exactMatches.length > 0
+    ? exactMatches
+    : (result.data ?? []).filter((product) =>
+        candidateNames(product).some((value) => modelKey(value) === requested),
+      )
+  if (matches.length !== 1) {
+    throw new DepositInputError(
+      matches.length === 0
+        ? 'Mẫu xe không tồn tại hoặc đã ngừng hoạt động.'
+        : 'Mẫu xe không xác định duy nhất. Vui lòng chọn lại.',
+      'car_model',
+    )
+  }
+  const product = matches[0]
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    displayed_price: Number(product.displayed_price),
+    specifications: product.specifications,
+  }
+}
+
+async function catalogOptions(productId: string) {
+  const supabase = getSupabaseAdmin()
+  const [groupsResult, valuesResult] = await Promise.all([
+    supabase
+      .from('product_option_groups')
+      .select('id,code,name,minimum_selections,maximum_selections')
+      .eq('product_id', productId)
+      .eq('is_active', true)
+      .returns<OptionGroupRow[]>(),
+    supabase
+      .from('product_option_values')
+      .select('id,option_group_id,code,name,price_adjustment')
+      .eq('product_id', productId)
+      .eq('is_active', true)
+      .returns<OptionValueRow[]>(),
+  ])
+  if (groupsResult.error) throw groupsResult.error
+  if (valuesResult.error) throw valuesResult.error
+  return {
+    groups: groupsResult.data ?? [],
+    values: valuesResult.data ?? [],
+  }
+}
+
+export async function buildDepositVehicleQuote(
+  input: DepositSelectionInput,
+): Promise<DepositVehicleQuote> {
+  const supabase = getSupabaseAdmin()
+  const product = await findProduct(input)
+  const specifications = object(product.specifications)
+  const variantsResult = input.vehicleType === 'motorbike'
+    ? {
+        data: product.motorbike?.versions.map((variant) => ({
+          id: variant.id,
+          name: variant.name,
+          original_price: variant.price,
+          sale_price: null,
+          deposit_amount: variant.depositAmount,
+        })) ?? [],
+        error: null,
+      }
+    : await supabase
+        .from('product_variants')
+        .select('id,name,original_price,sale_price,deposit_amount')
+        .eq('product_id', product.id)
+        .eq('is_active', true)
+  if (variantsResult.error) throw variantsResult.error
+
+  const requestedVariant = key(input.vehicleVariant)
+  const productNames = new Set([
+    key(input.vehicleModel),
+    key(product.name),
+    key(specifications.name),
+  ].filter(Boolean))
+  
+  let selectedVariant = (variantsResult.data ?? []).find((variant) => {
+    const variantName = key(variant.name)
+    return requestedVariant === variantName ||
+      [...productNames].some((name) => requestedVariant === `${name}${variantName}`)
+  })
+
+  if (!selectedVariant && (variantsResult.data ?? []).length > 0) {
+    const fallbackMatches = (variantsResult.data ?? []).filter((variant) => {
+      const variantName = key(variant.name)
+      return variantName.includes(requestedVariant) || 
+        [...productNames].some((name) => variantName.includes(`${name}${requestedVariant}`) || `${name}${variantName}`.includes(requestedVariant))
+    })
+    
+    if (fallbackMatches.length > 0) {
+      selectedVariant = fallbackMatches.sort((a, b) => {
+        const aIsKemPin = key(a.name).includes('kempin') ? -1 : 1
+        const bIsKemPin = key(b.name).includes('kempin') ? -1 : 1
+        return aIsKemPin - bIsKemPin
+      })[0]
+    } else if ((variantsResult.data ?? []).length === 1) {
+      // If there's only one active variant, default to it
+      selectedVariant = (variantsResult.data ?? [])[0]
+    }
+  }
+  if ((variantsResult.data ?? []).length > 0 && !selectedVariant) {
+    throw new DepositInputError(
+      'Phiên bản xe không tồn tại hoặc đã ngừng áp dụng.',
+      'car_variant',
+    )
+  }
+
+  const canonicalCarRows = input.vehicleType === 'car'
+    ? await supabase
+        .from('vehicle_variants')
+        .select('id,version,variant_name,color,interior_color,price,color_price_adjustment,deposit_amount')
+        .eq('product_id', product.id)
+        .eq('is_active', true)
+    : { data: [], error: null }
+  if (canonicalCarRows.error) throw canonicalCarRows.error
+  const selectedCarRow = (canonicalCarRows.data ?? []).find((row) =>
+    matchesDepositVehicleVariant(row, {
+      vehicleVariant: input.vehicleVariant,
+      exteriorColor: input.exteriorColor,
+      interiorColor: input.interiorColor ?? undefined,
+    }),
+  )
+  if (input.vehicleType === 'car' && !selectedCarRow) {
+    throw new DepositInputError(
+      'Tổ hợp phiên bản, màu ngoại thất và nội thất không tồn tại.',
+      'exterior_color',
+    )
+  }
+
+  const { groups, values } = await catalogOptions(product.id)
+  const valuesFor = (group: OptionGroupRow) => values
+    .filter((value) => value.option_group_id === group.id)
+    .map((value) => ({
+      id: value.id,
+      code: value.code,
+      name: value.name,
+      price: money(value.price_adjustment),
+    }))
+  const exteriorGroup = groups.find((group) => group.code === 'exterior_color')
+  const fallbackExterior = [
+    ...namedOptions(product.motorbike?.colors),
+    ...namedOptions(specifications.colors),
+    ...namedOptions(specifications.color_details),
+  ]
+  // Motorbike selections are rendered from vehicle_variants. Those rows are the
+  // authoritative catalog for the bike flow, and can be newer than the legacy
+  // product option groups (for example, "Đen" versus the old "Đen nhám").
+  // Validating against the same source prevents a restored or newly selected
+  // vehicle color from being rejected only when a promotion is applied.
+  const exteriorOptions = product.motorbike
+    ? namedOptions(product.motorbike.colors)
+    : exteriorGroup
+      ? valuesFor(exteriorGroup)
+      : fallbackExterior
+  const selectedExterior = exactOption(exteriorOptions, input.exteriorColor)
+  if (exteriorOptions.length > 0 && !selectedExterior) {
+    throw new DepositInputError(
+      'Màu ngoại thất không thuộc mẫu xe đã chọn.',
+      'exterior_color',
+    )
+  }
+
+  const interiorGroup = groups.find((group) => group.code === 'interior_color')
+  const fallbackInterior = recursivelyNamedOptions(specifications, 'interiors')
+  const interiorOptions = interiorGroup ? valuesFor(interiorGroup) : fallbackInterior
+  const selectedInterior = input.interiorColor
+    ? exactOption(interiorOptions, input.interiorColor)
+    : null
+  if (input.interiorColor && interiorOptions.length > 0 && !selectedInterior) {
+    throw new DepositInputError(
+      'Màu nội thất không tương thích với mẫu xe hoặc phiên bản đã chọn.',
+      'interior_color',
+    )
+  }
+
+  const packageGroups = groups.filter((group) =>
+    ['package', 'optional_package', 'accessory_package'].includes(group.code)
+  )
+  const normalizedPackages = packageGroups.flatMap(valuesFor)
+  const fallbackPackages = namedOptions(
+    specifications.optional_packages ?? specifications.packages,
+  )
+  const packageOptions =
+    normalizedPackages.length > 0 ? normalizedPackages : fallbackPackages
+  const selectedPackages = input.optionalPackages.map((selected) => {
+    const match = exactOption(packageOptions, selected)
+    if (!match) {
+      throw new DepositInputError(
+        `Gói tùy chọn "${selected}" không thuộc cấu hình xe đã chọn.`,
+        'optional_packages',
+      )
+    }
+    return match
+  })
+
+  const canonicalVersionPrices = (canonicalCarRows.data ?? [])
+    .filter((row) => key(row.version) === key(selectedCarRow?.version))
+    .map((row) => money(row.price))
+    .filter((price) => price > 0)
+  const basePrice = input.vehicleType === 'car' && canonicalVersionPrices.length > 0
+    ? Math.min(...canonicalVersionPrices)
+    : money(
+        selectedVariant?.sale_price ??
+        selectedVariant?.original_price ??
+        product.displayed_price,
+      )
+  if (basePrice <= 0) {
+    throw new DepositInputError(
+      'Mẫu xe chưa có giá bán hợp lệ để đặt cọc.',
+      'car_variant',
+    )
+  }
+  const optionAdjustment =
+    (input.vehicleType === 'car' ? money(selectedCarRow?.color_price_adjustment) : selectedExterior?.price ?? 0) +
+    (input.vehicleType === 'car' ? 0 : selectedInterior?.price ?? 0) +
+    selectedPackages.reduce((total, option) => total + option.price, 0)
+  const subtotal = basePrice + optionAdjustment
+  const promotion = input.promotionCode
+    ? await quoteProductPromotion(
+        input.promotionCode,
+        input.vehicleType === 'motorbike' ? 'BIKE' : 'CAR',
+        subtotal,
+      )
+    : null
+  const totalEstimatedPrice = promotion?.grandTotal ?? subtotal
+  const configuredDeposit = money(selectedCarRow?.deposit_amount ?? selectedVariant?.deposit_amount)
+  let defaultDeposit = 15_000_000
+  if (input.vehicleType === 'motorbike') {
+    defaultDeposit = 2_000_000
+  } else {
+    const pName = product.name.toUpperCase()
+    if (pName.includes('VF 7') || pName.includes('VF 9')) {
+      defaultDeposit = 50_000_000
+    } else if (pName.includes('VF 6') || pName.includes('VF 8')) {
+      defaultDeposit = 30_000_000
+    } else {
+      defaultDeposit = 15_000_000
+    }
+  }
+
+  return {
+    productId: product.id,
+    variantId: input.vehicleType === 'motorbike'
+      ? product.motorbike?.variantRows.find((row) =>
+          key(row.version) === key(selectedVariant?.name) &&
+          key(row.color) === key(input.exteriorColor)
+        )?.id ?? selectedVariant?.id ?? null
+      : selectedVariant?.id ?? null,
+    // A promotion reduces the vehicle/configuration price, never the agreed
+    // deposit amount for its selected variant. Keeping this value independent
+    // also keeps the VNPAY deposit charge and the order summary consistent.
+    // Any overage simply means there is no balance payment remaining.
+    depositAmount: configuredDeposit || defaultDeposit,
+    subtotal,
+    discountAmount: promotion?.discountAmount ?? 0,
+    totalEstimatedPrice,
+    promotion: promotion
+      ? {
+          id: promotion.promotionId,
+          code: promotion.code,
+          name: promotion.name,
+        }
+      : null,
+  }
+}
+
+export function depositQuoteError(error: unknown): never {
+  if (error instanceof ApiRouteError) {
+    throw new DepositInputError(error.message, 'promotion_code')
+  }
+  throw error
+}

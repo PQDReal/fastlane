@@ -1,0 +1,2077 @@
+[
+    {
+        "name": "Amio",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-amio",
+        "price": "11.600.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xám",
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ; Trắng; Xám; Đen; Xanh",
+            "Dài x Rộng x Cao (mm)": "1715 x 690 x 1050 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1168 mm",
+            "Khoảng sáng gầm": "130 mm",
+            "Chiều cao yên": "750 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "12L",
+            "Kích thước lốp Trước - Sau": "10 x 3.0",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khoá cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "~400 W",
+            "Công suất tối đa": "~800 W",
+            "Tốc độ tối đa": "30 km/h (chế độ Sport)",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "<16s",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1,024 kWh",
+            "Trọng lượng pin/ắc quy": "10 +/-1 kg",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 6h (từ 0% đến 100%)",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 65 km",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/black.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/dark-mint.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/white.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/mint.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/red.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-black.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/charging-station-d.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/feature-1.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-red.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/black.png",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/dark-mint.png",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/white.png",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/mint.png",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/red.png",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-black.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-white.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-mint.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/smart-key-icon.svg",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/human-icon.svg",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amino-sideview.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/pen-tool-icon.svg",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/chip-icon.svg",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/charging-station-m.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/charging-station-d.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-0.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-1.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-2.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-3.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-4.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-dark-mint.webp",
+                "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-red.webp"
+            ]
+        },
+        "images": [
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/black.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/dark-mint.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/white.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/mint.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/red.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-black.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/charging-station-d.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/feature-1.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-red.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/black.png",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/dark-mint.png",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/white.png",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/mint.png",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/red.png",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-black.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-white.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-mint.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/smart-key-icon.svg",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/human-icon.svg",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amino-sideview.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/pen-tool-icon.svg",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/chip-icon.svg",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/charging-station-m.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/charging-station-d.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-0.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-1.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-2.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-3.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-4.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-dark-mint.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-red.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Xám",
+                "image_url": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp"
+            },
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp"
+            },
+            {
+                "color_name": "Xanh rêu",
+                "image_url": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp"
+            }
+        ],
+        "representative_image": "https://static-cms-prod.vinfastauto.com/pdp/amio/amio-fullview.webp",
+        "detail_images": [
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-0.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-3.webp",
+            "https://static-cms-prod.vinfastauto.com/pdp/amio/feature-4.webp"
+        ]
+    },
+    {
+        "name": "Amio S",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-amio-s",
+        "price": "11.600.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xám",
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ; Trắng; Xám; Đen; Xanh",
+            "Dài x Rộng x Cao (mm)": "1715 x 690 x 1050 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1168 mm",
+            "Khoảng sáng gầm": "130 mm",
+            "Chiều cao yên": "750 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "12L",
+            "Kích thước lốp Trước - Sau": "10 x 3.0",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khoá cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "~400 W",
+            "Công suất tối đa": "~800 W",
+            "Tốc độ tối đa": "30 km/h (chế độ Sport)",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "<16s",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1,024 kWh",
+            "Trọng lượng pin/ắc quy": "10 +/-1 kg",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 6h (từ 0% đến 100%)",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 65 km",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/black.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/dark-mint.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/white.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/mint.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/red.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-black.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/charging-station-d.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/feature-1.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/gray.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/mint.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-gray.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/key.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/human.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-fullview.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/pen.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/chip.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/img-connect.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-1.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-2.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-3.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-4.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-5.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-side-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-mint.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-red.webp"
+            ]
+        },
+        "images": [
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/black.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/dark-mint.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/white.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/mint.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/red.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-black.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/charging-station-d.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/feature-1.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/gray.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/mint.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-gray.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/key.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/human.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-fullview.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/pen.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/chip.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/img-connect.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-1.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-2.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-3.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-4.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/feature-5.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-side-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-mint.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/amio-s/amio-s-red.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Xám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/GRC.png"
+            },
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/BAU.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/REQ.png"
+            },
+            {
+                "color_name": "Xanh rêu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/GRC.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/AMIO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Amio S2",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-amio-s2",
+        "price": "11.600.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xám",
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ; Trắng; Xám; Đen; Xanh",
+            "Dài x Rộng x Cao (mm)": "1715 x 690 x 1050 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1168 mm",
+            "Khoảng sáng gầm": "130 mm",
+            "Chiều cao yên": "750 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "12L",
+            "Kích thước lốp Trước - Sau": "10 x 3.0",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khoá cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "~400 W",
+            "Công suất tối đa": "~800 W",
+            "Tốc độ tối đa": "30 km/h (chế độ Sport)",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "<16s",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1,024 kWh",
+            "Trọng lượng pin/ắc quy": "10 +/-1 kg",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 6h (từ 0% đến 100%)",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 65 km",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/black.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/dark-mint.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/white.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/mint.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/red.png",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-black.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/charging-station-d.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/feature-1.webp",
+                "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-red.webp"
+            ]
+        },
+        "images": [
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/black.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/dark-mint.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/white.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/mint.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/red.png",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-black.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/charging-station-d.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/feature-1.webp",
+            "https://storage.googleapis.com/vinfast-data-01/pdp/amio/amio-red.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Xám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/GRC.png"
+            },
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/BAU.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/REQ.png"
+            },
+            {
+                "color_name": "Xanh rêu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/AMIO/GRC.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/AMIO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Flazz",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-flazz.html",
+        "price": "14.200.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xám",
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT & Bộ sạc)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ Đen, Đen, Xanh, Trắng Cam",
+            "Dài x Rộng x Cao (mm)": "1745 x 700 x 1050 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1230 mm",
+            "Khoảng sáng gầm": "137 mm",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "",
+            "Tải trọng": "130 kg",
+            "Thể tích cốp": "4L",
+            "Kích thước lốp Trước - Sau": "10 x 3.0",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh Cơ/ Cơ",
+            "Khóa xe": "Khóa cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1000 W",
+            "Công suất tối đa": "1500 W",
+            "Tốc độ tối đa": "",
+            "Tốc độ tối đa - SPORT": "49 km/h",
+            "Tốc độ tối đa - ECO": "30 km/h",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "<16s",
+            "Khả năng leo dốc 20%": "4~5 km/h",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1,5 kWh",
+            "Trọng lượng pin/ắc quy": "12 +/- 0,5 kg",
+            "Loại sạc": "210W",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 8h (Từ 0% đến 100%)",
+            "Vị trí lắp pin": "Trong cốp đồ",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 87 km",
+            "Tiêu chuẩn chống nước động cơ": "IP67"
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-fullview.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-2.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-3.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-red.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-fullview.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-2.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-3.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-red.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FLAZZ/BAU.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FLAZZ/REQ.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FLAZZ/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Flazz Max",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-flazz-max",
+        "price": "15.500.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xám",
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản nâng cao (Đã bao gồm VAT & Bộ sạc)",
+            "Không kèm Pin: 12.500.000 VNĐ"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ Đen, Đen, Xanh, Trắng Cam",
+            "Dài x Rộng x Cao (mm)": "1745 x 700 x 1050 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1230 mm",
+            "Khoảng sáng gầm": "137 mm",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "",
+            "Tải trọng": "130 kg",
+            "Thể tích cốp": "4L",
+            "Kích thước lốp Trước - Sau": "10 x 3.0",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh Cơ/ Cơ",
+            "Khóa xe": "Khóa cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1000 W",
+            "Công suất tối đa": "1500 W",
+            "Tốc độ tối đa": "",
+            "Tốc độ tối đa - SPORT": "49 km/h",
+            "Tốc độ tối đa - ECO": "30 km/h",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "<16s",
+            "Khả năng leo dốc 20%": "4~5 km/h",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1,5 kWh",
+            "Trọng lượng pin/ắc quy": "12 +/- 0,5 kg",
+            "Loại sạc": "210W",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 8h (Từ 0% đến 100%)",
+            "Vị trí lắp pin": "Trong cốp đồ",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 87 km",
+            "Tiêu chuẩn chống nước động cơ": "IP67"
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-fullview.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-2.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-3.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/blue.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/water.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/apps.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/setting.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/chip.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/img-connect.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-1.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-4.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-5.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-side-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-blue.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-fullview.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-2.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-3.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/blue.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/water.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/apps.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/setting.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/chip.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/img-connect.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-1.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-4.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/feature-5.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-side-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/flazz-max/flazz-max-blue.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FLAZZ/BAU.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FLAZZ/REQ.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FLAZZ/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "ZGoo",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-zgoo.html",
+        "price": "13.300.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xám",
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT & Bộ sạc)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ tươi - Đen nhám, Đen bóng, Xanh rêu, Trắng ngọc trai",
+            "Dài x Rộng x Cao (mm)": "1720 x 700 x 1050 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1230 mm",
+            "Khoảng sáng gầm": "137 mm",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "",
+            "Tải trọng": "130 kg",
+            "Thể tích cốp": "14L",
+            "Kích thước lốp Trước - Sau": "10 x 3.0",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh Cơ/ Cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "LED Projector",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "600 W",
+            "Công suất tối đa": "1100 W",
+            "Tốc độ tối đa": "",
+            "Tốc độ tối đa - SPORT": "39 km/h",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1,2 kWh",
+            "Trọng lượng pin/ắc quy": "10 +/-1 kg",
+            "Loại sạc": "210W",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 6h30 phút (từ 0% đến 100%)",
+            "Vị trí lắp pin": "Dưới sàn để chân",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 70 km",
+            "Tiêu chuẩn chống nước động cơ": "IP67"
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": []
+        },
+        "images": [],
+        "color_details": [
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/ZGOO/BAU.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/ZGOO/REQ.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/ZGOO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Viper",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-viper",
+        "price": "14.500.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT & Bộ sạc)",
+            "Không kèm Pin: 35.000.000 VNĐ"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ Đen; Trắng; Đen Xám Xi Măng; Vàng Cát",
+            "Dài x Rộng x Cao (mm)": "1907 x 692 x 1135 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1320 mm",
+            "Khoảng sáng gầm": "138 mm",
+            "Chiều cao yên": "780 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "10L (khi lắp 2 PIN)",
+            "Kích thước lốp Trước - Sau": "90/90-14 I 110/80-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi, giảm chấn thủy lực có bình dầu phụ",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khóa thông minh",
+            "Đèn pha trước": "",
+            "Loại động cơ": "BLDC Inhub",
+            "Công suất danh định": "1800 W",
+            "Công suất tối đa": "3000 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "15 giây (1 người 65 Kg)",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1.5 kWh (Tùy chọn thêm 1 pin 1.5 kWh)",
+            "Trọng lượng pin/ắc quy": "12.5 ± 0.5",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 4h30 phút từ 0 - 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 82 km (+74 km khi lắp thêm pin phụ)",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/black.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/gray.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/white.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/yellow.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/red.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-yellow.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/smart-key.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/pen.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/front-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/footrest-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-fullview-side.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/human.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-fullview.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/Chip.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/img-connect.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/trunk-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/shock-absorber-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/disc-brake-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-gray.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-red.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/black.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/gray.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/white.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/yellow.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/red.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-yellow.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/smart-key.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/pen.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/front-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/footrest-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-fullview-side.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/human.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-fullview.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/Chip.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/img-connect.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/trunk-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/shock-absorber-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/disc-brake-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-gray.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/viper/viper-red.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/VIPER/BAU.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/VIPER/REQ.png"
+            },
+            {
+                "color_name": "Xanh rêu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/VIPER/GRC.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/VIPER/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Vero X",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-verox.html",
+        "price": "34.900.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [],
+        "variants": [
+            "Bản 02 Pin (Đã bao gồm VAT, 01 Bộ sạc và 02 Pin LFP)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Xanh Rêu; Xanh Oliu; Đen nhám; Trắng Ngọc Trai",
+            "Dài x Rộng x Cao (mm)": "1858 x 690 x 1100 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1295 mm",
+            "Khoảng sáng gầm": "133 mm",
+            "Chiều cao yên": "770 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "35L (16L Khi lắp pin phụ)",
+            "Kích thước lốp Trước - Sau": "90/90-12 | 90/90-12",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khóa thông minh",
+            "Đèn pha trước": "",
+            "Loại động cơ": "BLDC Inhub",
+            "Công suất danh định": "1500 W",
+            "Công suất tối đa": "2250 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "<15s (1 người 65 Kg)",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "2.4 kWh (Tùy chọn thêm 1 pin 2.4 kWh)",
+            "Trọng lượng pin/ắc quy": "18 kg",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 6h30 phút từ 0 - 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 134 km (+128 km khi lắp thêm pin phụ)",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": []
+        },
+        "images": [],
+        "color_details": []
+    },
+    {
+        "name": "Evo",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-evo",
+        "price": "Giá kèm pin: 24.100.000 VNĐ / Không kèm pin: 18.800.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xanh oliu",
+            "Đỏ tươi",
+            "Đen nhám",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Phiên bản Kèm Pin (Mua đứt pin): 24.100.000 VNĐ",
+            "Phiên bản Không kèm Pin (Thuê pin): 18.800.000 VNĐ (Đã gồm VAT & Bộ sạc)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen nhám, Đỏ tươi, Xanh tím than, Xanh rêu, Trắng ngọc trai",
+            "Dài x Rộng x Cao (mm)": "1806 x 678 x 1132 mm",
+            "Khoảng cách trục bánh Trước-Sau": "",
+            "Khoảng sáng gầm": "",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "105 kg bao gồm ắc quy",
+            "Tải trọng": "",
+            "Thể tích cốp": "",
+            "Kích thước lốp Trước - Sau": "",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh đĩa/cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1200 W",
+            "Công suất tối đa": "1600 W",
+            "Tốc độ tối đa": "49 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "5 bình ắc quy 12V - 21Ah mắc nối tiếp",
+            "Dung lượng pin/ắc quy": "1.26 kWh",
+            "Trọng lượng pin/ắc quy": "",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Sạc 220W - 10h đạt 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/olive.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/max-red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/wheel.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-banner-info.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/pen.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/chip.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-connect.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-1.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-2.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-3.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-4.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-pin.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery-swap-station.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/check.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/setting.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/olive.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/max-red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/wheel.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-banner-info.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/pen.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/chip.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-connect.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-1.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-2.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-3.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-4.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-pin.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery-swap-station.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/check.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/setting.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Xanh oliu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVO/GNV.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVO/REQ.png"
+            },
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVO/BAU.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Evo Lite",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-evo",
+        "price": "Giá kèm pin: 18.900.000 VNĐ / Không kèm pin: 14.300.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Xanh oliu",
+            "Đỏ tươi",
+            "Đen nhám",
+            "Trắng ngọc trai",
+            "Vàng"
+        ],
+        "variants": [
+            "Phiên bản Kèm Pin (Mua đứt pin): 18.900.000 VNĐ",
+            "Phiên bản Không kèm Pin (Thuê pin): 14.300.000 VNĐ (Đã gồm VAT & Bộ sạc)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen nhám, Đỏ tươi, Xanh tím than, Xanh rêu, Trắng ngọc trai",
+            "Dài x Rộng x Cao (mm)": "1806 x 678 x 1132 mm",
+            "Khoảng cách trục bánh Trước-Sau": "",
+            "Khoảng sáng gầm": "",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "105 kg bao gồm ắc quy",
+            "Tải trọng": "",
+            "Thể tích cốp": "",
+            "Kích thước lốp Trước - Sau": "",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh đĩa/cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1200 W",
+            "Công suất tối đa": "1600 W",
+            "Tốc độ tối đa": "49 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "5 bình ắc quy 12V - 21Ah mắc nối tiếp",
+            "Dung lượng pin/ắc quy": "1.26 kWh",
+            "Trọng lượng pin/ắc quy": "",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Sạc 220W - 10h đạt 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/olive.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/max-red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/wheel.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-banner-info.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/pen.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/chip.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-connect.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-1.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-2.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-3.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-4.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-pin.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery-swap-station.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/check.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/setting.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/olive.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/max-red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/wheel.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-banner-info.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/pen.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/chip.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-connect.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-1.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-2.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-3.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-part-4.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/img-pin.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-bikes-mobile.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/battery-swap-station.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/check.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/setting.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Xanh oliu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVO/GNV1.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVO/REQ.png"
+            },
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVO/BAU.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "EvoGrand",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-evo-grand.html",
+        "price": "22.500.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Trắng ngọc trai",
+            "Đen nhám",
+            "Xanh Oliu",
+            "Đỏ tươi",
+            "Vàng cát"
+        ],
+        "variants": [
+            "Bản tiêu chuẩn (Đã bao gồm VAT & Pin LFP)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Trắng ngọc trai, Đen nhám, Xanh Oliu, Đỏ tươi, Vàng cát",
+            "Dài x Rộng x Cao (mm)": "1856 x 683 x 1133mm",
+            "Khoảng cách trục bánh Trước-Sau": "",
+            "Khoảng sáng gầm": "",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "86 kg (bao gồm 1 pin)",
+            "Tải trọng": "",
+            "Thể tích cốp": "",
+            "Kích thước lốp Trước - Sau": "",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh đĩa/cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "",
+            "Công suất tối đa": "2250 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "01 pin LFP (Tùy chọn lắp thêm 1 pin phụ)",
+            "Dung lượng pin/ắc quy": "1.5 kWh",
+            "Trọng lượng pin/ắc quy": "",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Sạc 400W Khoảng 4h30p từ 0% đến 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 85 km ( + 80 km khi lắp thêm pin phụ)",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVOGRAND/WHR.png"
+            },
+            {
+                "color_name": "Xanh Oliu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVOGRAND/GNV.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVOGRAND/REQ.png"
+            },
+            {
+                "color_name": "Vàng cát",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVOGRAND/YES.png"
+            }
+        ]
+    },
+    {
+        "name": "Evo Grand Lite",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-evo-grand-lite.html",
+        "price": "16.500.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Trắng ngọc trai",
+            "Đen nhám",
+            "Lavender Sữa",
+            "Vàng"
+        ],
+        "variants": [
+            "Bản Lite (Đã bao gồm VAT & Pin LFP)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen nhám, Đỏ tươi, Xanh tím than, Xanh rêu, Trắng ngọc trai",
+            "Dài x Rộng x Cao (mm)": "1806 x 678 x 1132 mm",
+            "Khoảng cách trục bánh Trước-Sau": "",
+            "Khoảng sáng gầm": "",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "105 kg bao gồm ắc quy",
+            "Tải trọng": "",
+            "Thể tích cốp": "",
+            "Kích thước lốp Trước - Sau": "",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh đĩa/cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1200 W",
+            "Công suất tối đa": "1600 W",
+            "Tốc độ tối đa": "49 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "5 bình ắc quy 12V - 21Ah mắc nối tiếp",
+            "Dung lượng pin/ắc quy": "1.26 kWh",
+            "Trọng lượng pin/ắc quy": "",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Sạc 220W - 10h đạt 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw759bdd09/landingpage/lp-xmd/evo-grand-lite/hero-mb.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1cb815c5/landingpage/lp-xmd/evo-grand-lite/hero.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd85e5ce3/landingpage/lp-xmd/evo-grand-lite/general-visual-mb.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw666e0bf7/landingpage/lp-xmd/evo-grand-lite/general-visual.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw12a293b9/landingpage/lp-xmd/evo-grand-lite/face-1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw31cb705e/landingpage/lp-xmd/evo-grand-lite/color/1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfe50c3c/landingpage/lp-xmd/evo-grand-lite/color/2.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd136ee78/landingpage/lp-xmd/evo-grand-lite/color/3.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwaddc75d3/landingpage/lp-xmd/evo-grand-lite/color/4.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw47fcae38/landingpage/lp-xmd/evo-grand-lite/color/color-1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f8a1686/landingpage/lp-xmd/evo-grand-lite/color/color-2.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwed665c8d/landingpage/lp-xmd/evo-grand-lite/color/color-3.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb3e2d4cc/landingpage/lp-xmd/evo-grand-lite/color/color-4.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f97aed4/landingpage/lp-xmd/evo-grand-lite/banner-1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw2c814183/landingpage/lp-xmd/evo-grand-lite/face-2.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw27227dbc/landingpage/lp-xmd/evo-grand-lite/spec-1.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw733fbf0c/landingpage/lp-xmd/evo-grand-lite/spec-2.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa8551436/landingpage/lp-xmd/evo-grand-lite/spec-3.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0effb27c/landingpage/lp-xmd/evo-grand-lite/spec-4.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb07f45c9/landingpage/lp-xmd/evo-grand-lite/spec-5.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4d275ccb/landingpage/lp-xmd/evo-grand-lite/banner-2-mb.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc108963c/landingpage/lp-xmd/evo-grand-lite/banner-2.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw759bdd09/landingpage/lp-xmd/evo-grand-lite/hero-mb.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1cb815c5/landingpage/lp-xmd/evo-grand-lite/hero.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd85e5ce3/landingpage/lp-xmd/evo-grand-lite/general-visual-mb.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw666e0bf7/landingpage/lp-xmd/evo-grand-lite/general-visual.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw12a293b9/landingpage/lp-xmd/evo-grand-lite/face-1.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw31cb705e/landingpage/lp-xmd/evo-grand-lite/color/1.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfe50c3c/landingpage/lp-xmd/evo-grand-lite/color/2.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd136ee78/landingpage/lp-xmd/evo-grand-lite/color/3.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwaddc75d3/landingpage/lp-xmd/evo-grand-lite/color/4.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw47fcae38/landingpage/lp-xmd/evo-grand-lite/color/color-1.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f8a1686/landingpage/lp-xmd/evo-grand-lite/color/color-2.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwed665c8d/landingpage/lp-xmd/evo-grand-lite/color/color-3.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb3e2d4cc/landingpage/lp-xmd/evo-grand-lite/color/color-4.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4f97aed4/landingpage/lp-xmd/evo-grand-lite/banner-1.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw2c814183/landingpage/lp-xmd/evo-grand-lite/face-2.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw27227dbc/landingpage/lp-xmd/evo-grand-lite/spec-1.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw733fbf0c/landingpage/lp-xmd/evo-grand-lite/spec-2.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa8551436/landingpage/lp-xmd/evo-grand-lite/spec-3.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0effb27c/landingpage/lp-xmd/evo-grand-lite/spec-4.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb07f45c9/landingpage/lp-xmd/evo-grand-lite/spec-5.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4d275ccb/landingpage/lp-xmd/evo-grand-lite/banner-2-mb.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc108963c/landingpage/lp-xmd/evo-grand-lite/banner-2.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVOGRAND/WHR.png"
+            },
+            {
+                "color_name": "Vàng",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/EVOGRAND/YES.png"
+            }
+        ]
+    },
+    {
+        "name": "Evo Lite Neo",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-evo-lite-neo.html",
+        "price": "14.400.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh tím than",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Bản Ắc quy chì (Đã bao gồm VAT, 01 Bộ sạc & Ắc quy)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen nhám, Đỏ tươi, Xanh tím than, Xanh rêu, Trắng ngọc trai",
+            "Dài x Rộng x Cao (mm)": "1806 x 678 x 1132 mm",
+            "Khoảng cách trục bánh Trước-Sau": "",
+            "Khoảng sáng gầm": "",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "105 kg bao gồm ắc quy",
+            "Tải trọng": "",
+            "Thể tích cốp": "",
+            "Kích thước lốp Trước - Sau": "",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh đĩa/cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1200 W",
+            "Công suất tối đa": "1600 W",
+            "Tốc độ tối đa": "49 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "5 bình ắc quy 12V - 21Ah mắc nối tiếp",
+            "Dung lượng pin/ắc quy": "1.26 kWh",
+            "Trọng lượng pin/ắc quy": "",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Sạc 220W - 10h đạt 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfea9c516/images/PDP-XMD/color/evo-green.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwda679f8f/images/PDP-XMD/color/evo-red.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c44a070/images/PDP-XMD/color/evo-blue.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd52b0fb5/images/PDP-XMD/color/evo-white.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5b7d4ede/images/PDP-XMD/color/evo-black.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8f4cd014/images/PDP-XMD/evoliteneo/img-top-evoliteneo-green.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw315440cf/images/PDP-XMD/evoliteneo/img-banner-info-sp.webp",
+                "https://shop.vinfastauto.com/images/PDP-XMD/evoliteneo/img-connect.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-01.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-02.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-03.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-04.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-05.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe181ed34/images/PDP-XMD/evoliteneo/battery-tech.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw97c50df2/images/PDP-XMD/evoliteneo/img-top-evoliteneo-green-sp.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0e183635/images/PDP-XMD/evoliteneo/img-top-evoliteneo-red-sp.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1debf17b/images/PDP-XMD/evoliteneo/img-top-evoliteneo-blue-sp.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcad6f891/images/PDP-XMD/evoliteneo/img-top-evoliteneo-white-sp.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa0f5f777/images/PDP-XMD/evoliteneo/img-top-evoliteneo-black-sp.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwfea9c516/images/PDP-XMD/color/evo-green.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwda679f8f/images/PDP-XMD/color/evo-red.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4c44a070/images/PDP-XMD/color/evo-blue.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd52b0fb5/images/PDP-XMD/color/evo-white.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw5b7d4ede/images/PDP-XMD/color/evo-black.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw8f4cd014/images/PDP-XMD/evoliteneo/img-top-evoliteneo-green.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw315440cf/images/PDP-XMD/evoliteneo/img-banner-info-sp.webp",
+            "https://shop.vinfastauto.com/images/PDP-XMD/evoliteneo/img-connect.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-01.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-02.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-03.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-04.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/vi_VN/v1784682007889/images/PDP-XMD/evoliteneo/img-part-05.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe181ed34/images/PDP-XMD/evoliteneo/battery-tech.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw97c50df2/images/PDP-XMD/evoliteneo/img-top-evoliteneo-green-sp.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0e183635/images/PDP-XMD/evoliteneo/img-top-evoliteneo-red-sp.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw1debf17b/images/PDP-XMD/evoliteneo/img-top-evoliteneo-blue-sp.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcad6f891/images/PDP-XMD/evoliteneo/img-top-evoliteneo-white-sp.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwa0f5f777/images/PDP-XMD/evoliteneo/img-top-evoliteneo-black-sp.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/REQ.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Evo Neo",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-evo-neo.html",
+        "price": "Kèm Pin: 17.800.000 VNĐ / Không kèm Pin: 12.200.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Đen nhám",
+            "Đỏ tươi",
+            "Xanh tím than",
+            "Xanh rêu",
+            "Trắng ngọc trai"
+        ],
+        "variants": [
+            "Kèm Pin: 17.800.000 VNĐ",
+            "Không kèm Pin: 12.200.000 VNĐ"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen nhám, Đỏ tươi, Xanh tím than, Xanh rêu, Trắng ngọc trai",
+            "Dài x Rộng x Cao (mm)": "1806 x 678 x 1132 mm",
+            "Khoảng cách trục bánh Trước-Sau": "",
+            "Khoảng sáng gầm": "",
+            "Chiều cao yên": "",
+            "Trọng lượng xe": "105 kg bao gồm ắc quy",
+            "Tải trọng": "",
+            "Thể tích cốp": "",
+            "Kích thước lốp Trước - Sau": "",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "Phanh đĩa/cơ",
+            "Khóa xe": "",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1200 W",
+            "Công suất tối đa": "1600 W",
+            "Tốc độ tối đa": "49 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "5 bình ắc quy 12V - 21Ah mắc nối tiếp",
+            "Dung lượng pin/ắc quy": "1.26 kWh",
+            "Trọng lượng pin/ắc quy": "",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Sạc 220W - 10h đạt 100%",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/duo-choice-section.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/evo/shield.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Đen nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/BAR.png"
+            },
+            {
+                "color_name": "Đỏ tươi",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/REQ.png"
+            },
+            {
+                "color_name": "Xanh tím than",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/BUR.png"
+            },
+            {
+                "color_name": "Xanh rêu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/GNQ.png"
+            },
+            {
+                "color_name": "Trắng ngọc trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/EVONEO/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Feliz 2025",
+        "url": "https://shop.vinfastauto.com/vn_vi/xe-may-dien-feliz.html",
+        "price": "26.000.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Đen bóng",
+            "Xanh Rêu",
+            "Vàng Cát",
+            "Xanh Oliu",
+            "Trắng Ngọc Trai"
+        ],
+        "variants": [
+            "Bản 01 Pin (Đã bao gồm VAT, 01 Bộ sạc và 01 Pin)"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ; Trắng; Đen; Xanh Oliu",
+            "Dài x Rộng x Cao (mm)": "1920 x 694 x 1140 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1320 mm",
+            "Khoảng sáng gầm": "134 mm",
+            "Chiều cao yên": "780 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "10L (khi lắp 2 Pin)",
+            "Kích thước lốp Trước - Sau": "90/90-14 I 110/80-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khoá cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "BLDC Inhub",
+            "Công suất danh định": "1800 W",
+            "Công suất tối đa": "3000 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "15 giây (1 người 65 Kg)",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1.5 kWh (Tùy chọn thêm 1 pin 1.5 kWh)",
+            "Trọng lượng pin/ắc quy": "12.5 ± 0.5",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 4h30 phút từ 0-100%",
+            "Vị trí lắp pin": "Trong cốp xe",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": "IP67"
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe2f6031a/images/PDP-XMD/feliz/2025/light-green.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6415a192/images/PDP-XMD/feliz/2025/black.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9c803cf0/images/PDP-XMD/feliz/2025/green.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw13d1d80e/images/PDP-XMD/feliz/2025/white.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw57168b0f/images/PDP-XMD/feliz/2025/sand.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301f2641/images/PDP-XMD/feliz/2025/img-banner-info.webp",
+                "https://shop.vinfastauto.com/images/PDP-XMD/feliz/2025/img-connect.jpg",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb0f6b3c3/images/PDP-XMD/feliz/2025/img-part-01.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw96609ef2/images/PDP-XMD/feliz/2025/img-part-02.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae438f74/images/PDP-XMD/feliz/2025/img-part-03.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9942cce3/images/PDP-XMD/feliz/2025/img-part-04.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw37d53154/images/PDP-XMD/feliz/2025/img-part-05.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf7ead2e3/images/PDP-XMD/feliz/2025/battery-tech.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd78a9097/images/PDP-XMD/feliz/2025/img-top-feliz-light-green.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8c0d3f5/images/PDP-XMD/feliz/2025/img-top-feliz-black.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb9888ace/images/PDP-XMD/feliz/2025/img-top-feliz-green.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfa58eb3/images/PDP-XMD/feliz/2025/img-top-feliz-white.webp",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw78959a27/images/PDP-XMD/feliz/2025/img-top-feliz-sand.webp"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwe2f6031a/images/PDP-XMD/feliz/2025/light-green.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw6415a192/images/PDP-XMD/feliz/2025/black.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9c803cf0/images/PDP-XMD/feliz/2025/green.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw13d1d80e/images/PDP-XMD/feliz/2025/white.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw57168b0f/images/PDP-XMD/feliz/2025/sand.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw301f2641/images/PDP-XMD/feliz/2025/img-banner-info.webp",
+            "https://shop.vinfastauto.com/images/PDP-XMD/feliz/2025/img-connect.jpg",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb0f6b3c3/images/PDP-XMD/feliz/2025/img-part-01.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw96609ef2/images/PDP-XMD/feliz/2025/img-part-02.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwae438f74/images/PDP-XMD/feliz/2025/img-part-03.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw9942cce3/images/PDP-XMD/feliz/2025/img-part-04.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw37d53154/images/PDP-XMD/feliz/2025/img-part-05.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf7ead2e3/images/PDP-XMD/feliz/2025/battery-tech.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwd78a9097/images/PDP-XMD/feliz/2025/img-top-feliz-light-green.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc8c0d3f5/images/PDP-XMD/feliz/2025/img-top-feliz-black.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwb9888ace/images/PDP-XMD/feliz/2025/img-top-feliz-green.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwcfa58eb3/images/PDP-XMD/feliz/2025/img-top-feliz-white.webp",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw78959a27/images/PDP-XMD/feliz/2025/img-top-feliz-sand.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Đen bóng",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/FELIZ/BAU.png"
+            },
+            {
+                "color_name": "Vàng Cát",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FELIZ/YES.png"
+            },
+            {
+                "color_name": "Xanh Oliu",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FELIZ/GNV.png"
+            },
+            {
+                "color_name": "Trắng Ngọc Trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/FELIZ/WHR.png"
+            }
+        ]
+    },
+    {
+        "name": "Feliz II",
+        "url": "https://vinfastauto.com/vn_vi/xe-may-dien-vinfast-feliz-II",
+        "price": "Kèm Pin: 28.700.000 VNĐ / Không kèm Pin: 23.000.000 VNĐ",
+        "deposit": "2.000.000 VNĐ",
+        "colors": [
+            "Đỏ Tươi",
+            "Trắng Ngọc Trai",
+            "Đen Nhám",
+            "Xanh Rêu"
+        ],
+        "variants": [
+            "Phiên bản Kèm Pin (Mua đứt pin): 28.700.000 VNĐ",
+            "Phiên bản Không kèm Pin (Thuê pin): 23.000.000 VNĐ"
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đỏ; Trắng; Đen; Xanh Oliu",
+            "Dài x Rộng x Cao (mm)": "1920 x 694 x 1140 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1320 mm",
+            "Khoảng sáng gầm": "134 mm",
+            "Chiều cao yên": "780 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "10L (khi lắp 2 Pin)",
+            "Kích thước lốp Trước - Sau": "90/90-14 I 110/80-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi, giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khoá cơ",
+            "Đèn pha trước": "",
+            "Loại động cơ": "BLDC Inhub",
+            "Công suất danh định": "1800 W",
+            "Công suất tối đa": "3000 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "15 giây (1 người 65 Kg)",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "1.5 kWh (Tùy chọn thêm 1 pin 1.5 kWh)",
+            "Trọng lượng pin/ắc quy": "12.5 ± 0.5",
+            "Loại sạc": "",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 4h30 phút từ 0-100%",
+            "Vị trí lắp pin": "Trong cốp xe",
+            "Quãng đường đi được mỗi lần sạc": "",
+            "Tiêu chuẩn chống nước động cơ": "IP67"
+        },
+        "gallery": {
+            "banner_images": [],
+            "exterior_images": [],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/red.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/white.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/black.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/mint.png",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-red.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-black.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/wheel.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/bike.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-fullview.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/img-connect.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-2.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-3.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-4.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-5.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-side-view.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-white.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/pen.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/Chip.svg",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-1.webp",
+                "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-mint.webp"
+            ]
+        },
+        "images": [
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/red.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/white.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/black.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/mint.png",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-red.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-black.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/wheel.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/bike.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-fullview.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/img-connect.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-2.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-3.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-4.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-5.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-side-view.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-white.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/pen.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/Chip.svg",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feature-1.webp",
+            "https://vinfastauto.com/themes/porto/img/pdp-page/feliz-ii/feliz-ii-mint.webp"
+        ],
+        "color_details": [
+            {
+                "color_name": "Trắng Ngọc Trai",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw003be7a9/images/XMD/FELIZ/WHR.png"
+            },
+            {
+                "color_name": "Đen Nhám",
+                "image_url": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw2f846374/images/FELIZ/BAU.png"
+            }
+        ]
+    },
+    {
+        "name": "Kinet",
+        "url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+        "order_url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast?modelId=Products-Scooter-KINET",
+        "price": "Kèm Pin: 49.900.000 VNĐ / Không kèm Pin: 40.000.000 VNĐ",
+        "base_price": 40000000,
+        "battery_price": 9900000,
+        "price_with_battery": 49900000,
+        "pricing": {
+            "without_battery": 40000000,
+            "battery": 9900000,
+            "with_battery": 49900000
+        },
+        "deposit": "2.000.000 VNĐ",
+        "deposit_value": 2000000,
+        "colors": [
+            "Đen Bóng",
+            "Trắng Ngọc Trai",
+            "Xám Xi Măng",
+            "Đỏ Đen",
+            "Nâu Ánh Kim"
+        ],
+        "color_details": [
+            {
+                "name": "Đen Bóng",
+                "code": "BAUVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-BAUVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwc9e08ce9/images/XMD/KINET/BAUVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png"
+            },
+            {
+                "name": "Trắng Ngọc Trai",
+                "code": "WHRVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-WHRVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw2618206a/images/XMD/KINET/WHRVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png"
+            },
+            {
+                "name": "Xám Xi Măng",
+                "code": "GRCVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-GRCVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwbb8ed54d/images/XMD/KINET/GRCVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png"
+            },
+            {
+                "name": "Đỏ Đen",
+                "code": "REQVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-REQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw403de5bd/images/XMD/KINET/REQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png"
+            },
+            {
+                "name": "Nâu Ánh Kim",
+                "code": "BRQVN",
+                "pid": "VF-ZFG-ESNF4LHHHT-BRQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw4d630d91/images/XMD/KINET/BRQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+            }
+        ],
+        "variants": [
+            "Kèm Pin: 49.900.000 VNĐ",
+            "Không kèm Pin: 40.000.000 VNĐ"
+        ],
+        "battery_options": [
+            {
+                "id": "Services-Scooter-KINET-Mua-Pin",
+                "name": "Kèm pin (2 pin chạy song song)",
+                "price": 9900000
+            },
+            {
+                "id": "Services-Scooter-KINET-Thue-Pin",
+                "name": "Không kèm Pin (2 pin chạy song song)",
+                "price": 0
+            }
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Đen Bóng; Trắng Ngọc Trai; Xám Xi Măng; Đỏ Đen; Nâu Ánh Kim",
+            "Dài x Rộng x Cao (mm)": "2021 x 713 x 1135 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1360 mm",
+            "Khoảng sáng gầm": "160 mm",
+            "Chiều cao yên": "785 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "22L",
+            "Kích thước lốp Trước - Sau": "Trước: 90/90-14; Sau: 120/70-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khóa thông minh (Smart key)",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "3000 W",
+            "Công suất tối đa": "~5200 W",
+            "Tốc độ tối đa": "90 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "LFP",
+            "Dung lượng pin/ắc quy": "2 x 1,5 kWh (2 pin chạy song song)",
+            "Trọng lượng pin/ắc quy": "24 kg",
+            "Loại sạc": "Sạc tiêu chuẩn; hỗ trợ sạc 1000 W",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 9 giờ; khoảng 3,5 giờ nếu dùng sạc 1000 W",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 145 km",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "quick_specs": [
+            {
+                "label": "Vận tốc lên tới",
+                "value": "90",
+                "unit": "km/h"
+            },
+            {
+                "label": "Quãng đường đi được 1 lần sạc lên tới",
+                "value": "145",
+                "unit": "km"
+            },
+            {
+                "label": "Công suất tối đa lên tới",
+                "value": "5200",
+                "unit": "W"
+            }
+        ],
+        "top_speed_kmh": 90,
+        "range_km": 145,
+        "max_power_w": 5200,
+        "gallery": {
+            "banner_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png"
+            ],
+            "exterior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+            ],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw352b0e26/images/KINET/WHRVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw17ea08a7/images/KINET/GRCVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw0bdfbb94/images/KINET/REQVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5990a94d/images/KINET/BRQVN.png"
+        ],
+        "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw8fe35f6f/images/KINET/BAUVN.png",
+        "id": "kinet",
+        "slug": "kinet",
+        "model_key": "Products-Scooter-KINET",
+        "pid": "VF-ZFG-ESNF4LHHHT-GRCVN",
+        "source": {
+            "configurator": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "landing_page": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "crawled_at": "2026-07-24T03:46:26.829Z"
+        }
+    },
+    {
+        "name": "Kyo",
+        "url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+        "order_url": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast?modelId=Products-Scooter-KYO",
+        "price": "Kèm Pin: 35.300.000 VNĐ / Không kèm Pin: 30.000.000 VNĐ",
+        "base_price": 30000000,
+        "battery_price": 5300000,
+        "price_with_battery": 35300000,
+        "pricing": {
+            "without_battery": 30000000,
+            "battery": 5300000,
+            "with_battery": 35300000
+        },
+        "deposit": "2.000.000 VNĐ",
+        "deposit_value": 2000000,
+        "colors": [
+            "Nâu Ánh Kim",
+            "Trắng Ngọc Trai",
+            "Xanh Oliu",
+            "Đen Bóng",
+            "Đỏ"
+        ],
+        "color_details": [
+            {
+                "name": "Nâu Ánh Kim",
+                "code": "BRQVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-BRQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwabb414a6/images/XMD/KYO/BRQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png"
+            },
+            {
+                "name": "Trắng Ngọc Trai",
+                "code": "WHRVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-WHRVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf926d65f/images/XMD/KYO/WHRVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png"
+            },
+            {
+                "name": "Xanh Oliu",
+                "code": "GNVVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-GNVVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwac87e2fc/images/XMD/KYO/GNVVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png"
+            },
+            {
+                "name": "Đen Bóng",
+                "code": "BAUVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-BAUVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dw0526b17e/images/XMD/KYO/BAUVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png"
+            },
+            {
+                "name": "Đỏ",
+                "code": "REQVN",
+                "pid": "VF-ZFG-ESNF3LHHHT-REQVN",
+                "swatch": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-app_vinfast_vn-Library/default/dwf3416186/images/XMD/KYO/REQVN.png",
+                "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+            }
+        ],
+        "variants": [
+            "Kèm Pin: 35.300.000 VNĐ",
+            "Không kèm Pin: 30.000.000 VNĐ"
+        ],
+        "battery_options": [
+            {
+                "id": "Services-Scooter-KYO-Mua-Pin",
+                "name": "Kèm Pin",
+                "price": 5300000
+            },
+            {
+                "id": "Services-Scooter-KYO-Thue-Pin",
+                "name": "Không kèm Pin",
+                "price": 0
+            }
+        ],
+        "product_type": "motorbike",
+        "status": "Đang kinh doanh",
+        "specs": {
+            "Tiền đặt cọc": "2.000.000 VNĐ",
+            "Màu sắc": "Nâu Ánh Kim; Trắng Ngọc Trai; Xanh Oliu; Đen Bóng; Đỏ",
+            "Dài x Rộng x Cao (mm)": "1999 x 694 x 1130 mm",
+            "Khoảng cách trục bánh Trước-Sau": "1360 mm",
+            "Khoảng sáng gầm": "160 mm",
+            "Chiều cao yên": "785 mm",
+            "Trọng lượng xe": "",
+            "Tải trọng": "",
+            "Thể tích cốp": "21L",
+            "Kích thước lốp Trước - Sau": "Trước: 90/90-14; Sau: 120/70-14",
+            "Giảm xóc trước và sau": "Ống lồng-giảm chấn thủy lực; Giảm xóc đôi-giảm chấn thủy lực",
+            "Phanh trước và sau": "",
+            "Khóa xe": "Khóa thông minh (Smart key)",
+            "Đèn pha trước": "",
+            "Loại động cơ": "Inhub",
+            "Công suất danh định": "1800 W",
+            "Công suất tối đa": "~3000 W",
+            "Tốc độ tối đa": "70 km/h",
+            "Tốc độ tối đa - SPORT": "",
+            "Tốc độ tối đa - ECO": "",
+            "Gia tốc 0 - 50 km/h": "",
+            "Gia tốc 0 - 40 km/h": "",
+            "Khả năng leo dốc 20%": "",
+            "Loại pin/ắc quy": "1 pin LFP (Tùy chọn lắp thêm 1 pin)",
+            "Dung lượng pin/ắc quy": "1,5 kWh",
+            "Trọng lượng pin/ắc quy": "12 kg",
+            "Loại sạc": "Bộ sạc tiêu chuẩn",
+            "Thời gian sạc tiêu chuẩn": "Khoảng 4 giờ 30 phút (từ 0% đến 100%)",
+            "Vị trí lắp pin": "",
+            "Quãng đường đi được mỗi lần sạc": "Khoảng 160 km khi lắp 2 pin",
+            "Tiêu chuẩn chống nước động cơ": ""
+        },
+        "quick_specs": [
+            {
+                "label": "Vận tốc lên tới",
+                "value": "70",
+                "unit": "km/h"
+            },
+            {
+                "label": "Quãng đường đi được 1 lần sạc lên tới",
+                "value": "160",
+                "unit": "km"
+            },
+            {
+                "label": "Công suất tối đa lên tới",
+                "value": "3000",
+                "unit": "W"
+            }
+        ],
+        "top_speed_kmh": 70,
+        "range_km": 160,
+        "max_power_w": 3000,
+        "gallery": {
+            "banner_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png"
+            ],
+            "exterior_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+            ],
+            "interior_images": [],
+            "tech_images": [],
+            "all_images": [
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+                "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+            ]
+        },
+        "images": [
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw52bce347/images/KYO/WHRVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw6ef43be1/images/KYO/GNVVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwbc987a72/images/KYO/BAUVN.png",
+            "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dw5d893d5d/images/KYO/REQVN.png"
+        ],
+        "image": "https://shop.vinfastauto.com/on/demandware.static/-/Sites-vinfast_vn_master/default/dwe9e8a96e/images/KYO/BRQVN.png",
+        "id": "kyo",
+        "slug": "kyo",
+        "model_key": "Products-Scooter-KYO",
+        "pid": "VF-ZFG-ESNF3LHHHT-BAUVN",
+        "source": {
+            "configurator": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "landing_page": "https://shop.vinfastauto.com/vn_vi/dat-mua-xe-may-dien-vinfast",
+            "crawled_at": "2026-07-24T03:46:26.829Z"
+        }
+    }
+]

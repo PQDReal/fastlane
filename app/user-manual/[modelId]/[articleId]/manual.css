@@ -1,0 +1,73 @@
+.vf-manual-content {
+  color: #334155;
+  line-height: 1.6;
+  font-size: 0.875rem;
+}
+
+.vf-manual-content .Detail-Heading,
+.vf-manual-content h1,
+.vf-manual-content h2,
+.vf-manual-content h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.vf-manual-content .Detail,
+.vf-manual-content p {
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.vf-manual-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.vf-manual-content img.block-image {
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  display: block;
+}
+
+.vf-manual-content img.inline-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0.3rem;
+  box-shadow: none;
+  border-radius: 0;
+  height: 1.5em; /* Match text height roughly */
+  width: auto;
+}
+
+.vf-manual-content ul, 
+.vf-manual-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.vf-manual-content li {
+  margin-bottom: 0.5rem;
+  list-style-type: disc;
+}
+
+.vf-manual-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.vf-manual-content th,
+.vf-manual-content td {
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.vf-manual-content th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "unknownSnapshotPolicy": "reject",
+  "retentionPolicy": "retain_immutable_history",
+  "historicalSourceUrlAliases": [
+    {
+      "sourceId": "vinfast-maintenance-car",
+      "historicalUrl": "https://vinfastauto.com/vn_vi/dich-vu-bao-duong-oto",
+      "canonicalSourceId": "vinfast-maintenance-car-service",
+      "reasonCode": "SOURCE_SCOPE_SPLIT",
+      "note": "Các snapshot trước khi tách source landing bảo dưỡng được giữ nguyên để bảo toàn hash; mọi refresh mới của URL này dùng source canonical mới."
+    }
+  ],
+  "entries": [
+    {
+      "sourceId": "vinfast-car-manuals",
+      "expectedUrl": "https://vinfastauto.com/vn_vi/tai-lieu-o-to",
+      "disposition": "excluded",
+      "reasonCode": "OWNER_MANUAL_OUT_OF_SCOPE",
+      "scopeExclusion": "owner_manual_car",
+      "parsingEligible": false,
+      "publicationEligible": false,
+      "retainHistoricalSnapshots": true,
+      "note": "Tài liệu hướng dẫn sử dụng ô tô nằm ngoài scope dữ liệu hậu mãi đã chốt."
+    },
+    {
+      "sourceId": "vinfast-service-booking",
+      "expectedUrl": "https://shop.vinfastauto.com/vn_vi/dat-lich-dich-vu-bao-duong.html",
+      "disposition": "excluded",
+      "reasonCode": "TRANSACTIONAL_BOOKING_OUT_OF_SCOPE",
+      "scopeExclusion": "service_booking",
+      "parsingEligible": false,
+      "publicationEligible": false,
+      "retainHistoricalSnapshots": true,
+      "note": "Trang đặt lịch là luồng giao dịch có form ghi dữ liệu; worker hậu mãi chỉ được đọc nguồn tham chiếu và không được submit form."
+    },
+    {
+      "sourceId": "vinfast-service-centers",
+      "expectedUrl": "https://vinfastauto.com/vn_vi/tim-kiem-showroom-tram-sac",
+      "disposition": "superseded",
+      "reasonCode": "RENAMED_TO_CANONICAL_WORKSHOP_SOURCE",
+      "canonicalSourceId": "vinfast-service-workshops",
+      "parsingEligible": false,
+      "publicationEligible": false,
+      "retainHistoricalSnapshots": true,
+      "note": "Snapshot legacy trùng URL với source xưởng dịch vụ canonical; chỉ source canonical được refresh và xử lý."
+    }
+  ]
+}

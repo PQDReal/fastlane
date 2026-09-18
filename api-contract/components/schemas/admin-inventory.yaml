@@ -1,0 +1,122 @@
+AdminInventoryStatus:
+  type: string
+  enum: [INACTIVE, UNLINKED, MISSING_INVENTORY, OUT_OF_STOCK, LOW_STOCK, IN_STOCK]
+
+AdminInventoryItem:
+  type: object
+  additionalProperties: false
+  required: [variantId, productId, sku, productName, variantName, productType, categoryName, version, color, interiorColor, inventoryKey, onHandQuantity, updatedAt, variantIsActive, productIsActive, isActive, inventoryStatus, isSellable, hasInventoryRow]
+  properties:
+    variantId: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    productId:
+      oneOf: [{ $ref: '../../openapi.yaml#/components/schemas/Uuid' }, { type: 'null' }]
+    sku: { oneOf: [{ type: string, minLength: 1, maxLength: 120 }, { type: 'null' }] }
+    productName: { type: string }
+    variantName: { type: string }
+    productType: { type: string }
+    categoryName: { oneOf: [{ type: string }, { type: 'null' }] }
+    version: { oneOf: [{ type: string }, { type: 'null' }] }
+    color: { oneOf: [{ type: string }, { type: 'null' }] }
+    interiorColor: { oneOf: [{ type: string }, { type: 'null' }] }
+    inventoryKey: { oneOf: [{ type: string }, { type: 'null' }] }
+    onHandQuantity: { type: integer, minimum: 0 }
+    updatedAt: { oneOf: [{ type: string, format: date-time }, { type: 'null' }] }
+    variantIsActive: { type: boolean }
+    productIsActive: { type: boolean }
+    isActive: { type: boolean }
+    inventoryStatus: { $ref: '#/AdminInventoryStatus' }
+    isSellable: { type: boolean }
+    hasInventoryRow: { type: boolean }
+
+AdminInventoryStatusCounts:
+  type: object
+  additionalProperties: false
+  required: [INACTIVE, UNLINKED, MISSING_INVENTORY, OUT_OF_STOCK, LOW_STOCK, IN_STOCK]
+  properties:
+    INACTIVE: { type: integer, minimum: 0 }
+    UNLINKED: { type: integer, minimum: 0 }
+    MISSING_INVENTORY: { type: integer, minimum: 0 }
+    OUT_OF_STOCK: { type: integer, minimum: 0 }
+    LOW_STOCK: { type: integer, minimum: 0 }
+    IN_STOCK: { type: integer, minimum: 0 }
+
+AdminInventorySummary:
+  type: object
+  additionalProperties: false
+  required: [totalRows, totalQuantity, statusCounts]
+  properties:
+    totalRows: { type: integer, minimum: 0 }
+    totalQuantity: { type: integer, minimum: 0 }
+    statusCounts: { $ref: '#/AdminInventoryStatusCounts' }
+
+AdminInventoryFilterProduct:
+  type: object
+  additionalProperties: false
+  required: [id, name, productType]
+  properties:
+    id: { $ref: '../../openapi.yaml#/components/schemas/Uuid' }
+    name: { type: string }
+    productType: { type: string }
+
+AdminInventoryFilterValue:
+  type: object
+  additionalProperties: false
+  required: [value, label]
+  properties:
+    value: { type: string }
+    label: { type: string }
+
+AdminInventoryFilterOptions:
+  type: object
+  additionalProperties: false
+  required: [typeCounts, products, variants, colors, interiorColors]
+  properties:
+    typeCounts:
+      type: object
+      additionalProperties: false
+      required: [ALL, CAR, BIKE, ACCESSORY]
+      properties:
+        ALL: { type: integer, minimum: 0 }
+        CAR: { type: integer, minimum: 0 }
+        BIKE: { type: integer, minimum: 0 }
+        ACCESSORY: { type: integer, minimum: 0 }
+    products:
+      type: array
+      items: { $ref: '#/AdminInventoryFilterProduct' }
+    variants:
+      type: array
+      items: { $ref: '#/AdminInventoryFilterValue' }
+    colors:
+      type: array
+      items: { $ref: '#/AdminInventoryFilterValue' }
+    interiorColors:
+      type: array
+      items: { $ref: '#/AdminInventoryFilterValue' }
+
+AdminInventoryQueryData:
+  type: object
+  additionalProperties: false
+  required: [items, nextCursor, hasMore, limit, summary]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/AdminInventoryItem' }
+    nextCursor: { oneOf: [{ type: string, minLength: 1 }, { type: 'null' }] }
+    hasMore: { type: boolean }
+    limit: { type: integer, minimum: 1, maximum: 100 }
+    summary: { $ref: '#/AdminInventorySummary' }
+    filterOptions: { $ref: '#/AdminInventoryFilterOptions' }
+
+AdminInventoryFilterOptionsResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '#/AdminInventoryFilterOptions' }
+
+AdminInventoryQueryResponse:
+  type: object
+  additionalProperties: false
+  required: [data]
+  properties:
+    data: { $ref: '#/AdminInventoryQueryData' }

@@ -1,0 +1,240 @@
+export type AccessoryCatalogItem = {
+  productId: string
+  productSlug: string
+  variantId: string
+  sku: string
+  name: string
+  variantName: string
+  priceAmount: number
+  oldPriceAmount: number | null
+  image: string
+  images: string[]
+  attributes: Record<string, string>
+  selectedOptions: SelectedProductOption[]
+  availableQuantity: number
+  discount: number | null
+}
+
+export type AccessoryCatalogProduct = {
+  productId: string
+  productSlug: string
+  name: string
+  image: string
+  variants: AccessoryCatalogItem[]
+}
+
+export type SelectedProductOption = {
+  groupId: string
+  groupCode: string
+  groupName: string
+  valueId: string
+  valueCode: string
+  valueName: string
+  priceAdjustment: string
+}
+
+export type ApiCartItem = {
+  id: string
+  variantId: string
+  productId: string
+  productSlug: string
+  productName: string
+  productKind: 'accessory'
+  purchaseTerms: {
+    paymentMode: 'full'
+    depositAmount: null
+    initialPaymentWindowMinutes: number
+    balancePaymentWindowDays: null
+    gracePeriodHours: null
+    cancellationPolicy: {
+      customerCancellationAllowed: boolean
+      customerCancellationCutoff: 'before_shipping'
+      refundPercentage: number
+      overdueRefundPercentage: number
+      cancellationFeeAmount: string
+    }
+  }
+  sku: string
+  variantAttributes: Record<string, string>
+  selectedOptions: SelectedProductOption[]
+  quantity: number
+  unitListPrice: string
+  unitSalePrice: string | null
+  unitOptionTotal: string
+  unitPrice: string
+  unitAmountDueNow: string
+  lineTotal: string
+  lineAmountDueNow: string
+  imageUrl: string | null
+  availableQuantity: number
+}
+
+export type ApiCart = {
+  id: string
+  version: number
+  pricedAt: string
+  items: ApiCartItem[]
+  promotion: null
+  pricing: {
+    currency: 'VND'
+    subtotal: string
+    discountTotal: string
+    grandTotal: string
+    amountDueNow: string
+    balanceDue: string
+  }
+}
+
+export type CartResponse = { data: ApiCart }
+
+export type AccessoryDetailData = {
+  productId: string
+  slug: string
+  name: string
+  description: string | null
+  images: string[]
+  specifications: Record<string, unknown>
+  variants: AccessoryCatalogItem[]
+  initialVariantId?: string
+}
+
+export type AddCartItemRequest = {
+  variantId: string
+  quantity: number
+}
+
+export type UpdateCartItemRequest = { quantity: number }
+
+export type ShippingAddress = {
+  recipientName: string
+  phoneNumber: string
+  line1: string
+  line2?: string
+  communeLevel: {
+    code?: string
+    name: string
+    type: 'COMMUNE' | 'WARD' | 'SPECIAL_ZONE'
+  }
+  province: { code?: string; name: string }
+  countryCode: 'VN'
+}
+
+export type CheckoutRequest = {
+  cartItemIds: string[]
+  expectedCartVersion: number
+  acceptedGrandTotal: string
+  acceptedAmountDueNow: string
+  promotionCode?: string
+  shippingAddress: ShippingAddress
+  note?: string
+}
+
+export type AccessoryOrder = {
+  id: string
+  orderNumber: string
+  customer: { id: string; email: string }
+  status: 'Created' | 'Paid' | 'Shipped' | 'Completed' | 'Cancelled' | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'WAITING_VEHICLE' | 'PREPARING_DELIVERY' | 'DELIVERED'
+  statusUpdatedAt: string
+  refundStatus: 'None' | 'Pending' | 'Completed'
+  latestPaymentAttemptStatus?: 'PENDING' | 'PAID' | 'FAILED' | null
+  pricing: {
+    currency: 'VND'
+    subtotal: string
+    discountTotal: string
+    shippingTotal: '0'
+    grandTotal: string
+    amountDueNow: string
+    balanceDue: string
+  }
+  promotion: null
+  payment: {
+    status: 'Pending' | 'Paid'
+    amountDueAtCheckout: string
+    amountPaid: string
+    amountRefunded: string
+    balanceDue: string
+    schedule: {
+      initialPaymentDueAt: string
+      balanceDueAt: null
+      gracePeriodEndsAt: null
+    }
+    refund: {
+      status: 'NotRequired'
+      requestedAmount: '0'
+      refundedAmount: '0'
+      cancellationFeeAmount: '0'
+    }
+    transactions: []
+  }
+  cancellationPolicy: ApiCartItem['purchaseTerms']['cancellationPolicy']
+  cancellation: {
+    actor: 'customer' | 'admin' | 'system' | 'unknown'
+    reasonCode: 'changed_mind' | 'configuration_change' | 'payment_unavailable' | 'duplicate_order' | 'payment_deadline_expired' | 'inventory_unavailable' | 'admin_decision' | 'other'
+    note: string | null
+    cancelledAt: string
+  } | null
+  shippingAddress: ShippingAddress
+  note: string | null
+  items: Array<{
+    id: string
+    variantId: string
+    productKind: 'accessory'
+    purchaseTerms: ApiCartItem['purchaseTerms']
+    sku: string
+    productName: string
+    thumbnailUrl: string | null
+    variantAttributes: Record<string, string>
+    selectedOptions: SelectedProductOption[]
+    unitListPrice: string
+    unitSalePrice: null
+    unitOptionTotal: '0'
+    unitPrice: string
+    unitAmountDueNow: string
+    quantity: number
+    lineTotal: string
+    lineAmountDueNow: string
+  }>
+  createdAt: string
+  updatedAt: string
+}
+
+export type AccessoryOrderSummary = Pick<
+  AccessoryOrder,
+  'id' | 'orderNumber' | 'createdAt' | 'statusUpdatedAt' | 'refundStatus' | 'latestPaymentAttemptStatus'
+> & {
+  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'PENDING_DEPOSIT' | 'PENDING_CONFIRMATION' | 'PENDING_CONTRACT' | 'CONTRACT_SIGNED' | 'WAITING_VEHICLE' | 'PREPARING_DELIVERY' | 'DELIVERED'
+  orderType?: 'accessory' | 'deposit'
+  carModel?: string
+  carVariant?: string
+  vehicleType?: 'car' | 'motorbike'
+  paymentStatus: 'Pending' | 'Paid'
+  kycStatus?: 'PENDING' | 'REVIEW' | 'APPROVED' | 'DECLINED' | null
+  contractIssuedAt?: string | null
+  contractSignatureDueAt?: string | null
+  contractSignedAt?: string | null
+  vehicleReadyAt?: string | null
+  vehicleReadyNotifiedAt?: string | null
+  nextPaymentDueAt: string | null
+  items?: Array<Pick<AccessoryOrder['items'][number], 'id' | 'productName' | 'thumbnailUrl' | 'quantity'>>
+  pricing: Pick<
+    AccessoryOrder['pricing'],
+    'currency' | 'grandTotal' | 'amountDueNow' | 'balanceDue'
+  >
+  depositDetails?: {
+    showroom: string
+    exteriorColor: string
+    interiorColor: string
+    optionalPackages: string[]
+    customerName: string
+    customerPhone: string
+    idCardNumber: string
+    province: string
+    ward: string
+    customerType: string
+    subtotal?: string
+    discountAmount?: string
+    promotionCode?: string | null
+    totalEstimatedPrice: string
+    vehicleVariant?: any
+  }
+}

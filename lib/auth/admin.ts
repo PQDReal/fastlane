@@ -1,0 +1,128 @@
+import 'server-only'
+
+import { AccessTokenError } from '@auth0/nextjs-auth0/errors'
+
+import type { ServerTimingRecorder } from '@/lib/api/server-timing'
+import { auth0 } from '@/lib/auth0'
+import { authorizeAccessToken, authorizeRequest, type AuthorizationPolicy } from '@/lib/auth/authorize'
+import { ApiAuthError } from '@/lib/auth/errors'
+import { getCurrentUser } from '@/lib/auth/current-user'
+
+export const adminCatalogPolicy = {
+  requiredRoles: ['admin'],
+  requiredPermissions: ['catalog:manage'],
+} as const satisfies AuthorizationPolicy
+
+export async function authorizeAdminCatalogRequest(request: Request, timing?: ServerTimingRecorder) {
+  if (request.headers.has('authorization')) {
+    const jwtStartedAt = performance.now()
+    try {
+      return await authorizeRequest(request, adminCatalogPolicy)
+    } finally {
+      timing?.measure('auth_jwt', jwtStartedAt)
+    }
+  }
+
+  const currentUser = await getCurrentUser(timing)
+  if (!currentUser) {
+    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  }
+  if (currentUser.role !== 'ADMIN') {
+    throw new ApiAuthError(403, 'INSUFFICIENT_PERMISSION', 'Administrator access is required.')
+  }
+
+  let token: string
+
+  const accessTokenStartedAt = performance.now()
+  try {
+    const accessToken = await auth0.getAccessToken()
+    token = accessToken.token
+  } catch (error) {
+    console.error('getAccessToken failed in authorizeAdminCatalogRequest:', error)
+    throw new ApiAuthError(
+      401,
+      'AUTHENTICATION_REQUIRED',
+      error instanceof AccessTokenError
+        ? 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.'
+        : 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại.',
+    )
+  } finally {
+    timing?.measure('auth_token', accessTokenStartedAt)
+  }
+
+  const jwtStartedAt = performance.now()
+  try {
+    return await authorizeAccessToken(token, adminCatalogPolicy)
+  } finally {
+    timing?.measure('auth_jwt', jwtStartedAt)
+  }
+}
+export const adminInventoryPolicy = {
+  requiredRoles: ['admin'],
+  requiredPermissions: ['inventory:manage'],
+} as const satisfies AuthorizationPolicy
+
+export const adminAfterSalesPolicy = {
+  requiredRoles: ['admin'],
+} as const satisfies AuthorizationPolicy
+
+export async function authorizeAdminAfterSalesRequest(request: Request) {
+  if (request.headers.has('authorization')) {
+    return authorizeRequest(request, adminAfterSalesPolicy)
+  }
+
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  }
+  if (currentUser.role !== 'ADMIN') {
+    throw new ApiAuthError(403, 'INSUFFICIENT_PERMISSION', 'Administrator access is required.')
+  }
+
+  return currentUser
+}
+
+export async function authorizeAdminInventoryRequest(request: Request, timing?: ServerTimingRecorder) {
+  if (request.headers.has('authorization')) {
+    const jwtStartedAt = performance.now()
+    try {
+      return await authorizeRequest(request, adminInventoryPolicy)
+    } finally {
+      timing?.measure('auth_jwt', jwtStartedAt)
+    }
+  }
+
+  const currentUser = await getCurrentUser(timing)
+  if (!currentUser) {
+    throw new ApiAuthError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.')
+  }
+  if (currentUser.role !== 'ADMIN') {
+    throw new ApiAuthError(403, 'INSUFFICIENT_PERMISSION', 'Administrator access is required.')
+  }
+
+  let token: string
+
+  const accessTokenStartedAt = performance.now()
+  try {
+    const accessToken = await auth0.getAccessToken()
+    token = accessToken.token
+  } catch (error) {
+    console.error('getAccessToken failed in authorizeAdminInventoryRequest:', error)
+    throw new ApiAuthError(
+      401,
+      'AUTHENTICATION_REQUIRED',
+      error instanceof AccessTokenError
+        ? 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.'
+        : 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại.',
+    )
+  } finally {
+    timing?.measure('auth_token', accessTokenStartedAt)
+  }
+
+  const jwtStartedAt = performance.now()
+  try {
+    return await authorizeAccessToken(token, adminInventoryPolicy)
+  } finally {
+    timing?.measure('auth_jwt', jwtStartedAt)
+  }
+}

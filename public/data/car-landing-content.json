@@ -1,0 +1,198 @@
+{
+  "VF 3": {
+    "design": {
+      "title": "Thiết kế cá tính. Năng động mọi góc nhìn.",
+      "description": "Kiểu dáng mini-SUV thời thượng, vuông vức đầy cá tính. Kích thước nhỏ gọn giúp di chuyển linh hoạt trong đô thị hẹp.",
+      "interior_title": "Không gian thông minh",
+      "interior_description": "Dù nhỏ gọn bên ngoài nhưng VF 3 sở hữu không gian nội thất tối ưu cho 4 người ngồi, đi kèm màn hình giải trí trung tâm hướng về người lái."
+    },
+    "technology": {
+      "title": "Công nghệ thiết thực",
+      "description": "Tận hưởng các kết nối giải trí cơ bản và hệ thống điều khiển thông minh, mang lại sự tiện nghi trong mỗi chuyến đi hằng ngày.",
+      "features": [
+        "Màn hình giải trí hiện đại",
+        "Kết nối điện thoại",
+        "Hệ thống điều hòa tối ưu",
+        "Không gian chứa đồ linh hoạt"
+      ]
+    },
+    "safety": {
+      "title": "An tâm di chuyển",
+      "description": "Khung gầm chắc chắn cùng hệ thống an toàn cơ bản giúp bảo vệ tối đa người lái và hành khách trên những chặng đường đô thị.",
+      "features": [
+        "Khung xe chịu lực",
+        "Phanh an toàn",
+        "Túi khí người lái",
+        "Khóa cửa trẻ em"
+      ]
+    }
+  },
+  "VF 5": {
+    "design": {
+      "title": "Sắc màu cá tính. Kiến tạo xu hướng.",
+      "description": "Thiết kế hiện đại, năng động với nhiều lựa chọn màu sắc ngoại thất cá tính, cho phép bạn tự do thể hiện phong cách riêng.",
+      "interior_title": "Nội thất tinh tế",
+      "interior_description": "Khoang lái tối giản nhưng tiện dụng, được bố trí khoa học giúp tối ưu tầm nhìn và không gian để chân."
+    },
+    "technology": {
+      "title": "Trợ lý ảo đồng hành",
+      "description": "Trợ lý ảo VinFast hỗ trợ điều khiển xe bằng giọng nói tự nhiên tiếng Việt, giúp bạn rảnh tay và tập trung hơn khi lái xe.",
+      "features": [
+        "Trợ lý ảo VinFast",
+        "Màn hình cảm ứng 8 inch",
+        "Cập nhật phần mềm từ xa",
+        "Ứng dụng VinFast"
+      ]
+    },
+    "safety": {
+      "title": "An toàn thông minh",
+      "description": "Được trang bị hệ thống hỗ trợ lái ADAS cơ bản với các tính năng cảnh báo tiên tiến, bảo vệ bạn trên mọi hành trình.",
+      "features": [
+        "Cảnh báo điểm mù",
+        "Cảnh báo luồng giao thông đến",
+        "Hỗ trợ đỗ xe phía sau",
+        "6 túi khí an toàn"
+      ]
+    }
+  },
+  "VF 6": {
+    "design": {
+      "title": "Lựa chọn lý tưởng cho gia đình hiện đại.",
+      "description": "Mang phong cách thiết kế tinh tế do Torino Design chắp bút, VF 6 sở hữu các đường nét khí động học mượt mà và thanh lịch.",
+      "interior_title": "Thoải mái mọi hành trình",
+      "interior_description": "Không gian rộng rãi hàng đầu phân khúc B-SUV, nội thất bọc da thân thiện với môi trường, mang lại cảm giác cao cấp."
+    },
+    "technology": {
+      "title": "Kết nối không giới hạn",
+      "description": "Hệ thống giải trí thông minh kết hợp cùng trợ lý ảo mang đến những phút giây thư giãn tuyệt vời cho cả gia đình.",
+      "features": [
+        "Trợ lý ảo đa ngôn ngữ",
+        "Hệ thống giải trí đa phương tiện",
+        "Quản lý xe từ xa",
+        "Đồng bộ dữ liệu thông minh"
+      ]
+    },
+    "safety": {
+      "title": "Bảo vệ toàn diện",
+      "description": "Hệ thống hỗ trợ lái nâng cao ADAS cấp độ 2 giúp việc lái xe trở nên nhẹ nhàng và an toàn hơn bao giờ hết.",
+      "features": [
+        "Hỗ trợ giữ làn đường",
+        "Kiểm soát hành trình thích ứng",
+        "Phanh tự động khẩn cấp",
+        "Camera 360 độ"
+      ]
+    }
+  },
+  "VF 7": {
+    "design": {
+      "title": "Đột phá thiết kế. Thỏa đam mê.",
+      "description": "Vóc dáng thể thao đậm chất tương lai với dải LED chữ V vút bay. Thiết kế khí động học hoàn hảo tối ưu hóa hiệu suất vận hành.",
+      "interior_title": "Nội thất phi thuyền",
+      "interior_description": "Màn hình nghiêng về phía người lái, vô lăng vát đáy thể thao và không gian tối giản khơi gợi cảm hứng cầm lái."
+    },
+    "technology": {
+      "title": "Công nghệ của tương lai",
+      "description": "Hàng loạt tiện ích thông minh và hệ thống hiển thị trên kính lái (HUD) giúp người lái luôn nắm bắt thông tin nhanh chóng.",
+      "features": [
+        "Hiển thị kính lái HUD",
+        "Màn hình giải trí 12.9 inch",
+        "Kết nối Apple CarPlay/Android Auto",
+        "Hệ thống âm thanh sống động"
+      ]
+    },
+    "safety": {
+      "title": "An toàn đỉnh cao",
+      "description": "Tự tin chinh phục mọi cung đường nhờ sự hỗ trợ đắc lực từ hệ thống an toàn chủ động ADAS và khung gầm vững chắc.",
+      "features": [
+        "Hỗ trợ lái trên cao tốc",
+        "Hỗ trợ đỗ xe tự động",
+        "Cảnh báo va chạm",
+        "Hệ thống giám sát người lái"
+      ]
+    }
+  },
+  "VF 8": {
+    "design": {
+      "title": "Dấu ấn thời đại. Phong thái dẫn đầu.",
+      "description": "Thiết kế SUV lai Coupe mạnh mẽ, sang trọng được sáng tạo bởi Pininfarina. Các đường nét cân đối hoàn hảo tạo nên sức hút khó cưỡng.",
+      "interior_title": "Đẳng cấp thương gia",
+      "interior_description": "Trải nghiệm không gian xa hoa với ghế da cao cấp, màn hình 15.6 inch sắc nét và hệ thống đèn viền nội thất tinh tế."
+    },
+    "technology": {
+      "title": "Hệ sinh thái thông minh",
+      "description": "Tích hợp loạt ứng dụng thông minh từ giải trí, mua sắm trực tuyến đến điều khiển nhà thông minh (Smart Home) ngay trên xe.",
+      "features": [
+        "Trợ lý ảo nhận diện giọng nói",
+        "Mua sắm & Giải trí trực tuyến",
+        "Điều khiển nhà thông minh",
+        "Định vị và dẫn đường tối ưu"
+      ]
+    },
+    "safety": {
+      "title": "Chuẩn an toàn 5 sao toàn cầu",
+      "description": "Được thiết kế để đạt các tiêu chuẩn an toàn khắt khe nhất thế giới (ASEAN NCAP, EURO NCAP, NHTSA), VF 8 là lá chắn vững chắc cho bạn.",
+      "features": [
+        "Tự động chuyển làn",
+        "Triệu hồi xe thông minh",
+        "Hỗ trợ di chuyển khi ùn tắc",
+        "11 túi khí"
+      ]
+    }
+  },
+  "VF 9": {
+    "design": {
+      "title": "Uy dũng mọi góc nhìn.",
+      "description": "Mẫu SUV Full-size cao cấp nhất mang vóc dáng bề thế, mạnh mẽ. Thiết kế hốc gió ở capo tối ưu khí động học và tạo điểm nhấn độc đáo.",
+      "interior_title": "Hạng thương gia mặt đất",
+      "interior_description": "Tùy chọn ghế cơ trưởng (Captain Seats) với tính năng massage, sưởi và thông gió, mang lại đẳng cấp hoàng gia cho người ngồi sau."
+    },
+    "technology": {
+      "title": "Công nghệ đỉnh cao",
+      "description": "Hai màn hình giải trí riêng biệt cho hàng ghế sau cùng hệ thống âm thanh 13 loa tạo nên rạp hát di động đẳng cấp.",
+      "features": [
+        "Màn hình giải trí ghế sau",
+        "Màn hình trung tâm 15.6 inch",
+        "Kết nối thông minh toàn diện",
+        "Hệ thống âm thanh cao cấp"
+      ]
+    },
+    "safety": {
+      "title": "Hệ thống an toàn tiên tiến nhất",
+      "description": "Bảo vệ đa lớp với hệ thống radar, camera và cảm biến siêu âm, mang đến sự an tâm tuyệt đối cho gia đình bạn.",
+      "features": [
+        "Hỗ trợ tự lái cấp độ 2+",
+        "Hệ thống cảnh báo đa điểm",
+        "Camera 360 độ độ phân giải cao",
+        "Khung xe siêu cứng cáp"
+      ]
+    }
+  },
+  "VF e34": {
+    "design": {
+      "title": "Tiên phong di chuyển xanh.",
+      "description": "Mẫu xe ô tô điện đầu tiên của Việt Nam với thiết kế C-SUV gọn gàng, phù hợp hoàn hảo với đường phố Việt Nam.",
+      "interior_title": "Thực dụng và thân thiện",
+      "interior_description": "Không gian nội thất rộng rãi nhờ thiết kế tối ưu của xe điện, mang lại sự thoải mái cho cả 5 hành khách."
+    },
+    "technology": {
+      "title": "Khởi đầu thông minh",
+      "description": "Mở ra kỷ nguyên xe thông minh với tính năng ra lệnh bằng giọng nói, dự kiến hành trình và quản lý pin hiệu quả.",
+      "features": [
+        "Trợ lý ảo Vivi",
+        "Quản lý xe bằng điện thoại",
+        "Cập nhật phần mềm FOTA",
+        "Định vị trạm sạc"
+      ]
+    },
+    "safety": {
+      "title": "An toàn vượt trội",
+      "description": "Hàng loạt tính năng an toàn hiện đại giúp bạn luôn làm chủ được tình huống trên mọi chặng đường.",
+      "features": [
+        "Cảnh báo lệch làn",
+        "Cảnh báo phương tiện cắt ngang",
+        "Giám sát áp suất lốp",
+        "6 túi khí"
+      ]
+    }
+  }
+}

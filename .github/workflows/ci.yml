@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test, contract, build, and container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_BASE_URL: http://localhost:3000
+      AUTH0_AUDIENCE: https://api.fastlane.local
+      AUTH0_CLIENT_ID: ci-client-id
+      AUTH0_CLIENT_SECRET: ci-client-secret
+      AUTH0_DOMAIN: example.us.auth0.com
+      AUTH0_ISSUER_BASE_URL: https://example.us.auth0.com/
+      AUTH0_JWKS_URI: https://example.us.auth0.com/.well-known/jwks.json
+      AUTH0_ROLE_CLAIM: https://fastlane.example.com/roles
+      AUTH0_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_SERVICE_ROLE_KEY: ci-supabase-service-role-key
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            api-contract/package-lock.json
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install API contract dependencies
+        run: npm ci --prefix api-contract
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Validate OpenAPI contract
+        run: npm run check:openapi
+
+      - name: Build Next.js application
+        run: npm run build
+
+      - name: Build production container
+        run: |
+          docker build --tag fastlane:ci \
+            --build-arg APP_BASE_URL \
+            --build-arg AUTH0_AUDIENCE \
+            --build-arg AUTH0_CLIENT_ID \
+            --build-arg AUTH0_CLIENT_SECRET \
+            --build-arg AUTH0_DOMAIN \
+            --build-arg AUTH0_ISSUER_BASE_URL \
+            --build-arg AUTH0_JWKS_URI \
+            --build-arg AUTH0_ROLE_CLAIM \
+            --build-arg AUTH0_SECRET \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL \
+            --build-arg SUPABASE_SERVICE_ROLE_KEY .
+
+      - name: Smoke-test production container
+        run: |
+          docker run --detach --name fastlane-ci --publish 3000:3000 \
+            --env APP_BASE_URL --env AUTH0_AUDIENCE --env AUTH0_CLIENT_ID \
+            --env AUTH0_CLIENT_SECRET --env AUTH0_DOMAIN \
+            --env AUTH0_ISSUER_BASE_URL --env AUTH0_JWKS_URI \
+            --env AUTH0_ROLE_CLAIM --env AUTH0_SECRET \
+            --env NEXT_PUBLIC_SUPABASE_URL \
+            --env SUPABASE_SERVICE_ROLE_KEY fastlane:ci
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:3000/api/v1/health \
+              && curl --fail --silent --output /dev/null \
+                http://127.0.0.1:3000/images/fastlane-logo.png; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs fastlane-ci
+          exit 1
+
+      - name: Stop smoke-test container
+        if: always()
+        run: docker rm --force fastlane-ci || true
