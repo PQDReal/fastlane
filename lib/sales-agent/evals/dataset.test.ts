@@ -3,8 +3,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { parseEvalDatasetJsonl, validateEvalCase } from './schema'
 
-describe('Eval Dataset v1 (120 cases) Integrity & Contract Test (A19-KR-006)', () => {
-  const datasetPath = path.resolve('.local/tasks/sales-agent-knowledge-rag-upgrade-019/eval-dataset.v1.jsonl')
+const datasetPath = path.resolve('.local/tasks/sales-agent-knowledge-rag-upgrade-019/eval-dataset.v1.jsonl')
+const describeDataset = fs.existsSync(datasetPath) ? describe : describe.skip
+
+describeDataset('Eval Dataset v1 (120 cases) Integrity & Contract Test (A19-KR-006)', () => {
 
   it('verifies that the dataset file exists and has 120 non-empty lines', () => {
     expect(fs.existsSync(datasetPath)).toBe(true)

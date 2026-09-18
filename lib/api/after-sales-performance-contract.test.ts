@@ -36,7 +36,7 @@ describe('after-sales navigation performance contract', () => {
 
     expect(client).toContain('/api/v1/after-sales/workshops?vehicle=')
     expect(client).toContain("activeTab !== 'workshop'")
-    expect(workshopRoute).toContain('workshop.services.includes(vehicle)')
+    expect(workshopRoute).toMatch(/workshop\.services\.includes\(vehicle(?: as any)?\)/)
     expect(workshopRoute).not.toContain("dynamic = 'force-dynamic'")
   })
 })

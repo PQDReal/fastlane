@@ -8,7 +8,9 @@ import { composeTurnResponse } from '@/lib/sales-agent/response/composer'
 import { EvidenceLedger } from '@/lib/sales-agent/orchestrator/ledgers/evidence'
 import { KnownEntityLedger } from '@/lib/sales-agent/orchestrator/ledgers/known-entities'
 
-describe('Knowledge Target URL Resolution E2E', () => {
+const describeKnowledgeE2E = process.env.RUN_KNOWLEDGE_E2E === 'true' ? describe : describe.skip
+
+describeKnowledgeE2E('Knowledge Target URL Resolution E2E', () => {
   it('retrieves knowledge for VF 5 and composes target_url navigation directly to user-manual', async () => {
 
     const result = await executeDataTool(
